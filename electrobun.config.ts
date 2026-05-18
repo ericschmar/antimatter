@@ -28,7 +28,9 @@ export default {
 		},
 		mac: {
 			bundleCEF: false,
-			icons: "icon.iconset",
+			// ElectroBun defaults to icon.iconset, but that folder is not iconutil-clean yet.
+			// Point at a non-existent iconset so packaging can proceed without a custom icon.
+			icons: "assets/antimatter.iconset",
 		},
 		linux: {
 			bundleCEF: false,
