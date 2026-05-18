@@ -57,6 +57,7 @@ bun run start
 Typecheck and test:
 
 ```sh
+bun run version:check
 bun run typecheck
 bun test
 ```
@@ -104,14 +105,41 @@ The renderer does not call Mattermost directly for normal app traffic. It sends 
 ```sh
 bun run dev          # start ElectroBun with watch mode
 bun run start        # start ElectroBun
+bun run build        # package a production build
+bun run version:check # validate SemVer and app/package version alignment
 bun run typecheck    # TypeScript no-emit check
 bun test             # unit tests
 bun run build:canary # package a canary build
 ```
+
+## Versioning And Releases
+
+Antimatter uses SemVer for releases. The source of truth is `package.json`'s `version`, and `electrobun.config.ts` must use the same app version.
+
+Before tagging a release:
+
+```sh
+bun run version:check
+```
+
+Release tags must match the package version exactly:
+
+```sh
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Pushing a `v*.*.*` tag runs the release workflow, builds the macOS app, uploads the build artifact, and attaches the contents of `artifacts/` to the GitHub release.
+
+## CI/CD
+
+GitHub Actions are configured under `.github/workflows/`:
+
+- `ci.yml`: runs on pull requests and pushes to `main`/`master`; installs dependencies, checks SemVer, typechecks, and runs tests.
+- `release.yml`: runs on SemVer tags and manual dispatch; checks SemVer, typechecks, tests, builds, uploads artifacts, and publishes tagged releases.
 
 ## Notes
 
 - `.env` and `.env.local` are ignored.
 - `.DS_Store` files are ignored.
 - WebRTC voice/video work is still exploratory.
-

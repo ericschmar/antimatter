@@ -6,8 +6,10 @@
 	"scripts": {
 		"start": "electrobun dev",
 		"dev": "electrobun dev --watch",
+		"build": "electrobun build",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test",
+		"version:check": "bun scripts/check-version.ts",
 		"build:canary": "electrobun build --env=canary"
 	},
 	"dependencies": {
