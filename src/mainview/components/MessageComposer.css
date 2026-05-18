@@ -1,0 +1,320 @@
+.composer {
+	grid-row: 2;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: end;
+	gap: 8px;
+	min-height: 64px;
+	max-height: 230px;
+	border-top: 1px solid var(--border-subtle);
+	background: var(--panel-bg);
+	padding: 8px 10px;
+	overflow: hidden;
+}
+
+.composer-editor {
+	min-width: 0;
+	max-height: 214px;
+	border: 1px solid var(--border-strong);
+	border-radius: 7px;
+	background: var(--slate-1);
+	color: var(--text-primary);
+	overflow: hidden;
+}
+
+.composer-editor.disabled {
+	opacity: 0.58;
+}
+
+.composer-editor .composer-mdxeditor {
+	--baseBase: var(--slate-1);
+	--baseBg: var(--slate-3);
+	--baseBgSubtle: var(--slate-2);
+	--baseBorder: var(--border-strong);
+	--baseLine: var(--border-subtle);
+	--baseText: var(--text-secondary);
+	--baseTextContrast: var(--text-primary);
+	display: flex;
+	flex-direction: column;
+	max-height: 172px;
+	background: transparent;
+	color: var(--text-primary);
+}
+
+.composer-editor .composer-toolbar {
+	min-height: 24px;
+	border-bottom: 1px solid var(--border-subtle);
+	background: var(--panel-raised);
+	padding: 2px 4px;
+	gap: 2px;
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+.composer-editor .composer-toolbar button:not([role="combobox"]) {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 20px;
+	padding: 2px;
+}
+
+.composer-editor .composer-toolbar .composer-toolbar-attach {
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--baseText);
+}
+
+.composer-editor .composer-toolbar .composer-toolbar-attach:hover {
+	background: var(--baseBg);
+	color: var(--baseTextContrast);
+}
+
+.composer-editor .composer-toolbar button[role="combobox"] {
+	flex: 0 0 auto;
+	min-width: 116px;
+	max-width: 150px;
+	height: 22px;
+	border: 1px solid var(--border-subtle);
+	background: var(--slate-2);
+	color: var(--text-secondary);
+}
+
+.composer-editor .composer-toolbar button[role="combobox"] > span:first-child {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.composer-editor .composer-toolbar button[role="combobox"]:hover,
+.composer-editor .composer-toolbar button[role="combobox"][data-state="open"] {
+	border-color: var(--border-strong);
+	background: var(--panel-hover);
+	color: var(--text-primary);
+}
+
+.composer-editor .composer-toolbar button[role="combobox"] svg {
+	color: var(--text-muted);
+}
+
+.composer-editor .composer-toolbar [role="separator"] {
+	min-height: 18px;
+	margin: 1px 3px;
+	background: var(--border-subtle);
+}
+
+.composer-editor .composer-toolbar [data-radix-collection-item] {
+	flex: 0 0 auto;
+}
+
+.mdxeditor-select-content {
+	border: 1px solid var(--border-strong);
+	background: var(--slate-2);
+	box-shadow: 0 10px 22px rgba(0, 0, 0, 0.46);
+	color: var(--text-primary);
+	overflow: hidden;
+}
+
+.mdxeditor-select-content [role="option"] {
+	color: var(--text-secondary);
+	font-size: 0.82rem;
+	line-height: 1.2;
+}
+
+.mdxeditor-select-content [role="option"][data-highlighted],
+.mdxeditor-select-content [role="option"][data-state="checked"] {
+	background: var(--panel-hover);
+	color: var(--text-primary);
+}
+
+.composer-toolbar-icon {
+	display: block;
+	width: 14px;
+	height: 14px;
+	color: currentColor;
+}
+
+.composer-editor .composer-input {
+	width: 100%;
+	min-height: 64px;
+	max-height: 126px;
+	background: var(--slate-1);
+	caret-color: var(--text-primary);
+	color: var(--text-primary);
+	line-height: 1.38;
+	padding: 8px 10px;
+	outline: none;
+	overflow-y: auto;
+	cursor: text;
+}
+
+.composer-editor .composer-input * {
+	caret-color: var(--text-primary);
+}
+
+.composer-editor .mdxeditor-root-contenteditable > .composer-input:not([contenteditable="true"]) {
+	display: none;
+	pointer-events: none;
+}
+
+.composer-editor .mdxeditor-root-contenteditable {
+	min-height: 32px;
+	max-height: 126px;
+	overflow-y: auto;
+}
+
+.composer-editor .composer-input > p {
+	min-height: 1.38em;
+	margin: 0;
+}
+
+.composer-reply-target {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 24px;
+	align-items: center;
+	gap: 8px;
+	border-top: 1px solid var(--border-subtle);
+	background: color-mix(in srgb, var(--panel-raised) 70%, transparent);
+	padding: 6px 8px;
+}
+
+.composer-reply-target.edit {
+	border-left: 3px solid var(--warm-bg);
+}
+
+.composer-reply-copy {
+	min-width: 0;
+	border-left: 2px solid var(--border-strong);
+	padding-left: 8px;
+}
+
+.composer-reply-author {
+	display: block;
+	overflow: hidden;
+	font-size: 0.76rem;
+	font-weight: 700;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.composer-reply-preview {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--text-muted);
+	font-size: 0.76rem;
+	line-height: 1.25;
+}
+
+.composer-reply-preview .markdown-message {
+	display: -webkit-box;
+	overflow: hidden;
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 1;
+}
+
+.composer-reply-preview .markdown-message p,
+.composer-reply-preview .markdown-message ul,
+.composer-reply-preview .markdown-message ol,
+.composer-reply-preview .markdown-message blockquote,
+.composer-reply-preview .markdown-message pre {
+	margin: 0;
+}
+
+.composer-reply-cancel {
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-muted);
+	padding: 0;
+}
+
+.composer-reply-cancel:hover {
+	background: var(--panel-hover);
+	color: var(--text-primary);
+}
+
+.composer-files {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	border-top: 1px solid var(--border-subtle);
+	padding: 6px 8px;
+}
+
+.composer-file-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	max-width: 220px;
+	min-height: 24px;
+	border: 1px solid var(--border-subtle);
+	border-radius: 999px;
+	background: var(--panel-raised);
+	color: var(--text-secondary);
+	padding: 0 5px 0 9px;
+	font-size: 0.76rem;
+}
+
+.composer-file-chip button {
+	display: grid;
+	place-items: center;
+	border: 0;
+	background: transparent;
+	color: var(--text-muted);
+	padding: 0;
+}
+
+.composer-file-chip button {
+	width: 18px;
+	height: 18px;
+	border-radius: 999px;
+}
+
+.composer-file-chip button:hover {
+	background: var(--panel-hover);
+	color: var(--text-primary);
+}
+
+.composer-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	align-self: end;
+}
+
+.send-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	border: 0;
+	border-radius: 7px;
+	background: var(--accent-bg);
+	color: white;
+	font-weight: 700;
+	transition:
+		background 160ms ease,
+	transform 120ms ease;
+}
+
+.send-button:hover {
+	background: var(--accent-bg-hover);
+}
+
+.send-button:active {
+	transform: translateY(1px);
+}
+
+.send-button {
+	width: 34px;
+	height: 34px;
+	align-self: end;
+}

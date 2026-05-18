@@ -1,0 +1,207 @@
+:root {
+	color-scheme: dark;
+	font-family:
+		"Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+		"Segoe UI", sans-serif;
+	--bg: #111113;
+	--panel: #18191b;
+	--raised: #212225;
+	--hover: #272a2d;
+	--border: #363a3f;
+	--border-strong: #43484e;
+	--text: #edeef0;
+	--muted: #b0b4ba;
+	--subtle: #777b84;
+	--accent: #46a758;
+	background: var(--bg);
+	color: var(--text);
+	font-size: 14px;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	min-height: 100vh;
+	margin: 0;
+	background: transparent;
+}
+
+button,
+input,
+select {
+	font: inherit;
+}
+
+.window-shell {
+	display: grid;
+	grid-template-rows: 32px minmax(0, 1fr);
+	min-height: 100vh;
+	overflow: hidden;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	background: var(--bg);
+}
+
+.titlebar {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	min-height: 32px;
+	border-bottom: 1px solid var(--border);
+	background: var(--panel);
+	color: var(--muted);
+	padding: 0 10px;
+	user-select: none;
+}
+
+.window-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.window-control {
+	display: grid;
+	place-items: center;
+	width: 12px;
+	height: 12px;
+	min-height: 12px;
+	border: 0;
+	border-radius: 50%;
+	color: transparent;
+	padding: 0;
+}
+
+.window-control.close {
+	background: #ff5f57;
+}
+
+.window-control.minimize {
+	background: #febc2e;
+}
+
+.window-control.maximize {
+	background: #28c840;
+}
+
+.titlebar-title {
+	justify-self: center;
+	color: var(--subtle);
+	font-size: 0.78rem;
+	font-weight: 650;
+}
+
+.settings-window {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 18px;
+}
+
+.settings-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--border);
+}
+
+p,
+h1,
+h2 {
+	margin: 0;
+}
+
+.settings-header p {
+	color: var(--subtle);
+	font-size: 0.72rem;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+h1 {
+	font-size: 1.15rem;
+}
+
+h2 {
+	color: var(--muted);
+	font-size: 0.78rem;
+	text-transform: uppercase;
+}
+
+section {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: var(--panel);
+	padding: 12px;
+}
+
+label {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	color: var(--muted);
+	font-size: 0.86rem;
+	font-weight: 650;
+}
+
+label span {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+strong {
+	color: var(--subtle);
+	font-size: 0.78rem;
+}
+
+select,
+input:not([type="checkbox"]):not([type="range"]) {
+	width: 100%;
+	height: 36px;
+	border: 1px solid var(--border-strong);
+	border-radius: 7px;
+	background: var(--bg);
+	color: var(--text);
+	padding: 0 10px;
+	outline: none;
+}
+
+input[type="number"] {
+	max-width: 100px;
+}
+
+.inline-setting {
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-start;
+}
+
+.inline-setting span {
+	justify-content: flex-start;
+}
+
+button {
+	min-height: 30px;
+	border: 1px solid var(--border-strong);
+	border-radius: 7px;
+	background: var(--raised);
+	color: var(--text);
+	padding: 0 10px;
+	font-weight: 650;
+	cursor: pointer;
+}
+
+button:hover {
+	background: var(--hover);
+}

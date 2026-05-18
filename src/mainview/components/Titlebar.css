@@ -1,0 +1,58 @@
+.titlebar {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	min-height: 32px;
+	border-bottom: 1px solid var(--border-subtle);
+	background: var(--slate-2);
+	color: var(--text-secondary);
+	padding: 0 10px;
+	user-select: none;
+}
+
+.window-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.window-control {
+	display: grid;
+	place-items: center;
+	width: 12px;
+	height: 12px;
+	border: 0;
+	border-radius: 50%;
+	color: transparent;
+	padding: 0;
+	transition:
+		filter 140ms ease,
+		color 140ms ease;
+}
+
+.window-controls:hover .window-control {
+	color: rgba(0, 0, 0, 0.62);
+}
+
+.window-control:hover {
+	filter: brightness(1.08);
+}
+
+.window-control.close {
+	background: #ff5f57;
+}
+
+.window-control.minimize {
+	background: #febc2e;
+}
+
+.window-control.maximize {
+	background: #28c840;
+}
+
+.titlebar-title {
+	justify-self: center;
+	color: var(--text-muted);
+	font-size: 0.78rem;
+	font-weight: 650;
+}
