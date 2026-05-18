@@ -13,6 +13,13 @@ export type MattermostLoginRequest = {
 	password: string;
 };
 
+export type MattermostSsoProvider = "openid" | "saml";
+
+export type MattermostSsoLoginRequest = {
+	serverUrl: string;
+	provider: MattermostSsoProvider;
+};
+
 export type MattermostLoginResponse = {
 	status: number;
 	ok: boolean;
@@ -54,6 +61,14 @@ export type MattermostWebSocketConfig = {
 
 export type MattermostWebSocketStatus = {
 	status: "connecting" | "connected" | "disconnected" | "error";
+	message?: string;
+};
+
+export type MattermostSsoLoginResult = {
+	ok: boolean;
+	serverUrl: string;
+	provider: MattermostSsoProvider;
+	token?: string;
 	message?: string;
 };
 
@@ -115,6 +130,10 @@ export type MattermostClientRPC = {
 				params: MattermostLoginRequest;
 				response: MattermostLoginResponse;
 			};
+			startMattermostSsoLogin: {
+				params: MattermostSsoLoginRequest;
+				response: { success: boolean; loginUrl?: string; message?: string };
+			};
 			uploadMattermostFiles: {
 				params: MattermostFileUploadRequest;
 				response: MattermostRpcResponse;
@@ -161,6 +180,7 @@ export type MattermostClientRPC = {
 			mattermostWebSocketPost: { post: unknown };
 			mattermostWebSocketReaction: { reaction: unknown; removed: boolean };
 			mattermostWebSocketStatusChange: { status: unknown };
+			mattermostSsoLoginResult: MattermostSsoLoginResult;
 			channelContextMenuAction: ChannelContextMenuAction;
 			messageContextMenuAction: MessageContextMenuAction;
 			applicationMenuAction: ApplicationMenuAction;

@@ -5,6 +5,7 @@ export default {
 		name: "Antimatter",
 		identifier: "antimatter.ericschmar.dev",
 		version: "0.0.1",
+		urlSchemes: ["mattermost-dev"],
 	},
 	build: {
 		bun: {

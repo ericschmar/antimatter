@@ -185,9 +185,15 @@ export class MattermostApiClient {
 		);
 	}
 
-	getPostsForChannel(channelId: string) {
+	getPostsForChannel(channelId: string, page = 0, perPage = 60) {
 		return this.request<PostListResponse>(
-			`/channels/${encodeURIComponent(channelId)}/posts`,
+			`/channels/${encodeURIComponent(channelId)}/posts?page=${page}&per_page=${perPage}`,
+		);
+	}
+
+	getPostsForChannelBefore(channelId: string, postId: string, perPage = 60) {
+		return this.request<PostListResponse>(
+			`/channels/${encodeURIComponent(channelId)}/posts?before=${encodeURIComponent(postId)}&per_page=${perPage}`,
 		);
 	}
 

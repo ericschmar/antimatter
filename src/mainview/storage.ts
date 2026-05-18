@@ -24,10 +24,14 @@ export function loadConfig(): MattermostConfig | null {
 	try {
 		const config = JSON.parse(raw) as Partial<MattermostConfig>;
 		if (!config.serverUrl || !config.token) return null;
+		const authMethod =
+			config.authMethod === "password" || config.authMethod === "sso"
+				? config.authMethod
+				: "pat";
 		return {
 			serverUrl: config.serverUrl,
 			token: config.token,
-			authMethod: config.authMethod === "password" ? "password" : "pat",
+			authMethod,
 			lastTeamId: config.lastTeamId,
 			lastChannelId: config.lastChannelId,
 		};

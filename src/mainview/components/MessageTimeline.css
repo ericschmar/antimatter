@@ -21,6 +21,39 @@
 	font-size: 0.9rem;
 }
 
+.load-more-button {
+	position: sticky;
+	top: 10px;
+	left: 50%;
+	z-index: 10;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 32px;
+	border: 1px solid var(--border-strong);
+	border-radius: 6px;
+	background: var(--panel-base);
+	color: var(--text-primary);
+	padding: 0 16px;
+	font-size: 0.86rem;
+	font-weight: 600;
+	transform: translateX(-50%);
+	cursor: pointer;
+	transition:
+		background 120ms ease,
+		border-color 120ms ease;
+}
+
+.load-more-button:hover:not(:disabled) {
+	border-color: var(--accent-border);
+	background: var(--panel-hover);
+}
+
+.load-more-button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
 .virtual-row {
 	position: absolute;
 	top: 0;

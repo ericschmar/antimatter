@@ -1,6 +1,7 @@
-import { CheckCircle2, RefreshCcw, Server } from "lucide-react";
+import { CheckCircle2, KeyRound, RefreshCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { MattermostConfig } from "../types";
+import type { MattermostSsoProvider } from "../../shared/electrobunRpc";
 import "./AuthScreen.css";
 
 export function AuthScreen({
@@ -9,16 +10,25 @@ export function AuthScreen({
 	error,
 	onConnect,
 	onPasswordLogin,
+	onSsoLogin,
 }: {
 	busy: boolean;
 	defaultConfig: MattermostConfig | null;
 	error: string | null;
 	onConnect: (config: MattermostConfig) => Promise<void>;
-	onPasswordLogin: (serverUrl: string, loginId: string, password: string) => Promise<void>;
+	onPasswordLogin: (
+		serverUrl: string,
+		loginId: string,
+		password: string,
+	) => Promise<void>;
+	onSsoLogin: (
+		serverUrl: string,
+		provider: MattermostSsoProvider,
+	) => Promise<void>;
 }) {
 	const [serverUrl, setServerUrl] = useState(defaultConfig?.serverUrl ?? "");
 	const [token, setToken] = useState(defaultConfig?.token ?? "");
-	const [authMethod, setAuthMethod] = useState<"pat" | "password">("pat");
+	const [authMethod, setAuthMethod] = useState<"pat" | "password" | "sso">("pat");
 	const [loginId, setLoginId] = useState("");
 	const [password, setPassword] = useState("");
 
@@ -34,18 +44,22 @@ export function AuthScreen({
 				className="auth-panel"
 				onSubmit={(event) => {
 					event.preventDefault();
-					if (authMethod === "password") void onPasswordLogin(serverUrl, loginId, password);
+					if (authMethod === "password")
+						void onPasswordLogin(serverUrl, loginId, password);
+					else if (authMethod === "sso") void onSsoLogin(serverUrl, "saml");
 					else void onConnect({ serverUrl, token, authMethod: "pat" });
 				}}
 			>
-				<div className="auth-icon">
-					<Server size={24} />
-				</div>
-				<h1>Connect to Mattermost</h1>
 				{defaultConfig ? (
-					<p className="auth-note">Loaded local Mattermost credentials from .env.</p>
+					<p className="auth-note">
+						Loaded local Mattermost credentials from .env.
+					</p>
 				) : null}
-				<div className="auth-methods" role="tablist" aria-label="Authentication method">
+				<div
+					className="auth-methods"
+					role="tablist"
+					aria-label="Authentication method"
+				>
 					<button
 						aria-selected={authMethod === "pat"}
 						type="button"
@@ -59,6 +73,13 @@ export function AuthScreen({
 						onClick={() => setAuthMethod("password")}
 					>
 						Password
+					</button>
+					<button
+						aria-selected={authMethod === "sso"}
+						type="button"
+						onClick={() => setAuthMethod("sso")}
+					>
+						SSO
 					</button>
 				</div>
 				<label>
@@ -96,7 +117,7 @@ export function AuthScreen({
 							/>
 						</label>
 					</>
-				) : (
+				) : authMethod === "sso" ? null : (
 					<label>
 						<span>Personal access token</span>
 						<input
@@ -111,8 +132,20 @@ export function AuthScreen({
 				)}
 				{error ? <div className="form-error">{error}</div> : null}
 				<button className="primary-action" disabled={busy} type="submit">
-					{busy ? <RefreshCcw className="spin" size={16} /> : <CheckCircle2 size={16} />}
-					{busy ? "Connecting" : authMethod === "password" ? "Sign in" : "Connect"}
+					{busy ? (
+						<RefreshCcw className="spin" size={16} />
+					) : authMethod === "sso" ? (
+						<KeyRound size={16} />
+					) : (
+						<CheckCircle2 size={16} />
+					)}
+					{busy
+						? "Connecting"
+						: authMethod === "password"
+							? "Sign in"
+							: authMethod === "sso"
+								? "Sign in with SSO"
+							: "Connect"}
 				</button>
 			</form>
 		</div>

@@ -1,7 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MattermostFileInfo, MattermostPost, MattermostReaction, MattermostUser, MattermostUserStatus } from "../types";
 import { formatTime, initials, userLabel } from "../utils/format";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
@@ -18,10 +18,12 @@ export function MessageTimeline({
 	userImages,
 	userStatuses,
 	loading,
+	loadingHistory,
 	resolveImageSrc,
 	onShowMessageContextMenu,
 	onReply,
 	onToggleReaction,
+	onLoadMore,
 }: {
 	posts: MattermostPost[];
 	currentUserId: string;
@@ -30,13 +32,16 @@ export function MessageTimeline({
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
 	loading: boolean;
+	loadingHistory?: boolean;
 	resolveImageSrc: (src: string) => Promise<string>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
+	onLoadMore?: () => void;
 }) {
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const previousPostCountRef = useRef(0);
+	const [showLoadMore, setShowLoadMore] = useState(false);
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
 	const rowVirtualizer = useVirtualizer({
 		count: timelineRows.length,
@@ -65,6 +70,24 @@ export function MessageTimeline({
 		}
 	}, [posts.length, rowVirtualizer, timelineRows.length]);
 
+	useEffect(() => {
+		const viewport = viewportRef.current;
+		if (!viewport || !onLoadMore) return;
+
+		function handleScroll() {
+			if (!viewport) return;
+			const scrollTop = viewport.scrollTop;
+			// Show button when scrolled within 300px of the top
+			setShowLoadMore(scrollTop < 300);
+		}
+
+		// Check initial state
+		handleScroll();
+
+		viewport.addEventListener("scroll", handleScroll);
+		return () => viewport.removeEventListener("scroll", handleScroll);
+	}, [onLoadMore]);
+
 	return (
 		<div className="message-scroll" ref={viewportRef}>
 			<div
@@ -73,6 +96,16 @@ export function MessageTimeline({
 					height: `${rowVirtualizer.getTotalSize()}px`,
 				}}
 			>
+				{!loading && posts.length > 0 && onLoadMore && showLoadMore ? (
+					<button 
+						className="load-more-button" 
+						disabled={loadingHistory}
+						type="button"
+						onClick={onLoadMore}
+					>
+						{loadingHistory ? "Loading..." : "Load more messages"}
+					</button>
+				) : null}
 				{loading ? <div className="timeline-state">Loading channel...</div> : null}
 				{!loading && posts.length === 0 ? (
 					<div className="timeline-state">No messages in this channel.</div>

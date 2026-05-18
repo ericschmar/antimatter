@@ -1,7 +1,7 @@
 export type MattermostConfig = {
 	serverUrl: string;
 	token: string;
-	authMethod?: "pat" | "password";
+	authMethod?: "pat" | "password" | "sso";
 	lastTeamId?: string;
 	lastChannelId?: string;
 };

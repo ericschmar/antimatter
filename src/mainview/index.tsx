@@ -33,7 +33,11 @@ import {
 	saveUserColorPaletteVersion,
 	saveUserColors,
 } from "./storage";
-import type { MattermostClientRPC } from "../shared/electrobunRpc";
+import type {
+	MattermostClientRPC,
+	MattermostSsoProvider,
+	MattermostSsoLoginResult,
+} from "../shared/electrobunRpc";
 import type {
 	ChannelNotificationState,
 	ChannelSectionKey,
@@ -147,6 +151,13 @@ const rpc = Electroview.defineRPC<MattermostClientRPC>({
 					}),
 				);
 			},
+			mattermostSsoLoginResult: (result) => {
+				window.dispatchEvent(
+					new CustomEvent("mattermost-sso-login-result", {
+						detail: result,
+					}),
+				);
+			},
 			channelContextMenuAction: (action) => {
 				window.dispatchEvent(
 					new CustomEvent("channel-context-menu-action", {
@@ -245,11 +256,13 @@ function App() {
 	const [createChannelOpen, setCreateChannelOpen] = useState(false);
 	const [createDmOpen, setCreateDmOpen] = useState(false);
 	const [addUserOpen, setAddUserOpen] = useState(false);
+	const [loadingHistory, setLoadingHistory] = useState(false);
 
 	useEffect(() => {
 		selectedChannelRef.current = selectedChannelId;
 		setReplyTarget(null);
 		setEditTarget(null);
+		setLoadingHistory(false);
 	}, [selectedChannelId]);
 
 	useEffect(() => {
@@ -492,6 +505,28 @@ function App() {
 		[connect],
 	);
 
+	const ssoLogin = useCallback(
+		async (serverUrl: string, provider: MattermostSsoProvider) => {
+			setStatus("loading");
+			setError(null);
+			try {
+				const response = await electrobun.rpc!.request.startMattermostSsoLogin({
+					serverUrl: normalizeServerUrl(serverUrl),
+					provider,
+				});
+				if (!response.success) {
+					throw new Error(response.message ?? "Could not start SSO login.");
+				}
+			} catch (err) {
+				setStatus("error");
+				setError(
+					err instanceof Error ? err.message : "Could not start SSO login.",
+				);
+			}
+		},
+		[],
+	);
+
 	useEffect(() => {
 		function handleStatus(event: Event) {
 			const detail = (
@@ -499,6 +534,21 @@ function App() {
 			).detail;
 			setWsStatus(detail.status);
 			if (detail.status === "error" && detail.message) setError(detail.message);
+		}
+
+		function handleSsoResult(event: Event) {
+			const detail = (event as CustomEvent<MattermostSsoLoginResult>).detail;
+			if (!detail.ok || !detail.token) {
+				setStatus("error");
+				setError(detail.message ?? "SSO login did not return a session token.");
+				return;
+			}
+
+			void connect({
+				serverUrl: detail.serverUrl,
+				token: detail.token,
+				authMethod: "sso",
+			});
 		}
 
 		function handlePost(event: Event) {
@@ -567,11 +617,13 @@ function App() {
 		}
 
 		window.addEventListener("mattermost-websocket-status", handleStatus);
+		window.addEventListener("mattermost-sso-login-result", handleSsoResult);
 		window.addEventListener("mattermost-websocket-post", handlePost);
 		window.addEventListener("mattermost-websocket-reaction", handleReaction);
 		window.addEventListener("mattermost-websocket-status-change", handleStatusChange);
 		return () => {
 			window.removeEventListener("mattermost-websocket-status", handleStatus);
+			window.removeEventListener("mattermost-sso-login-result", handleSsoResult);
 			window.removeEventListener("mattermost-websocket-post", handlePost);
 			window.removeEventListener(
 				"mattermost-websocket-reaction",
@@ -993,6 +1045,43 @@ function App() {
 		}
 	}
 
+	async function loadMoreMessages() {
+		if (!api || !selectedChannelId || loadingHistory || state.postOrder.length === 0) return;
+		
+		setLoadingHistory(true);
+		try {
+			// Get the oldest post ID from the current postOrder (first item since it's reversed)
+			const oldestPostId = state.postOrder[0];
+			if (!oldestPostId) return;
+			
+			const postList = await api.getPostsForChannelBefore(selectedChannelId, oldestPostId);
+			const postUsers = await getPostUsers(
+				api,
+				Object.values(postList.posts),
+				currentUser?.id,
+			);
+			
+			setState((current) => ({
+				...current,
+				users: {
+					...current.users,
+					...Object.fromEntries(postUsers.map((user) => [user.id, user])),
+				},
+				posts: {
+					...current.posts,
+					...postList.posts,
+				},
+				postOrder: [...postList.order.reverse(), ...current.postOrder],
+			}));
+			
+			void loadPostReactions(api, Object.values(postList.posts));
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not load more messages.");
+		} finally {
+			setLoadingHistory(false);
+		}
+	}
+
 	function signOut() {
 		void electrobun.rpc!.request.disconnectMattermostWebSocket({});
 		clearConfig();
@@ -1160,6 +1249,7 @@ function App() {
 				error={error}
 				onConnect={connect}
 				onPasswordLogin={passwordLogin}
+				onSsoLogin={ssoLogin}
 			/>
 		);
 	}
@@ -1294,6 +1384,7 @@ function App() {
 							<MessageTimeline
 								currentUserId={currentUser.id}
 								loading={status === "loading"}
+								loadingHistory={loadingHistory}
 								posts={posts}
 								resolveImageSrc={resolveImageSrc}
 								userColors={userColors}
@@ -1303,6 +1394,7 @@ function App() {
 								onShowMessageContextMenu={showMessageContextMenu}
 								onReply={startReply}
 								onToggleReaction={toggleReaction}
+								onLoadMore={loadMoreMessages}
 							/>
 							<MessageComposer
 								currentUserId={currentUser.id}

@@ -1,4 +1,5 @@
-import { ApplicationMenu, BrowserView, BrowserWindow, ContextMenu, Utils } from "electrobun/bun";
+import { randomBytes } from "node:crypto";
+import { app as electrobunApp, ApplicationMenu, BrowserView, BrowserWindow, ContextMenu, Utils } from "electrobun/bun";
 import { getFonts } from "font-list";
 import type {
 	AppSettingsPayload,
@@ -8,6 +9,8 @@ import type {
 	MattermostLoginRequest,
 	MattermostClientRPC,
 	MattermostRpcRequest,
+	MattermostSsoLoginRequest,
+	MattermostSsoProvider,
 	MattermostWebSocketConfig,
 	SettingsWindowRPC,
 } from "../shared/electrobunRpc";
@@ -32,6 +35,11 @@ let websocketSeq = 1;
 let websocketClosedByUser = false;
 let websocketConfig: MattermostWebSocketConfig | null = null;
 let settingsWindow: BrowserWindow | null = null;
+let pendingDesktopSsoLogin: {
+	clientToken: string;
+	provider: MattermostSsoProvider;
+	serverUrl: string;
+} | null = null;
 let latestSettings: AppSettingsPayload = {
 	fontFamily: "system",
 	fontSize: 14,
@@ -48,6 +56,7 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 			getEnvConfig: () => getEnvConfig(),
 			mattermostRequest: async (request) => mattermostRequest(request),
 			mattermostLogin: async (request) => mattermostLogin(request),
+			startMattermostSsoLogin: async (request) => startMattermostSsoLogin(request),
 			uploadMattermostFiles: async (request) => uploadMattermostFiles(request),
 			connectMattermostWebSocket: (config) => {
 				connectMattermostWebSocket(config);
@@ -142,6 +151,12 @@ const mainWindow = new BrowserWindow({
 });
 
 console.log("Mattermost client started.");
+
+electrobunApp.on("open-url", (event) => {
+	const url = readOpenUrl(event);
+	if (!url) return;
+	void handleMattermostDesktopLoginUrl(url);
+});
 
 ContextMenu.on("context-menu-clicked", (event) => {
 	const data = readContextMenuData(event);
@@ -370,6 +385,170 @@ async function mattermostLogin(request: MattermostLoginRequest) {
 		token: response.headers.get("Token") ?? response.headers.get("token") ?? undefined,
 		body: await readBody(response),
 	};
+}
+
+async function startMattermostSsoLogin(request: MattermostSsoLoginRequest) {
+	const serverUrl = normalizeServerUrl(request.serverUrl);
+	const clientToken = createDesktopSsoClientToken();
+	const loginUrl = getMattermostSsoLoginUrl(
+		serverUrl,
+		request.provider,
+		clientToken,
+	);
+
+	pendingDesktopSsoLogin = {
+		clientToken,
+		provider: request.provider,
+		serverUrl,
+	};
+
+	console.info(`[sso:${request.provider}] opening external browser ${redactUrl(loginUrl)}`);
+	Utils.openExternal(loginUrl);
+	return { success: true, loginUrl };
+}
+
+function getMattermostSsoLoginUrl(
+	serverUrl: string,
+	provider: MattermostSsoProvider,
+	desktopToken: string,
+) {
+	const path = provider === "saml" ? "/login/sso/saml" : "/login/sso/openid";
+	const url = new URL(path, serverUrl);
+	url.searchParams.set("desktop_token", desktopToken);
+	return url.toString();
+}
+
+function redactUrl(value: string) {
+	try {
+		const url = new URL(value);
+		for (const key of Array.from(url.searchParams.keys())) {
+			const currentValue = url.searchParams.get(key) ?? "";
+			if (isSensitiveQueryParam(key)) url.searchParams.set(key, "[redacted]");
+			else if (/^https?:\/\//i.test(currentValue)) {
+				url.searchParams.set(key, redactUrl(currentValue));
+			}
+		}
+		return url.toString();
+	} catch {
+		return value;
+	}
+}
+
+function isSensitiveQueryParam(key: string) {
+	return [
+		"samlrequest",
+		"samlresponse",
+		"relaystate",
+		"code",
+		"state",
+		"session_state",
+		"token",
+		"desktop_token",
+		"client_token",
+		"server_token",
+		"requesttoken",
+	].includes(key.toLowerCase());
+}
+
+function createDesktopSsoClientToken() {
+	return `dev-${randomBytes(32).toString("hex")}`.slice(0, 64);
+}
+
+function readOpenUrl(event: unknown) {
+	if (!event || typeof event !== "object") return null;
+	const directUrl = (event as { url?: unknown }).url;
+	if (typeof directUrl === "string") return directUrl;
+	const data = (event as { data?: unknown }).data;
+	if (!data || typeof data !== "object") return null;
+	const dataUrl = (data as { url?: unknown }).url;
+	return typeof dataUrl === "string" ? dataUrl : null;
+}
+
+async function handleMattermostDesktopLoginUrl(value: string) {
+	if (!value.startsWith("mattermost-dev://")) return;
+	console.info(`[sso] received desktop login deep link ${redactUrl(value)}`);
+
+	const pending = pendingDesktopSsoLogin;
+	if (!pending) {
+		sendMattermostSsoLoginError("Received a desktop login callback with no pending SSO login.");
+		return;
+	}
+
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		sendMattermostSsoLoginError("Received an invalid desktop login callback URL.");
+		return;
+	}
+
+	const clientToken = url.searchParams.get("client_token");
+	const serverToken = url.searchParams.get("server_token");
+	if (!serverToken || clientToken !== pending.clientToken) {
+		sendMattermostSsoLoginError("Mattermost desktop login callback did not match this SSO attempt.");
+		return;
+	}
+
+	try {
+		const token = await loginWithMattermostDesktopToken(
+			pending.serverUrl,
+			serverToken,
+		);
+		pendingDesktopSsoLogin = null;
+		(mainWindow.webview.rpc as any)?.send?.mattermostSsoLoginResult({
+			ok: true,
+			serverUrl: pending.serverUrl,
+			provider: pending.provider,
+			token,
+		});
+		console.info(`[sso:${pending.provider}] exchanged desktop token successfully`);
+	} catch (err) {
+		sendMattermostSsoLoginError(
+			err instanceof Error
+				? err.message
+				: "Could not exchange Mattermost desktop login token.",
+		);
+	}
+}
+
+async function loginWithMattermostDesktopToken(
+	serverUrl: string,
+	serverToken: string,
+) {
+	const url = new URL("/api/v4/users/login/desktop_token", serverUrl);
+	const response = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			token: serverToken,
+			deviceId: "",
+		}),
+	});
+	const token =
+		response.headers.get("Token") ?? response.headers.get("token") ?? undefined;
+	if (!response.ok || !token) {
+		const body = await readBody(response);
+		throw new Error(getMattermostErrorMessage(body, response.status));
+	}
+	return token;
+}
+
+function getMattermostErrorMessage(body: unknown, status: number) {
+	return body && typeof body === "object" && "message" in body
+		? String((body as { message?: unknown }).message)
+		: `Mattermost login failed with ${status}.`;
+}
+
+function sendMattermostSsoLoginError(message: string) {
+	const pending = pendingDesktopSsoLogin;
+	pendingDesktopSsoLogin = null;
+	(mainWindow.webview.rpc as any)?.send?.mattermostSsoLoginResult({
+		ok: false,
+		serverUrl: pending?.serverUrl ?? "",
+		provider: pending?.provider ?? "saml",
+		message,
+	});
+	console.info(`[sso] ${message}`);
 }
 
 async function uploadMattermostFiles(request: MattermostFileUploadRequest) {
