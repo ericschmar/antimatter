@@ -1,0 +1,76 @@
+import Electrobun, { Electroview } from "electrobun/view";
+import type { MattermostClientRPC } from "../../shared/electrobunRpc";
+
+const rpc = Electroview.defineRPC<MattermostClientRPC>({
+	maxRequestTime: 30000,
+	handlers: {
+		requests: {},
+		messages: {
+			mattermostWebSocketStatus: ({ status, message }) => {
+				window.dispatchEvent(
+					new CustomEvent("mattermost-websocket-status", {
+						detail: { status, message },
+					}),
+				);
+			},
+			mattermostWebSocketPost: ({ post }) => {
+				window.dispatchEvent(
+					new CustomEvent("mattermost-websocket-post", {
+						detail: { post },
+					}),
+				);
+			},
+			mattermostWebSocketReaction: ({ reaction, removed }) => {
+				window.dispatchEvent(
+					new CustomEvent("mattermost-websocket-reaction", {
+						detail: { reaction, removed },
+					}),
+				);
+			},
+			mattermostWebSocketStatusChange: ({ status }) => {
+				window.dispatchEvent(
+					new CustomEvent("mattermost-websocket-status-change", {
+						detail: { status },
+					}),
+				);
+			},
+			mattermostSsoLoginResult: (result) => {
+				window.dispatchEvent(
+					new CustomEvent("mattermost-sso-login-result", {
+						detail: result,
+					}),
+				);
+			},
+			channelContextMenuAction: (action) => {
+				window.dispatchEvent(
+					new CustomEvent("channel-context-menu-action", {
+						detail: action,
+					}),
+				);
+			},
+			messageContextMenuAction: (action) => {
+				window.dispatchEvent(
+					new CustomEvent("message-context-menu-action", {
+						detail: action,
+					}),
+				);
+			},
+			applicationMenuAction: (action) => {
+				window.dispatchEvent(
+					new CustomEvent("application-menu-action", {
+						detail: action,
+					}),
+				);
+			},
+			settingsUpdated: ({ settings }) => {
+				window.dispatchEvent(
+					new CustomEvent("settings-updated", {
+						detail: { settings },
+					}),
+				);
+			},
+		},
+	},
+});
+
+export const electrobun = new Electrobun.Electroview({ rpc });

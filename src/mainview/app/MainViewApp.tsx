@@ -1,0 +1,886 @@
+import "react-resizable/css/styles.css";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AuthScreen } from "../components/AuthScreen";
+import type { MessageComposerHandle } from "../components/MessageComposer";
+import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
+import {
+	clearConfig,
+	loadConfig,
+	saveConfig,
+} from "../storage";
+import type { MattermostSsoProvider } from "../../shared/electrobunRpc";
+import type {
+	ChannelNotificationState,
+	AppSettings,
+	MattermostChannelMember,
+	MattermostChannel,
+	MattermostConfig,
+	MattermostFileInfo,
+	MattermostPost,
+	MattermostReaction,
+	MattermostTeam,
+	MattermostUser,
+	NormalizedState,
+	WebSocketStatus,
+} from "../types";
+import {
+	channelLabel,
+	isDirectChannel,
+	isTeamChannel,
+} from "../utils/format";
+import { normalizeEmojiName } from "../utils/emoji";
+import {
+	addPost,
+	applyReaction,
+	replacePost,
+	setPostReactions,
+	updatePost as updatePostInState,
+	updateChannelLastPostAt,
+} from "../utils/state";
+import { fileToUploadItem } from "../utils/fileUpload";
+import {
+	getChannelMembers,
+	getDirectChannelUsers,
+	getPostUsers,
+	getUsersForIds,
+	preferredFirstChannel,
+} from "../utils/mattermostLoaders";
+import { electrobun } from "./rpc";
+import {
+	MAX_SIDEBAR_WIDTH,
+	MIN_SIDEBAR_WIDTH,
+	useChannelPreferences,
+} from "../features/channels/useChannelPreferences";
+import { useUserPresence } from "../features/users/useUserPresence";
+import { useMainViewEvents } from "../features/events/useMainViewEvents";
+import { ChatShell } from "./ChatShell";
+
+const emptyState: NormalizedState = {
+	users: {},
+	teams: {},
+	channels: {},
+	posts: {},
+	postOrder: [],
+};
+
+export function MainViewApp() {
+	const [config, setConfig] = useState<MattermostConfig | null>(() =>
+		loadConfig(),
+	);
+	const [api, setApi] = useState<MattermostApiClient | null>(null);
+	const [currentUser, setCurrentUser] = useState<MattermostUser | null>(null);
+	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+	const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
+		null,
+	);
+	const [state, setState] = useState<NormalizedState>(emptyState);
+	const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
+		"idle",
+	);
+	const [wsStatus, setWsStatus] = useState<WebSocketStatus>("idle");
+	const [error, setError] = useState<string | null>(null);
+	const [envConfig, setEnvConfig] = useState<MattermostConfig | null>(null);
+	const {
+		archivedChannelSet,
+		channelEmojis,
+		channelOrder,
+		collapsedSections,
+		favoriteChannelSet,
+		sidebarWidth,
+		setSidebarWidth,
+		archiveChannel,
+		moveChannel,
+		setChannelEmoji,
+		toggleChannelSection,
+		toggleFavoriteChannel,
+		unarchiveChannel,
+	} = useChannelPreferences();
+	const {
+		settings,
+		setSettings,
+		userColors,
+		userImages,
+		userStatuses,
+		setUserStatuses,
+		resetUserPresence,
+	} = useUserPresence({ api, users: state.users });
+	const [channelNotifications, setChannelNotifications] =
+		useState<ChannelNotificationState>({});
+	const selectedChannelRef = useRef<string | null>(null);
+	const autoConnectAttemptedRef = useRef(false);
+	const composerRef = useRef<MessageComposerHandle>(null);
+	const [replyTarget, setReplyTarget] = useState<MattermostPost | null>(null);
+	const [editTarget, setEditTarget] = useState<MattermostPost | null>(null);
+	const [channelMembers, setChannelMembers] = useState<MattermostChannelMember[]>([]);
+	const [commandOpen, setCommandOpen] = useState(false);
+	const [createChannelOpen, setCreateChannelOpen] = useState(false);
+	const [createDmOpen, setCreateDmOpen] = useState(false);
+	const [addUserOpen, setAddUserOpen] = useState(false);
+	const [loadingHistory, setLoadingHistory] = useState(false);
+
+	useEffect(() => {
+		selectedChannelRef.current = selectedChannelId;
+		setReplyTarget(null);
+		setEditTarget(null);
+		setLoadingHistory(false);
+	}, [selectedChannelId]);
+
+	useEffect(() => {
+		if (!selectedChannelId || status !== "ready") return;
+		const frame = requestAnimationFrame(() => composerRef.current?.focus());
+		return () => cancelAnimationFrame(frame);
+	}, [selectedChannelId, status]);
+
+	const loadPostReactions = useCallback(
+		async (nextApi: MattermostApiClient, posts: MattermostPost[]) => {
+			await Promise.all(
+				posts.map(async (post) => {
+					try {
+						const reactions = await nextApi.getReactionsForPost(post.id);
+						setState((current) =>
+							setPostReactions(current, post.id, reactions),
+						);
+					} catch {
+						// Reactions are additive UI. A server that rejects the endpoint should not block chat.
+					}
+				}),
+			);
+		},
+		[],
+	);
+
+	const connect = useCallback(
+		async (nextConfig: MattermostConfig) => {
+			setStatus("loading");
+			setError(null);
+			setWsStatus("idle");
+			void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+
+			const normalizedConfig = {
+				...nextConfig,
+				serverUrl: normalizeServerUrl(nextConfig.serverUrl),
+			};
+			const nextApi = new MattermostApiClient(normalizedConfig, (request) =>
+				electrobun.rpc!.request.mattermostRequest(request),
+				(request) => electrobun.rpc!.request.uploadMattermostFiles(request),
+			);
+
+			try {
+				const user = await nextApi.getCurrentUser();
+				const teams = await nextApi.getTeamsForCurrentUser();
+				const selectedTeam =
+					teams.find((team) => team.id === normalizedConfig.lastTeamId) ??
+					teams[0];
+
+				let channels: MattermostChannel[] = [];
+				let selectedChannel: MattermostChannel | undefined;
+				if (selectedTeam) {
+					channels = await nextApi.getChannelsForUserTeam(
+						user.id,
+						selectedTeam.id,
+					);
+					selectedChannel =
+						channels.find(
+							(channel) => channel.id === normalizedConfig.lastChannelId,
+						) ?? preferredFirstChannel(channels);
+				}
+
+				let posts: Record<string, MattermostPost> = {};
+				let postOrder: string[] = [];
+				let postUsers: MattermostUser[] = [];
+				let memberUsers: MattermostUser[] = [];
+				let members: MattermostChannelMember[] = [];
+				const channelUsers = await getDirectChannelUsers(
+					nextApi,
+					channels,
+					user.id,
+				);
+				if (selectedChannel) {
+					const postList = await nextApi.getPostsForChannel(selectedChannel.id);
+					posts = postList.posts;
+					postOrder = [...postList.order].reverse();
+					postUsers = await getPostUsers(
+						nextApi,
+						Object.values(posts),
+						user.id,
+					);
+					members = await getChannelMembers(nextApi, selectedChannel.id);
+					memberUsers = await getUsersForIds(
+						nextApi,
+						members.map((member) => member.user_id),
+						user.id,
+					);
+				}
+
+				const savedConfig = {
+					...normalizedConfig,
+					lastTeamId: selectedTeam?.id,
+					lastChannelId: selectedChannel?.id,
+				};
+				saveConfig(savedConfig);
+				setConfig(savedConfig);
+				setApi(nextApi);
+				setCurrentUser(user);
+				setSelectedTeamId(selectedTeam?.id ?? null);
+				setSelectedChannelId(selectedChannel?.id ?? null);
+				setState({
+					users: {
+						[user.id]: user,
+						...Object.fromEntries(
+							channelUsers.map((channelUser) => [channelUser.id, channelUser]),
+						),
+						...Object.fromEntries(
+							postUsers.map((postUser) => [postUser.id, postUser]),
+						),
+						...Object.fromEntries(
+							memberUsers.map((memberUser) => [memberUser.id, memberUser]),
+						),
+					},
+					teams: Object.fromEntries(teams.map((team) => [team.id, team])),
+					channels: Object.fromEntries(
+						channels.map((channel) => [channel.id, channel]),
+					),
+					posts,
+					postOrder,
+				});
+				setStatus("ready");
+				setChannelMembers(members);
+				void loadPostReactions(nextApi, Object.values(posts));
+
+				setWsStatus("connecting");
+				void electrobun.rpc!.request.connectMattermostWebSocket({
+					serverUrl: savedConfig.serverUrl,
+					token: savedConfig.token,
+				});
+			} catch (err) {
+				setStatus("error");
+				setError(
+					err instanceof Error
+						? err.message
+						: "Could not connect to Mattermost.",
+				);
+			}
+		},
+		[loadPostReactions],
+	);
+
+	const passwordLogin = useCallback(
+		async (serverUrl: string, loginId: string, password: string) => {
+			setStatus("loading");
+			setError(null);
+			try {
+				const response = await electrobun.rpc!.request.mattermostLogin({
+					serverUrl: normalizeServerUrl(serverUrl),
+					loginId,
+					password,
+				});
+				if (!response.ok || !response.token) {
+					throw new Error(
+						response.body && typeof response.body === "object" && "message" in response.body
+							? String((response.body as { message?: unknown }).message)
+							: `Login failed with ${response.status}.`,
+					);
+				}
+				await connect({
+					serverUrl,
+					token: response.token,
+					authMethod: "password",
+				});
+			} catch (err) {
+				setStatus("error");
+				setError(err instanceof Error ? err.message : "Could not sign in.");
+			}
+		},
+		[connect],
+	);
+
+	const ssoLogin = useCallback(
+		async (serverUrl: string, provider: MattermostSsoProvider) => {
+			setStatus("loading");
+			setError(null);
+			try {
+				const response = await electrobun.rpc!.request.startMattermostSsoLogin({
+					serverUrl: normalizeServerUrl(serverUrl),
+					provider,
+				});
+				if (!response.success) {
+					throw new Error(response.message ?? "Could not start SSO login.");
+				}
+			} catch (err) {
+				setStatus("error");
+				setError(
+					err instanceof Error ? err.message : "Could not start SSO login.",
+				);
+			}
+		},
+		[],
+	);
+
+	useEffect(() => {
+		if (config) {
+			void connect(config);
+			return () => {
+				void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+			};
+		}
+
+		void electrobun.rpc!.request.getEnvConfig({}).then((nextEnvConfig) => {
+			if (!nextEnvConfig) return;
+			setEnvConfig(nextEnvConfig);
+			if (autoConnectAttemptedRef.current) return;
+			autoConnectAttemptedRef.current = true;
+			void connect(nextEnvConfig);
+		});
+
+		return () => {
+			void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+		};
+	}, []);
+
+	const teams = useMemo(() => Object.values(state.teams), [state.teams]);
+	const channels = useMemo(
+		() =>
+			Object.values(state.channels).filter(
+				(channel) =>
+					isDirectChannel(channel) || channel.team_id === selectedTeamId,
+			),
+		[state.channels, selectedTeamId],
+	);
+	const sections = useMemo(() => {
+		const activeChannels = channels.filter(
+			(channel) => !archivedChannelSet.has(channel.id),
+		);
+		const favoriteChannels = activeChannels.filter((channel) =>
+			favoriteChannelSet.has(channel.id),
+		);
+		return {
+			favorites: favoriteChannels,
+			dms: activeChannels.filter(
+				(channel) =>
+					isDirectChannel(channel) && !favoriteChannelSet.has(channel.id),
+			),
+			channels: activeChannels.filter(
+				(channel) =>
+					isTeamChannel(channel) && !favoriteChannelSet.has(channel.id),
+			),
+			archived: channels.filter((channel) =>
+				archivedChannelSet.has(channel.id),
+			),
+		};
+	}, [archivedChannelSet, channels, favoriteChannelSet]);
+	const posts = useMemo(
+		() => state.postOrder.map((id) => state.posts[id]).filter(Boolean),
+		[state.postOrder, state.posts],
+	);
+	const selectedTeam = selectedTeamId ? state.teams[selectedTeamId] : undefined;
+	const selectedChannel = selectedChannelId
+		? state.channels[selectedChannelId]
+		: undefined;
+
+	async function selectTeam(team: MattermostTeam) {
+		if (!api || !currentUser || !config) return;
+		setStatus("loading");
+		try {
+			const channelsForTeam = await api.getChannelsForUserTeam(
+				currentUser.id,
+				team.id,
+			);
+			const channelUsers = await getDirectChannelUsers(
+				api,
+				channelsForTeam,
+				currentUser.id,
+			);
+			const firstChannel = preferredFirstChannel(channelsForTeam);
+			const postList = firstChannel
+				? await api.getPostsForChannel(firstChannel.id)
+				: { posts: {}, order: [] };
+			const postUsers = await getPostUsers(
+				api,
+				Object.values(postList.posts),
+				currentUser.id,
+			);
+			const members = firstChannel ? await getChannelMembers(api, firstChannel.id) : [];
+			const memberUsers = await getUsersForIds(
+				api,
+				members.map((member) => member.user_id),
+				currentUser.id,
+			);
+			const nextConfig = {
+				...config,
+				lastTeamId: team.id,
+				lastChannelId: firstChannel?.id,
+			};
+			saveConfig(nextConfig);
+			setConfig(nextConfig);
+			setSelectedTeamId(team.id);
+			setSelectedChannelId(firstChannel?.id ?? null);
+			setState((current) => ({
+				...current,
+				channels: {
+					...Object.fromEntries(
+						Object.values(current.channels)
+							.filter(isDirectChannel)
+							.map((channel) => [channel.id, channel]),
+					),
+					...Object.fromEntries(
+						channelsForTeam.map((channel) => [channel.id, channel]),
+					),
+				},
+				users: {
+					...current.users,
+					...Object.fromEntries(channelUsers.map((user) => [user.id, user])),
+					...Object.fromEntries(postUsers.map((user) => [user.id, user])),
+					...Object.fromEntries(memberUsers.map((user) => [user.id, user])),
+				},
+				posts: postList.posts,
+				postOrder: [...postList.order].reverse(),
+			}));
+			setChannelMembers(members);
+			setStatus("ready");
+			void loadPostReactions(api, Object.values(postList.posts));
+		} catch (err) {
+			setStatus("error");
+			setError(err instanceof Error ? err.message : "Could not load team.");
+		}
+	}
+
+	async function selectChannel(channel: MattermostChannel) {
+		if (!api || !config) return;
+		setStatus("loading");
+		try {
+			const postList = await api.getPostsForChannel(channel.id);
+			const postUsers = await getPostUsers(
+				api,
+				Object.values(postList.posts),
+				currentUser?.id,
+			);
+			const members = await getChannelMembers(api, channel.id);
+			const memberUsers = await getUsersForIds(
+				api,
+				members.map((member) => member.user_id),
+				currentUser?.id,
+			);
+			const nextConfig = { ...config, lastChannelId: channel.id };
+			saveConfig(nextConfig);
+			setConfig(nextConfig);
+			setSelectedChannelId(channel.id);
+			setChannelNotifications((current) => {
+				const next = { ...current };
+				delete next[channel.id];
+				return next;
+			});
+			setState((current) => ({
+				...current,
+				channels: {
+					...current.channels,
+					[channel.id]: channel,
+				},
+				users: {
+					...current.users,
+					...Object.fromEntries(postUsers.map((user) => [user.id, user])),
+					...Object.fromEntries(memberUsers.map((user) => [user.id, user])),
+				},
+				posts: postList.posts,
+				postOrder: [...postList.order].reverse(),
+			}));
+			setChannelMembers(members);
+			setStatus("ready");
+			void loadPostReactions(api, Object.values(postList.posts));
+		} catch (err) {
+			setStatus("error");
+			setError(err instanceof Error ? err.message : "Could not load channel.");
+		}
+	}
+
+	async function selectSearchPost(post: MattermostPost) {
+		if (!api || !config) return;
+		setStatus("loading");
+		try {
+			const channel =
+				state.channels[post.channel_id] ?? await api.getChannel(post.channel_id);
+			const postList = await api.getPostThread(post.id).catch(() => ({
+				order: [post.id],
+				posts: { [post.id]: post },
+			}));
+			const postUsers = await getPostUsers(
+				api,
+				Object.values(postList.posts),
+				currentUser?.id,
+			);
+			const members = await getChannelMembers(api, channel.id);
+			const memberUsers = await getUsersForIds(
+				api,
+				members.map((member) => member.user_id),
+				currentUser?.id,
+			);
+			const nextConfig = { ...config, lastChannelId: channel.id };
+			saveConfig(nextConfig);
+			setConfig(nextConfig);
+			setSelectedChannelId(channel.id);
+			setChannelNotifications((current) => {
+				const next = { ...current };
+				delete next[channel.id];
+				return next;
+			});
+			setState((current) => ({
+				...current,
+				channels: {
+					...current.channels,
+					[channel.id]: channel,
+				},
+				users: {
+					...current.users,
+					...Object.fromEntries(postUsers.map((user) => [user.id, user])),
+					...Object.fromEntries(memberUsers.map((user) => [user.id, user])),
+				},
+				posts: postList.posts,
+				postOrder: [...postList.order].reverse(),
+			}));
+			setChannelMembers(members);
+			setStatus("ready");
+			void loadPostReactions(api, Object.values(postList.posts));
+		} catch (err) {
+			setStatus("error");
+			setError(err instanceof Error ? err.message : "Could not load search result.");
+		}
+	}
+
+	async function sendMessage(message: string, rootId?: string, files: File[] = []) {
+		if (!api || !currentUser || !selectedChannelId) return;
+		const clientId = crypto.randomUUID();
+		const pendingFiles: MattermostFileInfo[] = files.map((file, index) => ({
+			id: `${clientId}-file-${index}`,
+			name: file.name,
+			mime_type: file.type,
+			extension: file.name.split(".").pop(),
+			has_preview_image: file.type.startsWith("image/"),
+		}));
+		const pendingPost: MattermostPost = {
+			id: clientId,
+			client_id: clientId,
+			channel_id: selectedChannelId,
+			user_id: currentUser.id,
+			create_at: Date.now(),
+			update_at: Date.now(),
+			delete_at: 0,
+			message,
+			root_id: rootId,
+			metadata: pendingFiles.length > 0 ? { files: pendingFiles } : undefined,
+			pending: true,
+		};
+		setReplyTarget(null);
+		setState((current) =>
+			updateChannelLastPostAt(
+				addPost(current, pendingPost),
+				selectedChannelId,
+				pendingPost.create_at,
+			),
+		);
+
+		try {
+			const fileIds =
+				files.length > 0
+					? (
+							await api.uploadFiles(
+								selectedChannelId,
+								await Promise.all(files.map(fileToUploadItem)),
+							)
+						).file_infos.map((file) => file.id)
+					: [];
+			const created =
+				fileIds.length > 0
+					? await api.createPostWithFiles(selectedChannelId, message, fileIds, rootId)
+					: await api.createPost(selectedChannelId, message, rootId);
+			setState((current) =>
+				updateChannelLastPostAt(
+					replacePost(current, clientId, created),
+					selectedChannelId,
+					created.create_at,
+				),
+			);
+		} catch {
+			setState((current) => ({
+				...current,
+				posts: {
+					...current.posts,
+					[clientId]: { ...pendingPost, pending: false, failed: true },
+				},
+			}));
+		}
+		requestAnimationFrame(() => composerRef.current?.focus());
+	}
+
+	async function editMessage(post: MattermostPost, message: string) {
+		if (!api || !message.trim() || post.pending) return;
+		const previousPost = post;
+		const optimisticPost = { ...post, message, update_at: Date.now() };
+		setEditTarget(null);
+		setState((current) => updatePostInState(current, optimisticPost));
+		try {
+			const updated = await api.updatePost(post.id, message);
+			setState((current) => updatePostInState(current, updated));
+		} catch (err) {
+			setState((current) => updatePostInState(current, previousPost));
+			setError(err instanceof Error ? err.message : "Could not edit message.");
+		}
+		requestAnimationFrame(() => composerRef.current?.focus());
+	}
+
+	async function toggleReaction(post: MattermostPost, emojiName: string) {
+		if (!api || !currentUser || post.pending) return;
+		const normalizedName = normalizeEmojiName(emojiName);
+		const existing = post.metadata?.reactions?.some(
+			(reaction) =>
+				reaction.user_id === currentUser.id &&
+				reaction.emoji_name === normalizedName,
+		);
+		const reaction: MattermostReaction = {
+			user_id: currentUser.id,
+			post_id: post.id,
+			emoji_name: normalizedName,
+			create_at: Date.now(),
+		};
+		setState((current) => applyReaction(current, reaction, existing));
+		try {
+			if (existing)
+				await api.removeReaction(currentUser.id, post.id, normalizedName);
+			else await api.addReaction(currentUser.id, post.id, normalizedName);
+		} catch {
+			setState((current) => applyReaction(current, reaction, !existing));
+		}
+	}
+
+	async function loadMoreMessages() {
+		if (!api || !selectedChannelId || loadingHistory || state.postOrder.length === 0) return;
+		
+		setLoadingHistory(true);
+		try {
+			// Get the oldest post ID from the current postOrder (first item since it's reversed)
+			const oldestPostId = state.postOrder[0];
+			if (!oldestPostId) return;
+			
+			const postList = await api.getPostsForChannelBefore(selectedChannelId, oldestPostId);
+			const postUsers = await getPostUsers(
+				api,
+				Object.values(postList.posts),
+				currentUser?.id,
+			);
+			
+			setState((current) => ({
+				...current,
+				users: {
+					...current.users,
+					...Object.fromEntries(postUsers.map((user) => [user.id, user])),
+				},
+				posts: {
+					...current.posts,
+					...postList.posts,
+				},
+				postOrder: [...postList.order.reverse(), ...current.postOrder],
+			}));
+			
+			void loadPostReactions(api, Object.values(postList.posts));
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not load more messages.");
+		} finally {
+			setLoadingHistory(false);
+		}
+	}
+
+	function signOut() {
+		void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+		clearConfig();
+		setConfig(null);
+		setApi(null);
+		setCurrentUser(null);
+		setSelectedTeamId(null);
+		setSelectedChannelId(null);
+		setState(emptyState);
+		setStatus("idle");
+		setWsStatus("idle");
+		setError(null);
+		setChannelNotifications({});
+		setChannelMembers([]);
+		resetUserPresence();
+	}
+
+	function showChannelContextMenu(channel: MattermostChannel) {
+		void electrobun.rpc!.request.showChannelContextMenu({
+			archived: archivedChannelSet.has(channel.id),
+			channelId: channel.id,
+			hasEmoji: Boolean(channelEmojis[channel.id]),
+			label: channelLabel(channel, state.users, currentUser?.id ?? ""),
+		});
+	}
+
+	function startReply(post: MattermostPost) {
+		setEditTarget(null);
+		setReplyTarget(post);
+		requestAnimationFrame(() => composerRef.current?.focus());
+	}
+
+	function showMessageContextMenu(post: MattermostPost) {
+		void electrobun.rpc!.request.showMessageContextMenu({
+			postId: post.id,
+			canEdit: post.user_id === currentUser?.id && !post.pending,
+		});
+	}
+
+	function openSettingsWindow(nextSettings: AppSettings) {
+		void electrobun.rpc!.request.openSettingsWindow({ settings: nextSettings });
+	}
+
+	async function createChannel(displayName: string, name: string, type: "O" | "P") {
+		if (!api || !selectedTeamId) return;
+		const created = await api.createChannel(selectedTeamId, displayName, name, type);
+		setState((current) => ({
+			...current,
+			channels: { ...current.channels, [created.id]: created },
+		}));
+		setCreateChannelOpen(false);
+		await selectChannel(created);
+	}
+
+	async function createDm(userIds: string[]) {
+		if (!api || !currentUser) return;
+		const uniqueIds = [...new Set([currentUser.id, ...userIds])];
+		const created =
+			uniqueIds.length > 2
+				? await api.createGroupChannel(uniqueIds)
+				: await api.createDirectChannel(uniqueIds);
+		const users = await getUsersForIds(api, uniqueIds, currentUser.id);
+		setState((current) => ({
+			...current,
+			users: { ...current.users, ...Object.fromEntries(users.map((user) => [user.id, user])) },
+			channels: { ...current.channels, [created.id]: created },
+		}));
+		setCreateDmOpen(false);
+		await selectChannel(created);
+	}
+
+	async function addUserToSelectedChannel(userId: string) {
+		if (!api || !selectedChannelId) return;
+		const member = await api.addChannelMember(selectedChannelId, userId);
+		const users = await getUsersForIds(api, [userId], currentUser?.id);
+		setState((current) => ({
+			...current,
+			users: { ...current.users, ...Object.fromEntries(users.map((user) => [user.id, user])) },
+		}));
+		setChannelMembers((current) =>
+			current.some((item) => item.user_id === member.user_id) ? current : [...current, member],
+		);
+		setAddUserOpen(false);
+	}
+
+	useMainViewEvents({
+		api,
+		connect,
+		currentUser,
+		loadPostReactions,
+		openSettingsWindow,
+		selectedChannelRef,
+		settings,
+		startReply,
+		state,
+		setChannelNotifications,
+		setCommandOpen,
+		setEditTarget,
+		setError,
+		setSettings,
+		setStatus,
+		setState,
+		setUserStatuses,
+		setWsStatus,
+	});
+
+	const resolveImageSrc = useCallback(
+		async (src: string) => {
+			if (!api) return src;
+			return api.getFileDataUrl(src);
+		},
+		[api],
+	);
+
+	if (!config || !currentUser || status === "idle") {
+		return (
+			<AuthScreen
+				busy={status === "loading"}
+				defaultConfig={envConfig}
+				error={error}
+				onConnect={connect}
+				onPasswordLogin={passwordLogin}
+				onSsoLogin={ssoLogin}
+			/>
+		);
+	}
+
+	return (
+		<ChatShell
+			addUserOpen={addUserOpen}
+			api={api}
+			channelEmojis={channelEmojis}
+			channelMembers={channelMembers}
+			channelNotifications={channelNotifications}
+			channelOrder={channelOrder}
+			channels={channels}
+			collapsedSections={collapsedSections}
+			commandOpen={commandOpen}
+			composerRef={composerRef}
+			createChannelOpen={createChannelOpen}
+			createDmOpen={createDmOpen}
+			currentUser={currentUser}
+			editTarget={editTarget}
+			error={error}
+			favoriteChannelSet={favoriteChannelSet}
+			loadingHistory={loadingHistory}
+			maxSidebarWidth={MAX_SIDEBAR_WIDTH}
+			minSidebarWidth={MIN_SIDEBAR_WIDTH}
+			posts={posts}
+			replyTarget={replyTarget}
+			resolveImageSrc={resolveImageSrc}
+			sections={sections}
+			selectedChannel={selectedChannel}
+			selectedChannelId={selectedChannelId}
+			selectedTeam={selectedTeam}
+			selectedTeamId={selectedTeamId}
+			settings={settings}
+			sidebarWidth={sidebarWidth}
+			status={status}
+			teams={teams}
+			userColors={userColors}
+			userImages={userImages}
+			users={state.users}
+			userStatuses={userStatuses}
+			wsStatus={wsStatus}
+			onAddUserToSelectedChannel={addUserToSelectedChannel}
+			onArchiveChannel={archiveChannel}
+			onCancelEdit={() => setEditTarget(null)}
+			onCancelReply={() => setReplyTarget(null)}
+			onCreateChannel={createChannel}
+			onCreateDm={createDm}
+			onEditMessage={editMessage}
+			onLoadMoreMessages={loadMoreMessages}
+			onMoveChannel={moveChannel}
+			onOpenSettings={openSettingsWindow}
+			onSelectChannel={selectChannel}
+			onSelectPost={selectSearchPost}
+			onSelectTeam={selectTeam}
+			onSendMessage={sendMessage}
+			onSetAddUserOpen={setAddUserOpen}
+			onSetChannelEmoji={setChannelEmoji}
+			onSetCommandOpen={setCommandOpen}
+			onSetCreateChannelOpen={setCreateChannelOpen}
+			onSetCreateDmOpen={setCreateDmOpen}
+			onSetError={setError}
+			onSetSidebarWidth={setSidebarWidth}
+			onShowChannelContextMenu={showChannelContextMenu}
+			onShowMessageContextMenu={showMessageContextMenu}
+			onSignOut={signOut}
+			onStartReply={startReply}
+			onToggleChannelSection={toggleChannelSection}
+			onToggleFavoriteChannel={toggleFavoriteChannel}
+			onToggleReaction={toggleReaction}
+			onUnarchiveChannel={unarchiveChannel}
+		/>
+	);
+}
