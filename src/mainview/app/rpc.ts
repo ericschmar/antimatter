@@ -34,6 +34,13 @@ const rpc = Electroview.defineRPC<MattermostClientRPC>({
 					}),
 				);
 			},
+			mattermostWebSocketTyping: ({ channelId, parentId, userId }) => {
+				window.dispatchEvent(
+					new CustomEvent("mattermost-websocket-typing", {
+						detail: { channelId, parentId, userId },
+					}),
+				);
+			},
 			mattermostSsoLoginResult: (result) => {
 				window.dispatchEvent(
 					new CustomEvent("mattermost-sso-login-result", {

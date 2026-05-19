@@ -4,7 +4,7 @@ export default {
 	app: {
 		name: "Antimatter",
 		identifier: "antimatter.ericschmar.dev",
-		version: "1.0.0",
+		version: "0.0.1",
 		urlSchemes: ["mattermost-dev"],
 	},
 	build: {
@@ -28,12 +28,10 @@ export default {
 		},
 		mac: {
 			bundleCEF: false,
-			// ElectroBun defaults to icon.iconset, but that folder is not iconutil-clean yet.
-			// Point at a non-existent iconset so packaging can proceed without a custom icon.
-			icons: "assets/antimatter.iconset",
+			icons: "icon.iconset",
 		},
 		linux: {
-			bundleCEF: false,
+			bundleCEF: true,
 		},
 		win: {
 			bundleCEF: false,

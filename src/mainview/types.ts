@@ -128,6 +128,17 @@ export type ChannelNotificationState = Record<
 	}
 >;
 
+export type TypingUsersByChannel = Record<
+	string,
+	Record<
+		string,
+		{
+			expiresAt: number;
+			parentId?: string;
+		}
+	>
+>;
+
 export type NotificationPreference = "all" | "mentions" | "none";
 
 export type AppSettings = {

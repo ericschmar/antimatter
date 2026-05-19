@@ -204,7 +204,6 @@ h2 {
 }
 
 .channel-row.unread {
-	background: color-mix(in srgb, var(--panel-hover) 74%, var(--grass-3));
 	color: var(--text-primary);
 }
 
@@ -351,6 +350,22 @@ h2 {
 	height: 16px;
 	flex: 0 0 auto;
 	font-size: 0.86rem;
+}
+
+.channel-unread-dot {
+	display: inline-grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	flex: 0 0 auto;
+}
+
+.channel-unread-dot::before {
+	content: "";
+	width: 7px;
+	height: 7px;
+	border-radius: 999px;
+	background: var(--warm-bg);
 }
 
 .channel-create-button {

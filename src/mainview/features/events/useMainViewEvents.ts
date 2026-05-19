@@ -13,6 +13,7 @@ import type {
 	MattermostUser,
 	MattermostUserStatus,
 	NormalizedState,
+	TypingUsersByChannel,
 	WebSocketStatus,
 } from "../../types";
 import { channelLabel, includesMention } from "../../utils/format";
@@ -43,6 +44,7 @@ export function useMainViewEvents({
 	setStatus,
 	setState,
 	setUserStatuses,
+	setTypingUsers,
 	setWsStatus,
 }: UseMainViewEventsArgs) {
 	useEffect(() => {
@@ -71,6 +73,7 @@ export function useMainViewEvents({
 
 		function handlePost(event: Event) {
 			const post = (event as CustomEvent<{ post: MattermostPost }>).detail.post;
+			setTypingUsers((current) => removeTypingUser(current, post.channel_id, post.user_id));
 			if (api && currentUser && !state.channels[post.channel_id]) {
 				void api.getChannel(post.channel_id).then(async (channel) => {
 					const channelUsers = await getDirectChannelUsers(
@@ -162,11 +165,35 @@ export function useMainViewEvents({
 			setUserStatuses((current) => ({ ...current, [status.user_id]: status }));
 		}
 
+		function handleTyping(event: Event) {
+			const detail = (
+				event as CustomEvent<{
+					channelId: string;
+					parentId?: string;
+					userId: string;
+				}>
+			).detail;
+			if (!detail.channelId || !detail.userId || detail.userId === currentUser?.id)
+				return;
+
+			setTypingUsers((current) => ({
+				...current,
+				[detail.channelId]: {
+					...(current[detail.channelId] ?? {}),
+					[detail.userId]: {
+						expiresAt: Date.now() + 6000,
+						parentId: detail.parentId,
+					},
+				},
+			}));
+		}
+
 		window.addEventListener("mattermost-websocket-status", handleStatus);
 		window.addEventListener("mattermost-sso-login-result", handleSsoResult);
 		window.addEventListener("mattermost-websocket-post", handlePost);
 		window.addEventListener("mattermost-websocket-reaction", handleReaction);
 		window.addEventListener("mattermost-websocket-status-change", handleStatusChange);
+		window.addEventListener("mattermost-websocket-typing", handleTyping);
 		return () => {
 			window.removeEventListener("mattermost-websocket-status", handleStatus);
 			window.removeEventListener("mattermost-sso-login-result", handleSsoResult);
@@ -179,8 +206,9 @@ export function useMainViewEvents({
 				"mattermost-websocket-status-change",
 				handleStatusChange,
 			);
+			window.removeEventListener("mattermost-websocket-typing", handleTyping);
 		};
-	}, [api, connect, currentUser, loadPostReactions, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setChannelNotifications, setError, setState, setStatus, setUserStatuses, setWsStatus]);
+	}, [api, connect, currentUser, loadPostReactions, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setChannelNotifications, setError, setState, setStatus, setTypingUsers, setUserStatuses, setWsStatus]);
 
 	useEffect(() => {
 		function handleSettingsUpdate(event: Event) {
@@ -265,6 +293,27 @@ type UseMainViewEventsArgs = {
 	setSettings: Dispatch<SetStateAction<AppSettings>>;
 	setStatus: Dispatch<SetStateAction<"idle" | "loading" | "ready" | "error">>;
 	setState: Dispatch<SetStateAction<NormalizedState>>;
+	setTypingUsers: Dispatch<SetStateAction<TypingUsersByChannel>>;
 	setUserStatuses: Dispatch<SetStateAction<Record<string, MattermostUserStatus>>>;
 	setWsStatus: Dispatch<SetStateAction<WebSocketStatus>>;
 };
+
+function removeTypingUser(
+	current: TypingUsersByChannel,
+	channelId: string,
+	userId: string,
+) {
+	const channelTyping = current[channelId];
+	if (!channelTyping?.[userId]) return current;
+
+	const nextChannelTyping = { ...channelTyping };
+	delete nextChannelTyping[userId];
+
+	if (Object.keys(nextChannelTyping).length === 0) {
+		const next = { ...current };
+		delete next[channelId];
+		return next;
+	}
+
+	return { ...current, [channelId]: nextChannelTyping };
+}

@@ -13,7 +13,7 @@
 	--muted: #b0b4ba;
 	--subtle: #777b84;
 	--accent: #46a758;
-	background: var(--bg);
+	background: transparent;
 	color: var(--text);
 	font-size: 14px;
 }

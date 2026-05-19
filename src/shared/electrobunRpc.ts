@@ -59,6 +59,11 @@ export type MattermostWebSocketConfig = {
 	token: string;
 };
 
+export type MattermostTypingRequest = {
+	channelId: string;
+	parentId?: string;
+};
+
 export type MattermostWebSocketStatus = {
 	status: "connecting" | "connected" | "disconnected" | "error";
 	message?: string;
@@ -146,6 +151,10 @@ export type MattermostClientRPC = {
 				params: {};
 				response: { success: boolean };
 			};
+			sendMattermostTyping: {
+				params: MattermostTypingRequest;
+				response: { success: boolean };
+			};
 			windowControl: {
 				params: { action: WindowControlAction };
 				response: { success: boolean };
@@ -180,6 +189,11 @@ export type MattermostClientRPC = {
 			mattermostWebSocketPost: { post: unknown };
 			mattermostWebSocketReaction: { reaction: unknown; removed: boolean };
 			mattermostWebSocketStatusChange: { status: unknown };
+			mattermostWebSocketTyping: {
+				channelId: string;
+				parentId?: string;
+				userId: string;
+			};
 			mattermostSsoLoginResult: MattermostSsoLoginResult;
 			channelContextMenuAction: ChannelContextMenuAction;
 			messageContextMenuAction: MessageContextMenuAction;

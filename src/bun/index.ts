@@ -11,6 +11,7 @@ import type {
 	MattermostRpcRequest,
 	MattermostSsoLoginRequest,
 	MattermostSsoProvider,
+	MattermostTypingRequest,
 	MattermostWebSocketConfig,
 	SettingsWindowRPC,
 } from "../shared/electrobunRpc";
@@ -18,20 +19,28 @@ import type {
 type MattermostWebSocketMessage = {
 	event?: string;
 	data?: {
+		channel_id?: string;
+		parent_id?: string;
 		post?: string;
 		reaction?: string;
 		status?: string;
 		server_version?: string;
+		user_id?: string;
 	};
 	status?: string;
 	error?: string;
+	broadcast?: {
+		channel_id?: string;
+	};
 	seq_reply?: number;
 };
 
 let mattermostSocket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let websocketHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let reconnectAttempts = 0;
 let websocketSeq = 1;
+let pendingWebsocketPingSeq: number | null = null;
 let websocketClosedByUser = false;
 let websocketConfig: MattermostWebSocketConfig | null = null;
 let settingsWindow: BrowserWindow | null = null;
@@ -66,6 +75,7 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 				disconnectMattermostWebSocket();
 				return { success: true };
 			},
+			sendMattermostTyping: (request) => sendMattermostTyping(request),
 			windowControl: ({ action }) => {
 				if (action === "close") mainWindow.close();
 				if (action === "minimize") mainWindow.minimize();
@@ -591,11 +601,13 @@ function disconnectMattermostWebSocket() {
 	websocketClosedByUser = true;
 	if (reconnectTimer) clearTimeout(reconnectTimer);
 	reconnectTimer = null;
+	stopMattermostWebSocketHeartbeat();
 	mattermostSocket?.close();
 	mattermostSocket = null;
 }
 
 function openMattermostWebSocket(config: MattermostWebSocketConfig) {
+	stopMattermostWebSocketHeartbeat();
 	sendWebSocketStatus({ status: "connecting" });
 
 	const url = new URL(normalizeServerUrl(config.serverUrl));
@@ -603,25 +615,31 @@ function openMattermostWebSocket(config: MattermostWebSocketConfig) {
 	url.pathname = "/api/v4/websocket";
 	url.search = "";
 
-	mattermostSocket = new WebSocket(url.toString());
+	const socket = new WebSocket(url.toString());
+	mattermostSocket = socket;
 
-	mattermostSocket.addEventListener("open", () => {
+	socket.addEventListener("open", () => {
+		if (mattermostSocket !== socket) return;
 		reconnectAttempts = 0;
-		mattermostSocket?.send(
+		socket.send(
 			JSON.stringify({
 				seq: websocketSeq++,
 				action: "authentication_challenge",
 				data: { token: config.token },
 			}),
 		);
+		startMattermostWebSocketHeartbeat(socket);
 	});
 
-	mattermostSocket.addEventListener("message", (event) => {
+	socket.addEventListener("message", (event) => {
+		if (mattermostSocket !== socket) return;
 		handleMattermostWebSocketMessage(event.data);
 	});
 
-	mattermostSocket.addEventListener("close", (event) => {
+	socket.addEventListener("close", (event) => {
+		if (mattermostSocket !== socket) return;
 		mattermostSocket = null;
+		stopMattermostWebSocketHeartbeat();
 		sendWebSocketStatus({
 			status: "disconnected",
 			message: event.reason || `WebSocket closed with code ${event.code}.`,
@@ -629,7 +647,8 @@ function openMattermostWebSocket(config: MattermostWebSocketConfig) {
 		scheduleMattermostReconnect();
 	});
 
-	mattermostSocket.addEventListener("error", () => {
+	socket.addEventListener("error", () => {
+		if (mattermostSocket !== socket) return;
 		sendWebSocketStatus({
 			status: "error",
 			message: "Mattermost WebSocket failed from the Bun process.",
@@ -645,6 +664,10 @@ function handleMattermostWebSocketMessage(raw: unknown) {
 		message = JSON.parse(raw) as MattermostWebSocketMessage;
 	} catch {
 		return;
+	}
+
+	if (message.seq_reply && message.seq_reply === pendingWebsocketPingSeq) {
+		pendingWebsocketPingSeq = null;
 	}
 
 	if (message.status === "OK" && message.seq_reply) {
@@ -663,6 +686,15 @@ function handleMattermostWebSocketMessage(raw: unknown) {
 	if (message.event === "hello") {
 		sendWebSocketStatus({ status: "connected" });
 		return;
+	}
+
+	const typingChannelId = message.data?.channel_id ?? message.broadcast?.channel_id;
+	if ((message.event === "user_typing" || message.event === "typing") && typingChannelId && message.data?.user_id) {
+		(mainWindow.webview.rpc as any)?.send?.mattermostWebSocketTyping({
+			channelId: typingChannelId,
+			parentId: message.data.parent_id || undefined,
+			userId: message.data.user_id,
+		});
 	}
 
 	if (message.event === "posted" && message.data?.post) {
@@ -724,6 +756,72 @@ function handleMattermostWebSocketMessage(raw: unknown) {
 			// Don't send error to UI, just log it - status updates are non-critical
 		}
 	}
+}
+
+function sendMattermostTyping(request: MattermostTypingRequest) {
+	if (!mattermostSocket || mattermostSocket.readyState !== WebSocket.OPEN) {
+		return { success: false };
+	}
+
+	mattermostSocket.send(
+		JSON.stringify({
+			seq: websocketSeq++,
+			action: "user_typing",
+			data: {
+				channel_id: request.channelId,
+				parent_id: request.parentId ?? "",
+			},
+		}),
+	);
+	return { success: true };
+}
+
+function startMattermostWebSocketHeartbeat(socket: WebSocket) {
+	stopMattermostWebSocketHeartbeat();
+	sendMattermostWebSocketPing(socket);
+	websocketHeartbeatTimer = setInterval(() => {
+		if (mattermostSocket !== socket) return;
+
+		if (pendingWebsocketPingSeq !== null) {
+			reconnectStalledMattermostWebSocket(socket);
+			return;
+		}
+
+		sendMattermostWebSocketPing(socket);
+	}, 30000);
+}
+
+function stopMattermostWebSocketHeartbeat() {
+	if (websocketHeartbeatTimer) clearInterval(websocketHeartbeatTimer);
+	websocketHeartbeatTimer = null;
+	pendingWebsocketPingSeq = null;
+}
+
+function sendMattermostWebSocketPing(socket: WebSocket) {
+	if (socket.readyState !== WebSocket.OPEN) return;
+	const seq = websocketSeq++;
+	pendingWebsocketPingSeq = seq;
+	socket.send(JSON.stringify({ seq, action: "ping" }));
+}
+
+function reconnectStalledMattermostWebSocket(socket: WebSocket) {
+	if (mattermostSocket !== socket) return;
+
+	mattermostSocket = null;
+	stopMattermostWebSocketHeartbeat();
+	try {
+		socket.close();
+	} catch (error) {
+		console.error("Failed to close stalled Mattermost WebSocket:", {
+			error: error instanceof Error ? error.message : String(error),
+		});
+	}
+
+	sendWebSocketStatus({
+		status: "disconnected",
+		message: "Mattermost WebSocket ping timed out.",
+	});
+	scheduleMattermostReconnect();
 }
 
 function scheduleMattermostReconnect() {

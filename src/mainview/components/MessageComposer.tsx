@@ -64,6 +64,7 @@ import { MarkdownMessage } from "./MarkdownMessage";
 import "./MessageComposer.css";
 
 const TOOLBAR_ICON_SIZE = 14;
+const TYPING_UPDATE_INTERVAL_MS = 4000;
 
 function composerToolbarIcon(name: string) {
 	const iconProps = {
@@ -128,6 +129,7 @@ type MessageComposerProps = {
 	onCancelReply: () => void;
 	onEdit: (post: MattermostPost, message: string) => Promise<void>;
 	onSend: (message: string, rootId?: string, files?: File[]) => Promise<void>;
+	onTyping: (rootId?: string) => Promise<void>;
 };
 
 export const MessageComposer = forwardRef<
@@ -145,6 +147,7 @@ export const MessageComposer = forwardRef<
 		onCancelReply,
 		onEdit,
 		onSend,
+		onTyping,
 	},
 	ref,
 ) {
@@ -152,6 +155,7 @@ export const MessageComposer = forwardRef<
 	const [files, setFiles] = useState<File[]>([]);
 	const editorRef = useRef<MDXEditorMethods>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const lastTypingUpdateRef = useRef(0);
 	const canSend = !disabled && (message.trim().length > 0 || files.length > 0);
 	const plugins = useMemo(
 		() => [
@@ -220,16 +224,29 @@ export const MessageComposer = forwardRef<
 		if (!trimmed && files.length === 0) return;
 		if (editTarget) {
 			void onEdit(editTarget, trimmed);
+			lastTypingUpdateRef.current = 0;
 			setMessage("");
 			editorRef.current?.setMarkdown("");
 			return;
 		}
 		const rootId = replyTarget?.root_id || replyTarget?.id;
 		const filesToSend = files;
+		lastTypingUpdateRef.current = 0;
 		setMessage("");
 		setFiles([]);
 		editorRef.current?.setMarkdown("");
 		void onSend(trimmed, rootId, filesToSend);
+	}
+
+	function handleMessageChange(nextMessage: string) {
+		setMessage(nextMessage);
+		if (disabled || editTarget || nextMessage.trim().length === 0) return;
+
+		const now = Date.now();
+		if (now - lastTypingUpdateRef.current < TYPING_UPDATE_INTERVAL_MS) return;
+
+		lastTypingUpdateRef.current = now;
+		void onTyping(replyTarget?.root_id || replyTarget?.id);
 	}
 
 	function handleComposerKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -298,7 +315,7 @@ export const MessageComposer = forwardRef<
 					plugins={plugins}
 					ref={editorRef}
 					readOnly={disabled}
-					onChange={setMessage}
+					onChange={handleMessageChange}
 				/>
 				{editTarget ? (
 					<div className="composer-reply-target edit">

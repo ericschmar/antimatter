@@ -42,7 +42,7 @@
 	--danger-bg: var(--red-3);
 	--danger-border: var(--red-7);
 	--danger-text: var(--red-11);
-	background: var(--app-bg);
+	background: transparent;
 	color: var(--text-primary);
 }
 
@@ -116,7 +116,7 @@ textarea:disabled {
 	height: 100dvh;
 	max-height: 100dvh;
 	overflow: hidden;
-	background: transparent;
+	background: var(--app-bg);
 	border: 1px solid var(--border-subtle);
 	border-radius: 12px;
 }

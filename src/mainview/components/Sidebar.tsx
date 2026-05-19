@@ -472,6 +472,7 @@ function SortableChannelRow({
 	};
 	const icon =
 		channelEmoji || (channel.type === "D" || channel.type === "G" ? null : "#");
+	const showUnreadDot = notification?.unread && icon === "#";
 	const otherUserId = channel.type === "D" ? channel.name.split("__").find((id) => id !== currentUserId) : null;
 	const otherUser = otherUserId ? users[otherUserId] : undefined;
 	const status = otherUserId ? userStatuses[otherUserId]?.status : undefined;
@@ -508,7 +509,12 @@ function SortableChannelRow({
 				onClick={() => void onSelectChannel(channel)}
 			>
 				{icon ? (
-					<span className="channel-emoji">{icon}</span>
+					<span
+						aria-hidden={showUnreadDot ? "true" : undefined}
+						className={showUnreadDot ? "channel-unread-dot" : "channel-emoji"}
+					>
+						{showUnreadDot ? null : icon}
+					</span>
 				) : otherUserId ? (
 					<span className="dm-avatar-shell">
 						<span className="dm-avatar">

@@ -59,6 +59,7 @@ export function ChatShell({
 	sidebarWidth,
 	status,
 	teams,
+	typingUserIds,
 	userColors,
 	userImages,
 	users,
@@ -78,6 +79,7 @@ export function ChatShell({
 	onSelectPost,
 	onSelectTeam,
 	onSendMessage,
+	onSendTyping,
 	onSetAddUserOpen,
 	onSetChannelEmoji,
 	onSetCommandOpen,
@@ -96,6 +98,9 @@ export function ChatShell({
 }: ChatShellProps) {
 	const selectedChannelUsers = channelMembers
 		.map((member) => users[member.user_id])
+		.filter((user): user is MattermostUser => Boolean(user));
+	const typingUsers = typingUserIds
+		.map((userId) => users[userId])
 		.filter((user): user is MattermostUser => Boolean(user));
 
 	function resizeSidebar(_: SyntheticEvent, data: ResizeCallbackData) {
@@ -231,6 +236,7 @@ export function ChatShell({
 								loadingHistory={loadingHistory}
 								posts={posts}
 								resolveImageSrc={resolveImageSrc}
+								typingUsers={typingUsers}
 								userColors={userColors}
 								userImages={userImages}
 								userStatuses={userStatuses}
@@ -252,6 +258,7 @@ export function ChatShell({
 								onCancelReply={onCancelReply}
 								onEdit={onEditMessage}
 								onSend={onSendMessage}
+								onTyping={onSendTyping}
 							/>
 						</section>
 					</main>
@@ -342,6 +349,7 @@ type ChatShellProps = {
 	sidebarWidth: number;
 	status: "idle" | "loading" | "ready" | "error";
 	teams: MattermostTeam[];
+	typingUserIds: string[];
 	userColors: Record<string, string>;
 	userImages: Record<string, string>;
 	users: Record<string, MattermostUser>;
@@ -361,6 +369,7 @@ type ChatShellProps = {
 	onSelectPost: (post: MattermostPost) => Promise<void>;
 	onSelectTeam: (team: MattermostTeam) => Promise<void>;
 	onSendMessage: (message: string, rootId?: string, files?: File[]) => Promise<void>;
+	onSendTyping: (rootId?: string) => Promise<void>;
 	onSetAddUserOpen: (open: boolean) => void;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
 	onSetCommandOpen: (open: boolean) => void;

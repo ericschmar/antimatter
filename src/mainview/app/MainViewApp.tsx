@@ -1,13 +1,10 @@
 import "react-resizable/css/styles.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import { AuthScreen } from "../components/AuthScreen";
 import type { MessageComposerHandle } from "../components/MessageComposer";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
-import {
-	clearConfig,
-	loadConfig,
-	saveConfig,
-} from "../storage";
+import { clearConfig, loadConfig, saveConfig } from "../storage";
 import type { MattermostSsoProvider } from "../../shared/electrobunRpc";
 import type {
 	ChannelNotificationState,
@@ -21,13 +18,10 @@ import type {
 	MattermostTeam,
 	MattermostUser,
 	NormalizedState,
+	TypingUsersByChannel,
 	WebSocketStatus,
 } from "../types";
-import {
-	channelLabel,
-	isDirectChannel,
-	isTeamChannel,
-} from "../utils/format";
+import { channelLabel, isDirectChannel, isTeamChannel } from "../utils/format";
 import { normalizeEmojiName } from "../utils/emoji";
 import {
 	addPost,
@@ -63,7 +57,67 @@ const emptyState: NormalizedState = {
 	postOrder: [],
 };
 
+type ChannelHistoryData = {
+	memberUsers: MattermostUser[];
+	members: MattermostChannelMember[];
+	postOrder: string[];
+	posts: Record<string, MattermostPost>;
+	postUsers: MattermostUser[];
+};
+
+function channelHistoryKey(
+	serverUrl: string | undefined,
+	channelId: string | null,
+) {
+	return serverUrl && channelId
+		? ["channel-history", serverUrl, channelId]
+		: null;
+}
+
+async function loadChannelHistory(
+	api: MattermostApiClient,
+	channelId: string,
+	currentUserId?: string,
+): Promise<ChannelHistoryData> {
+	const postList = await api.getPostsForChannel(channelId);
+	const posts = postList.posts;
+	const postOrder = [...postList.order].reverse();
+	const postUsers = await getPostUsers(
+		api,
+		Object.values(posts),
+		currentUserId,
+	);
+	const members = await getChannelMembers(api, channelId);
+	const memberUsers = await getUsersForIds(
+		api,
+		members.map((member) => member.user_id),
+		currentUserId,
+	);
+
+	return { memberUsers, members, postOrder, posts, postUsers };
+}
+
+function pruneExpiredTypingUsers(
+	current: TypingUsersByChannel,
+	now: number,
+): TypingUsersByChannel {
+	let changed = false;
+	const next: TypingUsersByChannel = {};
+
+	for (const [channelId, users] of Object.entries(current)) {
+		const activeUsers = Object.fromEntries(
+			Object.entries(users).filter(([, value]) => value.expiresAt > now),
+		);
+		if (Object.keys(activeUsers).length > 0) next[channelId] = activeUsers;
+		if (Object.keys(activeUsers).length !== Object.keys(users).length)
+			changed = true;
+	}
+
+	return changed ? next : current;
+}
+
 export function MainViewApp() {
+	const { cache: swrCache, mutate: mutateSWR } = useSWRConfig();
 	const [config, setConfig] = useState<MattermostConfig | null>(() =>
 		loadConfig(),
 	);
@@ -106,12 +160,15 @@ export function MainViewApp() {
 	} = useUserPresence({ api, users: state.users });
 	const [channelNotifications, setChannelNotifications] =
 		useState<ChannelNotificationState>({});
+	const [typingUsers, setTypingUsers] = useState<TypingUsersByChannel>({});
 	const selectedChannelRef = useRef<string | null>(null);
 	const autoConnectAttemptedRef = useRef(false);
 	const composerRef = useRef<MessageComposerHandle>(null);
 	const [replyTarget, setReplyTarget] = useState<MattermostPost | null>(null);
 	const [editTarget, setEditTarget] = useState<MattermostPost | null>(null);
-	const [channelMembers, setChannelMembers] = useState<MattermostChannelMember[]>([]);
+	const [channelMembers, setChannelMembers] = useState<
+		MattermostChannelMember[]
+	>([]);
 	const [commandOpen, setCommandOpen] = useState(false);
 	const [createChannelOpen, setCreateChannelOpen] = useState(false);
 	const [createDmOpen, setCreateDmOpen] = useState(false);
@@ -126,10 +183,48 @@ export function MainViewApp() {
 	}, [selectedChannelId]);
 
 	useEffect(() => {
+		const timer = window.setInterval(() => {
+			const now = Date.now();
+			setTypingUsers((current) => pruneExpiredTypingUsers(current, now));
+		}, 1000);
+		return () => window.clearInterval(timer);
+	}, []);
+
+	useEffect(() => {
 		if (!selectedChannelId || status !== "ready") return;
 		const frame = requestAnimationFrame(() => composerRef.current?.focus());
 		return () => cancelAnimationFrame(frame);
 	}, [selectedChannelId, status]);
+
+	const selectedChannelHistoryKey = channelHistoryKey(
+		config?.serverUrl,
+		selectedChannelId,
+	);
+	const {
+		data: selectedChannelHistory,
+		error: selectedChannelHistoryError,
+		isLoading: selectedChannelHistoryLoading,
+	} = useSWR(
+		api ? selectedChannelHistoryKey : null,
+		([, , channelId]: [string, string, string]) =>
+			loadChannelHistory(api!, channelId, currentUser?.id),
+		{
+			revalidateOnFocus: false,
+		},
+	);
+
+	const mutateSelectedChannelHistory = useCallback(
+		(
+			updater: (
+				current: ChannelHistoryData | undefined,
+			) => ChannelHistoryData | undefined,
+		) => {
+			const key = channelHistoryKey(config?.serverUrl, selectedChannelId);
+			if (!key) return;
+			void mutateSWR(key, updater, { revalidate: false });
+		},
+		[config?.serverUrl, mutateSWR, selectedChannelId],
+	);
 
 	const loadPostReactions = useCallback(
 		async (nextApi: MattermostApiClient, posts: MattermostPost[]) => {
@@ -149,6 +244,42 @@ export function MainViewApp() {
 		[],
 	);
 
+	useEffect(() => {
+		if (!api || !selectedChannelId || !selectedChannelHistory) return;
+		setState((current) => ({
+			...current,
+			users: {
+				...current.users,
+				...Object.fromEntries(
+					selectedChannelHistory.postUsers.map((user) => [user.id, user]),
+				),
+				...Object.fromEntries(
+					selectedChannelHistory.memberUsers.map((user) => [user.id, user]),
+				),
+			},
+			posts: selectedChannelHistory.posts,
+			postOrder: selectedChannelHistory.postOrder,
+		}));
+		setChannelMembers(selectedChannelHistory.members);
+		setStatus("ready");
+		void loadPostReactions(api, Object.values(selectedChannelHistory.posts));
+	}, [api, loadPostReactions, selectedChannelHistory, selectedChannelId]);
+
+	useEffect(() => {
+		if (!selectedChannelHistoryError) return;
+		if (!selectedChannelHistory) setStatus("error");
+		setError(
+			selectedChannelHistoryError instanceof Error
+				? selectedChannelHistoryError.message
+				: "Could not load channel.",
+		);
+	}, [selectedChannelHistory, selectedChannelHistoryError]);
+
+	useEffect(() => {
+		if (selectedChannelHistoryLoading && !selectedChannelHistory)
+			setStatus("loading");
+	}, [selectedChannelHistory, selectedChannelHistoryLoading]);
+
 	const connect = useCallback(
 		async (nextConfig: MattermostConfig) => {
 			setStatus("loading");
@@ -160,8 +291,9 @@ export function MainViewApp() {
 				...nextConfig,
 				serverUrl: normalizeServerUrl(nextConfig.serverUrl),
 			};
-			const nextApi = new MattermostApiClient(normalizedConfig, (request) =>
-				electrobun.rpc!.request.mattermostRequest(request),
+			const nextApi = new MattermostApiClient(
+				normalizedConfig,
+				(request) => electrobun.rpc!.request.mattermostRequest(request),
 				(request) => electrobun.rpc!.request.uploadMattermostFiles(request),
 			);
 
@@ -196,19 +328,20 @@ export function MainViewApp() {
 					user.id,
 				);
 				if (selectedChannel) {
-					const postList = await nextApi.getPostsForChannel(selectedChannel.id);
-					posts = postList.posts;
-					postOrder = [...postList.order].reverse();
-					postUsers = await getPostUsers(
+					const history = await loadChannelHistory(
 						nextApi,
-						Object.values(posts),
+						selectedChannel.id,
 						user.id,
 					);
-					members = await getChannelMembers(nextApi, selectedChannel.id);
-					memberUsers = await getUsersForIds(
-						nextApi,
-						members.map((member) => member.user_id),
-						user.id,
+					posts = history.posts;
+					postOrder = history.postOrder;
+					postUsers = history.postUsers;
+					members = history.members;
+					memberUsers = history.memberUsers;
+					void mutateSWR(
+						channelHistoryKey(normalizedConfig.serverUrl, selectedChannel.id),
+						history,
+						{ revalidate: false },
 					);
 				}
 
@@ -261,7 +394,7 @@ export function MainViewApp() {
 				);
 			}
 		},
-		[loadPostReactions],
+		[loadPostReactions, mutateSWR],
 	);
 
 	const passwordLogin = useCallback(
@@ -276,7 +409,9 @@ export function MainViewApp() {
 				});
 				if (!response.ok || !response.token) {
 					throw new Error(
-						response.body && typeof response.body === "object" && "message" in response.body
+						response.body &&
+							typeof response.body === "object" &&
+							"message" in response.body
 							? String((response.body as { message?: unknown }).message)
 							: `Login failed with ${response.status}.`,
 					);
@@ -391,20 +526,16 @@ export function MainViewApp() {
 				currentUser.id,
 			);
 			const firstChannel = preferredFirstChannel(channelsForTeam);
-			const postList = firstChannel
-				? await api.getPostsForChannel(firstChannel.id)
-				: { posts: {}, order: [] };
-			const postUsers = await getPostUsers(
-				api,
-				Object.values(postList.posts),
-				currentUser.id,
-			);
-			const members = firstChannel ? await getChannelMembers(api, firstChannel.id) : [];
-			const memberUsers = await getUsersForIds(
-				api,
-				members.map((member) => member.user_id),
-				currentUser.id,
-			);
+			const history = firstChannel
+				? await loadChannelHistory(api, firstChannel.id, currentUser.id)
+				: {
+						memberUsers: [],
+						members: [],
+						postOrder: [],
+						posts: {},
+						postUsers: [],
+					};
+			const { memberUsers, members, postOrder, posts, postUsers } = history;
 			const nextConfig = {
 				...config,
 				lastTeamId: team.id,
@@ -412,6 +543,15 @@ export function MainViewApp() {
 			};
 			saveConfig(nextConfig);
 			setConfig(nextConfig);
+			if (firstChannel) {
+				void mutateSWR(
+					channelHistoryKey(config.serverUrl, firstChannel.id),
+					history,
+					{
+						revalidate: false,
+					},
+				);
+			}
 			setSelectedTeamId(team.id);
 			setSelectedChannelId(firstChannel?.id ?? null);
 			setState((current) => ({
@@ -432,12 +572,12 @@ export function MainViewApp() {
 					...Object.fromEntries(postUsers.map((user) => [user.id, user])),
 					...Object.fromEntries(memberUsers.map((user) => [user.id, user])),
 				},
-				posts: postList.posts,
-				postOrder: [...postList.order].reverse(),
+				posts,
+				postOrder,
 			}));
 			setChannelMembers(members);
 			setStatus("ready");
-			void loadPostReactions(api, Object.values(postList.posts));
+			void loadPostReactions(api, Object.values(posts));
 		} catch (err) {
 			setStatus("error");
 			setError(err instanceof Error ? err.message : "Could not load team.");
@@ -446,50 +586,47 @@ export function MainViewApp() {
 
 	async function selectChannel(channel: MattermostChannel) {
 		if (!api || !config) return;
-		setStatus("loading");
-		try {
-			const postList = await api.getPostsForChannel(channel.id);
-			const postUsers = await getPostUsers(
-				api,
-				Object.values(postList.posts),
-				currentUser?.id,
-			);
-			const members = await getChannelMembers(api, channel.id);
-			const memberUsers = await getUsersForIds(
-				api,
-				members.map((member) => member.user_id),
-				currentUser?.id,
-			);
-			const nextConfig = { ...config, lastChannelId: channel.id };
-			saveConfig(nextConfig);
-			setConfig(nextConfig);
-			setSelectedChannelId(channel.id);
-			setChannelNotifications((current) => {
-				const next = { ...current };
-				delete next[channel.id];
-				return next;
-			});
-			setState((current) => ({
-				...current,
-				channels: {
-					...current.channels,
-					[channel.id]: channel,
-				},
-				users: {
-					...current.users,
-					...Object.fromEntries(postUsers.map((user) => [user.id, user])),
-					...Object.fromEntries(memberUsers.map((user) => [user.id, user])),
-				},
-				posts: postList.posts,
-				postOrder: [...postList.order].reverse(),
-			}));
-			setChannelMembers(members);
-			setStatus("ready");
-			void loadPostReactions(api, Object.values(postList.posts));
-		} catch (err) {
-			setStatus("error");
-			setError(err instanceof Error ? err.message : "Could not load channel.");
-		}
+
+		const key = channelHistoryKey(config.serverUrl, channel.id);
+		const cachedHistory = key
+			? (
+					swrCache.get(unstable_serialize(key)) as
+						| { data?: ChannelHistoryData }
+						| undefined
+				)?.data
+			: undefined;
+		const nextConfig = { ...config, lastChannelId: channel.id };
+		saveConfig(nextConfig);
+		setConfig(nextConfig);
+		selectedChannelRef.current = channel.id;
+		setSelectedChannelId(channel.id);
+		setChannelNotifications((current) => {
+			const next = { ...current };
+			delete next[channel.id];
+			return next;
+		});
+		setState((current) => ({
+			...current,
+			channels: {
+				...current.channels,
+				[channel.id]: channel,
+			},
+			users: cachedHistory
+				? {
+						...current.users,
+						...Object.fromEntries(
+							cachedHistory.postUsers.map((user) => [user.id, user]),
+						),
+						...Object.fromEntries(
+							cachedHistory.memberUsers.map((user) => [user.id, user]),
+						),
+					}
+				: current.users,
+			posts: cachedHistory?.posts ?? {},
+			postOrder: cachedHistory?.postOrder ?? [],
+		}));
+		setChannelMembers(cachedHistory?.members ?? []);
+		setStatus(cachedHistory ? "ready" : "loading");
 	}
 
 	async function selectSearchPost(post: MattermostPost) {
@@ -497,7 +634,8 @@ export function MainViewApp() {
 		setStatus("loading");
 		try {
 			const channel =
-				state.channels[post.channel_id] ?? await api.getChannel(post.channel_id);
+				state.channels[post.channel_id] ??
+				(await api.getChannel(post.channel_id));
 			const postList = await api.getPostThread(post.id).catch(() => ({
 				order: [post.id],
 				posts: { [post.id]: post },
@@ -541,11 +679,17 @@ export function MainViewApp() {
 			void loadPostReactions(api, Object.values(postList.posts));
 		} catch (err) {
 			setStatus("error");
-			setError(err instanceof Error ? err.message : "Could not load search result.");
+			setError(
+				err instanceof Error ? err.message : "Could not load search result.",
+			);
 		}
 	}
 
-	async function sendMessage(message: string, rootId?: string, files: File[] = []) {
+	async function sendMessage(
+		message: string,
+		rootId?: string,
+		files: File[] = [],
+	) {
 		if (!api || !currentUser || !selectedChannelId) return;
 		const clientId = crypto.randomUUID();
 		const pendingFiles: MattermostFileInfo[] = files.map((file, index) => ({
@@ -569,6 +713,17 @@ export function MainViewApp() {
 			pending: true,
 		};
 		setReplyTarget(null);
+		mutateSelectedChannelHistory((current) =>
+			current
+				? {
+						...current,
+						posts: { ...current.posts, [pendingPost.id]: pendingPost },
+						postOrder: current.postOrder.includes(pendingPost.id)
+							? current.postOrder
+							: [...current.postOrder, pendingPost.id],
+					}
+				: current,
+		);
 		setState((current) =>
 			updateChannelLastPostAt(
 				addPost(current, pendingPost),
@@ -589,8 +744,42 @@ export function MainViewApp() {
 					: [];
 			const created =
 				fileIds.length > 0
-					? await api.createPostWithFiles(selectedChannelId, message, fileIds, rootId)
+					? await api.createPostWithFiles(
+							selectedChannelId,
+							message,
+							fileIds,
+							rootId,
+						)
 					: await api.createPost(selectedChannelId, message, rootId);
+			mutateSelectedChannelHistory((current) =>
+				current
+					? {
+							...current,
+							posts: replacePost(
+								{
+									channels: {},
+									posts: current.posts,
+									postOrder: current.postOrder,
+									teams: {},
+									users: {},
+								},
+								clientId,
+								created,
+							).posts,
+							postOrder: replacePost(
+								{
+									channels: {},
+									posts: current.posts,
+									postOrder: current.postOrder,
+									teams: {},
+									users: {},
+								},
+								clientId,
+								created,
+							).postOrder,
+						}
+					: current,
+			);
 			setState((current) =>
 				updateChannelLastPostAt(
 					replacePost(current, clientId, created),
@@ -599,15 +788,32 @@ export function MainViewApp() {
 				),
 			);
 		} catch {
+			const failedPost = { ...pendingPost, pending: false, failed: true };
+			mutateSelectedChannelHistory((current) =>
+				current
+					? {
+							...current,
+							posts: { ...current.posts, [clientId]: failedPost },
+						}
+					: current,
+			);
 			setState((current) => ({
 				...current,
 				posts: {
 					...current.posts,
-					[clientId]: { ...pendingPost, pending: false, failed: true },
+					[clientId]: failedPost,
 				},
 			}));
 		}
 		requestAnimationFrame(() => composerRef.current?.focus());
+	}
+
+	async function sendTyping(rootId?: string) {
+		if (!selectedChannelId || editTarget) return;
+		await electrobun.rpc!.request.sendMattermostTyping({
+			channelId: selectedChannelId,
+			parentId: rootId,
+		});
 	}
 
 	async function editMessage(post: MattermostPost, message: string) {
@@ -651,21 +857,53 @@ export function MainViewApp() {
 	}
 
 	async function loadMoreMessages() {
-		if (!api || !selectedChannelId || loadingHistory || state.postOrder.length === 0) return;
-		
+		if (
+			!api ||
+			!selectedChannelId ||
+			loadingHistory ||
+			state.postOrder.length === 0
+		)
+			return;
+
 		setLoadingHistory(true);
 		try {
 			// Get the oldest post ID from the current postOrder (first item since it's reversed)
 			const oldestPostId = state.postOrder[0];
 			if (!oldestPostId) return;
-			
-			const postList = await api.getPostsForChannelBefore(selectedChannelId, oldestPostId);
+
+			const postList = await api.getPostsForChannelBefore(
+				selectedChannelId,
+				oldestPostId,
+			);
 			const postUsers = await getPostUsers(
 				api,
 				Object.values(postList.posts),
 				currentUser?.id,
 			);
-			
+
+			const olderPostOrder = [...postList.order].reverse();
+			mutateSelectedChannelHistory((current) =>
+				current
+					? {
+							...current,
+							postUsers: [
+								...current.postUsers,
+								...postUsers.filter(
+									(user) =>
+										!current.postUsers.some(
+											(currentUser) => currentUser.id === user.id,
+										),
+								),
+							],
+							posts: {
+								...current.posts,
+								...postList.posts,
+							},
+							postOrder: olderPostOrder.concat(current.postOrder),
+						}
+					: current,
+			);
+
 			setState((current) => ({
 				...current,
 				users: {
@@ -676,12 +914,14 @@ export function MainViewApp() {
 					...current.posts,
 					...postList.posts,
 				},
-				postOrder: [...postList.order.reverse(), ...current.postOrder],
+				postOrder: olderPostOrder.concat(current.postOrder),
 			}));
-			
+
 			void loadPostReactions(api, Object.values(postList.posts));
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Could not load more messages.");
+			setError(
+				err instanceof Error ? err.message : "Could not load more messages.",
+			);
 		} finally {
 			setLoadingHistory(false);
 		}
@@ -730,9 +970,18 @@ export function MainViewApp() {
 		void electrobun.rpc!.request.openSettingsWindow({ settings: nextSettings });
 	}
 
-	async function createChannel(displayName: string, name: string, type: "O" | "P") {
+	async function createChannel(
+		displayName: string,
+		name: string,
+		type: "O" | "P",
+	) {
 		if (!api || !selectedTeamId) return;
-		const created = await api.createChannel(selectedTeamId, displayName, name, type);
+		const created = await api.createChannel(
+			selectedTeamId,
+			displayName,
+			name,
+			type,
+		);
 		setState((current) => ({
 			...current,
 			channels: { ...current.channels, [created.id]: created },
@@ -751,7 +1000,10 @@ export function MainViewApp() {
 		const users = await getUsersForIds(api, uniqueIds, currentUser.id);
 		setState((current) => ({
 			...current,
-			users: { ...current.users, ...Object.fromEntries(users.map((user) => [user.id, user])) },
+			users: {
+				...current.users,
+				...Object.fromEntries(users.map((user) => [user.id, user])),
+			},
 			channels: { ...current.channels, [created.id]: created },
 		}));
 		setCreateDmOpen(false);
@@ -764,10 +1016,15 @@ export function MainViewApp() {
 		const users = await getUsersForIds(api, [userId], currentUser?.id);
 		setState((current) => ({
 			...current,
-			users: { ...current.users, ...Object.fromEntries(users.map((user) => [user.id, user])) },
+			users: {
+				...current.users,
+				...Object.fromEntries(users.map((user) => [user.id, user])),
+			},
 		}));
 		setChannelMembers((current) =>
-			current.some((item) => item.user_id === member.user_id) ? current : [...current, member],
+			current.some((item) => item.user_id === member.user_id)
+				? current
+				: [...current, member],
 		);
 		setAddUserOpen(false);
 	}
@@ -789,6 +1046,7 @@ export function MainViewApp() {
 		setSettings,
 		setStatus,
 		setState,
+		setTypingUsers,
 		setUserStatuses,
 		setWsStatus,
 	});
@@ -847,6 +1105,7 @@ export function MainViewApp() {
 			sidebarWidth={sidebarWidth}
 			status={status}
 			teams={teams}
+			typingUserIds={selectedChannelId ? Object.keys(typingUsers[selectedChannelId] ?? {}) : []}
 			userColors={userColors}
 			userImages={userImages}
 			users={state.users}
@@ -866,6 +1125,7 @@ export function MainViewApp() {
 			onSelectPost={selectSearchPost}
 			onSelectTeam={selectTeam}
 			onSendMessage={sendMessage}
+			onSendTyping={sendTyping}
 			onSetAddUserOpen={setAddUserOpen}
 			onSetChannelEmoji={setChannelEmoji}
 			onSetCommandOpen={setCommandOpen}

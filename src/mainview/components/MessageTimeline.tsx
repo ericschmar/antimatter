@@ -20,6 +20,7 @@ export function MessageTimeline({
 	loading,
 	loadingHistory,
 	resolveImageSrc,
+	typingUsers,
 	onShowMessageContextMenu,
 	onReply,
 	onToggleReaction,
@@ -34,6 +35,7 @@ export function MessageTimeline({
 	loading: boolean;
 	loadingHistory?: boolean;
 	resolveImageSrc: (src: string) => Promise<string>;
+	typingUsers: MattermostUser[];
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
@@ -110,6 +112,9 @@ export function MessageTimeline({
 				{!loading && posts.length === 0 ? (
 					<div className="timeline-state">No messages in this channel.</div>
 				) : null}
+				{!loading && typingUsers.length > 0 ? (
+					<TypingIndicator users={typingUsers} />
+				) : null}
 				{virtualRows.map((virtualRow) => {
 					const row = timelineRows[virtualRow.index];
 					if (!row) return null;
@@ -149,6 +154,27 @@ export function MessageTimeline({
 			</div>
 		</div>
 	);
+}
+
+function TypingIndicator({ users }: { users: MattermostUser[] }) {
+	return (
+		<div className="typing-indicator" role="status" aria-live="polite">
+			<span className="typing-dots" aria-hidden="true">
+				<span />
+				<span />
+				<span />
+			</span>
+			<span>{typingLabel(users)}</span>
+		</div>
+	);
+}
+
+function typingLabel(users: MattermostUser[]) {
+	if (users.length === 1) return `${userLabel(users[0], users[0].id)} is typing`;
+	if (users.length === 2) {
+		return `${userLabel(users[0], users[0].id)} and ${userLabel(users[1], users[1].id)} are typing`;
+	}
+	return `${userLabel(users[0], users[0].id)} and ${users.length - 1} others are typing`;
 }
 
 function MessageRow({
