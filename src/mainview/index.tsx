@@ -553,6 +553,34 @@ function App() {
 
 		function handlePost(event: Event) {
 			const post = (event as CustomEvent<{ post: MattermostPost }>).detail.post;
+			if (api && currentUser && !state.channels[post.channel_id]) {
+				void api.getChannel(post.channel_id).then(async (channel) => {
+					const channelUsers = await getDirectChannelUsers(
+						api,
+						[channel],
+						currentUser.id,
+					);
+					setState((current) =>
+						updateChannelLastPostAt(
+							{
+								...current,
+								channels: {
+									...current.channels,
+									[channel.id]: channel,
+								},
+								users: {
+									...current.users,
+									...Object.fromEntries(
+										channelUsers.map((user) => [user.id, user]),
+									),
+								},
+							},
+							post.channel_id,
+							post.create_at,
+						),
+					);
+				}).catch(() => undefined);
+			}
 			if (post.channel_id === selectedChannelRef.current) {
 				setState((current) =>
 					updateChannelLastPostAt(
@@ -582,7 +610,7 @@ function App() {
 					...current,
 					[post.channel_id]: {
 						unread: true,
-						mention,
+						mention: current[post.channel_id]?.mention || mention,
 					},
 				}));
 				const channel = state.channels[post.channel_id];

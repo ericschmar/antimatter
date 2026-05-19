@@ -208,8 +208,18 @@ h2 {
 	color: var(--text-primary);
 }
 
+.channel-row.unread .channel-select {
+	color: var(--text-primary);
+	font-weight: 650;
+}
+
 .channel-row.mentioned {
 	box-shadow: inset 3px 0 0 var(--warm-bg);
+}
+
+.channel-row.mentioned .channel-select {
+	color: var(--text-primary);
+	font-weight: 750;
 }
 
 .channel-row.dragging {
