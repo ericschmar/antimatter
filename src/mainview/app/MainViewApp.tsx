@@ -298,6 +298,7 @@ export function MainViewApp() {
 				normalizedConfig,
 				(request) => electrobun.rpc!.request.mattermostRequest(request),
 				(request) => electrobun.rpc!.request.uploadMattermostFiles(request),
+				(request) => electrobun.rpc!.request.openMattermostAttachment(request),
 			);
 
 			try {
@@ -835,6 +836,15 @@ export function MainViewApp() {
 		requestAnimationFrame(() => composerRef.current?.focus());
 	}
 
+	async function openAttachment(file: MattermostFileInfo) {
+		if (!api) return;
+		try {
+			await api.openAttachment(file);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not open attachment.");
+		}
+	}
+
 	async function toggleReaction(post: MattermostPost, emojiName: string) {
 		if (!api || !currentUser || post.pending) return;
 		const normalizedName = normalizeEmojiName(emojiName);
@@ -1111,6 +1121,7 @@ export function MainViewApp() {
 			onEditMessage={editMessage}
 			onLoadMoreMessages={loadMoreMessages}
 			onMoveChannel={moveChannel}
+			onOpenAttachment={openAttachment}
 			onOpenSettings={openSettingsWindow}
 			onSelectChannel={selectChannel}
 			onSelectPost={selectSearchPost}

@@ -1,4 +1,9 @@
+import { access, mkdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type {
+	MattermostAttachmentOpenRequest,
+	MattermostAttachmentOpenResponse,
 	MattermostFileUploadRequest,
 	MattermostLoginRequest,
 	MattermostRpcRequest,
@@ -73,7 +78,7 @@ export async function loginWithMattermostDesktopToken(
 		response.headers.get("Token") ?? response.headers.get("token") ?? undefined;
 	if (!response.ok || !token) {
 		const body = await readBody(response);
-		throw new Error(getMattermostErrorMessage(body, response.status));
+		throw new Error(getMattermostErrorMessage(body, response.status, "Mattermost login failed"));
 	}
 	return token;
 }
@@ -101,6 +106,63 @@ export async function uploadMattermostFiles(request: MattermostFileUploadRequest
 		headers: readHeaders(response),
 		body: await readBody(response),
 	};
+}
+
+export async function openMattermostAttachment(
+	request: MattermostAttachmentOpenRequest,
+	openPath: (path: string) => boolean,
+	tempRoot = join(tmpdir(), "antimatter-attachments"),
+): Promise<MattermostAttachmentOpenResponse> {
+	try {
+		const filePath = await getMattermostAttachmentPath(request, tempRoot);
+		if (!openPath(filePath)) {
+			return {
+				success: false,
+				path: filePath,
+				message: "Could not open attachment with the default application.",
+			};
+		}
+		return { success: true, path: filePath };
+	} catch (error) {
+		return {
+			success: false,
+			message: error instanceof Error ? error.message : "Could not open attachment.",
+		};
+	}
+}
+
+export async function downloadMattermostAttachment(
+	request: MattermostAttachmentOpenRequest,
+	tempRoot = join(tmpdir(), "antimatter-attachments"),
+) {
+	await mkdir(tempRoot, { recursive: true });
+	const url = new URL(
+		`/api/v4/files/${encodeURIComponent(request.fileId)}`,
+		normalizeServerUrl(request.serverUrl),
+	);
+	const response = await fetch(url, {
+		headers: {
+			Authorization: `Bearer ${request.token}`,
+		},
+	});
+
+	if (!response.ok) {
+		const body = await readBody(response);
+		throw new Error(getMattermostErrorMessage(body, response.status, "Attachment download failed"));
+	}
+
+	const filePath = attachmentPath(request, tempRoot);
+	await Bun.write(filePath, new Uint8Array(await response.arrayBuffer()));
+	return filePath;
+}
+
+async function getMattermostAttachmentPath(
+	request: MattermostAttachmentOpenRequest,
+	tempRoot: string,
+) {
+	const filePath = attachmentPath(request, tempRoot);
+	if (await fileExists(filePath)) return filePath;
+	return downloadMattermostAttachment(request, tempRoot);
 }
 
 export function normalizeServerUrl(value: string) {
@@ -137,10 +199,56 @@ function dataUrlToBlob(dataUrl: string, fallbackType: string) {
 	return new Blob([decodeURIComponent(encoded)], { type: contentType });
 }
 
-function getMattermostErrorMessage(body: unknown, status: number) {
+function getMattermostErrorMessage(body: unknown, status: number, fallback = "Request failed") {
 	return body && typeof body === "object" && "message" in body
 		? String((body as { message?: unknown }).message)
-		: `Mattermost login failed with ${status}.`;
+		: `${fallback} with ${status}.`;
+}
+
+function attachmentFileName(request: MattermostAttachmentOpenRequest) {
+	const safeId = sanitizeFileSegment(request.fileId) || "attachment";
+	const safeName = sanitizeFileSegment(request.fileName ?? "") || fallbackFileName(request);
+	return `${safeId}-${safeName}`;
+}
+
+function attachmentPath(request: MattermostAttachmentOpenRequest, tempRoot: string) {
+	return join(tempRoot, attachmentFileName(request));
+}
+
+async function fileExists(path: string) {
+	try {
+		await access(path);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function fallbackFileName(request: MattermostAttachmentOpenRequest) {
+	const extension = extensionForMimeType(request.mimeType);
+	return extension ? `attachment.${extension}` : "attachment";
+}
+
+function extensionForMimeType(mimeType?: string) {
+	if (!mimeType) return "";
+	const normalized = mimeType.toLowerCase().split(";")[0]?.trim();
+	if (normalized === "image/jpeg") return "jpg";
+	if (normalized === "image/png") return "png";
+	if (normalized === "image/gif") return "gif";
+	if (normalized === "image/webp") return "webp";
+	if (normalized === "application/pdf") return "pdf";
+	if (normalized === "text/plain") return "txt";
+	return "";
+}
+
+function sanitizeFileSegment(value: string) {
+	return value
+		.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+		.replace(/\s+/g, " ")
+		.replace(/^\.+|\.+$/g, "")
+		.replace(/^_+|_+$/g, "")
+		.trim()
+		.slice(0, 180);
 }
 
 function readHeaders(response: Response) {

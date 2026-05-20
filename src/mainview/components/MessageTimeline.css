@@ -417,7 +417,12 @@
 	display: block;
 	width: fit-content;
 	max-width: 100%;
+	border: 0;
+	background: transparent;
 	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 0;
 	text-decoration: none;
 }
 
@@ -444,6 +449,8 @@
 	border-radius: 6px;
 	background: var(--slate-1);
 	color: var(--text-secondary);
+	cursor: pointer;
+	font: inherit;
 	padding: 0 10px;
 	font-size: 0.8rem;
 	text-decoration: none;
@@ -459,6 +466,12 @@
 .file-attachment:hover {
 	border-color: var(--border-strong);
 	color: var(--text-primary);
+}
+
+.inline-image-link:disabled,
+.file-attachment:disabled {
+	cursor: default;
+	opacity: 0.72;
 }
 
 .reaction-list {

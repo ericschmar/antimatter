@@ -18,6 +18,7 @@ import type {
 	ChannelSectionKey,
 	MattermostChannel,
 	MattermostChannelMember,
+	MattermostFileInfo,
 	MattermostPost,
 	MattermostTeam,
 	MattermostUser,
@@ -62,6 +63,7 @@ export function ChatShell({
 	onEditMessage,
 	onLoadMoreMessages,
 	onMoveChannel,
+	onOpenAttachment,
 	onOpenSettings,
 	onSelectChannel,
 	onSelectPost,
@@ -233,6 +235,7 @@ export function ChatShell({
 								userImages={userImages}
 								userStatuses={userStatuses}
 								users={users}
+								onOpenAttachment={onOpenAttachment}
 								onShowMessageContextMenu={onShowMessageContextMenu}
 								onReply={onStartReply}
 								onToggleReaction={onToggleReaction}
@@ -344,6 +347,7 @@ type ChatShellProps = {
 	onEditMessage: (post: MattermostPost, message: string) => Promise<void>;
 	onLoadMoreMessages: () => Promise<void>;
 	onMoveChannel: (section: ChannelSectionKey, channelIds: string[]) => void;
+	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onOpenSettings: (settings: AppSettings) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
 	onSelectPost: (post: MattermostPost) => Promise<void>;

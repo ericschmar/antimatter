@@ -218,6 +218,42 @@ describe("MattermostApiClient", () => {
 		);
 	});
 
+	test("opens Mattermost attachments through the desktop transport", async () => {
+		const openTransport = mock(() =>
+			Promise.resolve({
+				path: "/tmp/report.pdf",
+				success: true,
+			}),
+		);
+		const client = new MattermostApiClient(
+			{
+				serverUrl: "https://mattermost.example.com",
+				token: "secret-token",
+			},
+			undefined,
+			undefined,
+			openTransport,
+		);
+
+		await expect(
+			client.openAttachment({
+				id: "file-id",
+				mime_type: "application/pdf",
+				name: "report.pdf",
+			}),
+		).resolves.toEqual({
+			path: "/tmp/report.pdf",
+			success: true,
+		});
+		expect(openTransport).toHaveBeenCalledWith({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+			fileId: "file-id",
+			fileName: "report.pdf",
+			mimeType: "application/pdf",
+		});
+	});
+
 	test("removes reactions through the Mattermost reaction endpoint", async () => {
 		const fetchMock = mock(() => Promise.resolve(new Response(null, { status: 200 })));
 		globalThis.fetch = fetchMock as unknown as typeof fetch;

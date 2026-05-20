@@ -12,6 +12,7 @@ import {
 	mattermostLogin,
 	mattermostRequest,
 	normalizeServerUrl,
+	openMattermostAttachment,
 	uploadMattermostFiles,
 } from "./mattermostHttp";
 import {
@@ -62,6 +63,8 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 			mattermostLogin: async (request) => mattermostLogin(request),
 			startMattermostSsoLogin: async (request) => startMattermostSsoLogin(request),
 			uploadMattermostFiles: async (request) => uploadMattermostFiles(request),
+			openMattermostAttachment: async (request) =>
+				openMattermostAttachment(request, (path) => Utils.openPath(path)),
 			connectMattermostWebSocket: (config) => {
 				connectMattermostWebSocket(config);
 				return { success: true };

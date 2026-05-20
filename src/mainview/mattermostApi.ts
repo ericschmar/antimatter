@@ -13,6 +13,8 @@ import type {
 	PostSearchResponse,
 } from "./types";
 import type {
+	MattermostAttachmentOpenRequest,
+	MattermostAttachmentOpenResponse,
 	MattermostFileUploadItem,
 	MattermostRpcRequest,
 	MattermostRpcResponse,
@@ -31,6 +33,9 @@ type MattermostUploadTransport = (request: {
 	channelId: string;
 	files: MattermostFileUploadItem[];
 }) => Promise<MattermostRpcResponse>;
+type MattermostAttachmentOpenTransport = (
+	request: MattermostAttachmentOpenRequest,
+) => Promise<MattermostAttachmentOpenResponse>;
 
 type MattermostResponse<T> = {
 	body: T;
@@ -65,16 +70,19 @@ export class MattermostApiClient {
 	private readonly token: string;
 	private readonly transport?: MattermostTransport;
 	private readonly uploadTransport?: MattermostUploadTransport;
+	private readonly attachmentOpenTransport?: MattermostAttachmentOpenTransport;
 
 	constructor(
 		config: MattermostConfig,
 		transport?: MattermostTransport,
 		uploadTransport?: MattermostUploadTransport,
+		attachmentOpenTransport?: MattermostAttachmentOpenTransport,
 	) {
 		this.serverUrl = normalizeServerUrl(config.serverUrl);
 		this.token = config.token;
 		this.transport = transport;
 		this.uploadTransport = uploadTransport;
+		this.attachmentOpenTransport = attachmentOpenTransport;
 	}
 
 	getBaseUrl() {
@@ -328,6 +336,23 @@ export class MattermostApiClient {
 			});
 		}
 		throw new MattermostApiError(0, "File upload requires the desktop transport.");
+	}
+
+	async openAttachment(file: MattermostFileInfo) {
+		if (!this.attachmentOpenTransport) {
+			throw new MattermostApiError(0, "Opening attachments requires the desktop transport.");
+		}
+		const response = await this.attachmentOpenTransport({
+			serverUrl: this.serverUrl,
+			token: this.token,
+			fileId: file.id,
+			fileName: file.name,
+			mimeType: file.mime_type,
+		});
+		if (!response.success) {
+			throw new MattermostApiError(0, response.message ?? "Could not open attachment.");
+		}
+		return response;
 	}
 
 	getReactionsForPost(postId: string) {

@@ -21,6 +21,7 @@ export function MessageTimeline({
 	loadingHistory,
 	resolveImageSrc,
 	typingUsers,
+	onOpenAttachment,
 	onShowMessageContextMenu,
 	onReply,
 	onToggleReaction,
@@ -36,6 +37,7 @@ export function MessageTimeline({
 	loadingHistory?: boolean;
 	resolveImageSrc: (src: string) => Promise<string>;
 	typingUsers: MattermostUser[];
+	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
@@ -140,6 +142,7 @@ export function MessageTimeline({
 									userStatuses={userStatuses}
 									users={users}
 									resolveImageSrc={resolveImageSrc}
+									onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
 									onReply={onReply}
 									onToggleReaction={onToggleReaction}
@@ -187,6 +190,7 @@ function MessageRow({
 	userStatuses,
 	users,
 	resolveImageSrc,
+	onOpenAttachment,
 	onShowMessageContextMenu,
 	onReply,
 	onToggleReaction,
@@ -200,6 +204,7 @@ function MessageRow({
 	userStatuses: Record<string, MattermostUserStatus>;
 	users: Record<string, MattermostUser>;
 	resolveImageSrc: (src: string) => Promise<string>;
+	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
@@ -235,7 +240,7 @@ function MessageRow({
 					markdown={post.message}
 					resolveImageSrc={resolveImageSrc}
 				/>
-				<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} />
+				<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
 				{groupedReactions.length > 0 ? (
 					<div className="reaction-list">
 						{groupedReactions.map((reaction) => (
@@ -262,6 +267,7 @@ function MessageRow({
 								userColor={userColors[reply.user_id]}
 								userStatuses={userStatuses}
 								users={users}
+								onOpenAttachment={onOpenAttachment}
 								onToggleReaction={onToggleReaction}
 							/>
 						))}
@@ -297,6 +303,7 @@ function ReplyMessage({
 	userColor,
 	userStatuses,
 	users,
+	onOpenAttachment,
 	onToggleReaction,
 }: {
 	currentUserId: string;
@@ -305,6 +312,7 @@ function ReplyMessage({
 	userColor?: string;
 	userStatuses: Record<string, MattermostUserStatus>;
 	users: Record<string, MattermostUser>;
+	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 }) {
 	const author = users[post.user_id];
@@ -324,7 +332,7 @@ function ReplyMessage({
 				<time>{formatTime(post.create_at)}</time>
 			</div>
 			<MarkdownMessage currentUsername={users[currentUserId]?.username} markdown={post.message} resolveImageSrc={resolveImageSrc} />
-			<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} />
+			<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
 			{groupedReactions.length > 0 ? (
 				<div className="reaction-list">
 					{groupedReactions.map((reaction) => (
@@ -355,20 +363,43 @@ function ReplyMessage({
 function MessageAttachments({
 	files,
 	resolveImageSrc,
+	onOpenAttachment,
 }: {
 	files: MattermostFileInfo[];
 	resolveImageSrc: (src: string) => Promise<string>;
+	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 }) {
+	const [openingFileId, setOpeningFileId] = useState<string | null>(null);
 	const imageFiles = files.filter(isImageFile);
 	const otherFiles = files.filter((file) => !isImageFile(file));
 	if (files.length === 0) return null;
+	async function openAttachment(file: MattermostFileInfo) {
+		if (openingFileId) return;
+		setOpeningFileId(file.id);
+		try {
+			await onOpenAttachment(file);
+		} finally {
+			setOpeningFileId(null);
+		}
+	}
 	return (
 		<div className="message-attachments">
 			{imageFiles.map((file) => (
-				<InlineImageAttachment file={file} key={file.id} resolveImageSrc={resolveImageSrc} />
+				<InlineImageAttachment
+					file={file}
+					key={file.id}
+					opening={openingFileId === file.id}
+					resolveImageSrc={resolveImageSrc}
+					onOpen={() => void openAttachment(file)}
+				/>
 			))}
 			{otherFiles.map((file) => (
-				<FileAttachment file={file} key={file.id} resolveImageSrc={resolveImageSrc} />
+				<FileAttachment
+					file={file}
+					key={file.id}
+					opening={openingFileId === file.id}
+					onOpen={() => void openAttachment(file)}
+				/>
 			))}
 		</div>
 	);
@@ -376,44 +407,50 @@ function MessageAttachments({
 
 function InlineImageAttachment({
 	file,
+	opening,
 	resolveImageSrc,
+	onOpen,
 }: {
 	file: MattermostFileInfo;
+	opening: boolean;
 	resolveImageSrc: (src: string) => Promise<string>;
+	onOpen: () => void;
 }) {
 	const src = useResolvedImageSrc(`/files/${encodeURIComponent(file.id)}`, resolveImageSrc);
 	const loadState = useImageLoadState(src);
 	return (
-		<a
+		<button
+			aria-label={`Open ${file.name ?? "attached image"}`}
 			className="inline-image-link"
-			href={src ?? undefined}
-			rel="noreferrer"
-			target="_blank"
+			disabled={opening}
+			type="button"
+			onClick={onOpen}
 		>
 			{src && loadState === "loaded" ? (
 				<img alt={file.name ?? "Attached image"} className="inline-image" loading="lazy" src={src} />
 			) : src && loadState === "failed" ? (
-				<span className="inline-image-loading">{file.name ?? "Open image"}</span>
+				<span className="inline-image-loading">{opening ? "Opening..." : file.name ?? "Open image"}</span>
 			) : (
-				<span className="inline-image-loading">{file.name ?? "Loading image..."}</span>
+				<span className="inline-image-loading">{opening ? "Opening..." : file.name ?? "Loading image..."}</span>
 			)}
-		</a>
+		</button>
 	);
 }
 
 function FileAttachment({
 	file,
-	resolveImageSrc,
+	opening,
+	onOpen,
 }: {
 	file: MattermostFileInfo;
-	resolveImageSrc: (src: string) => Promise<string>;
+	opening: boolean;
+	onOpen: () => void;
 }) {
-	const src = useResolvedImageSrc(`/files/${encodeURIComponent(file.id)}`, resolveImageSrc);
 	return (
-		<a className="file-attachment" href={src ?? undefined} rel="noreferrer" target="_blank">
+		<button className="file-attachment" disabled={opening} type="button" onClick={onOpen}>
 			<FileText size={16} />
-			<span>{file.name ?? file.id}</span>
-		</a>
+			<span>{opening ? "Opening..." : file.name ?? file.id}</span>
+		</button>
 	);
 }
 

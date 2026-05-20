@@ -42,6 +42,20 @@ export type MattermostFileUploadRequest = {
 	files: MattermostFileUploadItem[];
 };
 
+export type MattermostAttachmentOpenRequest = {
+	serverUrl: string;
+	token: string;
+	fileId: string;
+	fileName?: string;
+	mimeType?: string;
+};
+
+export type MattermostAttachmentOpenResponse = {
+	success: boolean;
+	path?: string;
+	message?: string;
+};
+
 export type MattermostRpcResponse = {
 	status: number;
 	ok: boolean;
@@ -165,6 +179,10 @@ export type MattermostClientRPC = {
 			uploadMattermostFiles: {
 				params: MattermostFileUploadRequest;
 				response: MattermostRpcResponse;
+			};
+			openMattermostAttachment: {
+				params: MattermostAttachmentOpenRequest;
+				response: MattermostAttachmentOpenResponse;
 			};
 			connectMattermostWebSocket: {
 				params: MattermostWebSocketConfig;
