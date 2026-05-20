@@ -28,7 +28,6 @@ export default {
 		},
 		mac: {
 			bundleCEF: false,
-			icons: "icon.iconset",
 		},
 		linux: {
 			bundleCEF: true,

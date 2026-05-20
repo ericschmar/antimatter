@@ -7,6 +7,7 @@
 		"start": "electrobun dev",
 		"dev": "electrobun dev --watch",
 		"build": "electrobun build",
+		"build:release": "electrobun build --env=stable",
 		"typecheck": "tsc --noEmit",
 		"test": "bun test",
 		"version:check": "bun scripts/check-version.ts",

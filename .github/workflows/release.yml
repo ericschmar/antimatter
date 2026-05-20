@@ -33,8 +33,11 @@ jobs:
       - name: Test
         run: bun test
 
-      - name: Build
-        run: bun run build
+      - name: Build release
+        run: bun run build:release
+
+      - name: List build artifacts
+        run: find artifacts -maxdepth 1 -type f -print
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -49,4 +52,3 @@ jobs:
         with:
           files: artifacts/**
           fail_on_unmatched_files: true
-
