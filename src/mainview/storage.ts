@@ -142,7 +142,9 @@ function normalizeSettings(value: Partial<AppSettings>): AppSettings {
 				? value.fontSize
 				: defaultSettings.fontSize,
 		theme:
-			value.theme === "high-contrast" || value.theme === "warm"
+			value.theme === "high-contrast" ||
+			value.theme === "warm" ||
+			value.theme === "light"
 				? value.theme
 				: "default",
 		notificationSounds:

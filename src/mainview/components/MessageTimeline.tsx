@@ -112,9 +112,6 @@ export function MessageTimeline({
 				{!loading && posts.length === 0 ? (
 					<div className="timeline-state">No messages in this channel.</div>
 				) : null}
-				{!loading && typingUsers.length > 0 ? (
-					<TypingIndicator users={typingUsers} />
-				) : null}
 				{virtualRows.map((virtualRow) => {
 					const row = timelineRows[virtualRow.index];
 					if (!row) return null;
@@ -152,6 +149,9 @@ export function MessageTimeline({
 					);
 				})}
 			</div>
+			{!loading && typingUsers.length > 0 ? (
+				<TypingIndicator users={typingUsers} />
+			) : null}
 		</div>
 	);
 }

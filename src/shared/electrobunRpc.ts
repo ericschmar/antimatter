@@ -86,10 +86,12 @@ export type DesktopNotification = {
 	silent?: boolean;
 };
 
+export type AppThemePayload = "default" | "high-contrast" | "warm" | "light";
+
 export type AppSettingsPayload = {
 	fontFamily: string;
 	fontSize: number;
-	theme: "default" | "high-contrast" | "warm";
+	theme: AppThemePayload;
 	notificationSounds: boolean;
 	notificationPreference: "all" | "mentions" | "none";
 };

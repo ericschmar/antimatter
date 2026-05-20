@@ -70,6 +70,7 @@ function renderSettings(settings: AppSettingsPayload) {
 	fontFamilyInput.value = settings.fontFamily;
 	fontSizeInput.value = String(settings.fontSize);
 	themeInput.value = settings.theme;
+	document.documentElement.dataset["theme"] = settings.theme;
 	notificationPreferenceInput.value = settings.notificationPreference;
 	notificationSoundsInput.checked = settings.notificationSounds;
 }
@@ -78,7 +79,7 @@ function readSettings(): AppSettingsPayload {
 	return {
 		fontFamily: fontFamilyInput.value || "system",
 		fontSize: clamp(Number(fontSizeInput.value), 12, 18),
-		theme: readOption(themeInput.value, ["default", "high-contrast", "warm"], "default"),
+		theme: readOption(themeInput.value, ["default", "light", "high-contrast", "warm"], "default"),
 		notificationSounds: notificationSoundsInput.checked,
 		notificationPreference: readOption(
 			notificationPreferenceInput.value,
@@ -91,6 +92,7 @@ function readSettings(): AppSettingsPayload {
 function updateSettings() {
 	const settings = readSettings();
 	fontSizeInput.value = String(settings.fontSize);
+	document.documentElement.dataset["theme"] = settings.theme;
 	void electrobun.rpc!.request.updateSettings({ settings });
 }
 

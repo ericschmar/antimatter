@@ -141,10 +141,12 @@ export type TypingUsersByChannel = Record<
 
 export type NotificationPreference = "all" | "mentions" | "none";
 
+export type AppTheme = "default" | "high-contrast" | "warm" | "light";
+
 export type AppSettings = {
 	fontFamily: string;
 	fontSize: number;
-	theme: "default" | "high-contrast" | "warm";
+	theme: AppTheme;
 	notificationSounds: boolean;
 	notificationPreference: NotificationPreference;
 };

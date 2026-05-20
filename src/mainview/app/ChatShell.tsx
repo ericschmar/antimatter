@@ -99,9 +99,13 @@ export function ChatShell({
 	const selectedChannelUsers = channelMembers
 		.map((member) => users[member.user_id])
 		.filter((user): user is MattermostUser => Boolean(user));
-	const typingUsers = typingUserIds
-		.map((userId) => users[userId])
-		.filter((user): user is MattermostUser => Boolean(user));
+	const typingUsers = typingUserIds.map(
+		(userId) =>
+			users[userId] ?? {
+				id: userId,
+				username: "Someone",
+			},
+	);
 
 	function resizeSidebar(_: SyntheticEvent, data: ResizeCallbackData) {
 		onSetSidebarWidth(data.size.width);

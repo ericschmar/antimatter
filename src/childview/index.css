@@ -18,6 +18,20 @@
 	font-size: 14px;
 }
 
+:root[data-theme="light"] {
+	color-scheme: light;
+	--bg: #f8fafc;
+	--panel: #ffffff;
+	--raised: #eef3f8;
+	--hover: #e2eaf3;
+	--border: #d3dce7;
+	--border-strong: #aebccd;
+	--text: #101827;
+	--muted: #334155;
+	--subtle: #64748b;
+	--accent: #278747;
+}
+
 * {
 	box-sizing: border-box;
 }
