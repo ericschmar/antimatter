@@ -4,7 +4,7 @@ export default {
 	app: {
 		name: "Antimatter",
 		identifier: "antimatter.ericschmar.dev",
-		version: "0.0.1-alpha",
+		version: "0.0.2-alpha",
 		urlSchemes: ["mattermost-dev"],
 	},
 	build: {
@@ -37,6 +37,7 @@ export default {
 		},
 	},
 	release: {
-		baseUrl: "https://github.com/ericschmar/antimatter/releases/latest/download",
+		baseUrl:
+			"https://github.com/ericschmar/antimatter/releases/latest/download",
 	},
 } satisfies ElectrobunConfig;
