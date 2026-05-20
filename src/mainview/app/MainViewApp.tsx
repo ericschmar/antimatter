@@ -49,6 +49,7 @@ import { useMainViewEvents } from "../features/events/useMainViewEvents";
 import { ChatShell } from "./ChatShell";
 import { uiActions, uiStore } from "../state/uiStore";
 import type { AppStatus } from "../state/uiStore";
+import type { AppUpdateState } from "../../shared/electrobunRpc";
 
 const emptyState: NormalizedState = {
 	users: {},
@@ -161,6 +162,11 @@ export function MainViewApp() {
 	const [channelMembers, setChannelMembers] = useState<
 		MattermostChannelMember[]
 	>([]);
+	const [appUpdate, setAppUpdate] = useState<AppUpdateState>({
+		status: "idle",
+		updateAvailable: false,
+		updateReady: false,
+	});
 	const {
 		setAddUserOpen,
 		setChannelNotifications,
@@ -474,6 +480,10 @@ export function MainViewApp() {
 		return () => {
 			void electrobun.rpc!.request.disconnectMattermostWebSocket({});
 		};
+	}, []);
+
+	useEffect(() => {
+		void electrobun.rpc!.request.getAppUpdateState({}).then(setAppUpdate);
 	}, []);
 
 	const teams = useMemo(() => Object.values(state.teams), [state.teams]);
@@ -983,6 +993,10 @@ export function MainViewApp() {
 		void electrobun.rpc!.request.openSettingsWindow({ settings: nextSettings });
 	}
 
+	function installAppUpdate() {
+		void electrobun.rpc!.request.applyAppUpdate({}).then(setAppUpdate);
+	}
+
 	async function createChannel(
 		displayName: string,
 		name: string,
@@ -1060,6 +1074,7 @@ export function MainViewApp() {
 		setStatus,
 		setState,
 		setTypingUsers,
+		setAppUpdate,
 		setUserStatuses,
 		setWsStatus,
 	});
@@ -1099,6 +1114,7 @@ export function MainViewApp() {
 				maxSidebarWidth={MAX_SIDEBAR_WIDTH}
 				minSidebarWidth={MIN_SIDEBAR_WIDTH}
 				posts={posts}
+				appUpdate={appUpdate}
 				resolveImageSrc={resolveImageSrc}
 				sections={sections}
 				selectedChannel={selectedChannel}
@@ -1113,6 +1129,7 @@ export function MainViewApp() {
 				users={state.users}
 				userStatuses={userStatuses}
 				onAddUserToSelectedChannel={addUserToSelectedChannel}
+				onApplyAppUpdate={installAppUpdate}
 			onArchiveChannel={archiveChannel}
 			onCancelEdit={() => setEditTarget(null)}
 			onCancelReply={() => setReplyTarget(null)}

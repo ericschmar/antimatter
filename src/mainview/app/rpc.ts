@@ -76,6 +76,13 @@ const rpc = Electroview.defineRPC<MattermostClientRPC>({
 					}),
 				);
 			},
+			appUpdateState: (state) => {
+				window.dispatchEvent(
+					new CustomEvent("app-update-state", {
+						detail: state,
+					}),
+				);
+			},
 		},
 	},
 });

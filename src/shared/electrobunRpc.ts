@@ -157,6 +157,28 @@ export type ApplicationMenuAction = {
 	action: "command-menu" | "settings";
 };
 
+export type AppUpdateStatus =
+	| "idle"
+	| "checking"
+	| "available"
+	| "downloading"
+	| "ready"
+	| "applying"
+	| "none"
+	| "error";
+
+export type AppUpdateState = {
+	status: AppUpdateStatus;
+	message?: string;
+	version?: string;
+	hash?: string;
+	localVersion?: string;
+	localHash?: string;
+	updateAvailable: boolean;
+	updateReady: boolean;
+	error?: string;
+};
+
 export type MattermostClientRPC = {
 	bun: {
 		requests: {
@@ -220,6 +242,22 @@ export type MattermostClientRPC = {
 				params: { url: string };
 				response: { success: boolean };
 			};
+			getAppUpdateState: {
+				params: {};
+				response: AppUpdateState;
+			};
+			checkForAppUpdate: {
+				params: {};
+				response: AppUpdateState;
+			};
+			downloadAppUpdate: {
+				params: {};
+				response: AppUpdateState;
+			};
+			applyAppUpdate: {
+				params: {};
+				response: AppUpdateState;
+			};
 		};
 		messages: {};
 	};
@@ -240,6 +278,7 @@ export type MattermostClientRPC = {
 			messageContextMenuAction: MessageContextMenuAction;
 			applicationMenuAction: ApplicationMenuAction;
 			settingsUpdated: { settings: AppSettingsPayload };
+			appUpdateState: AppUpdateState;
 		};
 	};
 };

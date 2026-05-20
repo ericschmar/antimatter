@@ -13,6 +13,7 @@ import { Sidebar } from "../components/Sidebar";
 import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
 import { MattermostApiClient } from "../mattermostApi";
+import type { AppUpdateState } from "../../shared/electrobunRpc";
 import type {
 	AppSettings,
 	ChannelSectionKey,
@@ -41,6 +42,7 @@ export function ChatShell({
 	maxSidebarWidth,
 	minSidebarWidth,
 	posts,
+	appUpdate,
 	resolveImageSrc,
 	sections,
 	selectedChannel,
@@ -55,6 +57,7 @@ export function ChatShell({
 	users,
 	userStatuses,
 	onAddUserToSelectedChannel,
+	onApplyAppUpdate,
 	onArchiveChannel,
 	onCancelEdit,
 	onCancelReply,
@@ -223,6 +226,23 @@ export function ChatShell({
 							</div>
 						) : null}
 
+						{appUpdate.status === "downloading" || appUpdate.updateReady ? (
+							<div className="update-banner">
+								<span>
+									{appUpdate.updateReady
+										? appUpdate.version
+											? `Antimatter ${appUpdate.version} is ready to install.`
+											: "An Antimatter update is ready to install."
+										: appUpdate.message ?? "Downloading Antimatter update..."}
+								</span>
+								{appUpdate.updateReady ? (
+									<button type="button" onClick={onApplyAppUpdate}>
+										Restart
+									</button>
+								) : null}
+							</div>
+						) : null}
+
 						<section className="chat-body">
 							<MessageTimeline
 								currentUserId={currentUser.id}
@@ -325,6 +345,7 @@ type ChatShellProps = {
 	maxSidebarWidth: number;
 	minSidebarWidth: number;
 	posts: MattermostPost[];
+	appUpdate: AppUpdateState;
 	resolveImageSrc: (src: string) => Promise<string>;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
 	selectedChannel: MattermostChannel | undefined;
@@ -339,6 +360,7 @@ type ChatShellProps = {
 	users: Record<string, MattermostUser>;
 	userStatuses: Record<string, MattermostUserStatus>;
 	onAddUserToSelectedChannel: (userId: string) => Promise<void>;
+	onApplyAppUpdate: () => void;
 	onArchiveChannel: (channelId: string) => void;
 	onCancelEdit: () => void;
 	onCancelReply: () => void;

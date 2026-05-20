@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { app as electrobunApp, ApplicationMenu, BrowserView, BrowserWindow, ContextMenu, Utils } from "electrobun/bun";
+import { app as electrobunApp, ApplicationMenu, BrowserView, BrowserWindow, ContextMenu, Updater, Utils } from "electrobun/bun";
 import { getFonts } from "font-list";
 import {
 	parseMattermostWebSocketMessage,
@@ -21,6 +21,8 @@ import {
 } from "./rpcSenders";
 import type {
 	AppSettingsPayload,
+	AppUpdateState,
+	AppUpdateStatus,
 	ChannelContextMenuAction,
 	MessageContextMenuAction,
 	MattermostClientRPC,
@@ -53,6 +55,13 @@ let latestSettings: AppSettingsPayload = {
 	notificationPreference: "all",
 };
 let installedFontCache: string[] | null = null;
+let appUpdateState: AppUpdateState = {
+	status: "idle",
+	updateAvailable: false,
+	updateReady: false,
+};
+let updateCheckInFlight: Promise<AppUpdateState> | null = null;
+let updateDownloadInFlight: Promise<AppUpdateState> | null = null;
 
 const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 	maxRequestTime: 30000,
@@ -108,6 +117,10 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 				Utils.openExternal(url);
 				return { success: true };
 			},
+			getAppUpdateState: () => appUpdateState,
+			checkForAppUpdate: () => checkForAppUpdate(),
+			downloadAppUpdate: () => downloadAppUpdate(),
+			applyAppUpdate: () => applyAppUpdate(),
 		},
 		messages: {},
 	},
@@ -160,6 +173,10 @@ const mainWindow = new BrowserWindow({
 
 console.log("Mattermost client started.");
 
+setTimeout(() => {
+	void checkForAppUpdate({ autoDownload: true, quietNoUpdate: true });
+}, 3000);
+
 electrobunApp.on("open-url", (event) => {
 	const url = readOpenUrl(event);
 	if (!url) return;
@@ -180,6 +197,14 @@ ContextMenu.on("context-menu-clicked", (event) => {
 ApplicationMenu.on("application-menu-clicked", (event) => {
 	const action = readApplicationMenuData(event);
 	if (!action) return;
+	if (action.action === "check-for-updates") {
+		void checkForAppUpdate({ autoDownload: true });
+		return;
+	}
+	if (action.action === "apply-update") {
+		void applyAppUpdate();
+		return;
+	}
 	sendMainWebviewMessage(mainWindow, "applicationMenuAction", action);
 });
 
@@ -188,6 +213,8 @@ ApplicationMenu.setApplicationMenu([
 		label: "Antimatter",
 		submenu: [
 			{ label: "Settings", action: "settings", accelerator: "CmdOrCtrl+," },
+			{ label: "Check for Updates...", action: "check-for-updates" },
+			{ label: "Install Update and Restart", action: "apply-update" },
 			{ type: "divider" },
 			{ role: "quit", accelerator: "CmdOrCtrl+Q" },
 		],
@@ -287,7 +314,161 @@ function readApplicationMenuData(event: unknown) {
 	const maybeEvent = event as { data?: { action?: unknown } };
 	if (maybeEvent.data?.action === "command-menu") return { action: "command-menu" as const };
 	if (maybeEvent.data?.action === "settings") return { action: "settings" as const };
+	if (maybeEvent.data?.action === "check-for-updates") return { action: "check-for-updates" as const };
+	if (maybeEvent.data?.action === "apply-update") return { action: "apply-update" as const };
 	return null;
+}
+
+async function checkForAppUpdate(options: { autoDownload?: boolean; quietNoUpdate?: boolean } = {}) {
+	if (updateCheckInFlight) return updateCheckInFlight;
+
+	updateCheckInFlight = (async () => {
+		setAppUpdateState({ status: "checking", message: "Checking for updates..." });
+		try {
+			const localInfo = await Updater.getLocalInfo();
+			if (!localInfo.baseUrl || !localInfo.channel || localInfo.channel === "dev") {
+				setAppUpdateState({
+					status: "none",
+					localVersion: localInfo.version,
+					localHash: localInfo.hash,
+					message: "Updates are not configured for this build.",
+					updateAvailable: false,
+					updateReady: false,
+				});
+				return appUpdateState;
+			}
+
+			const updateInfo = await Updater.checkForUpdate();
+			const nextState = normalizeAppUpdateState(updateInfo, localInfo);
+			setAppUpdateState(nextState);
+
+			if (nextState.updateAvailable && !nextState.updateReady) {
+				if (options.autoDownload) {
+					void downloadAppUpdate();
+				} else {
+					Utils.showNotification({
+						title: "Antimatter update available",
+						body: nextState.version ? `Version ${nextState.version} is available.` : "A new version is available.",
+					});
+				}
+			} else if (!nextState.updateAvailable && !options.quietNoUpdate) {
+				Utils.showNotification({
+					title: "Antimatter is up to date",
+					body: nextState.localVersion ? `Version ${nextState.localVersion} is installed.` : undefined,
+				});
+			}
+
+			return appUpdateState;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Could not check for updates.";
+			setAppUpdateState({ status: "error", error: message, message });
+			return appUpdateState;
+		} finally {
+			updateCheckInFlight = null;
+		}
+	})();
+
+	return updateCheckInFlight;
+}
+
+async function downloadAppUpdate() {
+	if (updateDownloadInFlight) return updateDownloadInFlight;
+
+	updateDownloadInFlight = (async () => {
+		setAppUpdateState({ status: "downloading", message: "Downloading update..." });
+		try {
+			await Updater.downloadUpdate();
+			const updateInfo = Updater.updateInfo();
+			const localInfo = await Updater.getLocalInfo();
+			setAppUpdateState(normalizeAppUpdateState(updateInfo, localInfo));
+			if (appUpdateState.updateReady) {
+				Utils.showNotification({
+					title: "Antimatter update ready",
+					body: "Restart Antimatter to install the update.",
+				});
+			}
+			return appUpdateState;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Could not download the update.";
+			setAppUpdateState({ status: "error", error: message, message });
+			return appUpdateState;
+		} finally {
+			updateDownloadInFlight = null;
+		}
+	})();
+
+	return updateDownloadInFlight;
+}
+
+async function applyAppUpdate() {
+	if (!appUpdateState.updateReady) {
+		setAppUpdateState({
+			status: "none",
+			message: "No downloaded update is ready to install.",
+			updateAvailable: false,
+			updateReady: false,
+		});
+		return appUpdateState;
+	}
+
+	setAppUpdateState({ status: "applying", message: "Installing update..." });
+	try {
+		await Updater.applyUpdate();
+		return appUpdateState;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Could not apply the update.";
+		setAppUpdateState({ status: "error", error: message, message });
+		return appUpdateState;
+	}
+}
+
+function setAppUpdateState(next: Partial<AppUpdateState>) {
+	const status = resolveAppUpdateStatus(next.status, next);
+	appUpdateState = {
+		...appUpdateState,
+		...next,
+		status,
+		updateAvailable: next.updateAvailable ?? appUpdateState.updateAvailable,
+		updateReady: next.updateReady ?? appUpdateState.updateReady,
+	};
+	sendMainWebviewMessage(mainWindow, "appUpdateState", appUpdateState);
+}
+
+function normalizeAppUpdateState(
+	updateInfo: Partial<AppUpdateState> | undefined,
+	localInfo: { version?: string; hash?: string } | undefined,
+): AppUpdateState {
+	const updateAvailable = Boolean(updateInfo?.updateAvailable);
+	const updateReady = Boolean(updateInfo?.updateReady);
+	const error = updateInfo?.error || undefined;
+	return {
+		status: resolveAppUpdateStatus(undefined, { updateAvailable, updateReady, error }),
+		version: updateInfo?.version,
+		hash: updateInfo?.hash,
+		localVersion: localInfo?.version,
+		localHash: localInfo?.hash,
+		updateAvailable,
+		updateReady,
+		error,
+		message: error
+			? error
+			: updateReady
+				? "Update ready to install."
+				: updateAvailable
+					? "Update available."
+					: "No update available.",
+	};
+}
+
+function resolveAppUpdateStatus(
+	status: AppUpdateStatus | undefined,
+	state: Partial<AppUpdateState>,
+): AppUpdateStatus {
+	if (status) return status;
+	if (state.error) return "error";
+	if (state.updateReady) return "ready";
+	if (state.updateAvailable) return "available";
+	return "none";
 }
 
 function openSettingsWindow(settings: AppSettingsPayload) {

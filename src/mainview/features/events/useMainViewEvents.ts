@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type {
+	AppUpdateState,
 	MattermostSsoLoginResult,
 } from "../../../shared/electrobunRpc";
 import { MattermostApiClient } from "../../mattermostApi";
@@ -44,6 +45,7 @@ export function useMainViewEvents({
 	setSettings,
 	setStatus,
 	setState,
+	setAppUpdate,
 	setUserStatuses,
 	setTypingUsers,
 	setWsStatus,
@@ -55,6 +57,10 @@ export function useMainViewEvents({
 			).detail;
 			setWsStatus(detail.status);
 			if (detail.status === "error" && detail.message) setError(detail.message);
+		}
+
+		function handleAppUpdateState(event: Event) {
+			setAppUpdate((event as CustomEvent<AppUpdateState>).detail);
 		}
 
 		function handleSsoResult(event: Event) {
@@ -190,6 +196,7 @@ export function useMainViewEvents({
 		}
 
 		window.addEventListener("mattermost-websocket-status", handleStatus);
+		window.addEventListener("app-update-state", handleAppUpdateState);
 		window.addEventListener("mattermost-sso-login-result", handleSsoResult);
 		window.addEventListener("mattermost-websocket-post", handlePost);
 		window.addEventListener("mattermost-websocket-reaction", handleReaction);
@@ -197,6 +204,7 @@ export function useMainViewEvents({
 		window.addEventListener("mattermost-websocket-typing", handleTyping);
 		return () => {
 			window.removeEventListener("mattermost-websocket-status", handleStatus);
+			window.removeEventListener("app-update-state", handleAppUpdateState);
 			window.removeEventListener("mattermost-sso-login-result", handleSsoResult);
 			window.removeEventListener("mattermost-websocket-post", handlePost);
 			window.removeEventListener(
@@ -209,7 +217,7 @@ export function useMainViewEvents({
 			);
 			window.removeEventListener("mattermost-websocket-typing", handleTyping);
 		};
-	}, [api, connect, currentUser, loadPostReactions, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setChannelNotifications, setError, setState, setStatus, setTypingUsers, setUserStatuses, setWsStatus]);
+	}, [api, connect, currentUser, loadPostReactions, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setAppUpdate, setChannelNotifications, setError, setState, setStatus, setTypingUsers, setUserStatuses, setWsStatus]);
 
 	useEffect(() => {
 		function handleSettingsUpdate(event: Event) {
@@ -294,6 +302,7 @@ type UseMainViewEventsArgs = {
 	setSettings: Dispatch<SetStateAction<AppSettings>>;
 	setStatus: (status: AppStatus) => void;
 	setState: Dispatch<SetStateAction<NormalizedState>>;
+	setAppUpdate: Dispatch<SetStateAction<AppUpdateState>>;
 	setTypingUsers: Dispatch<SetStateAction<TypingUsersByChannel>>;
 	setUserStatuses: Dispatch<SetStateAction<Record<string, MattermostUserStatus>>>;
 	setWsStatus: (status: WebSocketStatus) => void;

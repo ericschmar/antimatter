@@ -36,4 +36,7 @@ export default {
 			bundleCEF: false,
 		},
 	},
+	release: {
+		baseUrl: "https://github.com/ericschmar/antimatter/releases/latest/download",
+	},
 } satisfies ElectrobunConfig;

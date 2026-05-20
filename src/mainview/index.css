@@ -239,7 +239,7 @@ textarea:disabled {
 
 .main-panel {
 	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr);
+	grid-template-rows: auto auto auto minmax(0, 1fr);
 	height: 100%;
 	max-height: 100%;
 	min-width: 0;
@@ -415,8 +415,31 @@ textarea:disabled {
 	font-weight: 650;
 }
 
-.chat-body {
+.update-banner {
 	grid-row: 3;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	border-bottom: 1px solid var(--accent-border);
+	background: var(--grass-a4);
+	color: var(--text-primary);
+	padding: 8px 16px;
+	font-size: 0.84rem;
+}
+
+.update-banner button {
+	min-height: 28px;
+	border: 1px solid var(--accent-border);
+	border-radius: 7px;
+	background: var(--accent-bg);
+	color: white;
+	padding: 0 10px;
+	font-weight: 700;
+}
+
+.chat-body {
+	grid-row: 4;
 	display: grid;
 	grid-template-rows: minmax(0, 1fr) auto;
 	height: 100%;
