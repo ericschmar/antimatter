@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { proxy, useSnapshot } from "valtio";
 import type { ChannelSectionKey } from "../../types";
 import {
 	loadArchivedChannelIds,
@@ -15,106 +16,108 @@ export const DEFAULT_SIDEBAR_WIDTH = 248;
 export const MIN_SIDEBAR_WIDTH = 180;
 export const MAX_SIDEBAR_WIDTH = 420;
 
-export function useChannelPreferences() {
-	const [favoriteChannelIds, setFavoriteChannelIds] = useState<string[]>(() =>
-		loadFavoriteChannelIds(),
-	);
-	const [archivedChannelIds, setArchivedChannelIds] = useState<string[]>(() =>
-		loadArchivedChannelIds(),
-	);
-	const [channelEmojis, setChannelEmojis] = useState<Record<string, string>>(
-		() => loadChannelEmojis(),
-	);
-	const [channelOrder, setChannelOrder] = useState<Record<string, string[]>>(
-		() => loadChannelOrder(),
-	);
-	const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
-	const [collapsedSections, setCollapsedSections] = useState<
-		Record<ChannelSectionKey, boolean>
-	>({
+type ChannelPreferencesState = {
+	archivedChannelIds: string[];
+	channelEmojis: Record<string, string>;
+	channelOrder: Record<string, string[]>;
+	collapsedSections: Record<ChannelSectionKey, boolean>;
+	favoriteChannelIds: string[];
+	hydrated: boolean;
+	sidebarWidth: number;
+};
+
+const channelPreferencesStore = proxy<ChannelPreferencesState>({
+	archivedChannelIds: [],
+	channelEmojis: {},
+	channelOrder: {},
+	collapsedSections: {
 		favorites: false,
 		channels: false,
 		dms: false,
 		archived: true,
-	});
+	},
+	favoriteChannelIds: [],
+	hydrated: false,
+	sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
+});
+
+export function useChannelPreferences() {
+	hydrateChannelPreferences();
+	const preferences = useSnapshot(channelPreferencesStore);
 
 	const favoriteChannelSet = useMemo(
-		() => new Set(favoriteChannelIds),
-		[favoriteChannelIds],
+		() => new Set(preferences.favoriteChannelIds),
+		[preferences.favoriteChannelIds],
 	);
 	const archivedChannelSet = useMemo(
-		() => new Set(archivedChannelIds),
-		[archivedChannelIds],
+		() => new Set(preferences.archivedChannelIds),
+		[preferences.archivedChannelIds],
 	);
 
 	function toggleFavoriteChannel(channelId: string) {
-		setFavoriteChannelIds((current) => {
-			const next = current.includes(channelId)
-				? current.filter((favoriteChannelId) => favoriteChannelId !== channelId)
-				: [...current, channelId];
-			saveFavoriteChannelIds(next);
-			return next;
-		});
+		const current = channelPreferencesStore.favoriteChannelIds;
+		const next = current.includes(channelId)
+			? current.filter((favoriteChannelId) => favoriteChannelId !== channelId)
+			: [...current, channelId];
+		channelPreferencesStore.favoriteChannelIds = next;
+		saveFavoriteChannelIds(next);
 	}
 
 	function archiveChannel(channelId: string) {
-		setArchivedChannelIds((current) => {
-			if (current.includes(channelId)) return current;
-			const next = [...current, channelId];
+		if (!channelPreferencesStore.archivedChannelIds.includes(channelId)) {
+			const next = [...channelPreferencesStore.archivedChannelIds, channelId];
+			channelPreferencesStore.archivedChannelIds = next;
 			saveArchivedChannelIds(next);
-			return next;
-		});
-		setFavoriteChannelIds((current) => {
-			if (!current.includes(channelId)) return current;
-			const next = current.filter(
+		}
+
+		if (channelPreferencesStore.favoriteChannelIds.includes(channelId)) {
+			const next = channelPreferencesStore.favoriteChannelIds.filter(
 				(favoriteChannelId) => favoriteChannelId !== channelId,
 			);
+			channelPreferencesStore.favoriteChannelIds = next;
 			saveFavoriteChannelIds(next);
-			return next;
-		});
+		}
 	}
 
 	function unarchiveChannel(channelId: string) {
-		setArchivedChannelIds((current) => {
-			if (!current.includes(channelId)) return current;
-			const next = current.filter(
-				(archivedChannelId) => archivedChannelId !== channelId,
-			);
-			saveArchivedChannelIds(next);
-			return next;
-		});
+		if (!channelPreferencesStore.archivedChannelIds.includes(channelId)) return;
+		const next = channelPreferencesStore.archivedChannelIds.filter(
+			(archivedChannelId) => archivedChannelId !== channelId,
+		);
+		channelPreferencesStore.archivedChannelIds = next;
+		saveArchivedChannelIds(next);
 	}
 
 	function toggleChannelSection(section: ChannelSectionKey) {
-		setCollapsedSections((current) => ({
-			...current,
-			[section]: !current[section],
-		}));
+		channelPreferencesStore.collapsedSections = {
+			...channelPreferencesStore.collapsedSections,
+			[section]: !channelPreferencesStore.collapsedSections[section],
+		};
 	}
 
 	function setChannelEmoji(channelId: string, emoji: string) {
-		setChannelEmojis((current) => {
-			const next = { ...current, [channelId]: emoji };
-			saveChannelEmojis(next);
-			return next;
-		});
+		const next = { ...channelPreferencesStore.channelEmojis, [channelId]: emoji };
+		channelPreferencesStore.channelEmojis = next;
+		saveChannelEmojis(next);
 	}
 
 	function moveChannel(section: ChannelSectionKey, channelIds: string[]) {
-		setChannelOrder((current) => {
-			const next = { ...current, [section]: channelIds };
-			saveChannelOrder(next);
-			return next;
-		});
+		const next = { ...channelPreferencesStore.channelOrder, [section]: channelIds };
+		channelPreferencesStore.channelOrder = next;
+		saveChannelOrder(next);
+	}
+
+	function setSidebarWidth(width: number) {
+		channelPreferencesStore.sidebarWidth = width;
 	}
 
 	return {
 		archivedChannelSet,
-		channelEmojis,
-		channelOrder,
-		collapsedSections,
+		channelEmojis: preferences.channelEmojis,
+		channelOrder: preferences.channelOrder,
+		collapsedSections: preferences.collapsedSections,
 		favoriteChannelSet,
-		sidebarWidth,
+		sidebarWidth: preferences.sidebarWidth,
 		setSidebarWidth,
 		archiveChannel,
 		moveChannel,
@@ -123,4 +126,13 @@ export function useChannelPreferences() {
 		toggleFavoriteChannel,
 		unarchiveChannel,
 	};
+}
+
+function hydrateChannelPreferences() {
+	if (channelPreferencesStore.hydrated) return;
+	channelPreferencesStore.favoriteChannelIds = loadFavoriteChannelIds();
+	channelPreferencesStore.archivedChannelIds = loadArchivedChannelIds();
+	channelPreferencesStore.channelEmojis = loadChannelEmojis();
+	channelPreferencesStore.channelOrder = loadChannelOrder();
+	channelPreferencesStore.hydrated = true;
 }

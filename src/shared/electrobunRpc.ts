@@ -69,6 +69,27 @@ export type MattermostWebSocketStatus = {
 	message?: string;
 };
 
+export type MattermostWebSocketEvent =
+	| {
+			type: "post";
+			post: object;
+	  }
+	| {
+			type: "reaction";
+			reaction: object;
+			removed: boolean;
+	  }
+	| {
+			type: "statusChange";
+			status: unknown;
+	  }
+	| {
+			type: "typing";
+			channelId: string;
+			parentId?: string;
+			userId: string;
+	  };
+
 export type MattermostSsoLoginResult = {
 	ok: boolean;
 	serverUrl: string;
@@ -188,8 +209,8 @@ export type MattermostClientRPC = {
 		requests: {};
 		messages: {
 			mattermostWebSocketStatus: MattermostWebSocketStatus;
-			mattermostWebSocketPost: { post: unknown };
-			mattermostWebSocketReaction: { reaction: unknown; removed: boolean };
+			mattermostWebSocketPost: { post: object };
+			mattermostWebSocketReaction: { reaction: object; removed: boolean };
 			mattermostWebSocketStatusChange: { status: unknown };
 			mattermostWebSocketTyping: {
 				channelId: string;

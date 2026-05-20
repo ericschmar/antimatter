@@ -16,6 +16,7 @@ import type {
 	TypingUsersByChannel,
 	WebSocketStatus,
 } from "../../types";
+import type { AppStatus } from "../../state/uiStore";
 import { channelLabel, includesMention } from "../../utils/format";
 import { getDirectChannelUsers, getPostUsers } from "../../utils/mattermostLoaders";
 import {
@@ -287,15 +288,15 @@ type UseMainViewEventsArgs = {
 	startReply: (post: MattermostPost) => void;
 	state: NormalizedState;
 	setChannelNotifications: Dispatch<SetStateAction<ChannelNotificationState>>;
-	setCommandOpen: Dispatch<SetStateAction<boolean>>;
-	setEditTarget: Dispatch<SetStateAction<MattermostPost | null>>;
-	setError: Dispatch<SetStateAction<string | null>>;
+	setCommandOpen: (open: boolean) => void;
+	setEditTarget: (post: MattermostPost | null) => void;
+	setError: (error: string | null) => void;
 	setSettings: Dispatch<SetStateAction<AppSettings>>;
-	setStatus: Dispatch<SetStateAction<"idle" | "loading" | "ready" | "error">>;
+	setStatus: (status: AppStatus) => void;
 	setState: Dispatch<SetStateAction<NormalizedState>>;
 	setTypingUsers: Dispatch<SetStateAction<TypingUsersByChannel>>;
 	setUserStatuses: Dispatch<SetStateAction<Record<string, MattermostUserStatus>>>;
-	setWsStatus: Dispatch<SetStateAction<WebSocketStatus>>;
+	setWsStatus: (status: WebSocketStatus) => void;
 };
 
 function removeTypingUser(

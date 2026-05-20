@@ -37,7 +37,8 @@
 		"react-markdown": "^10.1.0",
 		"react-resizable": "^4.0.1",
 		"remark-gfm": "^4.0.1",
-		"swr": "^2.4.1"
+		"swr": "^2.4.1",
+		"valtio": "^2.3.2"
 	},
 	"devDependencies": {
 		"@types/bun": "latest",

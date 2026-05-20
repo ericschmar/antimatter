@@ -1,13 +1,13 @@
 import "react-resizable/css/styles.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
+import { useSnapshot } from "valtio";
 import { AuthScreen } from "../components/AuthScreen";
 import type { MessageComposerHandle } from "../components/MessageComposer";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import { clearConfig, loadConfig, saveConfig } from "../storage";
 import type { MattermostSsoProvider } from "../../shared/electrobunRpc";
 import type {
-	ChannelNotificationState,
 	AppSettings,
 	MattermostChannelMember,
 	MattermostChannel,
@@ -19,7 +19,6 @@ import type {
 	MattermostUser,
 	NormalizedState,
 	TypingUsersByChannel,
-	WebSocketStatus,
 } from "../types";
 import { channelLabel, isDirectChannel, isTeamChannel } from "../utils/format";
 import { normalizeEmojiName } from "../utils/emoji";
@@ -48,6 +47,8 @@ import {
 import { useUserPresence } from "../features/users/useUserPresence";
 import { useMainViewEvents } from "../features/events/useMainViewEvents";
 import { ChatShell } from "./ChatShell";
+import { uiActions, uiStore } from "../state/uiStore";
+import type { AppStatus } from "../state/uiStore";
 
 const emptyState: NormalizedState = {
 	users: {},
@@ -118,6 +119,7 @@ function pruneExpiredTypingUsers(
 
 export function MainViewApp() {
 	const { cache: swrCache, mutate: mutateSWR } = useSWRConfig();
+	const ui = useSnapshot(uiStore);
 	const [config, setConfig] = useState<MattermostConfig | null>(() =>
 		loadConfig(),
 	);
@@ -128,11 +130,6 @@ export function MainViewApp() {
 		null,
 	);
 	const [state, setState] = useState<NormalizedState>(emptyState);
-	const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
-		"idle",
-	);
-	const [wsStatus, setWsStatus] = useState<WebSocketStatus>("idle");
-	const [error, setError] = useState<string | null>(null);
 	const [envConfig, setEnvConfig] = useState<MattermostConfig | null>(null);
 	const {
 		archivedChannelSet,
@@ -158,28 +155,34 @@ export function MainViewApp() {
 		setUserStatuses,
 		resetUserPresence,
 	} = useUserPresence({ api, users: state.users });
-	const [channelNotifications, setChannelNotifications] =
-		useState<ChannelNotificationState>({});
-	const [typingUsers, setTypingUsers] = useState<TypingUsersByChannel>({});
 	const selectedChannelRef = useRef<string | null>(null);
 	const autoConnectAttemptedRef = useRef(false);
 	const composerRef = useRef<MessageComposerHandle>(null);
-	const [replyTarget, setReplyTarget] = useState<MattermostPost | null>(null);
-	const [editTarget, setEditTarget] = useState<MattermostPost | null>(null);
 	const [channelMembers, setChannelMembers] = useState<
 		MattermostChannelMember[]
 	>([]);
-	const [commandOpen, setCommandOpen] = useState(false);
-	const [createChannelOpen, setCreateChannelOpen] = useState(false);
-	const [createDmOpen, setCreateDmOpen] = useState(false);
-	const [addUserOpen, setAddUserOpen] = useState(false);
-	const [loadingHistory, setLoadingHistory] = useState(false);
+	const {
+		setAddUserOpen,
+		setChannelNotifications,
+		setCommandOpen,
+		setCreateChannelOpen,
+		setCreateDmOpen,
+		setEditTarget,
+		setError,
+		setLoadingHistory,
+		setReplyTarget,
+		setStatus,
+		setTypingUsers,
+		setWsStatus,
+	} = uiActions;
+	const editTarget = ui.editTarget as MattermostPost | null;
+	const error = ui.error;
+	const loadingHistory = ui.loadingHistory;
+	const status: AppStatus = ui.status;
 
 	useEffect(() => {
 		selectedChannelRef.current = selectedChannelId;
-		setReplyTarget(null);
-		setEditTarget(null);
-		setLoadingHistory(false);
+		uiActions.resetForChannelChange();
 	}, [selectedChannelId]);
 
 	useEffect(() => {
@@ -1073,45 +1076,33 @@ export function MainViewApp() {
 	}
 
 	return (
-		<ChatShell
-			addUserOpen={addUserOpen}
-			api={api}
-			channelEmojis={channelEmojis}
-			channelMembers={channelMembers}
-			channelNotifications={channelNotifications}
-			channelOrder={channelOrder}
-			channels={channels}
-			collapsedSections={collapsedSections}
-			commandOpen={commandOpen}
-			composerRef={composerRef}
-			createChannelOpen={createChannelOpen}
-			createDmOpen={createDmOpen}
-			currentUser={currentUser}
-			editTarget={editTarget}
-			error={error}
-			favoriteChannelSet={favoriteChannelSet}
-			loadingHistory={loadingHistory}
-			maxSidebarWidth={MAX_SIDEBAR_WIDTH}
-			minSidebarWidth={MIN_SIDEBAR_WIDTH}
-			posts={posts}
-			replyTarget={replyTarget}
-			resolveImageSrc={resolveImageSrc}
-			sections={sections}
-			selectedChannel={selectedChannel}
+			<ChatShell
+				api={api}
+				channelEmojis={channelEmojis}
+				channelMembers={channelMembers}
+				channelOrder={channelOrder}
+				channels={channels}
+				collapsedSections={collapsedSections}
+				composerRef={composerRef}
+				currentUser={currentUser}
+				favoriteChannelSet={favoriteChannelSet}
+				maxSidebarWidth={MAX_SIDEBAR_WIDTH}
+				minSidebarWidth={MIN_SIDEBAR_WIDTH}
+				posts={posts}
+				resolveImageSrc={resolveImageSrc}
+				sections={sections}
+				selectedChannel={selectedChannel}
 			selectedChannelId={selectedChannelId}
 			selectedTeam={selectedTeam}
-			selectedTeamId={selectedTeamId}
-			settings={settings}
-			sidebarWidth={sidebarWidth}
-			status={status}
-			teams={teams}
-			typingUserIds={selectedChannelId ? Object.keys(typingUsers[selectedChannelId] ?? {}) : []}
-			userColors={userColors}
-			userImages={userImages}
-			users={state.users}
-			userStatuses={userStatuses}
-			wsStatus={wsStatus}
-			onAddUserToSelectedChannel={addUserToSelectedChannel}
+				selectedTeamId={selectedTeamId}
+				settings={settings}
+				sidebarWidth={sidebarWidth}
+				teams={teams}
+				userColors={userColors}
+				userImages={userImages}
+				users={state.users}
+				userStatuses={userStatuses}
+				onAddUserToSelectedChannel={addUserToSelectedChannel}
 			onArchiveChannel={archiveChannel}
 			onCancelEdit={() => setEditTarget(null)}
 			onCancelReply={() => setReplyTarget(null)}
@@ -1123,16 +1114,11 @@ export function MainViewApp() {
 			onOpenSettings={openSettingsWindow}
 			onSelectChannel={selectChannel}
 			onSelectPost={selectSearchPost}
-			onSelectTeam={selectTeam}
-			onSendMessage={sendMessage}
-			onSendTyping={sendTyping}
-			onSetAddUserOpen={setAddUserOpen}
-			onSetChannelEmoji={setChannelEmoji}
-			onSetCommandOpen={setCommandOpen}
-			onSetCreateChannelOpen={setCreateChannelOpen}
-			onSetCreateDmOpen={setCreateDmOpen}
-			onSetError={setError}
-			onSetSidebarWidth={setSidebarWidth}
+				onSelectTeam={selectTeam}
+				onSendMessage={sendMessage}
+				onSendTyping={sendTyping}
+				onSetChannelEmoji={setChannelEmoji}
+				onSetSidebarWidth={setSidebarWidth}
 			onShowChannelContextMenu={showChannelContextMenu}
 			onShowMessageContextMenu={showMessageContextMenu}
 			onSignOut={signOut}

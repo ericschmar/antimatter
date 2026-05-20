@@ -1,6 +1,7 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Resizable, type ResizeCallbackData } from "react-resizable";
 import type { RefObject, SyntheticEvent } from "react";
+import { useSnapshot } from "valtio";
 import { CommandMenu } from "../components/CommandMenu";
 import { CreateChannelDialog } from "../components/CreateChannelDialog";
 import {
@@ -14,7 +15,6 @@ import { UserPickerDialog } from "../components/UserPickerDialog";
 import { MattermostApiClient } from "../mattermostApi";
 import type {
 	AppSettings,
-	ChannelNotificationState,
 	ChannelSectionKey,
 	MattermostChannel,
 	MattermostChannelMember,
@@ -22,33 +22,24 @@ import type {
 	MattermostTeam,
 	MattermostUser,
 	MattermostUserStatus,
-	WebSocketStatus,
 } from "../types";
 import { channelLabel, initials, isTeamChannel } from "../utils/format";
 import { electrobun } from "./rpc";
+import { uiActions, uiStore } from "../state/uiStore";
 
 export function ChatShell({
-	addUserOpen,
 	api,
 	channelEmojis,
 	channelMembers,
-	channelNotifications,
 	channelOrder,
 	channels,
 	collapsedSections,
-	commandOpen,
 	composerRef,
-	createChannelOpen,
-	createDmOpen,
 	currentUser,
-	editTarget,
-	error,
 	favoriteChannelSet,
-	loadingHistory,
 	maxSidebarWidth,
 	minSidebarWidth,
 	posts,
-	replyTarget,
 	resolveImageSrc,
 	sections,
 	selectedChannel,
@@ -57,14 +48,11 @@ export function ChatShell({
 	selectedTeamId,
 	settings,
 	sidebarWidth,
-	status,
 	teams,
-	typingUserIds,
 	userColors,
 	userImages,
 	users,
 	userStatuses,
-	wsStatus,
 	onAddUserToSelectedChannel,
 	onArchiveChannel,
 	onCancelEdit,
@@ -80,12 +68,7 @@ export function ChatShell({
 	onSelectTeam,
 	onSendMessage,
 	onSendTyping,
-	onSetAddUserOpen,
 	onSetChannelEmoji,
-	onSetCommandOpen,
-	onSetCreateChannelOpen,
-	onSetCreateDmOpen,
-	onSetError,
 	onSetSidebarWidth,
 	onShowChannelContextMenu,
 	onShowMessageContextMenu,
@@ -96,10 +79,15 @@ export function ChatShell({
 	onToggleReaction,
 	onUnarchiveChannel,
 }: ChatShellProps) {
+	const ui = useSnapshot(uiStore);
+	const editTarget = ui.editTarget as MattermostPost | null;
+	const replyTarget = ui.replyTarget as MattermostPost | null;
 	const selectedChannelUsers = channelMembers
 		.map((member) => users[member.user_id])
 		.filter((user): user is MattermostUser => Boolean(user));
-	const typingUsers = typingUserIds.map(
+	const typingUsers = (
+		selectedChannelId ? Object.keys(ui.typingUsers[selectedChannelId] ?? {}) : []
+	).map(
 		(userId) =>
 			users[userId] ?? {
 				id: userId,
@@ -133,13 +121,13 @@ export function ChatShell({
 						onResize={resizeSidebar}
 					>
 						<div className="resizable-sidebar" style={{ width: sidebarWidth }}>
-							<Sidebar
+								<Sidebar
 								channelEmojis={channelEmojis}
 								channelOrder={channelOrder}
 								collapsedSections={collapsedSections}
 								currentUser={currentUser}
 								favoriteChannelSet={favoriteChannelSet}
-								notifications={channelNotifications}
+								notifications={ui.channelNotifications}
 								sections={sections}
 								selectedChannelId={selectedChannelId}
 								selectedTeam={selectedTeam}
@@ -148,15 +136,15 @@ export function ChatShell({
 								userImages={userImages}
 								userStatuses={userStatuses}
 								users={users}
-								wsStatus={wsStatus}
+								wsStatus={ui.wsStatus}
 								onArchiveChannel={onArchiveChannel}
 								onMoveChannel={onMoveChannel}
 								onSelectChannel={onSelectChannel}
 								onSelectTeam={onSelectTeam}
 								onSetChannelEmoji={onSetChannelEmoji}
 								onShowChannelContextMenu={onShowChannelContextMenu}
-								onOpenCreateChannel={() => onSetCreateChannelOpen(true)}
-								onOpenCreateDm={() => onSetCreateDmOpen(true)}
+								onOpenCreateChannel={() => uiActions.setCreateChannelOpen(true)}
+								onOpenCreateDm={() => uiActions.setCreateDmOpen(true)}
 								onSignOut={onSignOut}
 								onToggleCollapsed={onToggleChannelSection}
 								onToggleFavorite={onToggleFavoriteChannel}
@@ -217,17 +205,17 @@ export function ChatShell({
 									</Tooltip.Portal>
 								</Tooltip.Root>
 								{selectedChannel && isTeamChannel(selectedChannel) ? (
-									<button className="secondary-action" type="button" onClick={() => onSetAddUserOpen(true)}>
+									<button className="secondary-action" type="button" onClick={() => uiActions.setAddUserOpen(true)}>
 										Add user
 									</button>
 								) : null}
 							</div>
 						</header>
 
-						{error ? (
+						{ui.error ? (
 							<div className="inline-error">
-								<span>{error}</span>
-								<button type="button" onClick={() => onSetError(null)}>
+								<span>{ui.error}</span>
+								<button type="button" onClick={() => uiActions.setError(null)}>
 									Dismiss
 								</button>
 							</div>
@@ -236,8 +224,8 @@ export function ChatShell({
 						<section className="chat-body">
 							<MessageTimeline
 								currentUserId={currentUser.id}
-								loading={status === "loading"}
-								loadingHistory={loadingHistory}
+								loading={ui.status === "loading"}
+								loadingHistory={ui.loadingHistory}
 								posts={posts}
 								resolveImageSrc={resolveImageSrc}
 								typingUsers={typingUsers}
@@ -252,7 +240,7 @@ export function ChatShell({
 							/>
 							<MessageComposer
 								currentUserId={currentUser.id}
-								disabled={!selectedChannelId || status === "loading"}
+								disabled={!selectedChannelId || ui.status === "loading"}
 								editTarget={editTarget}
 								ref={composerRef}
 								replyTarget={replyTarget}
@@ -271,46 +259,46 @@ export function ChatShell({
 					api={api}
 					channels={channels}
 					currentUserId={currentUser.id}
-					open={commandOpen}
+					open={ui.commandOpen}
 					selectedTeamId={selectedTeamId}
 					users={users}
-					onClose={() => onSetCommandOpen(false)}
+					onClose={() => uiActions.setCommandOpen(false)}
 					onCreateDm={(userId) => {
-						onSetCommandOpen(false);
+						uiActions.setCommandOpen(false);
 						void onCreateDm([userId]);
 					}}
 					onSelectPost={(post) => {
-						onSetCommandOpen(false);
+						uiActions.setCommandOpen(false);
 						void onSelectPost(post);
 					}}
 					onSelectChannel={(channel) => {
-						onSetCommandOpen(false);
+						uiActions.setCommandOpen(false);
 						void onSelectChannel(channel);
 					}}
 					onOpenSettings={() => {
-						onSetCommandOpen(false);
+						uiActions.setCommandOpen(false);
 						onOpenSettings(settings);
 					}}
 				/>
 				<CreateChannelDialog
-					open={createChannelOpen}
-					onClose={() => onSetCreateChannelOpen(false)}
+					open={ui.createChannelOpen}
+					onClose={() => uiActions.setCreateChannelOpen(false)}
 					onCreate={(displayName, name, type) => void onCreateChannel(displayName, name, type)}
 				/>
 				<UserPickerDialog
 					api={api}
-					open={createDmOpen}
+					open={ui.createDmOpen}
 					selectedTeamId={selectedTeamId}
 					title="Create direct message"
-					onClose={() => onSetCreateDmOpen(false)}
+					onClose={() => uiActions.setCreateDmOpen(false)}
 					onSubmit={(userIds) => void onCreateDm(userIds)}
 				/>
 				<UserPickerDialog
 					api={api}
-					open={addUserOpen}
+					open={ui.addUserOpen}
 					selectedTeamId={selectedTeamId}
 					title="Add user to channel"
-					onClose={() => onSetAddUserOpen(false)}
+					onClose={() => uiActions.setAddUserOpen(false)}
 					onSubmit={(userIds) => {
 						const [userId] = userIds;
 						if (userId) void onAddUserToSelectedChannel(userId);
@@ -322,27 +310,18 @@ export function ChatShell({
 }
 
 type ChatShellProps = {
-	addUserOpen: boolean;
 	api: MattermostApiClient | null;
 	channelEmojis: Record<string, string>;
 	channelMembers: MattermostChannelMember[];
-	channelNotifications: ChannelNotificationState;
-	channelOrder: Record<string, string[]>;
+	channelOrder: Readonly<Record<string, readonly string[]>>;
 	channels: MattermostChannel[];
 	collapsedSections: Record<ChannelSectionKey, boolean>;
-	commandOpen: boolean;
 	composerRef: RefObject<MessageComposerHandle | null>;
-	createChannelOpen: boolean;
-	createDmOpen: boolean;
 	currentUser: MattermostUser;
-	editTarget: MattermostPost | null;
-	error: string | null;
 	favoriteChannelSet: Set<string>;
-	loadingHistory: boolean;
 	maxSidebarWidth: number;
 	minSidebarWidth: number;
 	posts: MattermostPost[];
-	replyTarget: MattermostPost | null;
 	resolveImageSrc: (src: string) => Promise<string>;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
 	selectedChannel: MattermostChannel | undefined;
@@ -351,14 +330,11 @@ type ChatShellProps = {
 	selectedTeamId: string | null;
 	settings: AppSettings;
 	sidebarWidth: number;
-	status: "idle" | "loading" | "ready" | "error";
 	teams: MattermostTeam[];
-	typingUserIds: string[];
 	userColors: Record<string, string>;
 	userImages: Record<string, string>;
 	users: Record<string, MattermostUser>;
 	userStatuses: Record<string, MattermostUserStatus>;
-	wsStatus: WebSocketStatus;
 	onAddUserToSelectedChannel: (userId: string) => Promise<void>;
 	onArchiveChannel: (channelId: string) => void;
 	onCancelEdit: () => void;
@@ -374,12 +350,7 @@ type ChatShellProps = {
 	onSelectTeam: (team: MattermostTeam) => Promise<void>;
 	onSendMessage: (message: string, rootId?: string, files?: File[]) => Promise<void>;
 	onSendTyping: (rootId?: string) => Promise<void>;
-	onSetAddUserOpen: (open: boolean) => void;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
-	onSetCommandOpen: (open: boolean) => void;
-	onSetCreateChannelOpen: (open: boolean) => void;
-	onSetCreateDmOpen: (open: boolean) => void;
-	onSetError: (error: string | null) => void;
 	onSetSidebarWidth: (width: number) => void;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
 	onShowMessageContextMenu: (post: MattermostPost) => void;

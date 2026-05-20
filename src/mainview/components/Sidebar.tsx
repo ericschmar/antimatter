@@ -73,7 +73,7 @@ export function Sidebar({
 	onUnarchiveChannel,
 }: {
 	channelEmojis: Record<string, string>;
-	channelOrder: Record<string, string[]>;
+	channelOrder: Readonly<Record<string, readonly string[]>>;
 	collapsedSections: Record<ChannelSectionKey, boolean>;
 	currentUser: MattermostUser;
 	favoriteChannelSet: Set<string>;
@@ -333,7 +333,7 @@ function ChannelSection({
 	favoriteChannelSet: Set<string>;
 	label: string;
 	notifications: ChannelNotificationState;
-	order: string[];
+	order: readonly string[];
 	section: ChannelSectionKey;
 	selectedChannelId: string | null;
 	currentUserId: string;
@@ -572,7 +572,7 @@ function findChannelById(
 
 function sortChannels(
 	channels: MattermostChannel[],
-	order: string[],
+	order: readonly string[],
 	users: Record<string, MattermostUser>,
 	currentUserId: string,
 	section: ChannelSectionKey,

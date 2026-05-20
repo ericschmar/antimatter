@@ -1,39 +1,34 @@
 import { randomBytes } from "node:crypto";
 import { app as electrobunApp, ApplicationMenu, BrowserView, BrowserWindow, ContextMenu, Utils } from "electrobun/bun";
 import { getFonts } from "font-list";
+import {
+	parseMattermostWebSocketMessage,
+	readMattermostWebSocketEvent,
+	readMattermostWebSocketStatus,
+} from "./mattermostWebSocketEvents";
+import {
+	getEnvConfig,
+	loginWithMattermostDesktopToken,
+	mattermostLogin,
+	mattermostRequest,
+	normalizeServerUrl,
+	uploadMattermostFiles,
+} from "./mattermostHttp";
+import {
+	sendMainWebviewMessage,
+	sendSettingsWebviewMessage,
+} from "./rpcSenders";
 import type {
 	AppSettingsPayload,
 	ChannelContextMenuAction,
 	MessageContextMenuAction,
-	MattermostFileUploadRequest,
-	MattermostLoginRequest,
 	MattermostClientRPC,
-	MattermostRpcRequest,
 	MattermostSsoLoginRequest,
 	MattermostSsoProvider,
 	MattermostTypingRequest,
 	MattermostWebSocketConfig,
 	SettingsWindowRPC,
 } from "../shared/electrobunRpc";
-
-type MattermostWebSocketMessage = {
-	event?: string;
-	data?: {
-		channel_id?: string;
-		parent_id?: string;
-		post?: string;
-		reaction?: string;
-		status?: string;
-		server_version?: string;
-		user_id?: string;
-	};
-	status?: string;
-	error?: string;
-	broadcast?: {
-		channel_id?: string;
-	};
-	seq_reply?: number;
-};
 
 let mattermostSocket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -123,7 +118,7 @@ const settingsRpc = BrowserView.defineRPC<SettingsWindowRPC>({
 			getInstalledFonts: async () => getInstalledFonts(),
 			updateSettings: ({ settings }) => {
 				latestSettings = settings;
-				(mainWindow.webview.rpc as any)?.send?.settingsUpdated({ settings });
+				sendMainWebviewMessage(mainWindow, "settingsUpdated", { settings });
 				return { success: true };
 			},
 			settingsWindowControl: ({ action }) => {
@@ -172,17 +167,17 @@ ContextMenu.on("context-menu-clicked", (event) => {
 	const data = readContextMenuData(event);
 	if (!data) return;
 	if (data.kind === "channel") {
-		(mainWindow.webview.rpc as any)?.send?.channelContextMenuAction(data.action);
+		sendMainWebviewMessage(mainWindow, "channelContextMenuAction", data.action);
 	}
 	if (data.kind === "message") {
-		(mainWindow.webview.rpc as any)?.send?.messageContextMenuAction(data.action);
+		sendMainWebviewMessage(mainWindow, "messageContextMenuAction", data.action);
 	}
 });
 
 ApplicationMenu.on("application-menu-clicked", (event) => {
 	const action = readApplicationMenuData(event);
 	if (!action) return;
-	(mainWindow.webview.rpc as any)?.send?.applicationMenuAction(action);
+	sendMainWebviewMessage(mainWindow, "applicationMenuAction", action);
 });
 
 ApplicationMenu.setApplicationMenu([
@@ -296,7 +291,7 @@ function openSettingsWindow(settings: AppSettingsPayload) {
 	latestSettings = settings;
 	if (settingsWindow && BrowserWindow.getById(settingsWindow.id)) {
 		settingsWindow.activate();
-		(settingsWindow.webview.rpc as any)?.send?.setSettings({ settings: latestSettings });
+		sendSettingsWebviewMessage(settingsWindow, "setSettings", { settings: latestSettings });
 		return;
 	}
 	settingsWindow = null;
@@ -316,7 +311,9 @@ function openSettingsWindow(settings: AppSettingsPayload) {
 	});
 
 	setTimeout(() => {
-		(settingsWindow?.webview.rpc as any)?.send?.setSettings({ settings: latestSettings });
+		if (settingsWindow) {
+			sendSettingsWebviewMessage(settingsWindow, "setSettings", { settings: latestSettings });
+		}
 	}, 100);
 }
 
@@ -338,63 +335,6 @@ function normalizeFontNames(fonts: string[]) {
 		if (name && !name.startsWith(".")) normalized.add(name);
 	}
 	return [...normalized].sort((a, b) => a.localeCompare(b));
-}
-
-function getEnvConfig() {
-	const serverUrl = Bun.env["MATTERMOST_SERVER_URL"]?.trim();
-	const token = Bun.env["MATTERMOST_PAT"]?.trim();
-
-	if (!serverUrl || !token) return null;
-	return { serverUrl, token };
-}
-
-async function mattermostRequest(request: MattermostRpcRequest) {
-	const url = new URL(`/api/v4${request.path}`, normalizeServerUrl(request.serverUrl));
-	const response = await fetch(url, {
-		method: request.method ?? "GET",
-		headers: {
-			Authorization: `Bearer ${request.token}`,
-			...(request.body ? { "Content-Type": "application/json" } : {}),
-		},
-		body: request.body ? JSON.stringify(request.body) : undefined,
-	});
-	const headers: Record<string, string> = {};
-	response.headers.forEach((value, key) => {
-		headers[key] = value;
-	});
-
-	return {
-		status: response.status,
-		ok: response.ok,
-		headers,
-		body:
-			request.responseType === "dataUrl" && response.ok
-				? await readDataUrl(response)
-				: await readBody(response),
-	};
-}
-
-async function mattermostLogin(request: MattermostLoginRequest) {
-	const url = new URL("/api/v4/users/login", normalizeServerUrl(request.serverUrl));
-	const response = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			login_id: request.loginId,
-			password: request.password,
-		}),
-	});
-	const headers: Record<string, string> = {};
-	response.headers.forEach((value, key) => {
-		headers[key] = value;
-	});
-	return {
-		status: response.status,
-		ok: response.ok,
-		headers,
-		token: response.headers.get("Token") ?? response.headers.get("token") ?? undefined,
-		body: await readBody(response),
-	};
 }
 
 async function startMattermostSsoLogin(request: MattermostSsoLoginRequest) {
@@ -505,7 +445,7 @@ async function handleMattermostDesktopLoginUrl(value: string) {
 			serverToken,
 		);
 		pendingDesktopSsoLogin = null;
-		(mainWindow.webview.rpc as any)?.send?.mattermostSsoLoginResult({
+		sendMainWebviewMessage(mainWindow, "mattermostSsoLoginResult", {
 			ok: true,
 			serverUrl: pending.serverUrl,
 			provider: pending.provider,
@@ -521,73 +461,16 @@ async function handleMattermostDesktopLoginUrl(value: string) {
 	}
 }
 
-async function loginWithMattermostDesktopToken(
-	serverUrl: string,
-	serverToken: string,
-) {
-	const url = new URL("/api/v4/users/login/desktop_token", serverUrl);
-	const response = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			token: serverToken,
-			deviceId: "",
-		}),
-	});
-	const token =
-		response.headers.get("Token") ?? response.headers.get("token") ?? undefined;
-	if (!response.ok || !token) {
-		const body = await readBody(response);
-		throw new Error(getMattermostErrorMessage(body, response.status));
-	}
-	return token;
-}
-
-function getMattermostErrorMessage(body: unknown, status: number) {
-	return body && typeof body === "object" && "message" in body
-		? String((body as { message?: unknown }).message)
-		: `Mattermost login failed with ${status}.`;
-}
-
 function sendMattermostSsoLoginError(message: string) {
 	const pending = pendingDesktopSsoLogin;
 	pendingDesktopSsoLogin = null;
-	(mainWindow.webview.rpc as any)?.send?.mattermostSsoLoginResult({
+	sendMainWebviewMessage(mainWindow, "mattermostSsoLoginResult", {
 		ok: false,
 		serverUrl: pending?.serverUrl ?? "",
 		provider: pending?.provider ?? "saml",
 		message,
 	});
 	console.info(`[sso] ${message}`);
-}
-
-async function uploadMattermostFiles(request: MattermostFileUploadRequest) {
-	const url = new URL("/api/v4/files", normalizeServerUrl(request.serverUrl));
-	const form = new FormData();
-	form.set("channel_id", request.channelId);
-	for (const file of request.files) {
-		form.append("client_ids", file.clientId);
-		form.append("files", dataUrlToBlob(file.dataUrl, file.type), file.name);
-	}
-
-	const response = await fetch(url, {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${request.token}`,
-		},
-		body: form,
-	});
-	const headers: Record<string, string> = {};
-	response.headers.forEach((value, key) => {
-		headers[key] = value;
-	});
-
-	return {
-		status: response.status,
-		ok: response.ok,
-		headers,
-		body: await readBody(response),
-	};
 }
 
 function connectMattermostWebSocket(config: MattermostWebSocketConfig) {
@@ -657,104 +540,44 @@ function openMattermostWebSocket(config: MattermostWebSocketConfig) {
 }
 
 function handleMattermostWebSocketMessage(raw: unknown) {
-	if (typeof raw !== "string") return;
-
-	let message: MattermostWebSocketMessage;
-	try {
-		message = JSON.parse(raw) as MattermostWebSocketMessage;
-	} catch {
-		return;
-	}
+	const message = parseMattermostWebSocketMessage(raw);
+	if (!message) return;
 
 	if (message.seq_reply && message.seq_reply === pendingWebsocketPingSeq) {
 		pendingWebsocketPingSeq = null;
 	}
 
-	if (message.status === "OK" && message.seq_reply) {
-		sendWebSocketStatus({ status: "connected" });
-		return;
+	const status = readMattermostWebSocketStatus(message, pendingWebsocketPingSeq);
+	if (status) {
+		sendWebSocketStatus(status);
+		if (message.status === "OK" || message.status === "FAIL" || message.event === "hello") return;
 	}
 
-	if (message.status === "FAIL") {
-		sendWebSocketStatus({
-			status: "error",
-			message: message.error || "Mattermost rejected WebSocket authentication.",
-		});
-		return;
-	}
+	const event = readMattermostWebSocketEvent(message);
+	if (!event) return;
 
-	if (message.event === "hello") {
-		sendWebSocketStatus({ status: "connected" });
-		return;
-	}
-
-	const typingChannelId = message.data?.channel_id ?? message.broadcast?.channel_id;
-	if ((message.event === "user_typing" || message.event === "typing") && typingChannelId && message.data?.user_id) {
-		(mainWindow.webview.rpc as any)?.send?.mattermostWebSocketTyping({
-			channelId: typingChannelId,
-			parentId: message.data.parent_id || undefined,
-			userId: message.data.user_id,
+	if (event.type === "typing") {
+		sendMainWebviewMessage(mainWindow, "mattermostWebSocketTyping", {
+			channelId: event.channelId,
+			parentId: event.parentId,
+			userId: event.userId,
 		});
 	}
-
-	if (message.event === "posted" && message.data?.post) {
-		try {
-			(mainWindow.webview.rpc as any)?.send?.mattermostWebSocketPost({
-				post: JSON.parse(message.data.post) as unknown,
-			});
-		} catch (error) {
-			console.error("Failed to parse post payload:", {
-				error: error instanceof Error ? error.message : String(error),
-			});
-			// Don't send error to UI for individual post failures
-		}
+	if (event.type === "post") {
+		sendMainWebviewMessage(mainWindow, "mattermostWebSocketPost", {
+			post: event.post,
+		});
 	}
-
-	if (
-		(message.event === "reaction_added" || message.event === "reaction_removed") &&
-		message.data?.reaction
-	) {
-		try {
-			(mainWindow.webview.rpc as any)?.send?.mattermostWebSocketReaction({
-				reaction: JSON.parse(message.data.reaction) as unknown,
-				removed: message.event === "reaction_removed",
-			});
-		} catch (error) {
-			console.error("Failed to parse reaction payload:", {
-				error: error instanceof Error ? error.message : String(error),
-			});
-			// Don't send error to UI for individual reaction failures
-		}
+	if (event.type === "reaction") {
+		sendMainWebviewMessage(mainWindow, "mattermostWebSocketReaction", {
+			reaction: event.reaction,
+			removed: event.removed,
+		});
 	}
-
-	if (message.event === "status_change" && message.data?.status) {
-		try {
-			// Handle both JSON-stringified and already-parsed status data
-			let status: unknown;
-			if (typeof message.data.status === "string") {
-				try {
-					status = JSON.parse(message.data.status);
-				} catch {
-					// If JSON.parse fails, maybe it's a simple status string
-					// Try to construct a minimal status object
-					console.warn("Status data is not valid JSON, treating as raw data:", message.data.status);
-					status = message.data.status;
-				}
-			} else {
-				// Already parsed (shouldn't happen based on type definition, but defensive)
-				status = message.data.status;
-			}
-			
-			(mainWindow.webview.rpc as any)?.send?.mattermostWebSocketStatusChange({
-				status,
-			});
-		} catch (error) {
-			console.error("Failed to process status_change payload:", {
-				rawStatus: message.data.status,
-				error: error instanceof Error ? error.message : String(error),
-			});
-			// Don't send error to UI, just log it - status updates are non-critical
-		}
+	if (event.type === "statusChange") {
+		sendMainWebviewMessage(mainWindow, "mattermostWebSocketStatusChange", {
+			status: event.status,
+		});
 	}
 }
 
@@ -835,39 +658,5 @@ function sendWebSocketStatus(payload: {
 	status: "connecting" | "connected" | "disconnected" | "error";
 	message?: string;
 }) {
-	(mainWindow.webview.rpc as any)?.send?.mattermostWebSocketStatus(payload);
-}
-
-function normalizeServerUrl(value: string) {
-	const trimmed = value.trim().replace(/\/+$/, "");
-	if (/^https?:\/\//i.test(trimmed)) return trimmed;
-	return `https://${trimmed}`;
-}
-
-async function readBody(response: Response) {
-	const text = await response.text();
-	if (!text) return null;
-
-	try {
-		return JSON.parse(text) as unknown;
-	} catch {
-		return { message: text };
-	}
-}
-
-async function readDataUrl(response: Response) {
-	const contentType = response.headers.get("Content-Type") ?? "application/octet-stream";
-	const bytes = await response.arrayBuffer();
-	return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;
-}
-
-function dataUrlToBlob(dataUrl: string, fallbackType: string) {
-	const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUrl);
-	if (!match) return new Blob([dataUrl], { type: fallbackType || "application/octet-stream" });
-	const contentType = match[1] || fallbackType || "application/octet-stream";
-	const encoded = match[3] ?? "";
-	if (match[2]) {
-		return new Blob([Buffer.from(encoded, "base64")], { type: contentType });
-	}
-	return new Blob([decodeURIComponent(encoded)], { type: contentType });
+	sendMainWebviewMessage(mainWindow, "mattermostWebSocketStatus", payload);
 }

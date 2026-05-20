@@ -73,9 +73,11 @@ bun run build:canary
 For local development, Antimatter can read Mattermost credentials from `.env.local`:
 
 ```sh
-MATTERMOST_URL=https://mattermost.example.com
+MATTERMOST_SERVER_URL=https://mattermost.example.com
 MATTERMOST_PAT=your-personal-access-token
 ```
+
+`MATTERMOST_URL` is also accepted as a legacy alias for `MATTERMOST_SERVER_URL`.
 
 You can also enter credentials from the login screen.
 
