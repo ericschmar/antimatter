@@ -118,6 +118,14 @@ export type NormalizedState = {
 	postOrder: string[];
 };
 
+export type ChannelHistoryData = {
+	memberUsers: MattermostUser[];
+	members: MattermostChannelMember[];
+	postOrder: string[];
+	posts: Record<string, MattermostPost>;
+	postUsers: MattermostUser[];
+};
+
 export type ChannelSectionKey = "favorites" | "channels" | "dms" | "archived";
 
 export type ChannelNotificationState = Record<

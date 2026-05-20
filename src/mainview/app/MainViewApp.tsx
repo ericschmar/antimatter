@@ -9,6 +9,7 @@ import { clearConfig, loadConfig, saveConfig } from "../storage";
 import type { MattermostSsoProvider } from "../../shared/electrobunRpc";
 import type {
 	AppSettings,
+	ChannelHistoryData,
 	MattermostChannelMember,
 	MattermostChannel,
 	MattermostConfig,
@@ -57,14 +58,6 @@ const emptyState: NormalizedState = {
 	channels: {},
 	posts: {},
 	postOrder: [],
-};
-
-type ChannelHistoryData = {
-	memberUsers: MattermostUser[];
-	members: MattermostChannelMember[];
-	postOrder: string[];
-	posts: Record<string, MattermostPost>;
-	postUsers: MattermostUser[];
 };
 
 function channelHistoryKey(
@@ -116,6 +109,45 @@ function pruneExpiredTypingUsers(
 	}
 
 	return changed ? next : current;
+}
+
+function normalizedHistoryState(history: ChannelHistoryData): NormalizedState {
+	return {
+		channels: {},
+		posts: history.posts,
+		postOrder: history.postOrder,
+		teams: {},
+		users: {},
+	};
+}
+
+function addPostToHistory(
+	history: ChannelHistoryData | undefined,
+	post: MattermostPost,
+): ChannelHistoryData | undefined {
+	if (!history) return history;
+	const next = addPost(normalizedHistoryState(history), post);
+	if (next.posts === history.posts && next.postOrder === history.postOrder)
+		return history;
+	return {
+		...history,
+		posts: next.posts,
+		postOrder: next.postOrder,
+	};
+}
+
+function replacePostInHistory(
+	history: ChannelHistoryData | undefined,
+	oldId: string,
+	post: MattermostPost,
+): ChannelHistoryData | undefined {
+	if (!history) return history;
+	const next = replacePost(normalizedHistoryState(history), oldId, post);
+	return {
+		...history,
+		posts: next.posts,
+		postOrder: next.postOrder,
+	};
 }
 
 export function MainViewApp() {
@@ -728,15 +760,7 @@ export function MainViewApp() {
 		};
 		setReplyTarget(null);
 		mutateSelectedChannelHistory((current) =>
-			current
-				? {
-						...current,
-						posts: { ...current.posts, [pendingPost.id]: pendingPost },
-						postOrder: current.postOrder.includes(pendingPost.id)
-							? current.postOrder
-							: [...current.postOrder, pendingPost.id],
-					}
-				: current,
+			addPostToHistory(current, pendingPost),
 		);
 		setState((current) =>
 			updateChannelLastPostAt(
@@ -766,33 +790,7 @@ export function MainViewApp() {
 						)
 					: await api.createPost(selectedChannelId, message, rootId);
 			mutateSelectedChannelHistory((current) =>
-				current
-					? {
-							...current,
-							posts: replacePost(
-								{
-									channels: {},
-									posts: current.posts,
-									postOrder: current.postOrder,
-									teams: {},
-									users: {},
-								},
-								clientId,
-								created,
-							).posts,
-							postOrder: replacePost(
-								{
-									channels: {},
-									posts: current.posts,
-									postOrder: current.postOrder,
-									teams: {},
-									users: {},
-								},
-								clientId,
-								created,
-							).postOrder,
-						}
-					: current,
+				replacePostInHistory(current, clientId, created),
 			);
 			setState((current) =>
 				updateChannelLastPostAt(
@@ -1061,6 +1059,7 @@ export function MainViewApp() {
 		connect,
 		currentUser,
 		loadPostReactions,
+		mutateSelectedChannelHistory,
 		openSettingsWindow,
 		selectedChannelRef,
 		settings,

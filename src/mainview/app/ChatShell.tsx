@@ -108,6 +108,7 @@ export function ChatShell({
 		<Tooltip.Provider>
 			<div className="window-shell">
 				<Titlebar
+					onOpenSearch={() => uiActions.setCommandOpen(true)}
 					onWindowControl={(action) => {
 						void electrobun.rpc!.request.windowControl({ action });
 					}}
@@ -245,6 +246,7 @@ export function ChatShell({
 
 						<section className="chat-body">
 							<MessageTimeline
+								channelId={selectedChannelId}
 								currentUserId={currentUser.id}
 								loading={ui.status === "loading"}
 								loadingHistory={ui.loadingHistory}
@@ -265,6 +267,7 @@ export function ChatShell({
 								currentUserId={currentUser.id}
 								disabled={!selectedChannelId || ui.status === "loading"}
 								editTarget={editTarget}
+								mentionUsers={selectedChannelUsers}
 								ref={composerRef}
 								replyTarget={replyTarget}
 								userColors={userColors}

@@ -12,6 +12,7 @@ import "./MessageTimeline.css";
 
 export function MessageTimeline({
 	posts,
+	channelId,
 	currentUserId,
 	users,
 	userColors,
@@ -28,6 +29,7 @@ export function MessageTimeline({
 	onLoadMore,
 }: {
 	posts: MattermostPost[];
+	channelId: string | null;
 	currentUserId: string;
 	users: Record<string, MattermostUser>;
 	userColors: Record<string, string>;
@@ -44,6 +46,7 @@ export function MessageTimeline({
 	onLoadMore?: () => void;
 }) {
 	const viewportRef = useRef<HTMLDivElement>(null);
+	const previousChannelIdRef = useRef<string | null>(null);
 	const previousPostCountRef = useRef(0);
 	const [showLoadMore, setShowLoadMore] = useState(false);
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
@@ -59,20 +62,23 @@ export function MessageTimeline({
 	useEffect(() => {
 		if (timelineRows.length === 0) return;
 		const viewport = viewportRef.current;
+		const channelChanged = previousChannelIdRef.current !== channelId;
 		const previousPostCount = previousPostCountRef.current;
+		previousChannelIdRef.current = channelId;
 		previousPostCountRef.current = posts.length;
 
 		if (!viewport) return;
 		const distanceFromBottom =
 			viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-		const shouldStickToBottom = previousPostCount === 0 || distanceFromBottom < 96;
+		const shouldStickToBottom =
+			channelChanged || previousPostCount === 0 || distanceFromBottom < 96;
 
 		if (shouldStickToBottom) {
 			requestAnimationFrame(() => {
 				rowVirtualizer.scrollToIndex(timelineRows.length - 1, { align: "end" });
 			});
 		}
-	}, [posts.length, rowVirtualizer, timelineRows.length]);
+	}, [channelId, posts.length, rowVirtualizer, timelineRows.length]);
 
 	useEffect(() => {
 		const viewport = viewportRef.current;

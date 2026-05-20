@@ -402,6 +402,7 @@ function ChannelSection({
 									favorite={favoriteChannelSet.has(channel.id)}
 									key={channel.id}
 									notification={notifications[channel.id]}
+									section={section}
 									selected={channel.id === selectedChannelId}
 									currentUserId={currentUserId}
 									users={users}
@@ -434,6 +435,7 @@ function SortableChannelRow({
 	channelEmoji,
 	favorite,
 	notification,
+	section,
 	selected,
 	currentUserId,
 	users,
@@ -447,6 +449,7 @@ function SortableChannelRow({
 	channelEmoji?: string;
 	favorite: boolean;
 	notification?: { unread: boolean; mention: boolean };
+	section: ChannelSectionKey;
 	selected: boolean;
 	currentUserId: string;
 	users: Record<string, MattermostUser>;
@@ -484,6 +487,7 @@ function SortableChannelRow({
 				selected ? "active" : "",
 				notification?.unread ? "unread" : "",
 				notification?.mention ? "mentioned" : "",
+				favorite && section === "favorites" ? "favorite-section" : "",
 				isDragging ? "dragging" : "",
 			]
 				.filter(Boolean)

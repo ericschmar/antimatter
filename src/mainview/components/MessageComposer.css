@@ -1,5 +1,6 @@
 .composer {
 	grid-row: 2;
+	position: relative;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: end;
@@ -9,17 +10,18 @@
 	border-top: 1px solid var(--border-subtle);
 	background: var(--panel-bg);
 	padding: 8px 10px;
-	overflow: hidden;
+	overflow: visible;
 }
 
 .composer-editor {
+	position: relative;
 	min-width: 0;
 	max-height: 214px;
 	border: 1px solid var(--border-strong);
 	border-radius: 7px;
 	background: var(--slate-1);
 	color: var(--text-primary);
-	overflow: hidden;
+	overflow: visible;
 }
 
 .composer-editor.disabled {
@@ -59,14 +61,14 @@
 	padding: 2px;
 }
 
-.composer-editor .composer-toolbar .composer-toolbar-attach {
+.composer-editor .composer-toolbar .composer-toolbar-button {
 	border: 0;
 	border-radius: 4px;
 	background: transparent;
 	color: var(--baseText);
 }
 
-.composer-editor .composer-toolbar .composer-toolbar-attach:hover {
+.composer-editor .composer-toolbar .composer-toolbar-button:hover {
 	background: var(--baseBg);
 	color: var(--baseTextContrast);
 }
@@ -247,6 +249,80 @@
 	gap: 5px;
 	border-top: 1px solid var(--border-subtle);
 	padding: 6px 8px;
+}
+
+.mention-suggestions {
+	position: absolute;
+	left: 0;
+	bottom: calc(100% + 6px);
+	z-index: 30;
+	display: grid;
+	gap: 2px;
+	width: min(320px, calc(100vw - 48px));
+	max-height: 238px;
+	border: 1px solid var(--border-strong);
+	border-radius: 7px;
+	background: var(--slate-2);
+	box-shadow: 0 14px 28px rgba(0, 0, 0, 0.36);
+	padding: 5px;
+	overflow-y: auto;
+}
+
+.mention-suggestion {
+	display: grid;
+	grid-template-columns: 28px minmax(0, 1fr);
+	align-items: center;
+	gap: 8px;
+	min-height: 36px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-secondary);
+	padding: 4px 6px;
+	text-align: left;
+}
+
+.mention-suggestion:hover,
+.mention-suggestion.active {
+	background: var(--panel-hover);
+	color: var(--text-primary);
+}
+
+.mention-suggestion-avatar {
+	display: inline-grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border: 1px solid var(--border-subtle);
+	border-radius: 999px;
+	background: var(--panel-raised);
+	color: var(--text-secondary);
+	font-size: 0.72rem;
+	font-weight: 750;
+}
+
+.mention-suggestion-copy {
+	display: grid;
+	min-width: 0;
+	line-height: 1.2;
+}
+
+.mention-suggestion-copy span,
+.mention-suggestion-copy small {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mention-suggestion-copy span {
+	font-size: 0.82rem;
+	font-weight: 700;
+}
+
+.mention-suggestion-copy small {
+	color: var(--text-muted);
+	font-size: 0.72rem;
 }
 
 .composer-file-chip {

@@ -43,6 +43,7 @@ import {
 	Paperclip,
 	Redo2,
 	Send,
+	SmilePlus,
 	Table2,
 	Type,
 	Underline,
@@ -51,6 +52,7 @@ import {
 } from "lucide-react";
 import {
 	forwardRef,
+	useCallback,
 	useEffect,
 	useImperativeHandle,
 	useMemo,
@@ -59,12 +61,22 @@ import {
 } from "react";
 import type { KeyboardEvent } from "react";
 import type { MattermostPost, MattermostUser } from "../types";
-import { userLabel } from "../utils/format";
+import { initials, userLabel } from "../utils/format";
+import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { MarkdownMessage } from "./MarkdownMessage";
 import "./MessageComposer.css";
 
 const TOOLBAR_ICON_SIZE = 14;
 const TYPING_UPDATE_INTERVAL_MS = 4000;
+
+function matchMentionQuery(message: string) {
+	const match = /(^|\s)@([A-Za-z0-9._-]*)$/.exec(message);
+	if (!match) return null;
+	return {
+		query: match[2] ?? "",
+		start: match.index + (match[1]?.length ?? 0),
+	};
+}
 
 function composerToolbarIcon(name: string) {
 	const iconProps = {
@@ -122,6 +134,7 @@ type MessageComposerProps = {
 	disabled: boolean;
 	replyTarget: MattermostPost | null;
 	editTarget: MattermostPost | null;
+	mentionUsers: MattermostUser[];
 	users: Record<string, MattermostUser>;
 	userColors: Record<string, string>;
 	currentUserId: string;
@@ -139,6 +152,7 @@ export const MessageComposer = forwardRef<
 	{
 		disabled,
 		editTarget,
+		mentionUsers,
 		replyTarget,
 		users,
 		userColors,
@@ -153,10 +167,77 @@ export const MessageComposer = forwardRef<
 ) {
 	const [message, setMessage] = useState("");
 	const [files, setFiles] = useState<File[]>([]);
+	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+	const messageRef = useRef("");
 	const editorRef = useRef<MDXEditorMethods>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const lastTypingUpdateRef = useRef(0);
+	const mentionSuggestionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 	const canSend = !disabled && (message.trim().length > 0 || files.length > 0);
+	const mentionMatch = useMemo(() => matchMentionQuery(message), [message]);
+	const mentionSuggestions = useMemo(() => {
+		if (!mentionMatch || disabled) return [];
+		const query = mentionMatch.query.toLowerCase();
+		return mentionUsers
+			.filter((user) => user.id !== currentUserId)
+			.filter((user) => {
+				const label = userLabel(user, user.id).toLowerCase();
+				return (
+					user.username.toLowerCase().includes(query) ||
+					label.includes(query) ||
+					user.nickname?.toLowerCase().includes(query)
+				);
+			})
+			.slice(0, 8);
+	}, [currentUserId, disabled, mentionMatch, mentionUsers]);
+	const showMentionSuggestions = mentionSuggestions.length > 0;
+
+	const handleMessageChange = useCallback(
+		(nextMessage: string) => {
+			messageRef.current = nextMessage;
+			setMessage(nextMessage);
+			if (disabled || editTarget || nextMessage.trim().length === 0) return;
+
+			const now = Date.now();
+			if (now - lastTypingUpdateRef.current < TYPING_UPDATE_INTERVAL_MS) return;
+
+			lastTypingUpdateRef.current = now;
+			void onTyping(replyTarget?.root_id || replyTarget?.id);
+		},
+		[disabled, editTarget, onTyping, replyTarget?.id, replyTarget?.root_id],
+	);
+
+	const insertEmoji = useCallback(
+		(emoji: string) => {
+			if (disabled || !emoji) return;
+			editorRef.current?.focus(
+				() => {
+					editorRef.current?.insertMarkdown(emoji);
+					handleMessageChange(
+						editorRef.current?.getMarkdown() ?? messageRef.current + emoji,
+					);
+				},
+				{ defaultSelection: "rootEnd", preventScroll: true },
+			);
+		},
+		[disabled, handleMessageChange],
+	);
+
+	const insertMention = useCallback(
+		(user: MattermostUser) => {
+			if (!mentionMatch) return;
+			const nextMessage = `${message.slice(0, mentionMatch.start)}@${user.username} `;
+			messageRef.current = nextMessage;
+			setMessage(nextMessage);
+			editorRef.current?.setMarkdown(nextMessage);
+			editorRef.current?.focus(undefined, {
+				defaultSelection: "rootEnd",
+				preventScroll: true,
+			});
+		},
+		[mentionMatch, message],
+	);
+
 	const plugins = useMemo(
 		() => [
 			toolbarPlugin({
@@ -183,13 +264,26 @@ export const MessageComposer = forwardRef<
 											<Separator />
 											<button
 												aria-label="Attach files"
-												className="composer-toolbar-attach"
+												className="composer-toolbar-button"
 												disabled={disabled || Boolean(editTarget)}
 												type="button"
 												onClick={() => fileInputRef.current?.click()}
 											>
 												<Paperclip size={TOOLBAR_ICON_SIZE} />
 											</button>
+											<EmojiPickerPopover
+												label="Insert emoji"
+												onSelectEmoji={(emoji) => insertEmoji(emoji)}
+											>
+												<button
+													aria-label="Insert emoji"
+													className="composer-toolbar-button"
+													disabled={disabled}
+													type="button"
+												>
+													<SmilePlus size={TOOLBAR_ICON_SIZE} />
+												</button>
+											</EmojiPickerPopover>
 											<Separator />
 											<InsertTable />
 											<InsertThematicBreak />
@@ -216,7 +310,7 @@ export const MessageComposer = forwardRef<
 			diffSourcePlugin({ viewMode: "rich-text" }),
 			markdownShortcutPlugin(),
 		],
-		[disabled, editTarget],
+		[disabled, editTarget, insertEmoji],
 	);
 
 	function submit() {
@@ -225,6 +319,7 @@ export const MessageComposer = forwardRef<
 		if (editTarget) {
 			void onEdit(editTarget, trimmed);
 			lastTypingUpdateRef.current = 0;
+			messageRef.current = "";
 			setMessage("");
 			editorRef.current?.setMarkdown("");
 			return;
@@ -232,24 +327,42 @@ export const MessageComposer = forwardRef<
 		const rootId = replyTarget?.root_id || replyTarget?.id;
 		const filesToSend = files;
 		lastTypingUpdateRef.current = 0;
+		messageRef.current = "";
 		setMessage("");
 		setFiles([]);
 		editorRef.current?.setMarkdown("");
 		void onSend(trimmed, rootId, filesToSend);
 	}
 
-	function handleMessageChange(nextMessage: string) {
-		setMessage(nextMessage);
-		if (disabled || editTarget || nextMessage.trim().length === 0) return;
-
-		const now = Date.now();
-		if (now - lastTypingUpdateRef.current < TYPING_UPDATE_INTERVAL_MS) return;
-
-		lastTypingUpdateRef.current = now;
-		void onTyping(replyTarget?.root_id || replyTarget?.id);
-	}
-
 	function handleComposerKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+		if (showMentionSuggestions) {
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				setActiveMentionIndex((current) =>
+					(current + 1) % mentionSuggestions.length,
+				);
+				return;
+			}
+			if (event.key === "ArrowUp") {
+				event.preventDefault();
+				setActiveMentionIndex(
+					(current) =>
+						(current - 1 + mentionSuggestions.length) %
+						mentionSuggestions.length,
+				);
+				return;
+			}
+			if (event.key === "Enter" || event.key === "Tab") {
+				event.preventDefault();
+				insertMention(mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0]);
+				return;
+			}
+			if (event.key === "Escape") {
+				event.preventDefault();
+				setActiveMentionIndex(-1);
+				return;
+			}
+		}
 		if (
 			event.key !== "Enter" ||
 			event.shiftKey ||
@@ -280,8 +393,20 @@ export const MessageComposer = forwardRef<
 	}, [disabled]);
 
 	useEffect(() => {
+		setActiveMentionIndex(0);
+	}, [mentionMatch?.query]);
+
+	useEffect(() => {
+		if (!showMentionSuggestions || activeMentionIndex < 0) return;
+		mentionSuggestionRefs.current[activeMentionIndex]?.scrollIntoView({
+			block: "nearest",
+		});
+	}, [activeMentionIndex, showMentionSuggestions]);
+
+	useEffect(() => {
 		if (!editTarget) return;
 		setFiles([]);
+		messageRef.current = editTarget.message;
 		setMessage(editTarget.message);
 		editorRef.current?.setMarkdown(editTarget.message);
 		requestAnimationFrame(focusEditor);
@@ -330,6 +455,7 @@ export const MessageComposer = forwardRef<
 							className="composer-reply-cancel"
 							type="button"
 							onClick={() => {
+								messageRef.current = "";
 								setMessage("");
 								editorRef.current?.setMarkdown("");
 								onCancelEdit();
@@ -385,6 +511,36 @@ export const MessageComposer = forwardRef<
 									<X size={12} />
 								</button>
 							</span>
+						))}
+					</div>
+				) : null}
+				{showMentionSuggestions && activeMentionIndex >= 0 ? (
+					<div className="mention-suggestions" role="listbox">
+						{mentionSuggestions.map((user, index) => (
+							<button
+								aria-selected={index === activeMentionIndex}
+								className={
+									index === activeMentionIndex
+										? "mention-suggestion active"
+										: "mention-suggestion"
+								}
+								key={user.id}
+								ref={(element) => {
+									mentionSuggestionRefs.current[index] = element;
+								}}
+								role="option"
+								type="button"
+								onMouseDown={(event) => event.preventDefault()}
+								onClick={() => insertMention(user)}
+							>
+								<span className="mention-suggestion-avatar">
+									{initials(user.nickname || user.username)}
+								</span>
+								<span className="mention-suggestion-copy">
+									<span>{userLabel(user, user.id)}</span>
+									<small>@{user.username}</small>
+								</span>
+							</button>
 						))}
 					</div>
 				) : null}

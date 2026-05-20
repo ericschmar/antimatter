@@ -423,6 +423,15 @@ h2 {
 	opacity: 1;
 }
 
+.channel-row.favorite-section .favorite-toggle.active {
+	opacity: 0;
+}
+
+.channel-row.favorite-section:hover .favorite-toggle.active,
+.channel-row.favorite-section .favorite-toggle.active:focus-visible {
+	opacity: 1;
+}
+
 .favorite-toggle:hover,
 .favorite-toggle.active {
 	color: var(--warm-bg);

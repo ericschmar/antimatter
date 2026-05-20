@@ -7,6 +7,7 @@ import type {
 import { MattermostApiClient } from "../../mattermostApi";
 import type {
 	AppSettings,
+	ChannelHistoryData,
 	ChannelNotificationState,
 	MattermostConfig,
 	MattermostPost,
@@ -33,6 +34,7 @@ export function useMainViewEvents({
 	connect,
 	currentUser,
 	loadPostReactions,
+	mutateSelectedChannelHistory,
 	openSettingsWindow,
 	selectedChannelRef,
 	settings,
@@ -110,6 +112,9 @@ export function useMainViewEvents({
 				}).catch(() => undefined);
 			}
 			if (post.channel_id === selectedChannelRef.current) {
+				mutateSelectedChannelHistory((current) =>
+					addPostToHistory(current, post),
+				);
 				setState((current) =>
 					updateChannelLastPostAt(
 						addPost(current, post),
@@ -217,7 +222,7 @@ export function useMainViewEvents({
 			);
 			window.removeEventListener("mattermost-websocket-typing", handleTyping);
 		};
-	}, [api, connect, currentUser, loadPostReactions, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setAppUpdate, setChannelNotifications, setError, setState, setStatus, setTypingUsers, setUserStatuses, setWsStatus]);
+	}, [api, connect, currentUser, loadPostReactions, mutateSelectedChannelHistory, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setAppUpdate, setChannelNotifications, setError, setState, setStatus, setTypingUsers, setUserStatuses, setWsStatus]);
 
 	useEffect(() => {
 		function handleSettingsUpdate(event: Event) {
@@ -290,6 +295,11 @@ type UseMainViewEventsArgs = {
 	connect: (config: MattermostConfig) => Promise<void>;
 	currentUser: MattermostUser | null;
 	loadPostReactions: (api: MattermostApiClient, posts: MattermostPost[]) => Promise<void>;
+	mutateSelectedChannelHistory: (
+		updater: (
+			current: ChannelHistoryData | undefined,
+		) => ChannelHistoryData | undefined,
+	) => void;
 	openSettingsWindow: (settings: AppSettings) => void;
 	selectedChannelRef: MutableRefObject<string | null>;
 	settings: AppSettings;
@@ -307,6 +317,18 @@ type UseMainViewEventsArgs = {
 	setUserStatuses: Dispatch<SetStateAction<Record<string, MattermostUserStatus>>>;
 	setWsStatus: (status: WebSocketStatus) => void;
 };
+
+function addPostToHistory(
+	history: ChannelHistoryData | undefined,
+	post: MattermostPost,
+): ChannelHistoryData | undefined {
+	if (!history || history.posts[post.id]) return history;
+	return {
+		...history,
+		posts: { ...history.posts, [post.id]: post },
+		postOrder: [...history.postOrder, post.id],
+	};
+}
 
 function removeTypingUser(
 	current: TypingUsersByChannel,

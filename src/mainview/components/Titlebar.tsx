@@ -1,10 +1,12 @@
-import { Minus, Square, X } from "lucide-react";
+import { Minus, Search, Square, X } from "lucide-react";
 import type { WindowControlAction } from "../../shared/electrobunRpc";
 import "./Titlebar.css";
 
 export function Titlebar({
+	onOpenSearch,
 	onWindowControl,
 }: {
+	onOpenSearch?: () => void;
 	onWindowControl: (action: WindowControlAction) => void;
 }) {
 	return (
@@ -36,6 +38,18 @@ export function Titlebar({
 				</button>
 			</div>
 			<div className="titlebar-title">Antimatter</div>
+			{onOpenSearch ? (
+				<button
+					aria-label="Open search"
+					className="titlebar-search-badge electrobun-webkit-app-region-no-drag"
+					type="button"
+					onClick={onOpenSearch}
+				>
+					<Search size={13} />
+					<span>Search</span>
+					<kbd>⌘K</kbd>
+				</button>
+			) : null}
 		</header>
 	);
 }
