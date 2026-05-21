@@ -6,6 +6,7 @@ import {
 	codeBlockPlugin,
 	codeMirrorPlugin,
 	ConditionalContents,
+	createRootEditorSubscription$,
 	DiffSourceToggleWrapper,
 	diffSourcePlugin,
 	headingsPlugin,
@@ -13,6 +14,7 @@ import {
 	InsertCodeBlock,
 	InsertTable,
 	InsertThematicBreak,
+	insertCodeMirror$,
 	linkDialogPlugin,
 	linkPlugin,
 	listsPlugin,
@@ -21,6 +23,7 @@ import {
 	MDXEditor,
 	type MDXEditorMethods,
 	quotePlugin,
+	realmPlugin,
 	Separator,
 	tablePlugin,
 	thematicBreakPlugin,
@@ -60,6 +63,7 @@ import {
 	useState,
 } from "react";
 import type { KeyboardEvent } from "react";
+import { COMMAND_PRIORITY_HIGH, PASTE_COMMAND } from "lexical";
 import type { MattermostPost, MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
@@ -68,6 +72,44 @@ import "./MessageComposer.css";
 
 const TOOLBAR_ICON_SIZE = 14;
 const TYPING_UPDATE_INTERVAL_MS = 4000;
+
+function isLikelyCodePaste(text: string) {
+	const normalizedText = text.replace(/\r\n?/g, "\n");
+	const lines = normalizedText.split("\n");
+	const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
+	if (nonEmptyLines.length < 2) return false;
+
+	return (
+		nonEmptyLines.some((line) => /^\s{2,}|\t/.test(line)) ||
+		/[{}()[\];=<>]/.test(normalizedText) ||
+		/\b(class|const|def|enum|export|function|if|import|interface|let|return|type|var)\b/.test(
+			normalizedText,
+		)
+	);
+}
+
+const preserveCodePastePlugin = realmPlugin({
+	init(realm) {
+		realm.pub(createRootEditorSubscription$, (editor) =>
+			editor.registerCommand(
+				PASTE_COMMAND,
+				(event) => {
+					if (!(event instanceof ClipboardEvent)) return false;
+					const text = event.clipboardData?.getData("text/plain");
+					if (!text || !isLikelyCodePaste(text)) return false;
+
+					event.preventDefault();
+					realm.pub(insertCodeMirror$, {
+						code: text.replace(/\r\n?/g, "\n"),
+						language: "txt",
+					});
+					return true;
+				},
+				COMMAND_PRIORITY_HIGH,
+			),
+		);
+	},
+});
 
 function matchMentionQuery(message: string) {
 	const match = /(^|\s)@([A-Za-z0-9._-]*)$/.exec(message);
@@ -168,12 +210,14 @@ export const MessageComposer = forwardRef<
 	const [message, setMessage] = useState("");
 	const [files, setFiles] = useState<File[]>([]);
 	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+	const [sending, setSending] = useState(false);
 	const messageRef = useRef("");
 	const editorRef = useRef<MDXEditorMethods>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const lastTypingUpdateRef = useRef(0);
 	const mentionSuggestionRefs = useRef<(HTMLButtonElement | null)[]>([]);
-	const canSend = !disabled && (message.trim().length > 0 || files.length > 0);
+	const canSend =
+		!disabled && !sending && (message.trim().length > 0 || files.length > 0);
 	const mentionMatch = useMemo(() => matchMentionQuery(message), [message]);
 	const mentionSuggestions = useMemo(() => {
 		if (!mentionMatch || disabled) return [];
@@ -240,6 +284,7 @@ export const MessageComposer = forwardRef<
 
 	const plugins = useMemo(
 		() => [
+			preserveCodePastePlugin(),
 			toolbarPlugin({
 				toolbarClassName: "composer-toolbar",
 				toolbarContents: () => (
@@ -313,9 +358,9 @@ export const MessageComposer = forwardRef<
 		[disabled, editTarget, insertEmoji],
 	);
 
-	function submit() {
+	async function submit() {
 		const trimmed = message.trim();
-		if (!trimmed && files.length === 0) return;
+		if (sending || (!trimmed && files.length === 0)) return;
 		if (editTarget) {
 			void onEdit(editTarget, trimmed);
 			lastTypingUpdateRef.current = 0;
@@ -326,12 +371,20 @@ export const MessageComposer = forwardRef<
 		}
 		const rootId = replyTarget?.root_id || replyTarget?.id;
 		const filesToSend = files;
-		lastTypingUpdateRef.current = 0;
-		messageRef.current = "";
-		setMessage("");
-		setFiles([]);
-		editorRef.current?.setMarkdown("");
-		void onSend(trimmed, rootId, filesToSend);
+		setSending(true);
+		try {
+			await onSend(trimmed, rootId, filesToSend);
+			lastTypingUpdateRef.current = 0;
+			messageRef.current = "";
+			setMessage("");
+			setFiles([]);
+			editorRef.current?.setMarkdown("");
+			onCancelReply();
+		} catch {
+			// MainViewApp surfaces send errors; keep the draft intact for retry.
+		} finally {
+			setSending(false);
+		}
 	}
 
 	function handleComposerKeyDown(event: KeyboardEvent<HTMLDivElement>) {

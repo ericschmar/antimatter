@@ -24,9 +24,7 @@ import type {
 import { channelLabel, isDirectChannel, isTeamChannel } from "../utils/format";
 import { normalizeEmojiName } from "../utils/emoji";
 import {
-	addPost,
 	applyReaction,
-	replacePost,
 	setPostReactions,
 	updatePost as updatePostInState,
 	updateChannelLastPostAt,
@@ -109,45 +107,6 @@ function pruneExpiredTypingUsers(
 	}
 
 	return changed ? next : current;
-}
-
-function normalizedHistoryState(history: ChannelHistoryData): NormalizedState {
-	return {
-		channels: {},
-		posts: history.posts,
-		postOrder: history.postOrder,
-		teams: {},
-		users: {},
-	};
-}
-
-function addPostToHistory(
-	history: ChannelHistoryData | undefined,
-	post: MattermostPost,
-): ChannelHistoryData | undefined {
-	if (!history) return history;
-	const next = addPost(normalizedHistoryState(history), post);
-	if (next.posts === history.posts && next.postOrder === history.postOrder)
-		return history;
-	return {
-		...history,
-		posts: next.posts,
-		postOrder: next.postOrder,
-	};
-}
-
-function replacePostInHistory(
-	history: ChannelHistoryData | undefined,
-	oldId: string,
-	post: MattermostPost,
-): ChannelHistoryData | undefined {
-	if (!history) return history;
-	const next = replacePost(normalizedHistoryState(history), oldId, post);
-	return {
-		...history,
-		posts: next.posts,
-		postOrder: next.postOrder,
-	};
 }
 
 export function MainViewApp() {
@@ -737,38 +696,6 @@ export function MainViewApp() {
 		files: File[] = [],
 	) {
 		if (!api || !currentUser || !selectedChannelId) return;
-		const clientId = crypto.randomUUID();
-		const pendingFiles: MattermostFileInfo[] = files.map((file, index) => ({
-			id: `${clientId}-file-${index}`,
-			name: file.name,
-			mime_type: file.type,
-			extension: file.name.split(".").pop(),
-			has_preview_image: file.type.startsWith("image/"),
-		}));
-		const pendingPost: MattermostPost = {
-			id: clientId,
-			client_id: clientId,
-			channel_id: selectedChannelId,
-			user_id: currentUser.id,
-			create_at: Date.now(),
-			update_at: Date.now(),
-			delete_at: 0,
-			message,
-			root_id: rootId,
-			metadata: pendingFiles.length > 0 ? { files: pendingFiles } : undefined,
-			pending: true,
-		};
-		setReplyTarget(null);
-		mutateSelectedChannelHistory((current) =>
-			addPostToHistory(current, pendingPost),
-		);
-		setState((current) =>
-			updateChannelLastPostAt(
-				addPost(current, pendingPost),
-				selectedChannelId,
-				pendingPost.create_at,
-			),
-		);
 
 		try {
 			const fileIds =
@@ -789,33 +716,16 @@ export function MainViewApp() {
 							rootId,
 						)
 					: await api.createPost(selectedChannelId, message, rootId);
-			mutateSelectedChannelHistory((current) =>
-				replacePostInHistory(current, clientId, created),
-			);
 			setState((current) =>
 				updateChannelLastPostAt(
-					replacePost(current, clientId, created),
+					current,
 					selectedChannelId,
 					created.create_at,
 				),
 			);
-		} catch {
-			const failedPost = { ...pendingPost, pending: false, failed: true };
-			mutateSelectedChannelHistory((current) =>
-				current
-					? {
-							...current,
-							posts: { ...current.posts, [clientId]: failedPost },
-						}
-					: current,
-			);
-			setState((current) => ({
-				...current,
-				posts: {
-					...current.posts,
-					[clientId]: failedPost,
-				},
-			}));
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not send message.");
+			throw err;
 		}
 		requestAnimationFrame(() => composerRef.current?.focus());
 	}

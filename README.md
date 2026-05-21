@@ -108,6 +108,7 @@ The renderer does not call Mattermost directly for normal app traffic. It sends 
 bun run dev          # start ElectroBun with watch mode
 bun run start        # start ElectroBun
 bun run build        # package a production build
+bun run version:bump -- patch # bump package.json and electrobun.config.ts together
 bun run version:check # validate SemVer and app/package version alignment
 bun run typecheck    # TypeScript no-emit check
 bun test             # unit tests
@@ -116,9 +117,16 @@ bun run build:canary # package a canary build
 
 ## Versioning And Releases
 
-Antimatter uses SemVer for releases. The source of truth is `package.json`'s `version`, and `electrobun.config.ts` must use the same app version.
+Antimatter uses SemVer for releases. Use the bump script so `package.json` and `electrobun.config.ts` stay aligned:
 
-Before tagging a release:
+```sh
+bun run version:bump -- patch
+bun run version:bump -- minor
+bun run version:bump -- prerelease --preid alpha
+bun run version:bump -- 1.2.3
+```
+
+Before tagging a release, validate the versions:
 
 ```sh
 bun run version:check
