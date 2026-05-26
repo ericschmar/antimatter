@@ -38,6 +38,7 @@
 	--accent-bg-hover: var(--grass-10);
 	--accent-text: var(--grass-12);
 	--accent-border: var(--grass-7);
+	--link-text: #8ecbff;
 	--warm-bg: var(--amber-9);
 	--warm-text: var(--amber-12);
 	--danger-bg: var(--red-3);
@@ -94,6 +95,7 @@
 	--accent-bg-hover: var(--grass-10);
 	--accent-text: var(--grass-12);
 	--accent-border: var(--grass-7);
+	--link-text: #075985;
 	--warm-bg: var(--amber-9);
 	--warm-text: var(--amber-12);
 	--danger-bg: var(--red-3);
@@ -112,6 +114,7 @@
 	--border-subtle: #4d535c;
 	--text-primary: #ffffff;
 	--text-secondary: #d7dbe0;
+	--link-text: #aad7ff;
 }
 
 :root[data-theme="warm"] {
@@ -125,6 +128,7 @@
 	--accent-bg: #b86f2f;
 	--accent-bg-hover: #cc7f39;
 	--accent-border: #8f633e;
+	--link-text: #ffd08a;
 }
 
 * {
@@ -260,10 +264,26 @@ textarea:disabled {
 	padding: 9px 16px;
 }
 
+.channel-header-copy {
+	min-width: 0;
+}
+
+.channel-header-title-row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	min-width: 0;
+}
+
+.channel-header-title-row h2 {
+	flex-shrink: 0;
+}
+
 .channel-header-actions {
 	display: flex;
 	align-items: center;
 	gap: 10px;
+	flex-shrink: 0;
 }
 
 .member-stack {
@@ -338,14 +358,40 @@ textarea:disabled {
 	color: var(--text-primary);
 }
 
-.channel-header p:not(.eyebrow) {
-	max-width: 72ch;
+.channel-header-topic {
+	max-width: min(72ch, 52vw);
+	min-width: 0;
 	overflow: hidden;
-	margin-top: 2px;
 	color: var(--text-secondary);
 	font-size: 0.82rem;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.channel-header-topic .markdown-message,
+.channel-header-topic .markdown-message p {
+	display: inline;
+	margin: 0;
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	white-space: inherit;
+}
+
+.channel-header-topic .markdown-message a {
+	color: var(--link-text);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.channel-header-topic .markdown-message a:hover {
+	text-decoration: underline;
+}
+
+.channel-header-topic p {
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .connection-badge {

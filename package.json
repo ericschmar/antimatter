@@ -1,6 +1,6 @@
 {
 	"name": "antimatter",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"type": "module",
 	"description": "A minimal Mattermost desktop client built with ElectroBun, React, and Radix UI",
 	"scripts": {

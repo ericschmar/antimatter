@@ -9,6 +9,7 @@ import {
 	MessageComposer,
 	type MessageComposerHandle,
 } from "../components/MessageComposer";
+import { MarkdownMessage } from "../components/MarkdownMessage";
 import { MessageTimeline } from "../components/MessageTimeline";
 import { Sidebar } from "../components/Sidebar";
 import { Titlebar } from "../components/Titlebar";
@@ -102,6 +103,9 @@ export function ChatShell({
 	const selectedChannelUsers = channelMembers
 		.map((member) => users[member.user_id])
 		.filter((user): user is MattermostUser => Boolean(user));
+	const selectedChannelHeader = selectedChannel?.header?.trim();
+	const selectedChannelPurpose = selectedChannel?.purpose?.trim();
+	const selectedChannelDescription = selectedChannelHeader || selectedChannelPurpose;
 	const typingUsers = (
 		selectedChannelId ? Object.keys(ui.typingUsers[selectedChannelId] ?? {}) : []
 	).map(
@@ -265,16 +269,24 @@ export function ChatShell({
 
 					<main className="main-panel">
 						<header className="channel-header">
-							<div>
+							<div className="channel-header-copy">
 								<p className="eyebrow">Channel</p>
-								<h2>
-									{selectedChannel
-										? channelLabel(selectedChannel, users, currentUser.id)
-										: "Select a channel"}
-								</h2>
-								{selectedChannel?.purpose ? (
-									<p>{selectedChannel.purpose}</p>
-								) : null}
+								<div className="channel-header-title-row">
+									<h2>
+										{selectedChannel
+											? channelLabel(selectedChannel, users, currentUser.id)
+											: "Select a channel"}
+									</h2>
+									{selectedChannelDescription ? (
+										<div className="channel-header-topic">
+											{selectedChannelHeader ? (
+												<MarkdownMessage markdown={selectedChannelHeader} />
+											) : (
+												<p>{selectedChannelDescription}</p>
+											)}
+										</div>
+									) : null}
+								</div>
 							</div>
 							<div className="channel-header-actions">
 								<Tooltip.Root>
