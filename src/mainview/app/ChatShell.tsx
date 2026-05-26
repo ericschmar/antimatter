@@ -1,5 +1,6 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Resizable, type ResizeCallbackData } from "react-resizable";
+import { useCallback, useEffect } from "react";
 import type { RefObject, SyntheticEvent } from "react";
 import { useSnapshot } from "valtio";
 import { CommandMenu } from "../components/CommandMenu";
@@ -13,7 +14,10 @@ import { Sidebar } from "../components/Sidebar";
 import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
 import { MattermostApiClient } from "../mattermostApi";
-import type { AppUpdateState } from "../../shared/electrobunRpc";
+import type {
+	ApplicationMenuAction,
+	AppUpdateState,
+} from "../../shared/electrobunRpc";
 import type {
 	AppSettings,
 	ChannelSectionKey,
@@ -26,6 +30,13 @@ import type {
 	MattermostUserStatus,
 } from "../types";
 import { channelLabel, initials, isTeamChannel } from "../utils/format";
+import {
+	findAdjacentMentionChannel,
+	findAdjacentUnreadChannel,
+	findAdjacentVisibleChannel,
+	findSectionStartChannel,
+} from "../utils/channelNavigation";
+import { readShortcutAction } from "../utils/shortcuts";
 import { electrobun } from "./rpc";
 import { uiActions, uiStore } from "../state/uiStore";
 
@@ -74,6 +85,7 @@ export function ChatShell({
 	onSendMessage,
 	onSendTyping,
 	onSetChannelEmoji,
+	onSetUserColor,
 	onSetSidebarWidth,
 	onShowChannelContextMenu,
 	onShowMessageContextMenu,
@@ -103,6 +115,98 @@ export function ChatShell({
 	function resizeSidebar(_: SyntheticEvent, data: ResizeCallbackData) {
 		onSetSidebarWidth(data.size.width);
 	}
+
+	const handleShortcutAction = useCallback(
+		(action: ApplicationMenuAction["action"]) => {
+			const navigationContext = {
+				channelOrder,
+				currentUserId: currentUser.id,
+				notifications: ui.channelNotifications,
+				sections,
+				selectedChannelId,
+				users,
+			};
+			let nextChannel: MattermostChannel | null = null;
+
+			if (action === "navigate-favorites") {
+				nextChannel = findSectionStartChannel(navigationContext, "favorites");
+			}
+			if (action === "navigate-channels") {
+				nextChannel = findSectionStartChannel(navigationContext, "channels");
+			}
+			if (action === "navigate-dms") {
+				nextChannel = findSectionStartChannel(navigationContext, "dms");
+			}
+			if (action === "navigate-prev-channel") {
+				nextChannel = findAdjacentVisibleChannel(navigationContext, -1);
+			}
+			if (action === "navigate-next-channel") {
+				nextChannel = findAdjacentVisibleChannel(navigationContext, 1);
+			}
+			if (action === "navigate-prev-unread") {
+				nextChannel = findAdjacentUnreadChannel(navigationContext, -1);
+			}
+			if (action === "navigate-next-unread") {
+				nextChannel = findAdjacentUnreadChannel(navigationContext, 1);
+			}
+			if (action === "navigate-prev-mention") {
+				nextChannel = findAdjacentMentionChannel(navigationContext, -1);
+			}
+			if (action === "navigate-next-mention") {
+				nextChannel = findAdjacentMentionChannel(navigationContext, 1);
+			}
+			if (nextChannel) {
+				void onSelectChannel(nextChannel);
+				return true;
+			}
+			if (action.startsWith("navigate-")) return true;
+			if (action === "attach-file") {
+				composerRef.current?.attachFiles();
+				return true;
+			}
+			if (action === "attach-image") {
+				composerRef.current?.attachImages();
+				return true;
+			}
+			if (action === "open-emoji-picker") {
+				composerRef.current?.openEmojiPicker();
+				return true;
+			}
+			return false;
+		},
+		[
+			channelOrder,
+			composerRef,
+			currentUser.id,
+			onSelectChannel,
+			sections,
+			selectedChannelId,
+			ui.channelNotifications,
+			users,
+		],
+	);
+
+	useEffect(() => {
+		function handleApplicationMenu(event: Event) {
+			handleShortcutAction((event as CustomEvent<ApplicationMenuAction>).detail.action);
+		}
+
+		function handleKeyDown(event: KeyboardEvent) {
+			const action = readShortcutAction(event);
+			if (!action) return;
+			if (!handleShortcutAction(action)) return;
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+		}
+
+		window.addEventListener("application-menu-action", handleApplicationMenu);
+		window.addEventListener("keydown", handleKeyDown, { capture: true });
+		return () => {
+			window.removeEventListener("application-menu-action", handleApplicationMenu);
+			window.removeEventListener("keydown", handleKeyDown, { capture: true });
+		};
+	}, [handleShortcutAction]);
 
 	return (
 		<Tooltip.Provider>
@@ -259,6 +363,7 @@ export function ChatShell({
 								users={users}
 								onOpenAttachment={onOpenAttachment}
 								onShowMessageContextMenu={onShowMessageContextMenu}
+								onSetUserColor={onSetUserColor}
 								onReply={onStartReply}
 								onToggleReaction={onToggleReaction}
 								onLoadMore={onLoadMoreMessages}
@@ -380,6 +485,7 @@ type ChatShellProps = {
 	onSendMessage: (message: string, rootId?: string, files?: File[]) => Promise<void>;
 	onSendTyping: (rootId?: string) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
+	onSetUserColor: (userId: string, color: string) => void;
 	onSetSidebarWidth: (width: number) => void;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
 	onShowMessageContextMenu: (post: MattermostPost) => void;

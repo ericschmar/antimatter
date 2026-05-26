@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type {
+	ApplicationMenuAction,
 	AppUpdateState,
 	MattermostSsoLoginResult,
 } from "../../../shared/electrobunRpc";
@@ -242,7 +243,7 @@ export function useMainViewEvents({
 		}
 
 		function handleApplicationMenu(event: Event) {
-			const detail = (event as CustomEvent<{ action: "command-menu" | "settings" }>).detail;
+			const detail = (event as CustomEvent<ApplicationMenuAction>).detail;
 			if (detail.action === "command-menu") setCommandOpen(true);
 			if (detail.action === "settings") openSettingsWindow(settings);
 		}

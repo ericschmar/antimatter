@@ -20,6 +20,7 @@ import {
 	sendSettingsWebviewMessage,
 } from "./rpcSenders";
 import type {
+	ApplicationMenuAction,
 	AppSettingsPayload,
 	AppUpdateState,
 	AppUpdateStatus,
@@ -62,6 +63,23 @@ let appUpdateState: AppUpdateState = {
 };
 let updateCheckInFlight: Promise<AppUpdateState> | null = null;
 let updateDownloadInFlight: Promise<AppUpdateState> | null = null;
+
+const rendererApplicationMenuActions = new Set<ApplicationMenuAction["action"]>([
+	"command-menu",
+	"settings",
+	"navigate-favorites",
+	"navigate-channels",
+	"navigate-dms",
+	"navigate-prev-channel",
+	"navigate-next-channel",
+	"navigate-prev-unread",
+	"navigate-next-unread",
+	"navigate-prev-mention",
+	"navigate-next-mention",
+	"attach-file",
+	"attach-image",
+	"open-emoji-picker",
+]);
 
 const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 	maxRequestTime: 30000,
@@ -233,7 +251,78 @@ ApplicationMenu.setApplicationMenu([
 	{
 		label: "Navigate",
 		submenu: [
-			{ label: "Command Menu", action: "command-menu", accelerator: "CmdOrCtrl+K" },
+			{
+				label: "Command Menu",
+				action: "command-menu",
+				accelerator: "CmdOrCtrl+K",
+			},
+			{ type: "divider" },
+			{
+				label: "Favorites",
+				action: "navigate-favorites",
+				accelerator: "CmdOrCtrl+1",
+			},
+			{
+				label: "Channels",
+				action: "navigate-channels",
+				accelerator: "CmdOrCtrl+2",
+			},
+			{
+				label: "Direct Messages",
+				action: "navigate-dms",
+				accelerator: "CmdOrCtrl+3",
+			},
+			{ type: "divider" },
+			{
+				label: "Previous Channel",
+				action: "navigate-prev-channel",
+				accelerator: "CmdOrCtrl+[",
+			},
+			{
+				label: "Next Channel",
+				action: "navigate-next-channel",
+				accelerator: "CmdOrCtrl+]",
+			},
+			{
+				label: "Previous Unread",
+				action: "navigate-prev-unread",
+				accelerator: "Shift+CmdOrCtrl+[",
+			},
+			{
+				label: "Next Unread",
+				action: "navigate-next-unread",
+				accelerator: "Shift+CmdOrCtrl+]",
+			},
+			{
+				label: "Previous Mention",
+				action: "navigate-prev-mention",
+				accelerator: "Alt+CmdOrCtrl+[",
+			},
+			{
+				label: "Next Mention",
+				action: "navigate-next-mention",
+				accelerator: "Alt+CmdOrCtrl+]",
+			},
+		],
+	},
+	{
+		label: "Compose",
+		submenu: [
+			{
+				label: "Attach File",
+				action: "attach-file",
+				accelerator: "CmdOrCtrl+U",
+			},
+			{
+				label: "Attach Image",
+				action: "attach-image",
+				accelerator: "Shift+CmdOrCtrl+U",
+			},
+			{
+				label: "Emoji Picker",
+				action: "open-emoji-picker",
+				accelerator: "CmdOrCtrl+E",
+			},
 		],
 	},
 ]);
@@ -312,8 +401,16 @@ function readContextMenuData(event: unknown):
 
 function readApplicationMenuData(event: unknown) {
 	const maybeEvent = event as { data?: { action?: unknown } };
-	if (maybeEvent.data?.action === "command-menu") return { action: "command-menu" as const };
-	if (maybeEvent.data?.action === "settings") return { action: "settings" as const };
+	if (
+		typeof maybeEvent.data?.action === "string" &&
+		rendererApplicationMenuActions.has(
+			maybeEvent.data.action as ApplicationMenuAction["action"],
+		)
+	) {
+		return {
+			action: maybeEvent.data.action as ApplicationMenuAction["action"],
+		};
+	}
 	if (maybeEvent.data?.action === "check-for-updates") return { action: "check-for-updates" as const };
 	if (maybeEvent.data?.action === "apply-update") return { action: "apply-update" as const };
 	return null;

@@ -6,6 +6,7 @@ import type { MattermostFileInfo, MattermostPost, MattermostReaction, Mattermost
 import { formatTime, initials, userLabel } from "../utils/format";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
 import { buildTimelineRows } from "../utils/timeline";
+import { USER_COLOR_PALETTE } from "../utils/userColors";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { MarkdownMessage, useImageLoadState, useResolvedImageSrc } from "./MarkdownMessage";
 import "./MessageTimeline.css";
@@ -24,6 +25,7 @@ export function MessageTimeline({
 	typingUsers,
 	onOpenAttachment,
 	onShowMessageContextMenu,
+	onSetUserColor,
 	onReply,
 	onToggleReaction,
 	onLoadMore,
@@ -41,6 +43,7 @@ export function MessageTimeline({
 	typingUsers: MattermostUser[];
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
+	onSetUserColor: (userId: string, color: string) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 	onLoadMore?: () => void;
@@ -150,6 +153,7 @@ export function MessageTimeline({
 									resolveImageSrc={resolveImageSrc}
 									onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
+									onSetUserColor={onSetUserColor}
 									onReply={onReply}
 									onToggleReaction={onToggleReaction}
 								/>
@@ -198,6 +202,7 @@ function MessageRow({
 	resolveImageSrc,
 	onOpenAttachment,
 	onShowMessageContextMenu,
+	onSetUserColor,
 	onReply,
 	onToggleReaction,
 }: {
@@ -212,6 +217,7 @@ function MessageRow({
 	resolveImageSrc: (src: string) => Promise<string>;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
+	onSetUserColor: (userId: string, color: string) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 }) {
@@ -235,6 +241,7 @@ function MessageRow({
 					status={authorStatus}
 					userColor={userColor}
 					user={author}
+					onSetUserColor={onSetUserColor}
 				/>
 				<time>{formatTime(post.create_at)}</time>
 				{post.pending ? <span className="message-state">sending</span> : null}
@@ -271,9 +278,11 @@ function MessageRow({
 								post={reply}
 								resolveImageSrc={resolveImageSrc}
 								userColor={userColors[reply.user_id]}
+								userImages={userImages}
 								userStatuses={userStatuses}
 								users={users}
 								onOpenAttachment={onOpenAttachment}
+								onSetUserColor={onSetUserColor}
 								onToggleReaction={onToggleReaction}
 							/>
 						))}
@@ -307,34 +316,40 @@ function ReplyMessage({
 	post,
 	resolveImageSrc,
 	userColor,
+	userImages,
 	userStatuses,
 	users,
 	onOpenAttachment,
+	onSetUserColor,
 	onToggleReaction,
 }: {
 	currentUserId: string;
 	post: MattermostPost;
 	resolveImageSrc: (src: string) => Promise<string>;
 	userColor?: string;
+	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
 	users: Record<string, MattermostUser>;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
+	onSetUserColor: (userId: string, color: string) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 }) {
 	const author = users[post.user_id];
-	const label = post.user_id === currentUserId ? "You" : userLabel(author, post.user_id);
 	const groupedReactions = groupReactions(post.metadata?.reactions ?? [], currentUserId);
 	const status = userStatuses[post.user_id]?.status;
 	return (
 		<div className="reply-message">
 			<div className="reply-message-meta">
-				<UserStatusDot inline status={status} />
-				<span
-					className="reply-message-author"
-					style={userColor ? { color: userColor } : undefined}
-				>
-					{label}
-				</span>
+				<UserDetailsTrigger
+					currentUserId={currentUserId}
+					fallback={post.user_id}
+					imageSrc={userImages[post.user_id]}
+					status={status}
+					triggerClassName="reply-message-author message-author"
+					userColor={userColor}
+					user={author}
+					onSetUserColor={onSetUserColor}
+				/>
 				<time>{formatTime(post.create_at)}</time>
 			</div>
 			<MarkdownMessage currentUsername={users[currentUserId]?.username} markdown={post.message} resolveImageSrc={resolveImageSrc} />
@@ -475,21 +490,26 @@ function UserDetailsTrigger({
 	fallback,
 	imageSrc,
 	status,
+	triggerClassName = "message-author",
 	userColor,
 	user,
+	onSetUserColor,
 }: {
 	currentUserId: string;
 	fallback: string;
 	imageSrc?: string;
 	status?: string;
+	triggerClassName?: string;
 	userColor?: string;
 	user: MattermostUser | undefined;
+	onSetUserColor: (userId: string, color: string) => void;
 }) {
 	const label = fallback === currentUserId ? "You" : userLabel(user, fallback);
+	const selectedColor = userColor ?? USER_COLOR_PALETTE[0];
 	return (
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger
-				className="message-author"
+				className={triggerClassName}
 				style={userColor ? { color: userColor } : undefined}
 				type="button"
 			>
@@ -510,6 +530,31 @@ function UserDetailsTrigger({
 						</div>
 					</div>
 					{user?.position ? <p className="user-popover-detail">{user.position}</p> : null}
+					<DropdownMenu.Separator className="dropdown-separator" />
+					<div className="user-color-section">
+						<p>Color</p>
+						<div className="user-color-grid">
+							{USER_COLOR_PALETTE.map((color) => (
+								<button
+									aria-label={`Use ${color}`}
+									aria-pressed={color.toLowerCase() === userColor?.toLowerCase()}
+									className="user-color-swatch"
+									key={color}
+									style={{ backgroundColor: color }}
+									type="button"
+									onClick={() => onSetUserColor(fallback, color)}
+								/>
+							))}
+						</div>
+						<label className="user-color-custom">
+							<span>Custom</span>
+							<input
+								type="color"
+								value={selectedColor}
+								onChange={(event) => onSetUserColor(fallback, event.currentTarget.value)}
+							/>
+						</label>
+					</div>
 					<DropdownMenu.Separator className="dropdown-separator" />
 					<DropdownMenu.Item className="dropdown-item" disabled>
 						<MessageCircle size={14} />

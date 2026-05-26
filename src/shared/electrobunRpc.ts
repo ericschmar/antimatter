@@ -154,7 +154,21 @@ export type MessageContextMenuAction = {
 };
 
 export type ApplicationMenuAction = {
-	action: "command-menu" | "settings";
+	action:
+		| "command-menu"
+		| "settings"
+		| "navigate-favorites"
+		| "navigate-channels"
+		| "navigate-dms"
+		| "navigate-prev-channel"
+		| "navigate-next-channel"
+		| "navigate-prev-unread"
+		| "navigate-next-unread"
+		| "navigate-prev-mention"
+		| "navigate-next-mention"
+		| "attach-file"
+		| "attach-image"
+		| "open-emoji-picker";
 };
 
 export type AppUpdateStatus =

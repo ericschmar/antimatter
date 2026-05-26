@@ -144,6 +144,7 @@ export function MainViewApp() {
 		userColors,
 		userImages,
 		userStatuses,
+		setUserColor,
 		setUserStatuses,
 		resetUserPresence,
 	} = useUserPresence({ api, users: state.users });
@@ -1055,6 +1056,7 @@ export function MainViewApp() {
 				onSendMessage={sendMessage}
 				onSendTyping={sendTyping}
 				onSetChannelEmoji={setChannelEmoji}
+				onSetUserColor={setUserColor}
 				onSetSidebarWidth={setSidebarWidth}
 			onShowChannelContextMenu={showChannelContextMenu}
 			onShowMessageContextMenu={showMessageContextMenu}

@@ -66,6 +66,7 @@ import type { KeyboardEvent } from "react";
 import { COMMAND_PRIORITY_HIGH, PASTE_COMMAND } from "lexical";
 import type { MattermostPost, MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
+import { normalizeOutgoingMessage } from "../utils/outgoingMessage";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { MarkdownMessage } from "./MarkdownMessage";
 import "./MessageComposer.css";
@@ -169,7 +170,10 @@ function composerToolbarIcon(name: string) {
 }
 
 export type MessageComposerHandle = {
+	attachFiles: () => void;
+	attachImages: () => void;
 	focus: () => void;
+	openEmojiPicker: () => void;
 };
 
 type MessageComposerProps = {
@@ -210,6 +214,8 @@ export const MessageComposer = forwardRef<
 	const [message, setMessage] = useState("");
 	const [files, setFiles] = useState<File[]>([]);
 	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+	const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+	const [fileAccept, setFileAccept] = useState<string | undefined>();
 	const [sending, setSending] = useState(false);
 	const messageRef = useRef("");
 	const editorRef = useRef<MDXEditorMethods>(null);
@@ -282,6 +288,15 @@ export const MessageComposer = forwardRef<
 		[mentionMatch, message],
 	);
 
+	const openFilePicker = useCallback(
+		(accept?: string) => {
+			if (disabled || editTarget) return;
+			setFileAccept(accept);
+			requestAnimationFrame(() => fileInputRef.current?.click());
+		},
+		[disabled, editTarget],
+	);
+
 	const plugins = useMemo(
 		() => [
 			preserveCodePastePlugin(),
@@ -312,13 +327,15 @@ export const MessageComposer = forwardRef<
 												className="composer-toolbar-button"
 												disabled={disabled || Boolean(editTarget)}
 												type="button"
-												onClick={() => fileInputRef.current?.click()}
+												onClick={() => openFilePicker()}
 											>
 												<Paperclip size={TOOLBAR_ICON_SIZE} />
 											</button>
 											<EmojiPickerPopover
 												label="Insert emoji"
+												open={emojiPickerOpen}
 												onSelectEmoji={(emoji) => insertEmoji(emoji)}
+												onOpenChange={setEmojiPickerOpen}
 											>
 												<button
 													aria-label="Insert emoji"
@@ -355,14 +372,14 @@ export const MessageComposer = forwardRef<
 			diffSourcePlugin({ viewMode: "rich-text" }),
 			markdownShortcutPlugin(),
 		],
-		[disabled, editTarget, insertEmoji],
+		[disabled, editTarget, emojiPickerOpen, insertEmoji, openFilePicker],
 	);
 
 	async function submit() {
-		const trimmed = message.trim();
-		if (sending || (!trimmed && files.length === 0)) return;
+		const normalizedMessage = normalizeOutgoingMessage(message.trim());
+		if (sending || (!normalizedMessage && files.length === 0)) return;
 		if (editTarget) {
-			void onEdit(editTarget, trimmed);
+			void onEdit(editTarget, normalizedMessage);
 			lastTypingUpdateRef.current = 0;
 			messageRef.current = "";
 			setMessage("");
@@ -373,7 +390,7 @@ export const MessageComposer = forwardRef<
 		const filesToSend = files;
 		setSending(true);
 		try {
-			await onSend(trimmed, rootId, filesToSend);
+			await onSend(normalizedMessage, rootId, filesToSend);
 			lastTypingUpdateRef.current = 0;
 			messageRef.current = "";
 			setMessage("");
@@ -437,7 +454,19 @@ export const MessageComposer = forwardRef<
 		});
 	}
 
-	useImperativeHandle(ref, () => ({ focus: focusEditor }), [disabled]);
+	useImperativeHandle(
+		ref,
+		() => ({
+			attachFiles: () => openFilePicker(),
+			attachImages: () => openFilePicker("image/*"),
+			focus: focusEditor,
+			openEmojiPicker: () => {
+				if (disabled) return;
+				setEmojiPickerOpen(true);
+			},
+		}),
+		[disabled, openFilePicker],
+	);
 
 	useEffect(() => {
 		if (disabled) return;
@@ -599,6 +628,7 @@ export const MessageComposer = forwardRef<
 				) : null}
 			</div>
 			<input
+				accept={fileAccept}
 				multiple
 				ref={fileInputRef}
 				type="file"
@@ -608,6 +638,7 @@ export const MessageComposer = forwardRef<
 						...current,
 						...Array.from(event.target.files ?? []),
 					]);
+					setFileAccept(undefined);
 					event.currentTarget.value = "";
 				}}
 			/>

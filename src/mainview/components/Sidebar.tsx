@@ -41,6 +41,7 @@ import { EmojiPickerPanel } from "./EmojiPickerPopover";
 import { UserMenu } from "./UserMenu";
 import type { WebSocketStatus, MattermostUser } from "../types";
 import type { ChannelContextMenuAction } from "../../shared/electrobunRpc";
+import { sortChannelsForSection } from "../utils/channelNavigation";
 import "./Sidebar.css";
 
 export function Sidebar({
@@ -354,7 +355,7 @@ function ChannelSection({
 			coordinateGetter: sortableKeyboardCoordinates,
 		}),
 	);
-	const orderedChannels = sortChannels(
+	const orderedChannels = sortChannelsForSection(
 		channels,
 		order,
 		users,
@@ -572,38 +573,4 @@ function findChannelById(
 	return [...sections.favorites, ...sections.channels, ...sections.dms].find(
 		(channel) => channel.id === channelId,
 	);
-}
-
-function sortChannels(
-	channels: MattermostChannel[],
-	order: readonly string[],
-	users: Record<string, MattermostUser>,
-	currentUserId: string,
-	section: ChannelSectionKey,
-) {
-	if (section === "dms") {
-		return [...channels].sort((a, b) => {
-			const activityDelta = channelActivityAt(b) - channelActivityAt(a);
-			if (activityDelta !== 0) return activityDelta;
-			return channelLabel(a, users, currentUserId).localeCompare(
-				channelLabel(b, users, currentUserId),
-			);
-		});
-	}
-
-	const orderIndex = new Map(order.map((id, index) => [id, index]));
-	return [...channels].sort((a, b) => {
-		const aIndex = orderIndex.get(a.id);
-		const bIndex = orderIndex.get(b.id);
-		if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex;
-		if (aIndex !== undefined) return -1;
-		if (bIndex !== undefined) return 1;
-		return channelLabel(a, users, currentUserId).localeCompare(
-			channelLabel(b, users, currentUserId),
-		);
-	});
-}
-
-function channelActivityAt(channel: MattermostChannel) {
-	return channel.last_post_at ?? channel.update_at ?? channel.create_at ?? 0;
 }

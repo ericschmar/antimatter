@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MattermostApiClient } from "../../mattermostApi";
 import {
 	loadSettings,
@@ -12,6 +12,7 @@ import type { AppSettings, MattermostUser, MattermostUserStatus } from "../../ty
 import { fontFamilyCssValue } from "../../utils/settings";
 import {
 	colorForUserId,
+	normalizeUserColor,
 	USER_COLOR_PALETTE_VERSION,
 } from "../../utils/userColors";
 
@@ -28,6 +29,17 @@ export function useUserPresence({
 	const [userImages, setUserImages] = useState<Record<string, string>>({});
 	const [userStatuses, setUserStatuses] = useState<Record<string, MattermostUserStatus>>({});
 	const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+
+	const setUserColor = useCallback((userId: string, color: string) => {
+		const normalizedColor = normalizeUserColor(color);
+		if (!normalizedColor) return;
+		setUserColors((current) => {
+			if (current[userId] === normalizedColor) return current;
+			const next = { ...current, [userId]: normalizedColor };
+			saveUserColors(next);
+			return next;
+		});
+	}, []);
 
 	useEffect(() => {
 		const userIds = Object.keys(users);
@@ -111,6 +123,7 @@ export function useUserPresence({
 		userColors,
 		userImages,
 		userStatuses,
+		setUserColor,
 		setUserStatuses,
 		resetUserPresence,
 	};
