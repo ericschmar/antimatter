@@ -15,4 +15,20 @@ describe("normalizeOutgoingMessage", () => {
 	test("preserves encoded spaces inside the message", () => {
 		expect(normalizeOutgoingMessage("hello&#x20;there")).toBe("hello&#x20;there");
 	});
+
+	test("removes editor markdown escapes from pasted bare URLs", () => {
+		expect(
+			normalizeOutgoingMessage(
+				"https://llnl.servicenowservices.com/idea?id\\=ideas_list\\&sysparm_module_id\\=internal",
+			),
+		).toBe(
+			"https://llnl.servicenowservices.com/idea?id=ideas_list&sysparm_module_id=internal",
+		);
+	});
+
+	test("preserves markdown escapes outside URLs", () => {
+		expect(normalizeOutgoingMessage("literal \\*stars\\*")).toBe(
+			"literal \\*stars\\*",
+		);
+	});
 });
