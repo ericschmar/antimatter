@@ -39,7 +39,9 @@ import {
 } from "../utils/mattermostLoaders";
 import { electrobun } from "./rpc";
 import {
+	MAX_COMPOSER_HEIGHT,
 	MAX_SIDEBAR_WIDTH,
+	MIN_COMPOSER_HEIGHT,
 	MIN_SIDEBAR_WIDTH,
 	useChannelPreferences,
 } from "../features/channels/useChannelPreferences";
@@ -128,8 +130,10 @@ export function MainViewApp() {
 		channelEmojis,
 		channelOrder,
 		collapsedSections,
+		composerHeight,
 		favoriteChannelSet,
 		sidebarWidth,
+		setComposerHeight,
 		setSidebarWidth,
 		archiveChannel,
 		moveChannel,
@@ -1021,7 +1025,10 @@ export function MainViewApp() {
 				composerRef={composerRef}
 				currentUser={currentUser}
 				favoriteChannelSet={favoriteChannelSet}
+				composerHeight={composerHeight}
+				maxComposerHeight={MAX_COMPOSER_HEIGHT}
 				maxSidebarWidth={MAX_SIDEBAR_WIDTH}
+				minComposerHeight={MIN_COMPOSER_HEIGHT}
 				minSidebarWidth={MIN_SIDEBAR_WIDTH}
 				posts={posts}
 				appUpdate={appUpdate}
@@ -1056,6 +1063,7 @@ export function MainViewApp() {
 				onSendMessage={sendMessage}
 				onSendTyping={sendTyping}
 				onSetChannelEmoji={setChannelEmoji}
+				onSetComposerHeight={setComposerHeight}
 				onSetUserColor={setUserColor}
 				onSetSidebarWidth={setSidebarWidth}
 			onShowChannelContextMenu={showChannelContextMenu}

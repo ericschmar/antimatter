@@ -49,9 +49,12 @@ export function ChatShell({
 	channels,
 	collapsedSections,
 	composerRef,
+	composerHeight,
 	currentUser,
 	favoriteChannelSet,
+	maxComposerHeight,
 	maxSidebarWidth,
+	minComposerHeight,
 	minSidebarWidth,
 	posts,
 	appUpdate,
@@ -86,6 +89,7 @@ export function ChatShell({
 	onSendMessage,
 	onSendTyping,
 	onSetChannelEmoji,
+	onSetComposerHeight,
 	onSetUserColor,
 	onSetSidebarWidth,
 	onShowChannelContextMenu,
@@ -118,6 +122,10 @@ export function ChatShell({
 
 	function resizeSidebar(_: SyntheticEvent, data: ResizeCallbackData) {
 		onSetSidebarWidth(data.size.width);
+	}
+
+	function resizeComposer(_: SyntheticEvent, data: ResizeCallbackData) {
+		onSetComposerHeight(data.size.height);
 	}
 
 	const handleShortcutAction = useCallback(
@@ -380,21 +388,36 @@ export function ChatShell({
 								onToggleReaction={onToggleReaction}
 								onLoadMore={onLoadMoreMessages}
 							/>
-							<MessageComposer
-								currentUserId={currentUser.id}
-								disabled={!selectedChannelId || ui.status === "loading"}
-								editTarget={editTarget}
-								mentionUsers={selectedChannelUsers}
-								ref={composerRef}
-								replyTarget={replyTarget}
-								userColors={userColors}
-								users={users}
-								onCancelEdit={onCancelEdit}
-								onCancelReply={onCancelReply}
-								onEdit={onEditMessage}
-								onSend={onSendMessage}
-								onTyping={onSendTyping}
-							/>
+							<Resizable
+								axis="y"
+								height={composerHeight}
+								maxConstraints={[0, maxComposerHeight]}
+								minConstraints={[0, minComposerHeight]}
+								resizeHandles={["n"]}
+								width={0}
+								onResize={resizeComposer}
+							>
+								<div
+									className="resizable-composer"
+									style={{ height: composerHeight }}
+								>
+									<MessageComposer
+										currentUserId={currentUser.id}
+										disabled={!selectedChannelId || ui.status === "loading"}
+										editTarget={editTarget}
+										mentionUsers={selectedChannelUsers}
+										ref={composerRef}
+										replyTarget={replyTarget}
+										userColors={userColors}
+										users={users}
+										onCancelEdit={onCancelEdit}
+										onCancelReply={onCancelReply}
+										onEdit={onEditMessage}
+										onSend={onSendMessage}
+										onTyping={onSendTyping}
+									/>
+								</div>
+							</Resizable>
 						</section>
 					</main>
 				</div>
@@ -460,9 +483,12 @@ type ChatShellProps = {
 	channels: MattermostChannel[];
 	collapsedSections: Record<ChannelSectionKey, boolean>;
 	composerRef: RefObject<MessageComposerHandle | null>;
+	composerHeight: number;
 	currentUser: MattermostUser;
 	favoriteChannelSet: Set<string>;
+	maxComposerHeight: number;
 	maxSidebarWidth: number;
+	minComposerHeight: number;
 	minSidebarWidth: number;
 	posts: MattermostPost[];
 	appUpdate: AppUpdateState;
@@ -497,6 +523,7 @@ type ChatShellProps = {
 	onSendMessage: (message: string, rootId?: string, files?: File[]) => Promise<void>;
 	onSendTyping: (rootId?: string) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
+	onSetComposerHeight: (height: number) => void;
 	onSetUserColor: (userId: string, color: string) => void;
 	onSetSidebarWidth: (width: number) => void;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;

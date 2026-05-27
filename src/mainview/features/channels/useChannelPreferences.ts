@@ -15,6 +15,9 @@ import {
 export const DEFAULT_SIDEBAR_WIDTH = 248;
 export const MIN_SIDEBAR_WIDTH = 180;
 export const MAX_SIDEBAR_WIDTH = 420;
+export const DEFAULT_COMPOSER_HEIGHT = 112;
+export const MIN_COMPOSER_HEIGHT = 72;
+export const MAX_COMPOSER_HEIGHT = 320;
 
 type ChannelPreferencesState = {
 	archivedChannelIds: string[];
@@ -23,6 +26,7 @@ type ChannelPreferencesState = {
 	collapsedSections: Record<ChannelSectionKey, boolean>;
 	favoriteChannelIds: string[];
 	hydrated: boolean;
+	composerHeight: number;
 	sidebarWidth: number;
 };
 
@@ -38,6 +42,7 @@ const channelPreferencesStore = proxy<ChannelPreferencesState>({
 	},
 	favoriteChannelIds: [],
 	hydrated: false,
+	composerHeight: DEFAULT_COMPOSER_HEIGHT,
 	sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
 });
 
@@ -111,13 +116,19 @@ export function useChannelPreferences() {
 		channelPreferencesStore.sidebarWidth = width;
 	}
 
+	function setComposerHeight(height: number) {
+		channelPreferencesStore.composerHeight = height;
+	}
+
 	return {
 		archivedChannelSet,
 		channelEmojis: preferences.channelEmojis,
 		channelOrder: preferences.channelOrder,
 		collapsedSections: preferences.collapsedSections,
+		composerHeight: preferences.composerHeight,
 		favoriteChannelSet,
 		sidebarWidth: preferences.sidebarWidth,
+		setComposerHeight,
 		setSidebarWidth,
 		archiveChannel,
 		moveChannel,
