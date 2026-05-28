@@ -184,9 +184,12 @@ type MessageComposerProps = {
 	users: Record<string, MattermostUser>;
 	userColors: Record<string, string>;
 	currentUserId: string;
+	composerHeight: number;
+	maxComposerHeight: number;
 	onCancelEdit: () => void;
 	onCancelReply: () => void;
 	onEdit: (post: MattermostPost, message: string) => Promise<void>;
+	onRequestComposerHeight: (height: number) => void;
 	onSend: (message: string, rootId?: string, files?: File[]) => Promise<void>;
 	onTyping: (rootId?: string) => Promise<void>;
 };
@@ -203,9 +206,12 @@ export const MessageComposer = forwardRef<
 		users,
 		userColors,
 		currentUserId,
+		composerHeight,
+		maxComposerHeight,
 		onCancelEdit,
 		onCancelReply,
 		onEdit,
+		onRequestComposerHeight,
 		onSend,
 		onTyping,
 	},
@@ -218,6 +224,7 @@ export const MessageComposer = forwardRef<
 	const [fileAccept, setFileAccept] = useState<string | undefined>();
 	const [sending, setSending] = useState(false);
 	const messageRef = useRef("");
+	const composerEditorRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MDXEditorMethods>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const lastTypingUpdateRef = useRef(0);
@@ -246,6 +253,21 @@ export const MessageComposer = forwardRef<
 		(nextMessage: string) => {
 			messageRef.current = nextMessage;
 			setMessage(nextMessage);
+			const lineCount = nextMessage.split(/\r\n|\r|\n/).length;
+			const shouldExpandForLargePaste =
+				composerHeight < maxComposerHeight &&
+				(lineCount > 6 || nextMessage.length > 800);
+			if (shouldExpandForLargePaste) {
+				onRequestComposerHeight(maxComposerHeight);
+			}
+			requestAnimationFrame(() => {
+				const editor = composerEditorRef.current;
+				const input = editor?.querySelector<HTMLElement>(".composer-input");
+				if (!input || composerHeight >= maxComposerHeight) return;
+				if (input.scrollHeight > input.clientHeight + 2) {
+					onRequestComposerHeight(maxComposerHeight);
+				}
+			});
 			if (disabled || editTarget || nextMessage.trim().length === 0) return;
 
 			const now = Date.now();
@@ -254,7 +276,16 @@ export const MessageComposer = forwardRef<
 			lastTypingUpdateRef.current = now;
 			void onTyping(replyTarget?.root_id || replyTarget?.id);
 		},
-		[disabled, editTarget, onTyping, replyTarget?.id, replyTarget?.root_id],
+		[
+			composerHeight,
+			disabled,
+			editTarget,
+			maxComposerHeight,
+			onRequestComposerHeight,
+			onTyping,
+			replyTarget?.id,
+			replyTarget?.root_id,
+		],
 	);
 
 	const insertEmoji = useCallback(
@@ -505,6 +536,7 @@ export const MessageComposer = forwardRef<
 		<div className="composer" onKeyDown={handleComposerKeyDown}>
 			<div
 				className={disabled ? "composer-editor disabled" : "composer-editor"}
+				ref={composerEditorRef}
 				onClick={(event) => {
 					const target = event.target as HTMLElement;
 					if (

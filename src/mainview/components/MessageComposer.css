@@ -45,6 +45,7 @@
 	flex-direction: column;
 	flex: 1 1 auto;
 	min-height: 0;
+	overflow: hidden;
 	max-height: none;
 	background: transparent;
 	color: var(--text-primary);
@@ -145,9 +146,11 @@
 }
 
 .composer-editor .composer-input {
+	flex: 1 1 auto;
 	width: 100%;
 	min-height: 64px;
-	max-height: none;
+	height: 100%;
+	max-height: 100%;
 	background: var(--slate-1);
 	caret-color: var(--text-primary);
 	color: var(--text-primary);
@@ -169,9 +172,19 @@
 
 .composer-editor .mdxeditor-root-contenteditable {
 	flex: 1 1 auto;
-	min-height: 32px;
-	max-height: none;
-	overflow-y: auto;
+	min-height: 0;
+	max-height: 100%;
+	overflow: hidden;
+}
+
+.composer-editor .cm-editor {
+	max-height: 100%;
+	overflow: hidden;
+}
+
+.composer-editor .cm-scroller {
+	max-height: min(220px, 32vh);
+	overflow: auto;
 }
 
 .composer-editor .composer-input > p {

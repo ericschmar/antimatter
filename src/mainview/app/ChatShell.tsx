@@ -110,6 +110,16 @@ export function ChatShell({
 	const selectedChannelHeader = selectedChannel?.header?.trim();
 	const selectedChannelPurpose = selectedChannel?.purpose?.trim();
 	const selectedChannelDescription = selectedChannelHeader || selectedChannelPurpose;
+	const effectiveMaxComposerHeight = Math.max(
+		minComposerHeight,
+		Math.min(
+			maxComposerHeight,
+			typeof window === "undefined"
+				? maxComposerHeight
+				: Math.floor(window.innerHeight * 0.44),
+		),
+	);
+	const visibleComposerHeight = Math.min(composerHeight, effectiveMaxComposerHeight);
 	const typingUsers = (
 		selectedChannelId ? Object.keys(ui.typingUsers[selectedChannelId] ?? {}) : []
 	).map(
@@ -125,7 +135,7 @@ export function ChatShell({
 	}
 
 	function resizeComposer(_: SyntheticEvent, data: ResizeCallbackData) {
-		onSetComposerHeight(data.size.height);
+		onSetComposerHeight(Math.min(data.size.height, effectiveMaxComposerHeight));
 	}
 
 	const handleShortcutAction = useCallback(
@@ -390,8 +400,8 @@ export function ChatShell({
 							/>
 							<Resizable
 								axis="y"
-								height={composerHeight}
-								maxConstraints={[0, maxComposerHeight]}
+								height={visibleComposerHeight}
+								maxConstraints={[0, effectiveMaxComposerHeight]}
 								minConstraints={[0, minComposerHeight]}
 								resizeHandles={["n"]}
 								width={0}
@@ -399,12 +409,14 @@ export function ChatShell({
 							>
 								<div
 									className="resizable-composer"
-									style={{ height: composerHeight }}
+									style={{ height: visibleComposerHeight }}
 								>
 									<MessageComposer
+										composerHeight={visibleComposerHeight}
 										currentUserId={currentUser.id}
 										disabled={!selectedChannelId || ui.status === "loading"}
 										editTarget={editTarget}
+										maxComposerHeight={effectiveMaxComposerHeight}
 										mentionUsers={selectedChannelUsers}
 										ref={composerRef}
 										replyTarget={replyTarget}
@@ -413,6 +425,7 @@ export function ChatShell({
 										onCancelEdit={onCancelEdit}
 										onCancelReply={onCancelReply}
 										onEdit={onEditMessage}
+										onRequestComposerHeight={onSetComposerHeight}
 										onSend={onSendMessage}
 										onTyping={onSendTyping}
 									/>
