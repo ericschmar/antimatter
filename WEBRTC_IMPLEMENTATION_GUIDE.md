@@ -83,8 +83,8 @@ src/
 │   │   └── types.ts                # TypeScript types
 │   ├── components/
 │   │   ├── CallButton.tsx          # Initiate call button
-│   │   ├── IncomingCallModal.tsx   # Accept/decline UI
-│   │   ├── ActiveCallPanel.tsx     # During-call controls
+│   │   ├── IncomingCallToast.tsx   # Upper-right accept/decline invite
+│   │   ├── ActiveCallPanel.tsx     # Bottom sidebar active-call controls
 │   │   ├── CallNotification.tsx    # Desktop notification
 │   │   └── VideoDisplay.tsx        # Video streams (Phase 2)
 │   ├── hooks/
@@ -1231,8 +1231,18 @@ See the guide for complete UI component implementation including:
 
 - **CallContext.tsx** - React Context provider for global call state
 - **CallButton.tsx** - Button to initiate calls
-- **IncomingCallModal.tsx** - Modal for accepting/declining incoming calls
-- **ActiveCallPanel.tsx** - Controls during active call (mute, hangup, etc.)
+- **IncomingCallToast.tsx** - Upper-right toast-style incoming call invite with accept/decline controls
+- **ActiveCallPanel.tsx** - Discord-style active call panel docked to the bottom of the sidebar
+
+### UI Behavior Notes
+
+- Keep the call button in the existing DM/user surfaces. The call button design is acceptable as-is.
+- Do not use a blocking modal for incoming calls. Incoming call UI should behave like a persistent toast notification in the upper-right corner of the app.
+- The incoming call toast stays visible until the user answers, declines, the caller hangs up, or the answer timeout expires.
+- The incoming toast should include caller identity, call type, compact answer/decline buttons, and a subtle countdown or timeout affordance when useful.
+- Once a call connects, dismiss the incoming/outgoing toast state and show the active call as a docked panel at the bottom of the left sidebar, similar to Discord's active voice panel.
+- The sidebar call panel should remain visible while navigating channels and should include the other participant, connection state/duration, mute, device/settings if available, and hangup controls.
+- The active call panel should reserve space at the bottom of the sidebar rather than overlaying the channel list. The channel list should scroll above it.
 
 ---
 
@@ -1298,12 +1308,12 @@ import { CallButton } from './components/CallButton';
 />
 ```
 
-### Step 4.4: Add Incoming Call Handler
+### Step 4.4: Add Call Surfaces
 
 In your root component:
 
 ```tsx
-import { IncomingCallModal } from './components/IncomingCallModal';
+import { IncomingCallToast } from './components/IncomingCallToast';
 import { ActiveCallPanel } from './components/ActiveCallPanel';
 import { useCall } from './contexts/CallContext';
 
@@ -1314,18 +1324,34 @@ function App() {
     <>
       {/* Your existing app */}
       
-      {/* Call UI overlays */}
-      <IncomingCallModal 
+      {/* Upper-right pending-call invite */}
+      <IncomingCallToast
         callerName={getCallerName(session?.otherUserId)}
         callerAvatar={getCallerAvatar(session?.otherUserId)}
       />
-      
+    </>
+  );
+}
+```
+
+Render `ActiveCallPanel` from the sidebar, below the channel list:
+
+```tsx
+function Sidebar() {
+  const { state, session } = useCall();
+
+  return (
+    <aside className="sidebar">
+      <div className="channel-list-shell">
+        {/* Existing team/channel navigation */}
+      </div>
+
       {state === 'connected' && (
         <ActiveCallPanel
           callerName={getCallerName(session?.otherUserId)}
         />
       )}
-    </>
+    </aside>
   );
 }
 ```
@@ -1457,8 +1483,6 @@ function CallErrorToast({ error }: { error: CallError }) {
 
 1. **Group Calls** - Add mesh topology for 3-4 participants
 2. **Screen Sharing** - Use `getDisplayMedia()` API
-3. **Call Recording** - Use MediaRecorder API
 4. **Call History** - Log calls in local storage
 5. **Push-to-Talk** - Add PTT mode for group calls
-6. **Noise Suppression** - Use WebRTC processing or ML models
-7. **Virtual Backgrounds** - Canvas API + ML for background replacement
+6. **Noise Suppression** - Use WebRTC processing

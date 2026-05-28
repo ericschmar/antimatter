@@ -20,7 +20,7 @@ import type {
 	WebSocketStatus,
 } from "../../types";
 import type { AppStatus } from "../../state/uiStore";
-import { channelLabel, includesMention } from "../../utils/format";
+import { channelLabel, includesMention, userLabel } from "../../utils/format";
 import { getDirectChannelUsers, getPostUsers } from "../../utils/mattermostLoaders";
 import {
 	addPost,
@@ -83,6 +83,8 @@ export function useMainViewEvents({
 
 		function handlePost(event: Event) {
 			const post = (event as CustomEvent<{ post: MattermostPost }>).detail.post;
+			const postUsersPromise =
+				api && currentUser ? getPostUsers(api, [post], currentUser.id) : null;
 			setTypingUsers((current) => removeTypingUser(current, post.channel_id, post.user_id));
 			if (api && currentUser && !state.channels[post.channel_id]) {
 				void api.getChannel(post.channel_id).then(async (channel) => {
@@ -128,8 +130,8 @@ export function useMainViewEvents({
 					updateChannelLastPostAt(current, post.channel_id, post.create_at),
 				);
 			}
-			if (api && currentUser) {
-				void getPostUsers(api, [post], currentUser.id).then((users) => {
+			if (api && postUsersPromise) {
+				void postUsersPromise.then((users) => {
 					if (users.length > 0)
 						setState((current) => mergeUsers(current, users));
 				});
@@ -152,13 +154,32 @@ export function useMainViewEvents({
 					settings.notificationPreference === "all" ||
 					(settings.notificationPreference === "mentions" && mention)
 				) {
-					void electrobun.rpc!.request.showNotification({
-						title: channel
-							? channelLabel(channel, state.users, currentUser?.id)
-							: "Mattermost",
-						body: post.message,
-						silent: !settings.notificationSounds,
-					});
+					const showNotification = (users: MattermostUser[] = []) => {
+						const notificationUsers =
+							users.length > 0
+								? {
+										...state.users,
+										...Object.fromEntries(users.map((user) => [user.id, user])),
+									}
+								: state.users;
+						const sender = userLabel(
+							notificationUsers[post.user_id],
+							post.user_id,
+						);
+						const channelName = channel
+							? channelLabel(channel, notificationUsers, currentUser?.id)
+							: "Mattermost";
+						void electrobun.rpc!.request.showNotification({
+							title: `${sender} in ${channelName}`,
+							body: post.message,
+							silent: !settings.notificationSounds,
+						});
+					};
+					if (state.users[post.user_id] || !postUsersPromise) {
+						showNotification();
+					} else {
+						void postUsersPromise.then(showNotification).catch(() => showNotification());
+					}
 				}
 			}
 		}

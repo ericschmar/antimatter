@@ -4,7 +4,7 @@ export default {
 	app: {
 		name: "Antimatter",
 		identifier: "antimatter.ericschmar.dev",
-		version: "0.2.1",
+		version: "0.2.2",
 		urlSchemes: ["mattermost-dev"],
 	},
 	build: {
