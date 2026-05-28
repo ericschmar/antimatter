@@ -60,6 +60,8 @@ const emptyState: NormalizedState = {
 	postOrder: [],
 };
 
+const ACTIVITY_REPORT_INTERVAL_MS = 60_000;
+
 function channelHistoryKey(
 	serverUrl: string | undefined,
 	channelId: string | null,
@@ -153,6 +155,9 @@ export function MainViewApp() {
 		resetUserPresence,
 	} = useUserPresence({ api, users: state.users });
 	const selectedChannelRef = useRef<string | null>(null);
+	const previousViewedChannelIdRef = useRef<string | null>(null);
+	const lastActivityReportAtRef = useRef(0);
+	const activityReportInFlightRef = useRef(false);
 	const autoConnectAttemptedRef = useRef(false);
 	const composerRef = useRef<MessageComposerHandle>(null);
 	const [channelMembers, setChannelMembers] = useState<
@@ -200,6 +205,87 @@ export function MainViewApp() {
 		const frame = requestAnimationFrame(() => composerRef.current?.focus());
 		return () => cancelAnimationFrame(frame);
 	}, [selectedChannelId, status]);
+
+	const reportUserActivity = useCallback(
+		(force = false) => {
+			if (!api || !currentUser || activityReportInFlightRef.current) return;
+			const now = Date.now();
+			if (!force && now - lastActivityReportAtRef.current < ACTIVITY_REPORT_INTERVAL_MS)
+				return;
+
+			lastActivityReportAtRef.current = now;
+			activityReportInFlightRef.current = true;
+			const channelId = selectedChannelRef.current ?? "";
+			const previousChannelId = previousViewedChannelIdRef.current;
+			void api
+				.viewChannel(
+					currentUser.id,
+					channelId,
+					previousChannelId !== channelId ? previousChannelId : undefined,
+				)
+				.then(() => {
+					previousViewedChannelIdRef.current = channelId || null;
+					setUserStatuses((current) => {
+						const currentStatus = current[currentUser.id];
+						if (currentStatus?.status === "dnd") return current;
+						return {
+							...current,
+							[currentUser.id]: {
+								...currentStatus,
+								user_id: currentUser.id,
+								status: "online",
+								last_activity_at: now,
+							},
+						};
+					});
+				})
+				.catch(() => undefined)
+				.finally(() => {
+					activityReportInFlightRef.current = false;
+				});
+		},
+		[api, currentUser, setUserStatuses],
+	);
+
+	useEffect(() => {
+		if (!api || !currentUser) return;
+
+		function handleActivity() {
+			if (document.visibilityState === "hidden") return;
+			reportUserActivity();
+		}
+
+		function handleFocus() {
+			reportUserActivity(true);
+		}
+
+		reportUserActivity(true);
+
+		window.addEventListener("focus", handleFocus);
+		window.addEventListener("pointerdown", handleActivity, { capture: true });
+		window.addEventListener("keydown", handleActivity, { capture: true });
+		window.addEventListener("wheel", handleActivity, { capture: true });
+		window.addEventListener("touchstart", handleActivity, { capture: true });
+		const timer = window.setInterval(() => {
+			if (document.visibilityState === "visible" && document.hasFocus()) {
+				reportUserActivity();
+			}
+		}, ACTIVITY_REPORT_INTERVAL_MS);
+
+		return () => {
+			window.removeEventListener("focus", handleFocus);
+			window.removeEventListener("pointerdown", handleActivity, { capture: true });
+			window.removeEventListener("keydown", handleActivity, { capture: true });
+			window.removeEventListener("wheel", handleActivity, { capture: true });
+			window.removeEventListener("touchstart", handleActivity, { capture: true });
+			window.clearInterval(timer);
+		};
+	}, [api, currentUser, reportUserActivity]);
+
+	useEffect(() => {
+		if (!selectedChannelId || status !== "ready") return;
+		reportUserActivity(true);
+	}, [reportUserActivity, selectedChannelId, status]);
 
 	const selectedChannelHistoryKey = channelHistoryKey(
 		config?.serverUrl,

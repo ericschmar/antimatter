@@ -75,6 +75,36 @@ describe("MattermostApiClient", () => {
 		);
 	});
 
+	test("reports viewed channel activity", async () => {
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ status: "OK" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+
+		await client.viewChannel("user-id", "channel-id", "previous-channel-id");
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/channels/members/user-id/view",
+			expect.objectContaining({
+				body: JSON.stringify({
+					channel_id: "channel-id",
+					prev_channel_id: "previous-channel-id",
+				}),
+				method: "POST",
+			}),
+		);
+	});
+
 	test("adds reactions with Mattermost reaction payload shape", async () => {
 		const fetchMock = mock(() =>
 			Promise.resolve(

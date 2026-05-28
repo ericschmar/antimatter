@@ -125,6 +125,19 @@ export class MattermostApiClient {
 		});
 	}
 
+	viewChannel(userId: string, channelId: string, previousChannelId?: string | null) {
+		return this.request<{ status?: string; last_viewed_at_times?: Record<string, number> }>(
+			`/channels/members/${encodeURIComponent(userId)}/view`,
+			{
+				method: "POST",
+				body: {
+					channel_id: channelId,
+					...(previousChannelId ? { prev_channel_id: previousChannelId } : {}),
+				},
+			},
+		);
+	}
+
 	getTeamsForCurrentUser() {
 		return this.request<MattermostTeam[]>("/users/me/teams");
 	}
