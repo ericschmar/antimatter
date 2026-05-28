@@ -50,9 +50,11 @@ export function MessageTimeline({
 }) {
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const previousChannelIdRef = useRef<string | null>(null);
+	const previousLastPostIdRef = useRef<string | undefined>(undefined);
 	const previousPostCountRef = useRef(0);
 	const [showLoadMore, setShowLoadMore] = useState(false);
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
+	const lastPostId = posts.length > 0 ? posts[posts.length - 1]?.id : undefined;
 	const rowVirtualizer = useVirtualizer({
 		count: timelineRows.length,
 		getScrollElement: () => viewportRef.current,
@@ -67,21 +69,32 @@ export function MessageTimeline({
 		const viewport = viewportRef.current;
 		const channelChanged = previousChannelIdRef.current !== channelId;
 		const previousPostCount = previousPostCountRef.current;
+		const previousLastPostId = previousLastPostIdRef.current;
+		const newestPostAppended =
+			!channelChanged &&
+			Boolean(previousLastPostId) &&
+			Boolean(lastPostId) &&
+			lastPostId !== previousLastPostId &&
+			posts.length >= previousPostCount;
 		previousChannelIdRef.current = channelId;
+		previousLastPostIdRef.current = lastPostId;
 		previousPostCountRef.current = posts.length;
 
 		if (!viewport) return;
 		const distanceFromBottom =
 			viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 		const shouldStickToBottom =
-			channelChanged || previousPostCount === 0 || distanceFromBottom < 96;
+			channelChanged ||
+			previousPostCount === 0 ||
+			newestPostAppended ||
+			distanceFromBottom < 96;
 
 		if (shouldStickToBottom) {
 			requestAnimationFrame(() => {
 				rowVirtualizer.scrollToIndex(timelineRows.length - 1, { align: "end" });
 			});
 		}
-	}, [channelId, posts.length, rowVirtualizer, timelineRows.length]);
+	}, [channelId, lastPostId, posts.length, rowVirtualizer, timelineRows.length]);
 
 	useEffect(() => {
 		const viewport = viewportRef.current;
