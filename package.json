@@ -20,6 +20,7 @@
 		"@dnd-kit/utilities": "^3.2.2",
 		"@emoji-mart/data": "^1.2.1",
 		"@emoji-mart/react": "^1.1.1",
+		"@iamjariwala/react-doc-viewer": "^1.8.0",
 		"@mdxeditor/editor": "^4.0.0",
 		"@radix-ui/colors": "^3.0.0",
 		"@radix-ui/react-dialog": "^1.1.15",

@@ -2,6 +2,7 @@ import "react-resizable/css/styles.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import { useSnapshot } from "valtio";
+import { AttachmentPreviewDialog } from "../components/AttachmentPreviewDialog";
 import { AuthScreen } from "../components/AuthScreen";
 import type { MessageComposerHandle } from "../components/MessageComposer";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
@@ -186,6 +187,8 @@ export function MainViewApp() {
 	const error = ui.error;
 	const loadingHistory = ui.loadingHistory;
 	const status: AppStatus = ui.status;
+	const [previewAttachment, setPreviewAttachment] =
+		useState<MattermostFileInfo | null>(null);
 
 	useEffect(() => {
 		selectedChannelRef.current = selectedChannelId;
@@ -846,6 +849,10 @@ export function MainViewApp() {
 	}
 
 	async function openAttachment(file: MattermostFileInfo) {
+		setPreviewAttachment(file);
+	}
+
+	async function openAttachmentExternally(file: MattermostFileInfo) {
 		if (!api) return;
 		try {
 			await api.openAttachment(file);
@@ -1101,6 +1108,7 @@ export function MainViewApp() {
 	}
 
 	return (
+		<>
 			<ChatShell
 				api={api}
 				channelEmojis={channelEmojis}
@@ -1161,5 +1169,12 @@ export function MainViewApp() {
 			onToggleReaction={toggleReaction}
 			onUnarchiveChannel={unarchiveChannel}
 		/>
+			<AttachmentPreviewDialog
+				api={api}
+				file={previewAttachment}
+				onClose={() => setPreviewAttachment(null)}
+				onOpenExternal={openAttachmentExternally}
+			/>
+		</>
 	);
 }

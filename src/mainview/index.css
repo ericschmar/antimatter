@@ -810,6 +810,96 @@ textarea:disabled {
 	padding-top: 9vh;
 }
 
+.attachment-preview-backdrop {
+	place-items: stretch;
+	padding: 18px;
+}
+
+.attachment-preview-panel {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	width: 100%;
+	min-height: 0;
+	border: 1px solid var(--border-strong);
+	border-radius: 8px;
+	background: var(--panel-bg);
+	box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+	color: var(--text-primary);
+	overflow: hidden;
+}
+
+.attachment-preview-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-width: 0;
+	border-bottom: 1px solid var(--border-subtle);
+	padding: 10px 12px;
+}
+
+.attachment-preview-header h2 {
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.98rem;
+}
+
+.attachment-preview-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.attachment-preview-actions a,
+.attachment-preview-actions button {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	border: 1px solid var(--border-subtle);
+	border-radius: 6px;
+	background: var(--button-bg);
+	color: var(--text-secondary);
+}
+
+.attachment-preview-actions a:hover,
+.attachment-preview-actions button:hover {
+	border-color: var(--border-strong);
+	color: var(--text-primary);
+}
+
+.attachment-preview-body {
+	min-height: 0;
+	overflow: hidden;
+	background: var(--app-bg);
+}
+
+.attachment-preview-body #react-doc-viewer {
+	height: 100%;
+	min-height: 0;
+	background: var(--app-bg);
+}
+
+.attachment-preview-body #react-doc-viewer[data-theme="dark"] {
+	--rdv-primary: var(--accent);
+	--rdv-background: var(--app-bg);
+	--rdv-surface: var(--panel-bg);
+	--rdv-text-primary: var(--text-primary);
+	--rdv-text-secondary: var(--text-secondary);
+}
+
+.attachment-preview-state {
+	display: grid;
+	place-content: center;
+	gap: 12px;
+	height: 100%;
+	padding: 18px;
+	color: var(--text-secondary);
+	text-align: center;
+}
+
 .command-panel,
 .settings-panel {
 	width: min(92vw, 460px);
