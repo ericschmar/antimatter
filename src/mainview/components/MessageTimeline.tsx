@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -270,15 +271,12 @@ function MessageRow({
 				{groupedReactions.length > 0 ? (
 					<div className="reaction-list">
 						{groupedReactions.map((reaction) => (
-							<button
-								className={reaction.mine ? "reaction-pill mine" : "reaction-pill"}
+							<ReactionPill
 								key={reaction.emojiName}
-								type="button"
+								reaction={reaction}
+								users={users}
 								onClick={() => void onToggleReaction(post, reaction.emojiName)}
-							>
-								<span>{emojiNameToGlyph(reaction.emojiName)}</span>
-								<span>{reaction.count}</span>
-							</button>
+							/>
 						))}
 					</div>
 				) : null}
@@ -370,15 +368,12 @@ function ReplyMessage({
 			{groupedReactions.length > 0 ? (
 				<div className="reaction-list">
 					{groupedReactions.map((reaction) => (
-						<button
-							className={reaction.mine ? "reaction-pill mine" : "reaction-pill"}
+						<ReactionPill
 							key={reaction.emojiName}
-							type="button"
+							reaction={reaction}
+							users={users}
 							onClick={() => void onToggleReaction(post, reaction.emojiName)}
-						>
-							<span>{emojiNameToGlyph(reaction.emojiName)}</span>
-							<span>{reaction.count}</span>
-						</button>
+						/>
 					))}
 				</div>
 			) : null}
@@ -583,20 +578,69 @@ function UserStatusDot({ inline = false, status }: { inline?: boolean; status?: 
 	return <span className={`status-dot ${inline ? "inline" : ""} ${status ?? "offline"}`} title={status ?? "offline"} />;
 }
 
+type GroupedReaction = {
+	emojiName: string;
+	count: number;
+	mine: boolean;
+	userIds: string[];
+};
+
+function ReactionPill({
+	reaction,
+	users,
+	onClick,
+}: {
+	reaction: GroupedReaction;
+	users: Record<string, MattermostUser>;
+	onClick: () => void;
+}) {
+	const glyph = emojiNameToGlyph(reaction.emojiName);
+	const reactionUsers = reaction.userIds.map((userId) => userLabel(users[userId], userId));
+	const tooltipLabel = `${formatReactionUsers(reactionUsers)} reacted with ${glyph}`;
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger asChild>
+				<button
+					aria-label={tooltipLabel}
+					className={reaction.mine ? "reaction-pill mine" : "reaction-pill"}
+					type="button"
+					onClick={onClick}
+				>
+					<span>{glyph}</span>
+					<span>{reaction.count}</span>
+				</button>
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Content className="tooltip-content reaction-tooltip" side="top" sideOffset={6}>
+					{tooltipLabel}
+				</Tooltip.Content>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+}
+
 function groupReactions(reactions: MattermostReaction[], currentUserId: string) {
-	const groups = new Map<string, { emojiName: string; count: number; mine: boolean }>();
+	const groups = new Map<string, GroupedReaction>();
 	for (const reaction of reactions) {
 		const existing = groups.get(reaction.emoji_name);
 		if (existing) {
 			existing.count += 1;
 			if (reaction.user_id === currentUserId) existing.mine = true;
+			if (!existing.userIds.includes(reaction.user_id)) existing.userIds.push(reaction.user_id);
 			continue;
 		}
 		groups.set(reaction.emoji_name, {
 			emojiName: reaction.emoji_name,
 			count: 1,
 			mine: reaction.user_id === currentUserId,
+			userIds: [reaction.user_id],
 		});
 	}
 	return [...groups.values()];
+}
+
+function formatReactionUsers(names: string[]) {
+	if (names.length <= 2) return names.join(" and ");
+	return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
 }

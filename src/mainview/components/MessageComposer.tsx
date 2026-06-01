@@ -112,8 +112,9 @@ const preserveCodePastePlugin = realmPlugin({
 	},
 });
 
-function matchMentionQuery(message: string) {
-	const match = /(^|\s)@([A-Za-z0-9._-]*)$/.exec(message);
+export function matchMentionQuery(message: string) {
+	const normalizedMessage = message.replace(/\u00a0/g, " ").replace(/\u200b/g, "");
+	const match = /(^|\s)@([A-Za-z0-9._-]*)[\r\n]*$/.exec(normalizedMessage);
 	if (!match) return null;
 	return {
 		query: match[2] ?? "",
@@ -628,37 +629,37 @@ export const MessageComposer = forwardRef<
 						))}
 					</div>
 				) : null}
-				{showMentionSuggestions && activeMentionIndex >= 0 ? (
-					<div className="mention-suggestions" role="listbox">
-						{mentionSuggestions.map((user, index) => (
-							<button
-								aria-selected={index === activeMentionIndex}
-								className={
-									index === activeMentionIndex
-										? "mention-suggestion active"
-										: "mention-suggestion"
-								}
-								key={user.id}
-								ref={(element) => {
-									mentionSuggestionRefs.current[index] = element;
-								}}
-								role="option"
-								type="button"
-								onMouseDown={(event) => event.preventDefault()}
-								onClick={() => insertMention(user)}
-							>
-								<span className="mention-suggestion-avatar">
-									{initials(user.nickname || user.username)}
-								</span>
-								<span className="mention-suggestion-copy">
-									<span>{userLabel(user, user.id)}</span>
-									<small>@{user.username}</small>
-								</span>
-							</button>
-						))}
-					</div>
-				) : null}
 			</div>
+			{showMentionSuggestions && activeMentionIndex >= 0 ? (
+				<div className="mention-suggestions" role="listbox">
+					{mentionSuggestions.map((user, index) => (
+						<button
+							aria-selected={index === activeMentionIndex}
+							className={
+								index === activeMentionIndex
+									? "mention-suggestion active"
+									: "mention-suggestion"
+							}
+							key={user.id}
+							ref={(element) => {
+								mentionSuggestionRefs.current[index] = element;
+							}}
+							role="option"
+							type="button"
+							onMouseDown={(event) => event.preventDefault()}
+							onClick={() => insertMention(user)}
+						>
+							<span className="mention-suggestion-avatar">
+								{initials(user.nickname || user.username)}
+							</span>
+							<span className="mention-suggestion-copy">
+								<span>{userLabel(user, user.id)}</span>
+								<small>@{user.username}</small>
+							</span>
+						</button>
+					))}
+				</div>
+			) : null}
 			<input
 				accept={fileAccept}
 				multiple

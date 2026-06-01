@@ -553,3 +553,8 @@
 	background: var(--panel-hover);
 	color: var(--text-primary);
 }
+
+.reaction-tooltip {
+	max-width: 260px;
+	line-height: 1.35;
+}
