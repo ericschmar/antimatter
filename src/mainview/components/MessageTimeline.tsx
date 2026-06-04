@@ -51,9 +51,13 @@ export function MessageTimeline({
 }) {
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const previousChannelIdRef = useRef<string | null>(null);
+	const previousLastPostIdRef = useRef<string | undefined>(undefined);
+	const isAtEndRef = useRef(true);
 	const [useCachedMeasurements, setUseCachedMeasurements] = useState(false);
 	const [showLoadMore, setShowLoadMore] = useState(false);
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
+	const lastPost = posts.at(-1);
+	const lastPostId = lastPost?.id;
 	const rowVirtualizer = useVirtualizer({
 		anchorTo: "end",
 		count: timelineRows.length,
@@ -69,11 +73,25 @@ export function MessageTimeline({
 
 	useLayoutEffect(() => {
 		if (timelineRows.length === 0) return;
-		if (previousChannelIdRef.current !== channelId) {
+		const previousChannelId = previousChannelIdRef.current;
+		const previousLastPostId = previousLastPostIdRef.current;
+		const channelChanged = previousChannelId !== channelId;
+		const newestPostChanged =
+			Boolean(previousLastPostId) &&
+			Boolean(lastPostId) &&
+			previousLastPostId !== lastPostId;
+		const newestPostIsMine = lastPost?.user_id === currentUserId;
+
+		if (channelChanged) {
 			previousChannelIdRef.current = channelId;
 			rowVirtualizer.scrollToEnd();
+		} else if (newestPostChanged && (newestPostIsMine || isAtEndRef.current)) {
+			rowVirtualizer.scrollToEnd({ behavior: "smooth" });
 		}
-	}, [channelId, rowVirtualizer, timelineRows.length]);
+
+		previousLastPostIdRef.current = lastPostId;
+		isAtEndRef.current = rowVirtualizer.isAtEnd();
+	}, [channelId, currentUserId, lastPost?.user_id, lastPostId, rowVirtualizer, timelineRows.length]);
 
 	useEffect(() => {
 		const viewport = viewportRef.current;
@@ -82,6 +100,7 @@ export function MessageTimeline({
 		function handleScroll() {
 			if (!viewport) return;
 			const scrollTop = viewport.scrollTop;
+			isAtEndRef.current = rowVirtualizer.isAtEnd();
 			setShowLoadMore(Boolean(onLoadMore) && scrollTop < 300);
 		}
 
@@ -89,7 +108,7 @@ export function MessageTimeline({
 
 		viewport.addEventListener("scroll", handleScroll);
 		return () => viewport.removeEventListener("scroll", handleScroll);
-	}, [onLoadMore]);
+	}, [onLoadMore, rowVirtualizer]);
 
 	useEffect(() => {
 		function handleVisibilityChange() {
