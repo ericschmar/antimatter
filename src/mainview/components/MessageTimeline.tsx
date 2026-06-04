@@ -293,6 +293,7 @@ function MessageRow({
 								userStatuses={userStatuses}
 								users={users}
 								onOpenAttachment={onOpenAttachment}
+								onReply={onReply}
 								onSetUserColor={onSetUserColor}
 								onToggleReaction={onToggleReaction}
 							/>
@@ -331,6 +332,7 @@ function ReplyMessage({
 	userStatuses,
 	users,
 	onOpenAttachment,
+	onReply,
 	onSetUserColor,
 	onToggleReaction,
 }: {
@@ -342,6 +344,7 @@ function ReplyMessage({
 	userStatuses: Record<string, MattermostUserStatus>;
 	users: Record<string, MattermostUser>;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
+	onReply: (post: MattermostPost) => void;
 	onSetUserColor: (userId: string, color: string) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 }) {
@@ -377,6 +380,14 @@ function ReplyMessage({
 					))}
 				</div>
 			) : null}
+			<button
+				aria-label="Reply"
+				className="reply-message-reply-add"
+				type="button"
+				onClick={() => onReply(post)}
+			>
+				<Reply size={13} />
+			</button>
 			<EmojiPickerPopover
 				label="Add reaction"
 				onSelectEmoji={(_, emojiName) => void onToggleReaction(post, normalizeEmojiName(emojiName))}

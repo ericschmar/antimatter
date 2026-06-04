@@ -244,7 +244,7 @@
 	border-radius: 0 5px 5px 0;
 	background: color-mix(in srgb, var(--panel-raised) 72%, transparent);
 	color: var(--text-secondary);
-	padding: 4px 8px;
+	padding: 4px 58px 4px 8px;
 	font-size: 0.84rem;
 	line-height: 1.36;
 }
@@ -290,10 +290,10 @@
 	margin: 0;
 }
 
+.reply-message-reply-add,
 .reply-reaction-add {
 	position: absolute;
 	top: 4px;
-	right: 6px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -312,7 +312,17 @@
 		color 120ms ease;
 }
 
+.reply-message-reply-add {
+	right: 32px;
+}
+
+.reply-reaction-add {
+	right: 6px;
+}
+
+.reply-message:hover .reply-message-reply-add,
 .reply-message:hover .reply-reaction-add,
+.reply-message:focus-within .reply-message-reply-add,
 .reply-message:focus-within .reply-reaction-add {
 	opacity: 1;
 	pointer-events: auto;

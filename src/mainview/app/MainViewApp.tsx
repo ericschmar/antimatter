@@ -19,10 +19,11 @@ import type {
 	MattermostReaction,
 	MattermostTeam,
 	MattermostUser,
+	WebSocketStatus,
 	NormalizedState,
 	TypingUsersByChannel,
 } from "../types";
-import { channelLabel, isDirectChannel, isTeamChannel } from "../utils/format";
+import { channelLabel, includesMention, isDirectChannel, isTeamChannel } from "../utils/format";
 import { normalizeEmojiName } from "../utils/emoji";
 import {
 	applyReaction,
@@ -157,6 +158,9 @@ export function MainViewApp() {
 	} = useUserPresence({ api, users: state.users });
 	const selectedChannelRef = useRef<string | null>(null);
 	const previousViewedChannelIdRef = useRef<string | null>(null);
+	const previousWsStatusRef = useRef<WebSocketStatus>("idle");
+	const websocketHasConnectedRef = useRef(false);
+	const reconnectRefreshInFlightRef = useRef(false);
 	const lastActivityReportAtRef = useRef(0);
 	const activityReportInFlightRef = useRef(false);
 	const autoConnectAttemptedRef = useRef(false);
@@ -338,6 +342,113 @@ export function MainViewApp() {
 		[],
 	);
 
+	const refreshAfterReconnect = useCallback(async () => {
+		if (
+			!api ||
+			!config ||
+			!currentUser ||
+			!selectedTeamId ||
+			reconnectRefreshInFlightRef.current
+		)
+			return;
+
+		reconnectRefreshInFlightRef.current = true;
+		try {
+			const previousChannels = state.channels;
+			const channelsForTeam = await api.getChannelsForUserTeam(
+				currentUser.id,
+				selectedTeamId,
+			);
+			const channelUsers = await getDirectChannelUsers(
+				api,
+				channelsForTeam,
+				currentUser.id,
+			);
+			const selectedChannelId = selectedChannelRef.current;
+			const changedChannels = channelsForTeam.filter((channel) => {
+				if (channel.id === selectedChannelId) return false;
+				const previousLastPostAt = previousChannels[channel.id]?.last_post_at ?? 0;
+				const nextLastPostAt = channel.last_post_at ?? 0;
+				return nextLastPostAt > previousLastPostAt;
+			});
+
+			setState((current) => ({
+				...current,
+				channels: {
+					...current.channels,
+					...Object.fromEntries(
+						channelsForTeam.map((channel) => [channel.id, channel]),
+					),
+				},
+				users: {
+					...current.users,
+					...Object.fromEntries(channelUsers.map((user) => [user.id, user])),
+				},
+			}));
+
+			if (selectedChannelId) {
+				const history = await loadChannelHistory(api, selectedChannelId, currentUser.id);
+				void mutateSWR(
+					channelHistoryKey(config.serverUrl, selectedChannelId),
+					history,
+					{ revalidate: false },
+				);
+			}
+
+			if (changedChannels.length > 0) {
+				const mentionByChannelId = Object.fromEntries(
+					await Promise.all(
+						changedChannels.map(async (channel) => {
+							const previousLastPostAt =
+								previousChannels[channel.id]?.last_post_at ?? 0;
+							try {
+								const postList = await api.getPostsForChannel(channel.id);
+								const mention = Object.values(postList.posts).some(
+									(post) =>
+										post.create_at > previousLastPostAt &&
+										includesMention(post.message, currentUser.username),
+								);
+								return [channel.id, mention] as const;
+							} catch {
+								return [channel.id, false] as const;
+							}
+						}),
+					),
+				);
+
+				setChannelNotifications((current) => {
+					const next = { ...current };
+					for (const channel of changedChannels) {
+						next[channel.id] = {
+							unread: true,
+							mention:
+								current[channel.id]?.mention ||
+								Boolean(mentionByChannelId[channel.id]),
+						};
+					}
+					return next;
+				});
+			}
+		} catch (err) {
+			setError(
+				err instanceof Error
+					? err.message
+					: "Could not refresh messages after reconnect.",
+			);
+		} finally {
+			reconnectRefreshInFlightRef.current = false;
+		}
+	}, [
+		api,
+		config,
+		currentUser,
+		mutateSWR,
+		selectedTeamId,
+		setChannelNotifications,
+		setError,
+		state.channels,
+	]);
+
 	useEffect(() => {
 		if (!api || !selectedChannelId || !selectedChannelHistory) return;
 		setState((current) => ({
@@ -374,11 +485,25 @@ export function MainViewApp() {
 			setStatus("loading");
 	}, [selectedChannelHistory, selectedChannelHistoryLoading]);
 
+	useEffect(() => {
+		const previousStatus = previousWsStatusRef.current;
+		previousWsStatusRef.current = ui.wsStatus;
+		if (ui.wsStatus !== "connected" || previousStatus === "connected") return;
+		if (!websocketHasConnectedRef.current) {
+			websocketHasConnectedRef.current = true;
+			return;
+		}
+		void refreshAfterReconnect();
+	}, [refreshAfterReconnect, ui.wsStatus]);
+
 	const connect = useCallback(
 		async (nextConfig: MattermostConfig) => {
 			setStatus("loading");
 			setError(null);
 			setWsStatus("idle");
+			previousWsStatusRef.current = "idle";
+			websocketHasConnectedRef.current = false;
+			reconnectRefreshInFlightRef.current = false;
 			void electrobun.rpc!.request.disconnectMattermostWebSocket({});
 
 			const normalizedConfig = {
@@ -958,6 +1083,9 @@ export function MainViewApp() {
 
 	function signOut() {
 		void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+		previousWsStatusRef.current = "idle";
+		websocketHasConnectedRef.current = false;
+		reconnectRefreshInFlightRef.current = false;
 		clearConfig();
 		setConfig(null);
 		setApi(null);
