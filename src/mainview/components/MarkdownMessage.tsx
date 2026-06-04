@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 const imageSrcCache = new Map<string, string>();
-const imageLoadCache = new Map<string, "loaded" | "failed">();
+type ImageLoadInfo =
+	| { state: "idle" | "failed" }
+	| { state: "loaded"; width: number; height: number };
+const imageLoadCache = new Map<string, ImageLoadInfo>();
 
 export function MarkdownMessage({
 	currentUsername,
@@ -49,22 +52,27 @@ function MarkdownImage({
 	resolveImageSrc?: (src: string) => Promise<string>;
 }) {
 	const resolvedSrc = useResolvedImageSrc(src, resolveImageSrc);
-	const loadState = useImageLoadState(resolvedSrc);
+	const loadInfo = useImageLoadInfo(resolvedSrc);
+	const frameStyle = imageFrameStyle(loadInfo, props.width, props.height);
 	if (!src) return null;
 	if (resolveImageSrc && !resolvedSrc) {
-		return <span className="markdown-image-loading">Loading image...</span>;
+		return <span className="markdown-image-frame loading">Loading image...</span>;
 	}
-	if (loadState === "failed") {
+	if (loadInfo.state === "failed") {
 		return (
 			<a className="markdown-image-fallback" href={resolvedSrc ?? src} rel="noreferrer" target="_blank">
 				Open image
 			</a>
 		);
 	}
-	if (loadState !== "loaded") {
-		return <span className="markdown-image-loading">Loading image...</span>;
+	if (loadInfo.state !== "loaded") {
+		return <span className="markdown-image-frame loading" style={frameStyle}>Loading image...</span>;
 	}
-	return <img {...props} alt={alt ?? ""} loading="lazy" src={resolvedSrc ?? src} />;
+	return (
+		<span className="markdown-image-frame loaded" style={frameStyle}>
+			<img {...props} alt={alt ?? ""} loading="lazy" src={resolvedSrc ?? src} />
+		</span>
+	);
 }
 
 export function useResolvedImageSrc(
@@ -103,33 +111,43 @@ export function useResolvedImageSrc(
 }
 
 export function useImageLoadState(src: string | null) {
-	const [loadState, setLoadState] = useState<"idle" | "loaded" | "failed">(() => {
-		if (!src) return "idle";
-		return imageLoadCache.get(src) ?? "idle";
+	return useImageLoadInfo(src).state;
+}
+
+export function useImageLoadInfo(src: string | null) {
+	const [loadInfo, setLoadInfo] = useState<ImageLoadInfo>(() => {
+		if (!src) return { state: "idle" };
+		return imageLoadCache.get(src) ?? { state: "idle" };
 	});
 
 	useEffect(() => {
 		if (!src) {
-			setLoadState("idle");
+			setLoadInfo({ state: "idle" });
 			return;
 		}
 
-		const cachedState = imageLoadCache.get(src);
-		if (cachedState) {
-			setLoadState(cachedState);
+		const cachedInfo = imageLoadCache.get(src);
+		if (cachedInfo) {
+			setLoadInfo(cachedInfo);
 			return;
 		}
 
 		let cancelled = false;
-		setLoadState("idle");
+		setLoadInfo({ state: "idle" });
 		const image = new Image();
 		image.onload = () => {
-			imageLoadCache.set(src, "loaded");
-			if (!cancelled) setLoadState("loaded");
+			const nextInfo = {
+				height: image.naturalHeight || 1,
+				state: "loaded" as const,
+				width: image.naturalWidth || 1,
+			};
+			imageLoadCache.set(src, nextInfo);
+			if (!cancelled) setLoadInfo(nextInfo);
 		};
 		image.onerror = () => {
-			imageLoadCache.set(src, "failed");
-			if (!cancelled) setLoadState("failed");
+			const nextInfo = { state: "failed" as const };
+			imageLoadCache.set(src, nextInfo);
+			if (!cancelled) setLoadInfo(nextInfo);
 		};
 		image.src = src;
 
@@ -140,5 +158,33 @@ export function useImageLoadState(src: string | null) {
 		};
 	}, [src]);
 
-	return loadState;
+	return loadInfo;
+}
+
+function imageFrameStyle(
+	loadInfo: ImageLoadInfo,
+	width?: string | number,
+	height?: string | number,
+): CSSProperties | undefined {
+	const explicitWidth = numericDimension(width);
+	const explicitHeight = numericDimension(height);
+	const aspectRatio =
+		explicitWidth && explicitHeight
+			? explicitWidth / explicitHeight
+			: loadInfo.state === "loaded"
+				? loadInfo.width / loadInfo.height
+				: undefined;
+	const intrinsicWidth = explicitWidth ?? (loadInfo.state === "loaded" ? loadInfo.width : undefined);
+	if (!aspectRatio && !intrinsicWidth) return undefined;
+	return {
+		...(aspectRatio ? { aspectRatio } : {}),
+		...(intrinsicWidth ? { width: Math.min(intrinsicWidth, 520) } : {}),
+	};
+}
+
+function numericDimension(value: string | number | undefined) {
+	if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+	if (typeof value !== "string") return undefined;
+	const parsed = Number.parseFloat(value);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }

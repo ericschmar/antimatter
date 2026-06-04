@@ -2,14 +2,14 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MattermostFileInfo, MattermostPost, MattermostReaction, MattermostUser, MattermostUserStatus } from "../types";
 import { formatTime, initials, userLabel } from "../utils/format";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
 import { buildTimelineRows } from "../utils/timeline";
 import { USER_COLOR_PALETTE } from "../utils/userColors";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
-import { MarkdownMessage, useImageLoadState, useResolvedImageSrc } from "./MarkdownMessage";
+import { MarkdownMessage, useImageLoadInfo, useResolvedImageSrc } from "./MarkdownMessage";
 import "./MessageTimeline.css";
 
 export function MessageTimeline({
@@ -51,69 +51,59 @@ export function MessageTimeline({
 }) {
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const previousChannelIdRef = useRef<string | null>(null);
-	const previousLastPostIdRef = useRef<string | undefined>(undefined);
-	const previousPostCountRef = useRef(0);
+	const [useCachedMeasurements, setUseCachedMeasurements] = useState(false);
 	const [showLoadMore, setShowLoadMore] = useState(false);
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
-	const lastPostId = posts.length > 0 ? posts[posts.length - 1]?.id : undefined;
 	const rowVirtualizer = useVirtualizer({
+		anchorTo: "end",
 		count: timelineRows.length,
+		followOnAppend: "smooth",
 		getScrollElement: () => viewportRef.current,
 		estimateSize: (index) => (timelineRows[index]?.type === "divider" ? 30 : 34),
 		getItemKey: (index) => timelineRows[index]?.key ?? index,
 		overscan: 16,
+		scrollEndThreshold: 96,
+		useCachedMeasurements,
 	});
 	const virtualRows = rowVirtualizer.getVirtualItems();
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (timelineRows.length === 0) return;
-		const viewport = viewportRef.current;
-		const channelChanged = previousChannelIdRef.current !== channelId;
-		const previousPostCount = previousPostCountRef.current;
-		const previousLastPostId = previousLastPostIdRef.current;
-		const newestPostAppended =
-			!channelChanged &&
-			Boolean(previousLastPostId) &&
-			Boolean(lastPostId) &&
-			lastPostId !== previousLastPostId &&
-			posts.length >= previousPostCount;
-		previousChannelIdRef.current = channelId;
-		previousLastPostIdRef.current = lastPostId;
-		previousPostCountRef.current = posts.length;
-
-		if (!viewport) return;
-		const distanceFromBottom =
-			viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-		const shouldStickToBottom =
-			channelChanged ||
-			previousPostCount === 0 ||
-			newestPostAppended ||
-			distanceFromBottom < 96;
-
-		if (shouldStickToBottom) {
-			requestAnimationFrame(() => {
-				rowVirtualizer.scrollToIndex(timelineRows.length - 1, { align: "end" });
-			});
+		if (previousChannelIdRef.current !== channelId) {
+			previousChannelIdRef.current = channelId;
+			rowVirtualizer.scrollToEnd();
 		}
-	}, [channelId, lastPostId, posts.length, rowVirtualizer, timelineRows.length]);
+	}, [channelId, rowVirtualizer, timelineRows.length]);
 
 	useEffect(() => {
 		const viewport = viewportRef.current;
-		if (!viewport || !onLoadMore) return;
+		if (!viewport) return;
 
 		function handleScroll() {
 			if (!viewport) return;
 			const scrollTop = viewport.scrollTop;
-			// Show button when scrolled within 300px of the top
-			setShowLoadMore(scrollTop < 300);
+			setShowLoadMore(Boolean(onLoadMore) && scrollTop < 300);
 		}
 
-		// Check initial state
 		handleScroll();
 
 		viewport.addEventListener("scroll", handleScroll);
 		return () => viewport.removeEventListener("scroll", handleScroll);
 	}, [onLoadMore]);
+
+	useEffect(() => {
+		function handleVisibilityChange() {
+			setUseCachedMeasurements(document.visibilityState === "hidden");
+		}
+
+		handleVisibilityChange();
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+	}, []);
+
+	function loadMoreFromTop() {
+		onLoadMore?.();
+	}
 
 	return (
 		<div className="message-scroll" ref={viewportRef}>
@@ -124,11 +114,11 @@ export function MessageTimeline({
 				}}
 			>
 				{!loading && posts.length > 0 && onLoadMore && showLoadMore ? (
-					<button 
-						className="load-more-button" 
+					<button
+						className="load-more-button"
 						disabled={loadingHistory}
 						type="button"
-						onClick={onLoadMore}
+						onClick={loadMoreFromTop}
 					>
 						{loadingHistory ? "Loading..." : "Load more messages"}
 					</button>
@@ -457,7 +447,7 @@ function InlineImageAttachment({
 	onOpen: () => void;
 }) {
 	const src = useResolvedImageSrc(`/files/${encodeURIComponent(file.id)}`, resolveImageSrc);
-	const loadState = useImageLoadState(src);
+	const loadInfo = useImageLoadInfo(src);
 	return (
 		<button
 			aria-label={`Open ${file.name ?? "attached image"}`}
@@ -466,9 +456,17 @@ function InlineImageAttachment({
 			type="button"
 			onClick={onOpen}
 		>
-			{src && loadState === "loaded" ? (
-				<img alt={file.name ?? "Attached image"} className="inline-image" loading="lazy" src={src} />
-			) : src && loadState === "failed" ? (
+			{src && loadInfo.state === "loaded" ? (
+				<span
+					className="inline-image-frame loaded"
+					style={{
+						aspectRatio: loadInfo.width / loadInfo.height,
+						width: Math.min(loadInfo.width, 520),
+					}}
+				>
+					<img alt={file.name ?? "Attached image"} className="inline-image" loading="lazy" src={src} />
+				</span>
+			) : src && loadInfo.state === "failed" ? (
 				<span className="inline-image-loading">{opening ? "Opening..." : file.name ?? "Open image"}</span>
 			) : (
 				<span className="inline-image-loading">{opening ? "Opening..." : file.name ?? "Loading image..."}</span>
