@@ -2,10 +2,11 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MattermostFileInfo, MattermostPost, MattermostReaction, MattermostUser, MattermostUserStatus } from "../types";
 import { formatTime, initials, userLabel } from "../utils/format";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
+import type { TimelineRow } from "../utils/timeline";
 import { buildTimelineRows } from "../utils/timeline";
 import { USER_COLOR_PALETTE } from "../utils/userColors";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
@@ -58,12 +59,20 @@ export function MessageTimeline({
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
 	const lastPost = posts.at(-1);
 	const lastPostId = lastPost?.id;
+	const estimateTimelineSize = useCallback(
+		(index: number) =>
+			estimateTimelineRowSize(
+				timelineRows[index],
+				viewportRef.current?.clientWidth ?? 960,
+			),
+		[timelineRows],
+	);
 	const rowVirtualizer = useVirtualizer({
 		anchorTo: "end",
 		count: timelineRows.length,
 		followOnAppend: "smooth",
 		getScrollElement: () => viewportRef.current,
-		estimateSize: (index) => (timelineRows[index]?.type === "divider" ? 30 : 34),
+		estimateSize: estimateTimelineSize,
 		getItemKey: (index) => timelineRows[index]?.key ?? index,
 		overscan: 16,
 		scrollEndThreshold: 96,
@@ -190,6 +199,44 @@ export function MessageTimeline({
 			) : null}
 		</div>
 	);
+}
+
+function estimateTimelineRowSize(row: TimelineRow | undefined, viewportWidth: number) {
+	if (!row) return 34;
+	if (row.type === "divider") return 30;
+	const contentWidth = Math.max(280, viewportWidth - 220);
+	const charsPerLine = Math.max(34, Math.floor(contentWidth / 8.2));
+	const messageHeight = estimatePostBodyHeight(row.post, charsPerLine, false);
+	const repliesHeight = row.replies.reduce(
+		(total, reply) => total + estimatePostBodyHeight(reply, charsPerLine, true) + 5,
+		0,
+	);
+	return Math.max(34, messageHeight + repliesHeight + 3);
+}
+
+function estimatePostBodyHeight(
+	post: MattermostPost,
+	charsPerLine: number,
+	compact: boolean,
+) {
+	const lineHeight = compact ? 16 : 18;
+	const chromeHeight = compact ? 16 : 8;
+	const lines = estimateTextLines(post.message, charsPerLine);
+	const fileInfos = post.metadata?.files ?? [];
+	const imageCount = fileInfos.filter(isImageFile).length;
+	const otherFileCount = fileInfos.length - imageCount;
+	const attachmentHeight =
+		imageCount * 172 + otherFileCount * 40 + (fileInfos.length > 0 ? 6 : 0);
+	const reactionHeight = post.metadata?.reactions?.length ? 28 : 0;
+	return chromeHeight + Math.max(lineHeight, lines * lineHeight) + attachmentHeight + reactionHeight;
+}
+
+function estimateTextLines(message: string, charsPerLine: number) {
+	if (!message.trim()) return 1;
+	return message.split(/\r\n|\r|\n/).reduce((lineCount, line) => {
+		const visualLength = Math.max(1, line.length);
+		return lineCount + Math.max(1, Math.ceil(visualLength / charsPerLine));
+	}, 0);
 }
 
 function TypingIndicator({ users }: { users: MattermostUser[] }) {
