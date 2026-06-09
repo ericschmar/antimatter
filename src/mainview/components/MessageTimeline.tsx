@@ -59,6 +59,16 @@ export function MessageTimeline({
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
 	const lastPost = posts.at(-1);
 	const lastPostId = lastPost?.id;
+	const measurementVersion = useMemo(
+		() =>
+			posts
+				.map(
+					(post) =>
+						`${post.id}:${post.update_at ?? 0}:${post.message.length}:${post.metadata?.files?.length ?? 0}:${post.metadata?.reactions?.length ?? 0}`,
+				)
+				.join("|"),
+		[posts],
+	);
 	const estimateTimelineSize = useCallback(
 		(index: number) =>
 			estimateTimelineRowSize(
@@ -67,6 +77,14 @@ export function MessageTimeline({
 			),
 		[timelineRows],
 	);
+	const measureTimelineElement = useCallback(
+		(element: HTMLDivElement, entry: ResizeObserverEntry | undefined) => {
+			const borderBoxSize = entry?.borderBoxSize?.[0];
+			if (borderBoxSize) return Math.ceil(borderBoxSize.blockSize);
+			return Math.ceil(element.getBoundingClientRect().height);
+		},
+		[],
+	);
 	const rowVirtualizer = useVirtualizer({
 		anchorTo: "end",
 		count: timelineRows.length,
@@ -74,8 +92,10 @@ export function MessageTimeline({
 		getScrollElement: () => viewportRef.current,
 		estimateSize: estimateTimelineSize,
 		getItemKey: (index) => timelineRows[index]?.key ?? index,
+		measureElement: measureTimelineElement,
 		overscan: 16,
 		scrollEndThreshold: 96,
+		useAnimationFrameWithResizeObserver: true,
 		useCachedMeasurements,
 	});
 	const virtualRows = rowVirtualizer.getVirtualItems();
@@ -90,17 +110,38 @@ export function MessageTimeline({
 			Boolean(lastPostId) &&
 			previousLastPostId !== lastPostId;
 		const newestPostIsMine = lastPost?.user_id === currentUserId;
+		const shouldScrollToEnd =
+			channelChanged ||
+			(newestPostChanged && (newestPostIsMine || isAtEndRef.current));
 
+		rowVirtualizer.measure();
 		if (channelChanged) {
 			previousChannelIdRef.current = channelId;
 			rowVirtualizer.scrollToEnd();
-		} else if (newestPostChanged && (newestPostIsMine || isAtEndRef.current)) {
+		} else if (shouldScrollToEnd) {
 			rowVirtualizer.scrollToEnd({ behavior: "smooth" });
 		}
+		const scrollFrame = shouldScrollToEnd
+			? requestAnimationFrame(() => {
+					rowVirtualizer.measure();
+					rowVirtualizer.scrollToEnd({
+						behavior: channelChanged ? "auto" : "smooth",
+					});
+				})
+			: requestAnimationFrame(() => rowVirtualizer.measure());
 
 		previousLastPostIdRef.current = lastPostId;
 		isAtEndRef.current = rowVirtualizer.isAtEnd();
-	}, [channelId, currentUserId, lastPost?.user_id, lastPostId, rowVirtualizer, timelineRows.length]);
+		return () => cancelAnimationFrame(scrollFrame);
+	}, [
+		channelId,
+		currentUserId,
+		lastPost?.user_id,
+		lastPostId,
+		measurementVersion,
+		rowVirtualizer,
+		timelineRows.length,
+	]);
 
 	useEffect(() => {
 		const viewport = viewportRef.current;
