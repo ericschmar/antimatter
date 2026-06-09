@@ -7,6 +7,7 @@ import { getEnvConfig, openMattermostAttachment } from "./mattermostHttp";
 const originalServerUrl = Bun.env["MATTERMOST_SERVER_URL"];
 const originalLegacyUrl = Bun.env["MATTERMOST_URL"];
 const originalPat = Bun.env["MATTERMOST_PAT"];
+const originalGiphyApiKey = Bun.env["GIPHY_API_KEY"];
 const originalFetch = globalThis.fetch;
 const tempRoots: string[] = [];
 
@@ -14,6 +15,7 @@ afterEach(async () => {
 	restoreEnv("MATTERMOST_SERVER_URL", originalServerUrl);
 	restoreEnv("MATTERMOST_URL", originalLegacyUrl);
 	restoreEnv("MATTERMOST_PAT", originalPat);
+	restoreEnv("GIPHY_API_KEY", originalGiphyApiKey);
 	globalThis.fetch = originalFetch;
 	await Promise.all(
 		tempRoots.splice(0).map((tempRoot) => rm(tempRoot, { force: true, recursive: true })),
@@ -25,6 +27,7 @@ describe("getEnvConfig", () => {
 		Bun.env["MATTERMOST_SERVER_URL"] = "https://server.example.com";
 		Bun.env["MATTERMOST_URL"] = "https://legacy.example.com";
 		Bun.env["MATTERMOST_PAT"] = "token";
+		delete Bun.env["GIPHY_API_KEY"];
 
 		expect(getEnvConfig()).toEqual({
 			serverUrl: "https://server.example.com",
@@ -36,10 +39,22 @@ describe("getEnvConfig", () => {
 		delete Bun.env["MATTERMOST_SERVER_URL"];
 		Bun.env["MATTERMOST_URL"] = "https://legacy.example.com";
 		Bun.env["MATTERMOST_PAT"] = "token";
+		delete Bun.env["GIPHY_API_KEY"];
 
 		expect(getEnvConfig()).toEqual({
 			serverUrl: "https://legacy.example.com",
 			token: "token",
+		});
+	});
+
+	test("returns GIPHY_API_KEY without Mattermost credentials", () => {
+		delete Bun.env["MATTERMOST_SERVER_URL"];
+		delete Bun.env["MATTERMOST_URL"];
+		delete Bun.env["MATTERMOST_PAT"];
+		Bun.env["GIPHY_API_KEY"] = "giphy-key";
+
+		expect(getEnvConfig()).toEqual({
+			giphyApiKey: "giphy-key",
 		});
 	});
 });

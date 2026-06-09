@@ -1,5 +1,7 @@
 import type { ElectrobunConfig } from "electrobun";
 
+const buildGiphyApiKey = process.env["GIPHY_API_KEY"]?.trim() ?? "";
+
 export default {
 	app: {
 		name: "Antimatter",
@@ -9,6 +11,9 @@ export default {
 	},
 	build: {
 		bun: {
+			define: {
+				__ANTIMATTER_GIPHY_API_KEY__: JSON.stringify(buildGiphyApiKey),
+			},
 			entrypoint: "src/bun/index.ts",
 		},
 		views: {

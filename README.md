@@ -82,6 +82,9 @@ GIPHY_API_KEY=your-giphy-api-key
 
 You can also enter credentials from the login screen.
 
+`GIPHY_API_KEY` is read at runtime for local development and embedded into
+packaged builds when it is present in the build environment.
+
 ## Authentication
 
 Antimatter supports three login paths:

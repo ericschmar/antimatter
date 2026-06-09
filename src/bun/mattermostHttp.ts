@@ -10,18 +10,26 @@ import type {
 	MattermostRpcRequest,
 } from "../shared/electrobunRpc";
 
+declare const __ANTIMATTER_GIPHY_API_KEY__: string | undefined;
+
 export function getEnvConfig(): MattermostEnvConfig | null {
 	const serverUrl =
 		Bun.env["MATTERMOST_SERVER_URL"]?.trim() ??
 		Bun.env["MATTERMOST_URL"]?.trim();
 	const token = Bun.env["MATTERMOST_PAT"]?.trim();
-	const giphyApiKey = Bun.env["GIPHY_API_KEY"]?.trim();
+	const giphyApiKey =
+		Bun.env["GIPHY_API_KEY"]?.trim() ?? getBuildGiphyApiKey();
 
 	if (!serverUrl && !token && !giphyApiKey) return null;
 	return {
 		...(giphyApiKey ? { giphyApiKey } : {}),
 		...(serverUrl && token ? { serverUrl, token } : {}),
 	};
+}
+
+function getBuildGiphyApiKey() {
+	if (typeof __ANTIMATTER_GIPHY_API_KEY__ === "undefined") return undefined;
+	return __ANTIMATTER_GIPHY_API_KEY__.trim() || undefined;
 }
 
 export async function mattermostRequest(request: MattermostRpcRequest) {
