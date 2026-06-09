@@ -75,6 +75,7 @@ For local development, Antimatter can read Mattermost credentials from `.env.loc
 ```sh
 MATTERMOST_SERVER_URL=https://mattermost.example.com
 MATTERMOST_PAT=your-personal-access-token
+GIPHY_API_KEY=your-giphy-api-key
 ```
 
 `MATTERMOST_URL` is also accepted as a legacy alias for `MATTERMOST_SERVER_URL`.

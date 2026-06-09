@@ -52,6 +52,7 @@ export function ChatShell({
 	composerHeight,
 	currentUser,
 	favoriteChannelSet,
+	giphyApiKey,
 	maxComposerHeight,
 	maxSidebarWidth,
 	minComposerHeight,
@@ -416,6 +417,7 @@ export function ChatShell({
 										currentUserId={currentUser.id}
 										disabled={!selectedChannelId || ui.status === "loading"}
 										editTarget={editTarget}
+										giphyApiKey={giphyApiKey}
 										maxComposerHeight={effectiveMaxComposerHeight}
 										mentionUsers={selectedChannelUsers}
 										ref={composerRef}
@@ -499,6 +501,7 @@ type ChatShellProps = {
 	composerHeight: number;
 	currentUser: MattermostUser;
 	favoriteChannelSet: Set<string>;
+	giphyApiKey?: string;
 	maxComposerHeight: number;
 	maxSidebarWidth: number;
 	minComposerHeight: number;

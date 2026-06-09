@@ -4,23 +4,31 @@ import { join } from "node:path";
 import type {
 	MattermostAttachmentOpenRequest,
 	MattermostAttachmentOpenResponse,
+	MattermostEnvConfig,
 	MattermostFileUploadRequest,
 	MattermostLoginRequest,
 	MattermostRpcRequest,
 } from "../shared/electrobunRpc";
 
-export function getEnvConfig() {
+export function getEnvConfig(): MattermostEnvConfig | null {
 	const serverUrl =
 		Bun.env["MATTERMOST_SERVER_URL"]?.trim() ??
 		Bun.env["MATTERMOST_URL"]?.trim();
 	const token = Bun.env["MATTERMOST_PAT"]?.trim();
+	const giphyApiKey = Bun.env["GIPHY_API_KEY"]?.trim();
 
-	if (!serverUrl || !token) return null;
-	return { serverUrl, token };
+	if (!serverUrl && !token && !giphyApiKey) return null;
+	return {
+		...(giphyApiKey ? { giphyApiKey } : {}),
+		...(serverUrl && token ? { serverUrl, token } : {}),
+	};
 }
 
 export async function mattermostRequest(request: MattermostRpcRequest) {
-	const url = new URL(`/api/v4${request.path}`, normalizeServerUrl(request.serverUrl));
+	const url = new URL(
+		`/api/v4${request.path}`,
+		normalizeServerUrl(request.serverUrl),
+	);
 	const response = await fetch(url, {
 		method: request.method ?? "GET",
 		headers: {
@@ -43,7 +51,10 @@ export async function mattermostRequest(request: MattermostRpcRequest) {
 }
 
 export async function mattermostLogin(request: MattermostLoginRequest) {
-	const url = new URL("/api/v4/users/login", normalizeServerUrl(request.serverUrl));
+	const url = new URL(
+		"/api/v4/users/login",
+		normalizeServerUrl(request.serverUrl),
+	);
 	const response = await fetch(url, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -56,7 +67,10 @@ export async function mattermostLogin(request: MattermostLoginRequest) {
 		status: response.status,
 		ok: response.ok,
 		headers: readHeaders(response),
-		token: response.headers.get("Token") ?? response.headers.get("token") ?? undefined,
+		token:
+			response.headers.get("Token") ??
+			response.headers.get("token") ??
+			undefined,
 		body: await readBody(response),
 	};
 }
@@ -78,12 +92,20 @@ export async function loginWithMattermostDesktopToken(
 		response.headers.get("Token") ?? response.headers.get("token") ?? undefined;
 	if (!response.ok || !token) {
 		const body = await readBody(response);
-		throw new Error(getMattermostErrorMessage(body, response.status, "Mattermost login failed"));
+		throw new Error(
+			getMattermostErrorMessage(
+				body,
+				response.status,
+				"Mattermost login failed",
+			),
+		);
 	}
 	return token;
 }
 
-export async function uploadMattermostFiles(request: MattermostFileUploadRequest) {
+export async function uploadMattermostFiles(
+	request: MattermostFileUploadRequest,
+) {
 	const url = new URL("/api/v4/files", normalizeServerUrl(request.serverUrl));
 	const form = new FormData();
 	form.set("channel_id", request.channelId);
@@ -126,7 +148,8 @@ export async function openMattermostAttachment(
 	} catch (error) {
 		return {
 			success: false,
-			message: error instanceof Error ? error.message : "Could not open attachment.",
+			message:
+				error instanceof Error ? error.message : "Could not open attachment.",
 		};
 	}
 }
@@ -148,7 +171,13 @@ export async function downloadMattermostAttachment(
 
 	if (!response.ok) {
 		const body = await readBody(response);
-		throw new Error(getMattermostErrorMessage(body, response.status, "Attachment download failed"));
+		throw new Error(
+			getMattermostErrorMessage(
+				body,
+				response.status,
+				"Attachment download failed",
+			),
+		);
 	}
 
 	const filePath = attachmentPath(request, tempRoot);
@@ -183,14 +212,18 @@ async function readBody(response: Response) {
 }
 
 async function readDataUrl(response: Response) {
-	const contentType = response.headers.get("Content-Type") ?? "application/octet-stream";
+	const contentType =
+		response.headers.get("Content-Type") ?? "application/octet-stream";
 	const bytes = await response.arrayBuffer();
 	return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;
 }
 
 function dataUrlToBlob(dataUrl: string, fallbackType: string) {
 	const match = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUrl);
-	if (!match) return new Blob([dataUrl], { type: fallbackType || "application/octet-stream" });
+	if (!match)
+		return new Blob([dataUrl], {
+			type: fallbackType || "application/octet-stream",
+		});
 	const contentType = match[1] || fallbackType || "application/octet-stream";
 	const encoded = match[3] ?? "";
 	if (match[2]) {
@@ -199,7 +232,11 @@ function dataUrlToBlob(dataUrl: string, fallbackType: string) {
 	return new Blob([decodeURIComponent(encoded)], { type: contentType });
 }
 
-function getMattermostErrorMessage(body: unknown, status: number, fallback = "Request failed") {
+function getMattermostErrorMessage(
+	body: unknown,
+	status: number,
+	fallback = "Request failed",
+) {
 	return body && typeof body === "object" && "message" in body
 		? String((body as { message?: unknown }).message)
 		: `${fallback} with ${status}.`;
@@ -207,11 +244,15 @@ function getMattermostErrorMessage(body: unknown, status: number, fallback = "Re
 
 function attachmentFileName(request: MattermostAttachmentOpenRequest) {
 	const safeId = sanitizeFileSegment(request.fileId) || "attachment";
-	const safeName = sanitizeFileSegment(request.fileName ?? "") || fallbackFileName(request);
+	const safeName =
+		sanitizeFileSegment(request.fileName ?? "") || fallbackFileName(request);
 	return `${safeId}-${safeName}`;
 }
 
-function attachmentPath(request: MattermostAttachmentOpenRequest, tempRoot: string) {
+function attachmentPath(
+	request: MattermostAttachmentOpenRequest,
+	tempRoot: string,
+) {
 	return join(tempRoot, attachmentFileName(request));
 }
 

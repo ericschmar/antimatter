@@ -64,8 +64,9 @@ export type MattermostRpcResponse = {
 };
 
 export type MattermostEnvConfig = {
-	serverUrl: string;
-	token: string;
+	giphyApiKey?: string;
+	serverUrl?: string;
+	token?: string;
 };
 
 export type MattermostWebSocketConfig = {

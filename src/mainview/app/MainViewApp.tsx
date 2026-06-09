@@ -23,7 +23,12 @@ import type {
 	NormalizedState,
 	TypingUsersByChannel,
 } from "../types";
-import { channelLabel, includesMention, isDirectChannel, isTeamChannel } from "../utils/format";
+import {
+	channelLabel,
+	includesMention,
+	isDirectChannel,
+	isTeamChannel,
+} from "../utils/format";
 import { normalizeEmojiName } from "../utils/emoji";
 import {
 	applyReaction,
@@ -129,6 +134,7 @@ export function MainViewApp() {
 	);
 	const [state, setState] = useState<NormalizedState>(emptyState);
 	const [envConfig, setEnvConfig] = useState<MattermostConfig | null>(null);
+	const [giphyApiKey, setGiphyApiKey] = useState<string | undefined>();
 	const {
 		archivedChannelSet,
 		channelEmojis,
@@ -217,7 +223,10 @@ export function MainViewApp() {
 		(force = false) => {
 			if (!api || !currentUser || activityReportInFlightRef.current) return;
 			const now = Date.now();
-			if (!force && now - lastActivityReportAtRef.current < ACTIVITY_REPORT_INTERVAL_MS)
+			if (
+				!force &&
+				now - lastActivityReportAtRef.current < ACTIVITY_REPORT_INTERVAL_MS
+			)
 				return;
 
 			lastActivityReportAtRef.current = now;
@@ -281,10 +290,14 @@ export function MainViewApp() {
 
 		return () => {
 			window.removeEventListener("focus", handleFocus);
-			window.removeEventListener("pointerdown", handleActivity, { capture: true });
+			window.removeEventListener("pointerdown", handleActivity, {
+				capture: true,
+			});
 			window.removeEventListener("keydown", handleActivity, { capture: true });
 			window.removeEventListener("wheel", handleActivity, { capture: true });
-			window.removeEventListener("touchstart", handleActivity, { capture: true });
+			window.removeEventListener("touchstart", handleActivity, {
+				capture: true,
+			});
 			window.clearInterval(timer);
 		};
 	}, [api, currentUser, reportUserActivity]);
@@ -367,7 +380,8 @@ export function MainViewApp() {
 			const selectedChannelId = selectedChannelRef.current;
 			const changedChannels = channelsForTeam.filter((channel) => {
 				if (channel.id === selectedChannelId) return false;
-				const previousLastPostAt = previousChannels[channel.id]?.last_post_at ?? 0;
+				const previousLastPostAt =
+					previousChannels[channel.id]?.last_post_at ?? 0;
 				const nextLastPostAt = channel.last_post_at ?? 0;
 				return nextLastPostAt > previousLastPostAt;
 			});
@@ -387,7 +401,11 @@ export function MainViewApp() {
 			}));
 
 			if (selectedChannelId) {
-				const history = await loadChannelHistory(api, selectedChannelId, currentUser.id);
+				const history = await loadChannelHistory(
+					api,
+					selectedChannelId,
+					currentUser.id,
+				);
 				void mutateSWR(
 					channelHistoryKey(config.serverUrl, selectedChannelId),
 					history,
@@ -672,22 +690,33 @@ export function MainViewApp() {
 	);
 
 	useEffect(() => {
+		let cancelled = false;
 		if (config) {
 			void connect(config);
-			return () => {
-				void electrobun.rpc!.request.disconnectMattermostWebSocket({});
-			};
 		}
 
-		void electrobun.rpc!.request.getEnvConfig({}).then((nextEnvConfig) => {
-			if (!nextEnvConfig) return;
-			setEnvConfig(nextEnvConfig);
-			if (autoConnectAttemptedRef.current) return;
-			autoConnectAttemptedRef.current = true;
-			void connect(nextEnvConfig);
-		});
+		void electrobun.rpc!.request
+			.getEnvConfig({})
+			.then((nextEnvConfig) => {
+				if (cancelled || !nextEnvConfig) return;
+				setGiphyApiKey(nextEnvConfig.giphyApiKey);
+				if (config) return;
+				if (!nextEnvConfig.serverUrl || !nextEnvConfig.token) return;
+				const mattermostEnvConfig = {
+					serverUrl: nextEnvConfig.serverUrl,
+					token: nextEnvConfig.token,
+				};
+				setEnvConfig(mattermostEnvConfig);
+				if (autoConnectAttemptedRef.current) return;
+				autoConnectAttemptedRef.current = true;
+				void connect(mattermostEnvConfig);
+			})
+			.catch(() => {
+				if (!cancelled && !config) setEnvConfig(null);
+			});
 
 		return () => {
+			cancelled = true;
 			void electrobun.rpc!.request.disconnectMattermostWebSocket({});
 		};
 	}, []);
@@ -936,11 +965,7 @@ export function MainViewApp() {
 						)
 					: await api.createPost(selectedChannelId, message, rootId);
 			setState((current) =>
-				updateChannelLastPostAt(
-					current,
-					selectedChannelId,
-					created.create_at,
-				),
+				updateChannelLastPostAt(current, selectedChannelId, created.create_at),
 			);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not send message.");
@@ -982,7 +1007,9 @@ export function MainViewApp() {
 		try {
 			await api.openAttachment(file);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Could not open attachment.");
+			setError(
+				err instanceof Error ? err.message : "Could not open attachment.",
+			);
 		}
 	}
 
@@ -1247,6 +1274,7 @@ export function MainViewApp() {
 				composerRef={composerRef}
 				currentUser={currentUser}
 				favoriteChannelSet={favoriteChannelSet}
+				giphyApiKey={giphyApiKey}
 				composerHeight={composerHeight}
 				maxComposerHeight={MAX_COMPOSER_HEIGHT}
 				maxSidebarWidth={MAX_SIDEBAR_WIDTH}
@@ -1257,8 +1285,8 @@ export function MainViewApp() {
 				resolveImageSrc={resolveImageSrc}
 				sections={sections}
 				selectedChannel={selectedChannel}
-			selectedChannelId={selectedChannelId}
-			selectedTeam={selectedTeam}
+				selectedChannelId={selectedChannelId}
+				selectedTeam={selectedTeam}
 				selectedTeamId={selectedTeamId}
 				settings={settings}
 				sidebarWidth={sidebarWidth}
@@ -1269,18 +1297,18 @@ export function MainViewApp() {
 				userStatuses={userStatuses}
 				onAddUserToSelectedChannel={addUserToSelectedChannel}
 				onApplyAppUpdate={installAppUpdate}
-			onArchiveChannel={archiveChannel}
-			onCancelEdit={() => setEditTarget(null)}
-			onCancelReply={() => setReplyTarget(null)}
-			onCreateChannel={createChannel}
-			onCreateDm={createDm}
-			onEditMessage={editMessage}
-			onLoadMoreMessages={loadMoreMessages}
-			onMoveChannel={moveChannel}
-			onOpenAttachment={openAttachment}
-			onOpenSettings={openSettingsWindow}
-			onSelectChannel={selectChannel}
-			onSelectPost={selectSearchPost}
+				onArchiveChannel={archiveChannel}
+				onCancelEdit={() => setEditTarget(null)}
+				onCancelReply={() => setReplyTarget(null)}
+				onCreateChannel={createChannel}
+				onCreateDm={createDm}
+				onEditMessage={editMessage}
+				onLoadMoreMessages={loadMoreMessages}
+				onMoveChannel={moveChannel}
+				onOpenAttachment={openAttachment}
+				onOpenSettings={openSettingsWindow}
+				onSelectChannel={selectChannel}
+				onSelectPost={selectSearchPost}
 				onSelectTeam={selectTeam}
 				onSendMessage={sendMessage}
 				onSendTyping={sendTyping}
@@ -1288,15 +1316,15 @@ export function MainViewApp() {
 				onSetComposerHeight={setComposerHeight}
 				onSetUserColor={setUserColor}
 				onSetSidebarWidth={setSidebarWidth}
-			onShowChannelContextMenu={showChannelContextMenu}
-			onShowMessageContextMenu={showMessageContextMenu}
-			onSignOut={signOut}
-			onStartReply={startReply}
-			onToggleChannelSection={toggleChannelSection}
-			onToggleFavoriteChannel={toggleFavoriteChannel}
-			onToggleReaction={toggleReaction}
-			onUnarchiveChannel={unarchiveChannel}
-		/>
+				onShowChannelContextMenu={showChannelContextMenu}
+				onShowMessageContextMenu={showMessageContextMenu}
+				onSignOut={signOut}
+				onStartReply={startReply}
+				onToggleChannelSection={toggleChannelSection}
+				onToggleFavoriteChannel={toggleFavoriteChannel}
+				onToggleReaction={toggleReaction}
+				onUnarchiveChannel={unarchiveChannel}
+			/>
 			<AttachmentPreviewDialog
 				api={api}
 				file={previewAttachment}

@@ -47,6 +47,7 @@ import {
 	Redo2,
 	Send,
 	SmilePlus,
+	Sticker,
 	Table2,
 	Type,
 	Underline,
@@ -68,6 +69,8 @@ import type { MattermostPost, MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 import { normalizeOutgoingMessage } from "../utils/outgoingMessage";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
+import { GiphyPickerPopover } from "./GiphyPickerPopover";
+import type { GiphyGif } from "./GiphyPickerPopover";
 import { MarkdownMessage } from "./MarkdownMessage";
 import "./MessageComposer.css";
 
@@ -170,6 +173,17 @@ function composerToolbarIcon(name: string) {
 	}
 }
 
+function giphyGifMarkdown(gif: GiphyGif) {
+	const src =
+		gif.images?.["original"]?.url ??
+		gif.images?.["downsized_medium"]?.url ??
+		gif.images?.["fixed_width"]?.url ??
+		gif.images?.["fixed_width_downsampled"]?.url;
+	if (!src) return null;
+	const alt = (gif.title?.trim() || "GIPHY GIF").replace(/[\r\n[\]]/g, " ");
+	return `![${alt}](${src})`;
+}
+
 export type MessageComposerHandle = {
 	attachFiles: () => void;
 	attachImages: () => void;
@@ -181,6 +195,7 @@ type MessageComposerProps = {
 	disabled: boolean;
 	replyTarget: MattermostPost | null;
 	editTarget: MattermostPost | null;
+	giphyApiKey?: string;
 	mentionUsers: MattermostUser[];
 	users: Record<string, MattermostUser>;
 	userColors: Record<string, string>;
@@ -202,6 +217,7 @@ export const MessageComposer = forwardRef<
 	{
 		disabled,
 		editTarget,
+		giphyApiKey,
 		mentionUsers,
 		replyTarget,
 		users,
@@ -222,6 +238,7 @@ export const MessageComposer = forwardRef<
 	const [files, setFiles] = useState<File[]>([]);
 	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
 	const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+	const [giphyPickerOpen, setGiphyPickerOpen] = useState(false);
 	const [fileAccept, setFileAccept] = useState<string | undefined>();
 	const [sending, setSending] = useState(false);
 	const messageRef = useRef("");
@@ -305,6 +322,26 @@ export const MessageComposer = forwardRef<
 		[disabled, handleMessageChange],
 	);
 
+	const insertGif = useCallback(
+		(gif: GiphyGif) => {
+			const gifMarkdown = giphyGifMarkdown(gif);
+			if (disabled || !gifMarkdown) return;
+			const markdownToInsert =
+				messageRef.current.trim().length > 0 ? `\n${gifMarkdown}\n` : gifMarkdown;
+			editorRef.current?.focus(
+				() => {
+					editorRef.current?.insertMarkdown(markdownToInsert);
+					handleMessageChange(
+						editorRef.current?.getMarkdown() ??
+							`${messageRef.current}${markdownToInsert}`,
+					);
+				},
+				{ defaultSelection: "rootEnd", preventScroll: true },
+			);
+		},
+		[disabled, handleMessageChange],
+	);
+
 	const insertMention = useCallback(
 		(user: MattermostUser) => {
 			if (!mentionMatch) return;
@@ -378,6 +415,23 @@ export const MessageComposer = forwardRef<
 													<SmilePlus size={TOOLBAR_ICON_SIZE} />
 												</button>
 											</EmojiPickerPopover>
+											{giphyApiKey ? (
+												<GiphyPickerPopover
+													apiKey={giphyApiKey}
+													open={giphyPickerOpen}
+													onSelectGif={insertGif}
+													onOpenChange={setGiphyPickerOpen}
+												>
+													<button
+														aria-label="Insert GIF"
+														className="composer-toolbar-button"
+														disabled={disabled}
+														type="button"
+													>
+														<Sticker size={TOOLBAR_ICON_SIZE} />
+													</button>
+												</GiphyPickerPopover>
+											) : null}
 											<Separator />
 											<InsertTable />
 											<InsertThematicBreak />
@@ -404,7 +458,16 @@ export const MessageComposer = forwardRef<
 			diffSourcePlugin({ viewMode: "rich-text" }),
 			markdownShortcutPlugin(),
 		],
-		[disabled, editTarget, emojiPickerOpen, insertEmoji, openFilePicker],
+		[
+			disabled,
+			editTarget,
+			emojiPickerOpen,
+			giphyApiKey,
+			giphyPickerOpen,
+			insertEmoji,
+			insertGif,
+			openFilePicker,
+		],
 	);
 
 	async function submit() {
