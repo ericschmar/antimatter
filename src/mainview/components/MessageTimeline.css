@@ -120,11 +120,7 @@
 	cursor: not-allowed;
 }
 
-.virtual-row {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
+.message-row {
 	padding: 0 0 1px;
 }
 

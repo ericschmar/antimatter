@@ -1,17 +1,17 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MattermostFileInfo, MattermostPost, MattermostReaction, MattermostUser, MattermostUserStatus } from "../types";
 import { formatTime, initials, userLabel } from "../utils/format";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
-import type { TimelineRow } from "../utils/timeline";
 import { buildTimelineRows } from "../utils/timeline";
 import { USER_COLOR_PALETTE } from "../utils/userColors";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { MarkdownMessage, useImageLoadInfo, useResolvedImageSrc } from "./MarkdownMessage";
 import "./MessageTimeline.css";
+
+const SCROLL_END_THRESHOLD = 96;
 
 export function MessageTimeline({
 	posts,
@@ -51,95 +51,72 @@ export function MessageTimeline({
 	onLoadMore?: () => void;
 }) {
 	const viewportRef = useRef<HTMLDivElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
 	const previousChannelIdRef = useRef<string | null>(null);
 	const previousLastPostIdRef = useRef<string | undefined>(undefined);
+	const previousFirstRowKeyRef = useRef<string | undefined>(undefined);
+	const previousLastRowKeyRef = useRef<string | undefined>(undefined);
+	const previousScrollHeightRef = useRef(0);
+	const previousScrollTopRef = useRef(0);
 	const isAtEndRef = useRef(true);
-	const [useCachedMeasurements, setUseCachedMeasurements] = useState(false);
 	const [showLoadMore, setShowLoadMore] = useState(false);
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
 	const lastPost = posts.at(-1);
 	const lastPostId = lastPost?.id;
-	const measurementVersion = useMemo(
-		() =>
-			posts
-				.map(
-					(post) =>
-						`${post.id}:${post.update_at ?? 0}:${post.message.length}:${post.metadata?.files?.length ?? 0}:${post.metadata?.reactions?.length ?? 0}`,
-				)
-				.join("|"),
-		[posts],
-	);
-	const estimateTimelineSize = useCallback(
-		(index: number) =>
-			estimateTimelineRowSize(
-				timelineRows[index],
-				viewportRef.current?.clientWidth ?? 960,
-			),
-		[timelineRows],
-	);
-	const measureTimelineElement = useCallback(
-		(element: HTMLDivElement, entry: ResizeObserverEntry | undefined) => {
-			const borderBoxSize = entry?.borderBoxSize?.[0];
-			if (borderBoxSize) return Math.ceil(borderBoxSize.blockSize);
-			return Math.ceil(element.getBoundingClientRect().height);
-		},
-		[],
-	);
-	const rowVirtualizer = useVirtualizer({
-		anchorTo: "end",
-		count: timelineRows.length,
-		followOnAppend: "smooth",
-		getScrollElement: () => viewportRef.current,
-		estimateSize: estimateTimelineSize,
-		getItemKey: (index) => timelineRows[index]?.key ?? index,
-		measureElement: measureTimelineElement,
-		overscan: 16,
-		scrollEndThreshold: 96,
-		useAnimationFrameWithResizeObserver: true,
-		useCachedMeasurements,
-	});
-	const virtualRows = rowVirtualizer.getVirtualItems();
+	const firstRowKey = timelineRows[0]?.key;
+	const lastRowKey = timelineRows.at(-1)?.key;
 
 	useLayoutEffect(() => {
-		if (timelineRows.length === 0) return;
+		const viewport = viewportRef.current;
+		if (!viewport) return;
+
 		const previousChannelId = previousChannelIdRef.current;
 		const previousLastPostId = previousLastPostIdRef.current;
+		const previousFirstRowKey = previousFirstRowKeyRef.current;
+		const previousLastRowKey = previousLastRowKeyRef.current;
 		const channelChanged = previousChannelId !== channelId;
 		const newestPostChanged =
 			Boolean(previousLastPostId) &&
 			Boolean(lastPostId) &&
 			previousLastPostId !== lastPostId;
+		const channelContentLoaded =
+			!channelChanged &&
+			previousChannelId === channelId &&
+			!previousLastPostId &&
+			Boolean(lastPostId);
 		const newestPostIsMine = lastPost?.user_id === currentUserId;
+		const prependedHistory =
+			!channelChanged &&
+			Boolean(previousFirstRowKey) &&
+			Boolean(firstRowKey) &&
+			previousFirstRowKey !== firstRowKey &&
+			previousLastRowKey === lastRowKey;
 		const shouldScrollToEnd =
 			channelChanged ||
+			channelContentLoaded ||
 			(newestPostChanged && (newestPostIsMine || isAtEndRef.current));
 
-		rowVirtualizer.measure();
-		if (channelChanged) {
-			previousChannelIdRef.current = channelId;
-			rowVirtualizer.scrollToEnd();
-		} else if (shouldScrollToEnd) {
-			rowVirtualizer.scrollToEnd({ behavior: "smooth" });
+		if (shouldScrollToEnd) scrollToTimelineEnd(viewport);
+		else if (prependedHistory) {
+			const scrollHeightDelta =
+				viewport.scrollHeight - previousScrollHeightRef.current;
+			viewport.scrollTop = previousScrollTopRef.current + scrollHeightDelta;
 		}
-		const scrollFrame = shouldScrollToEnd
-			? requestAnimationFrame(() => {
-					rowVirtualizer.measure();
-					rowVirtualizer.scrollToEnd({
-						behavior: channelChanged ? "auto" : "smooth",
-					});
-				})
-			: requestAnimationFrame(() => rowVirtualizer.measure());
 
+		previousChannelIdRef.current = channelId;
 		previousLastPostIdRef.current = lastPostId;
-		isAtEndRef.current = rowVirtualizer.isAtEnd();
-		return () => cancelAnimationFrame(scrollFrame);
+		previousFirstRowKeyRef.current = firstRowKey;
+		previousLastRowKeyRef.current = lastRowKey;
+		isAtEndRef.current = isTimelineAtEnd(viewport);
+		previousScrollHeightRef.current = viewport.scrollHeight;
+		previousScrollTopRef.current = viewport.scrollTop;
 	}, [
 		channelId,
 		currentUserId,
+		firstRowKey,
 		lastPost?.user_id,
 		lastPostId,
-		measurementVersion,
-		rowVirtualizer,
+		lastRowKey,
 		timelineRows.length,
 	]);
 
@@ -150,7 +127,9 @@ export function MessageTimeline({
 		function handleScroll() {
 			if (!viewport) return;
 			const scrollTop = viewport.scrollTop;
-			isAtEndRef.current = rowVirtualizer.isAtEnd();
+			isAtEndRef.current = isTimelineAtEnd(viewport);
+			previousScrollHeightRef.current = viewport.scrollHeight;
+			previousScrollTopRef.current = scrollTop;
 			setShowLoadMore(Boolean(onLoadMore) && scrollTop < 300);
 		}
 
@@ -158,16 +137,20 @@ export function MessageTimeline({
 
 		viewport.addEventListener("scroll", handleScroll);
 		return () => viewport.removeEventListener("scroll", handleScroll);
-	}, [onLoadMore, rowVirtualizer]);
+	}, [onLoadMore]);
 
 	useEffect(() => {
-		function handleVisibilityChange() {
-			setUseCachedMeasurements(document.visibilityState === "hidden");
-		}
+		const viewport = viewportRef.current;
+		const list = listRef.current;
+		if (!viewport || !list || !window.ResizeObserver) return;
 
-		handleVisibilityChange();
-		document.addEventListener("visibilitychange", handleVisibilityChange);
-		return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+		const resizeObserver = new ResizeObserver(() => {
+			if (isAtEndRef.current) scrollToTimelineEnd(viewport);
+			previousScrollHeightRef.current = viewport.scrollHeight;
+			previousScrollTopRef.current = viewport.scrollTop;
+		});
+		resizeObserver.observe(list);
+		return () => resizeObserver.disconnect();
 	}, []);
 
 	function loadMoreFromTop() {
@@ -176,12 +159,7 @@ export function MessageTimeline({
 
 	return (
 		<div className="message-scroll" ref={viewportRef}>
-			<div
-				className="message-list"
-				style={{
-					height: `${rowVirtualizer.getTotalSize()}px`,
-				}}
-			>
+			<div className="message-list" ref={listRef}>
 				{!loading && posts.length > 0 && onLoadMore && showLoadMore ? (
 					<button
 						className="load-more-button"
@@ -196,19 +174,9 @@ export function MessageTimeline({
 				{!loading && posts.length === 0 ? (
 					<div className="timeline-state">No messages in this channel.</div>
 				) : null}
-				{virtualRows.map((virtualRow) => {
-					const row = timelineRows[virtualRow.index];
-					if (!row) return null;
+				{timelineRows.map((row) => {
 					return (
-						<div
-							className="virtual-row"
-							data-index={virtualRow.index}
-							key={virtualRow.key}
-							ref={rowVirtualizer.measureElement}
-							style={{
-								transform: `translateY(${virtualRow.start}px)`,
-							}}
-						>
+						<div className="message-row" key={row.key}>
 							{row.type === "divider" ? (
 								<div className="date-divider">
 									<span>{row.label}</span>
@@ -242,42 +210,17 @@ export function MessageTimeline({
 	);
 }
 
-function estimateTimelineRowSize(row: TimelineRow | undefined, viewportWidth: number) {
-	if (!row) return 34;
-	if (row.type === "divider") return 30;
-	const contentWidth = Math.max(280, viewportWidth - 220);
-	const charsPerLine = Math.max(34, Math.floor(contentWidth / 8.2));
-	const messageHeight = estimatePostBodyHeight(row.post, charsPerLine, false);
-	const repliesHeight = row.replies.reduce(
-		(total, reply) => total + estimatePostBodyHeight(reply, charsPerLine, true) + 5,
-		0,
+function isTimelineAtEnd(viewport: HTMLDivElement) {
+	return (
+		viewport.scrollHeight -
+			viewport.clientHeight -
+			viewport.scrollTop <=
+		SCROLL_END_THRESHOLD
 	);
-	return Math.max(34, messageHeight + repliesHeight + 3);
 }
 
-function estimatePostBodyHeight(
-	post: MattermostPost,
-	charsPerLine: number,
-	compact: boolean,
-) {
-	const lineHeight = compact ? 16 : 18;
-	const chromeHeight = compact ? 16 : 8;
-	const lines = estimateTextLines(post.message, charsPerLine);
-	const fileInfos = post.metadata?.files ?? [];
-	const imageCount = fileInfos.filter(isImageFile).length;
-	const otherFileCount = fileInfos.length - imageCount;
-	const attachmentHeight =
-		imageCount * 172 + otherFileCount * 40 + (fileInfos.length > 0 ? 6 : 0);
-	const reactionHeight = post.metadata?.reactions?.length ? 28 : 0;
-	return chromeHeight + Math.max(lineHeight, lines * lineHeight) + attachmentHeight + reactionHeight;
-}
-
-function estimateTextLines(message: string, charsPerLine: number) {
-	if (!message.trim()) return 1;
-	return message.split(/\r\n|\r|\n/).reduce((lineCount, line) => {
-		const visualLength = Math.max(1, line.length);
-		return lineCount + Math.max(1, Math.ceil(visualLength / charsPerLine));
-	}, 0);
+function scrollToTimelineEnd(viewport: HTMLDivElement) {
+	viewport.scrollTop = viewport.scrollHeight;
 }
 
 function TypingIndicator({ users }: { users: MattermostUser[] }) {
