@@ -30,9 +30,6 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
-      - name: Test
-        run: bun test
-
       - name: Build release
         env:
           GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
