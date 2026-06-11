@@ -474,6 +474,11 @@ textarea:disabled {
 	font-size: 0.84rem;
 }
 
+.update-banner span {
+	flex: 1;
+	min-width: 0;
+}
+
 .update-banner button {
 	min-height: 28px;
 	border: 1px solid var(--accent-border);
@@ -482,6 +487,22 @@ textarea:disabled {
 	color: white;
 	padding: 0 10px;
 	font-weight: 700;
+}
+
+.update-banner .update-banner-dismiss {
+	display: inline-grid;
+	place-items: center;
+	width: 28px;
+	min-width: 28px;
+	padding: 0;
+	border-color: transparent;
+	background: transparent;
+	color: var(--text-secondary);
+}
+
+.update-banner .update-banner-dismiss:hover {
+	background: var(--surface-raised);
+	color: var(--text-primary);
 }
 
 .chat-body {

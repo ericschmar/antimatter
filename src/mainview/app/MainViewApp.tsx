@@ -998,9 +998,9 @@ export function MainViewApp() {
 		requestAnimationFrame(() => composerRef.current?.focus());
 	}
 
-	async function openAttachment(file: MattermostFileInfo) {
+	const openAttachment = useCallback(async (file: MattermostFileInfo) => {
 		setPreviewAttachment(file);
-	}
+	}, []);
 
 	async function openAttachmentExternally(file: MattermostFileInfo) {
 		if (!api) return;
@@ -1013,7 +1013,7 @@ export function MainViewApp() {
 		}
 	}
 
-	async function toggleReaction(post: MattermostPost, emojiName: string) {
+	const toggleReaction = useCallback(async (post: MattermostPost, emojiName: string) => {
 		if (!api || !currentUser || post.pending) return;
 		const normalizedName = normalizeEmojiName(emojiName);
 		const existing = post.metadata?.reactions?.some(
@@ -1035,7 +1035,7 @@ export function MainViewApp() {
 		} catch {
 			setState((current) => applyReaction(current, reaction, !existing));
 		}
-	}
+	}, [api, currentUser]);
 
 	async function loadMoreMessages() {
 		if (
@@ -1137,18 +1137,18 @@ export function MainViewApp() {
 		});
 	}
 
-	function startReply(post: MattermostPost) {
+	const startReply = useCallback((post: MattermostPost) => {
 		setEditTarget(null);
 		setReplyTarget(post);
 		requestAnimationFrame(() => composerRef.current?.focus());
-	}
+	}, [composerRef]);
 
-	function showMessageContextMenu(post: MattermostPost) {
+	const showMessageContextMenu = useCallback((post: MattermostPost) => {
 		void electrobun.rpc!.request.showMessageContextMenu({
 			postId: post.id,
 			canEdit: post.user_id === currentUser?.id && !post.pending,
 		});
-	}
+	}, [currentUser?.id]);
 
 	function openSettingsWindow(nextSettings: AppSettings) {
 		void electrobun.rpc!.request.openSettingsWindow({ settings: nextSettings });

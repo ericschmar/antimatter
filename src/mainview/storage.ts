@@ -1,4 +1,5 @@
 import type { AppSettings, MattermostConfig } from "./types";
+import { normalizeUserColor } from "./utils/userColors";
 
 const CONFIG_KEY = "mm-clone:config";
 const FAVORITE_CHANNELS_KEY = "mm-clone:favorite-channels";
@@ -8,11 +9,14 @@ const CHANNEL_ORDER_KEY = "mm-clone:channel-order";
 const USER_COLORS_KEY = "mm-clone:user-colors";
 const USER_COLOR_PALETTE_VERSION_KEY = "mm-clone:user-color-palette-version";
 const SETTINGS_KEY = "mm-clone:settings";
+const DISMISSED_APP_UPDATE_BANNER_KEY = "mm-clone:dismissed-app-update-banner";
 
 export const defaultSettings: AppSettings = {
 	fontFamily: "system",
 	fontSize: 14,
 	theme: "default",
+	showOwnMessageIndicators: true,
+	ownMessageIndicatorColor: "#46a758",
 	notificationSounds: true,
 	notificationPreference: "all",
 };
@@ -128,6 +132,14 @@ export function saveSettings(settings: AppSettings) {
 	localStorage.setItem(SETTINGS_KEY, JSON.stringify(normalizeSettings(settings)));
 }
 
+export function loadDismissedAppUpdateBannerKey() {
+	return localStorage.getItem(DISMISSED_APP_UPDATE_BANNER_KEY);
+}
+
+export function saveDismissedAppUpdateBannerKey(key: string) {
+	localStorage.setItem(DISMISSED_APP_UPDATE_BANNER_KEY, key);
+}
+
 function normalizeSettings(value: Partial<AppSettings>): AppSettings {
 	return {
 		fontFamily:
@@ -147,6 +159,15 @@ function normalizeSettings(value: Partial<AppSettings>): AppSettings {
 			value.theme === "light"
 				? value.theme
 				: "default",
+		showOwnMessageIndicators:
+			typeof value.showOwnMessageIndicators === "boolean"
+				? value.showOwnMessageIndicators
+				: defaultSettings.showOwnMessageIndicators,
+		ownMessageIndicatorColor:
+			typeof value.ownMessageIndicatorColor === "string"
+				? normalizeUserColor(value.ownMessageIndicatorColor) ??
+					defaultSettings.ownMessageIndicatorColor
+				: defaultSettings.ownMessageIndicatorColor,
 		notificationSounds:
 			typeof value.notificationSounds === "boolean"
 				? value.notificationSounds

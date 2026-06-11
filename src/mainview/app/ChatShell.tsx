@@ -1,6 +1,7 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
+import { X } from "lucide-react";
 import { Resizable, type ResizeCallbackData } from "react-resizable";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { RefObject, SyntheticEvent } from "react";
 import { useSnapshot } from "valtio";
 import { CommandMenu } from "../components/CommandMenu";
@@ -40,6 +41,10 @@ import {
 import { readShortcutAction } from "../utils/shortcuts";
 import { electrobun } from "./rpc";
 import { uiActions, uiStore } from "../state/uiStore";
+import {
+	loadDismissedAppUpdateBannerKey,
+	saveDismissedAppUpdateBannerKey,
+} from "../storage";
 
 export function ChatShell({
 	api,
@@ -103,6 +108,18 @@ export function ChatShell({
 	onUnarchiveChannel,
 }: ChatShellProps) {
 	const ui = useSnapshot(uiStore);
+	const [dismissedAppUpdateBannerKey, setDismissedAppUpdateBannerKey] = useState(
+		() => loadDismissedAppUpdateBannerKey() ?? "",
+	);
+	const appUpdateBannerKey = getAppUpdateBannerKey(appUpdate);
+	const showAppUpdateBanner =
+		Boolean(appUpdateBannerKey) && appUpdateBannerKey !== dismissedAppUpdateBannerKey;
+
+	function dismissAppUpdateBanner() {
+		if (!appUpdateBannerKey) return;
+		saveDismissedAppUpdateBannerKey(appUpdateBannerKey);
+		setDismissedAppUpdateBannerKey(appUpdateBannerKey);
+	}
 	const editTarget = ui.editTarget as MattermostPost | null;
 	const replyTarget = ui.replyTarget as MattermostPost | null;
 	const selectedChannelUsers = channelMembers
@@ -362,7 +379,7 @@ export function ChatShell({
 							</div>
 						) : null}
 
-						{appUpdate.status === "downloading" || appUpdate.updateReady ? (
+						{showAppUpdateBanner ? (
 							<div className="update-banner">
 								<span>
 									{appUpdate.updateReady
@@ -376,6 +393,15 @@ export function ChatShell({
 										Restart
 									</button>
 								) : null}
+								<button
+									aria-label="Dismiss update banner"
+									className="update-banner-dismiss"
+									title="Dismiss"
+									type="button"
+									onClick={dismissAppUpdateBanner}
+								>
+									<X size={14} />
+								</button>
 							</div>
 						) : null}
 
@@ -387,6 +413,8 @@ export function ChatShell({
 								loadingHistory={ui.loadingHistory}
 								posts={posts}
 								resolveImageSrc={resolveImageSrc}
+								ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
+								showOwnMessageIndicators={settings.showOwnMessageIndicators}
 								typingUsers={typingUsers}
 								userColors={userColors}
 								userImages={userImages}
@@ -488,6 +516,26 @@ export function ChatShell({
 			</div>
 		</Tooltip.Provider>
 	);
+}
+
+function getAppUpdateBannerKey(appUpdate: AppUpdateState) {
+	const phase = appUpdate.updateReady
+		? "ready"
+		: appUpdate.status === "downloading"
+			? "downloading"
+			: null;
+	if (!phase) return "";
+
+	return [
+		phase,
+		appUpdate.hash,
+		appUpdate.version,
+		appUpdate.localHash,
+		appUpdate.localVersion,
+		appUpdate.message,
+	]
+		.filter(Boolean)
+		.join(":");
 }
 
 type ChatShellProps = {

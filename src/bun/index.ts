@@ -52,6 +52,8 @@ let latestSettings: AppSettingsPayload = {
 	fontFamily: "system",
 	fontSize: 14,
 	theme: "default",
+	showOwnMessageIndicators: true,
+	ownMessageIndicatorColor: "#46a758",
 	notificationSounds: true,
 	notificationPreference: "all",
 };

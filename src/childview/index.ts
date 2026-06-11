@@ -19,6 +19,8 @@ const electrobun = new Electrobun.Electroview({ rpc });
 const fontFamilyInput = document.getElementById("font-family") as HTMLSelectElement;
 const fontSizeInput = document.getElementById("font-size") as HTMLInputElement;
 const themeInput = document.getElementById("theme") as HTMLSelectElement;
+const showOwnMessageIndicatorsInput = document.getElementById("show-own-message-indicators") as HTMLInputElement;
+const ownMessageIndicatorColorInput = document.getElementById("own-message-indicator-color") as HTMLInputElement;
 const notificationPreferenceInput = document.getElementById("notification-preference") as HTMLSelectElement;
 const notificationSoundsInput = document.getElementById("notification-sounds") as HTMLInputElement;
 const closeButton = document.getElementById("close-settings") as HTMLButtonElement;
@@ -33,6 +35,8 @@ for (const element of [
 	fontFamilyInput,
 	fontSizeInput,
 	themeInput,
+	showOwnMessageIndicatorsInput,
+	ownMessageIndicatorColorInput,
 	notificationPreferenceInput,
 	notificationSoundsInput,
 ]) {
@@ -71,6 +75,8 @@ function renderSettings(settings: AppSettingsPayload) {
 	fontSizeInput.value = String(settings.fontSize);
 	themeInput.value = settings.theme;
 	document.documentElement.dataset["theme"] = settings.theme;
+	showOwnMessageIndicatorsInput.checked = settings.showOwnMessageIndicators;
+	ownMessageIndicatorColorInput.value = settings.ownMessageIndicatorColor;
 	notificationPreferenceInput.value = settings.notificationPreference;
 	notificationSoundsInput.checked = settings.notificationSounds;
 }
@@ -80,6 +86,8 @@ function readSettings(): AppSettingsPayload {
 		fontFamily: fontFamilyInput.value || "system",
 		fontSize: clamp(Number(fontSizeInput.value), 12, 18),
 		theme: readOption(themeInput.value, ["default", "light", "high-contrast", "warm"], "default"),
+		showOwnMessageIndicators: showOwnMessageIndicatorsInput.checked,
+		ownMessageIndicatorColor: normalizeColorInput(ownMessageIndicatorColorInput.value, "#46a758"),
 		notificationSounds: notificationSoundsInput.checked,
 		notificationPreference: readOption(
 			notificationPreferenceInput.value,
@@ -107,4 +115,8 @@ function readOption<const T extends string>(
 function clamp(value: number, min: number, max: number) {
 	if (!Number.isFinite(value)) return min;
 	return Math.min(max, Math.max(min, value));
+}
+
+function normalizeColorInput(value: string, fallback: string) {
+	return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : fallback;
 }

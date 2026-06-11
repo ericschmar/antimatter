@@ -128,6 +128,8 @@ export type AppSettingsPayload = {
 	fontFamily: string;
 	fontSize: number;
 	theme: AppThemePayload;
+	showOwnMessageIndicators: boolean;
+	ownMessageIndicatorColor: string;
 	notificationSounds: boolean;
 	notificationPreference: "all" | "mentions" | "none";
 };

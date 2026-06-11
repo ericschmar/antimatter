@@ -33,6 +33,26 @@
 	opacity: 0.58;
 }
 
+.composer-editor.dragging {
+	border-color: var(--accent-bg);
+	border-width: 2px;
+	background: color-mix(in srgb, var(--accent-bg) 8%, var(--slate-1));
+}
+
+.composer-editor.dragging::after {
+	content: "Drop files here to attach";
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: color-mix(in srgb, var(--accent-bg) 12%, transparent);
+	color: var(--accent-text);
+	font-size: 0.92rem;
+	font-weight: 600;
+	pointer-events: none;
+	z-index: 10;
+}
+
 .composer-editor .composer-mdxeditor {
 	--baseBase: var(--slate-1);
 	--baseBg: var(--slate-3);
@@ -353,7 +373,7 @@
 	max-width: 220px;
 	min-height: 24px;
 	border: 1px solid var(--border-subtle);
-	border-radius: 999px;
+	border-radius: 6px;
 	background: var(--panel-raised);
 	color: var(--text-secondary);
 	padding: 0 5px 0 9px;

@@ -205,6 +205,21 @@ input[type="number"] {
 	justify-content: flex-start;
 }
 
+.color-setting {
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.color-setting input[type="color"] {
+	width: 42px;
+	height: 28px;
+	border: 1px solid var(--border-strong);
+	border-radius: 6px;
+	background: var(--bg);
+	padding: 2px;
+}
+
 button {
 	min-height: 30px;
 	border: 1px solid var(--border-strong);

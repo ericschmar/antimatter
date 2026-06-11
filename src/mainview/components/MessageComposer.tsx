@@ -241,12 +241,14 @@ export const MessageComposer = forwardRef<
 	const [giphyPickerOpen, setGiphyPickerOpen] = useState(false);
 	const [fileAccept, setFileAccept] = useState<string | undefined>();
 	const [sending, setSending] = useState(false);
+	const [isDraggingOver, setIsDraggingOver] = useState(false);
 	const messageRef = useRef("");
 	const composerEditorRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MDXEditorMethods>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const lastTypingUpdateRef = useRef(0);
 	const mentionSuggestionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+	const dragCounterRef = useRef(0);
 	const canSend =
 		!disabled && !sending && (message.trim().length > 0 || files.length > 0);
 	const mentionMatch = useMemo(() => matchMentionQuery(message), [message]);
@@ -549,6 +551,58 @@ export const MessageComposer = forwardRef<
 		});
 	}
 
+	const handleDragEnter = useCallback(
+		(event: React.DragEvent<HTMLDivElement>) => {
+			if (disabled || editTarget) return;
+			event.preventDefault();
+			event.stopPropagation();
+			dragCounterRef.current += 1;
+			if (event.dataTransfer.types.includes("Files")) {
+				setIsDraggingOver(true);
+			}
+		},
+		[disabled, editTarget],
+	);
+
+	const handleDragLeave = useCallback(
+		(event: React.DragEvent<HTMLDivElement>) => {
+			if (disabled || editTarget) return;
+			event.preventDefault();
+			event.stopPropagation();
+			dragCounterRef.current -= 1;
+			if (dragCounterRef.current === 0) {
+				setIsDraggingOver(false);
+			}
+		},
+		[disabled, editTarget],
+	);
+
+	const handleDragOver = useCallback(
+		(event: React.DragEvent<HTMLDivElement>) => {
+			if (disabled || editTarget) return;
+			event.preventDefault();
+			event.stopPropagation();
+			event.dataTransfer.dropEffect = "copy";
+		},
+		[disabled, editTarget],
+	);
+
+	const handleDrop = useCallback(
+		(event: React.DragEvent<HTMLDivElement>) => {
+			if (disabled || editTarget) return;
+			event.preventDefault();
+			event.stopPropagation();
+			dragCounterRef.current = 0;
+			setIsDraggingOver(false);
+
+			const droppedFiles = Array.from(event.dataTransfer.files);
+			if (droppedFiles.length > 0) {
+				setFiles((current) => [...current, ...droppedFiles]);
+			}
+		},
+		[disabled, editTarget],
+	);
+
 	useImperativeHandle(
 		ref,
 		() => ({
@@ -599,7 +653,13 @@ export const MessageComposer = forwardRef<
 	return (
 		<div className="composer" onKeyDown={handleComposerKeyDown}>
 			<div
-				className={disabled ? "composer-editor disabled" : "composer-editor"}
+				className={
+					disabled
+						? "composer-editor disabled"
+						: isDraggingOver
+							? "composer-editor dragging"
+							: "composer-editor"
+				}
 				ref={composerEditorRef}
 				onClick={(event) => {
 					const target = event.target as HTMLElement;
@@ -609,6 +669,10 @@ export const MessageComposer = forwardRef<
 						return;
 					focusEditor();
 				}}
+				onDragEnter={handleDragEnter}
+				onDragLeave={handleDragLeave}
+				onDragOver={handleDragOver}
+				onDrop={handleDrop}
 			>
 				<MDXEditor
 					className="composer-mdxeditor"

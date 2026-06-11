@@ -1,7 +1,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import type { MattermostFileInfo, MattermostPost, MattermostReaction, MattermostUser, MattermostUserStatus } from "../types";
 import { formatTime, initials, userLabel } from "../utils/format";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
@@ -24,6 +25,8 @@ export function MessageTimeline({
 	loading,
 	loadingHistory,
 	resolveImageSrc,
+	ownMessageIndicatorColor,
+	showOwnMessageIndicators,
 	typingUsers,
 	onOpenAttachment,
 	onShowMessageContextMenu,
@@ -42,6 +45,8 @@ export function MessageTimeline({
 	loading: boolean;
 	loadingHistory?: boolean;
 	resolveImageSrc: (src: string) => Promise<string>;
+	ownMessageIndicatorColor: string;
+	showOwnMessageIndicators: boolean;
 	typingUsers: MattermostUser[];
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
@@ -153,12 +158,16 @@ export function MessageTimeline({
 		return () => resizeObserver.disconnect();
 	}, []);
 
-	function loadMoreFromTop() {
+	const loadMoreFromTop = useCallback(() => {
 		onLoadMore?.();
-	}
+	}, [onLoadMore]);
 
 	return (
-		<div className="message-scroll" ref={viewportRef}>
+		<div
+			className="message-scroll"
+			ref={viewportRef}
+			style={{ "--own-message-indicator-color": ownMessageIndicatorColor } as CSSProperties}
+		>
 			<div className="message-list" ref={listRef}>
 				{!loading && posts.length > 0 && onLoadMore && showLoadMore ? (
 					<button
@@ -192,6 +201,7 @@ export function MessageTimeline({
 									userStatuses={userStatuses}
 									users={users}
 									resolveImageSrc={resolveImageSrc}
+									showOwnMessageIndicators={showOwnMessageIndicators}
 									onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
 									onSetUserColor={onSetUserColor}
@@ -223,7 +233,7 @@ function scrollToTimelineEnd(viewport: HTMLDivElement) {
 	viewport.scrollTop = viewport.scrollHeight;
 }
 
-function TypingIndicator({ users }: { users: MattermostUser[] }) {
+const TypingIndicator = memo(function TypingIndicator({ users }: { users: MattermostUser[] }) {
 	return (
 		<div className="typing-indicator" role="status" aria-live="polite">
 			<span className="typing-dots" aria-hidden="true">
@@ -234,7 +244,7 @@ function TypingIndicator({ users }: { users: MattermostUser[] }) {
 			<span>{typingLabel(users)}</span>
 		</div>
 	);
-}
+});
 
 function typingLabel(users: MattermostUser[]) {
 	if (users.length === 1) return `${userLabel(users[0], users[0].id)} is typing`;
@@ -244,7 +254,39 @@ function typingLabel(users: MattermostUser[]) {
 	return `${userLabel(users[0], users[0].id)} and ${users.length - 1} others are typing`;
 }
 
-function MessageRow({
+type GroupedReaction = {
+	emojiName: string;
+	count: number;
+	mine: boolean;
+	userIds: string[];
+};
+
+function groupReactions(reactions: MattermostReaction[], currentUserId: string) {
+	const groups = new Map<string, GroupedReaction>();
+	for (const reaction of reactions) {
+		const existing = groups.get(reaction.emoji_name);
+		if (existing) {
+			existing.count += 1;
+			if (reaction.user_id === currentUserId) existing.mine = true;
+			if (!existing.userIds.includes(reaction.user_id)) existing.userIds.push(reaction.user_id);
+			continue;
+		}
+		groups.set(reaction.emoji_name, {
+			emojiName: reaction.emoji_name,
+			count: 1,
+			mine: reaction.user_id === currentUserId,
+			userIds: [reaction.user_id],
+		});
+	}
+	return [...groups.values()];
+}
+
+function formatReactionUsers(names: string[]) {
+	if (names.length <= 2) return names.join(" and ");
+	return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
+}
+
+const MessageRow = memo(function MessageRow({
 	currentUserId,
 	post,
 	replies,
@@ -254,6 +296,7 @@ function MessageRow({
 	userStatuses,
 	users,
 	resolveImageSrc,
+	showOwnMessageIndicators,
 	onOpenAttachment,
 	onShowMessageContextMenu,
 	onSetUserColor,
@@ -269,6 +312,7 @@ function MessageRow({
 	userStatuses: Record<string, MattermostUserStatus>;
 	users: Record<string, MattermostUser>;
 	resolveImageSrc: (src: string) => Promise<string>;
+	showOwnMessageIndicators: boolean;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onSetUserColor: (userId: string, color: string) => void;
@@ -276,12 +320,16 @@ function MessageRow({
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 }) {
 	const author = users[post.user_id];
-	const groupedReactions = groupReactions(post.metadata?.reactions ?? [], currentUserId);
+	const groupedReactions = useMemo(
+		() => groupReactions(post.metadata?.reactions ?? [], currentUserId),
+		[post.metadata?.reactions, currentUserId]
+	);
 	const canReply = !post.root_id || post.root_id === post.id;
 	const authorStatus = userStatuses[post.user_id]?.status;
+	const isOwnMessage = showOwnMessageIndicators && post.user_id === currentUserId;
 	return (
 		<article
-			className={post.user_id === currentUserId ? "message own" : "message"}
+			className={isOwnMessage ? "message own" : "message"}
 			onContextMenu={(event) => {
 				event.preventDefault();
 				onShowMessageContextMenu(post);
@@ -328,6 +376,7 @@ function MessageRow({
 								key={reply.id}
 								post={reply}
 								resolveImageSrc={resolveImageSrc}
+								showOwnMessageIndicators={showOwnMessageIndicators}
 								userColor={userColors[reply.user_id]}
 								userImages={userImages}
 								userStatuses={userStatuses}
@@ -361,12 +410,37 @@ function MessageRow({
 			</EmojiPickerPopover>
 		</article>
 	);
-}
+}, (prevProps, nextProps) => {
+	// Only re-render if post content, reactions, replies, or visual properties change
+	const postUnchanged =
+		prevProps.post.id === nextProps.post.id &&
+		prevProps.post.update_at === nextProps.post.update_at &&
+		prevProps.post.message === nextProps.post.message &&
+		prevProps.post.pending === nextProps.post.pending &&
+		prevProps.post.failed === nextProps.post.failed &&
+		prevProps.post.metadata?.files?.length === nextProps.post.metadata?.files?.length &&
+		prevProps.post.metadata?.reactions?.length === nextProps.post.metadata?.reactions?.length;
 
-function ReplyMessage({
+	const repliesUnchanged =
+		prevProps.replies.length === nextProps.replies.length &&
+		prevProps.replies.every((reply, i) =>
+			reply.id === nextProps.replies[i]?.id &&
+			reply.update_at === nextProps.replies[i]?.update_at
+		);
+
+	const visualPropsUnchanged =
+		prevProps.userColor === nextProps.userColor &&
+		prevProps.showOwnMessageIndicators === nextProps.showOwnMessageIndicators &&
+		prevProps.userStatuses[prevProps.post.user_id]?.status === nextProps.userStatuses[nextProps.post.user_id]?.status;
+
+	return postUnchanged && repliesUnchanged && visualPropsUnchanged;
+});
+
+const ReplyMessage = memo(function ReplyMessage({
 	currentUserId,
 	post,
 	resolveImageSrc,
+	showOwnMessageIndicators,
 	userColor,
 	userImages,
 	userStatuses,
@@ -379,6 +453,7 @@ function ReplyMessage({
 	currentUserId: string;
 	post: MattermostPost;
 	resolveImageSrc: (src: string) => Promise<string>;
+	showOwnMessageIndicators: boolean;
 	userColor?: string;
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
@@ -389,10 +464,14 @@ function ReplyMessage({
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 }) {
 	const author = users[post.user_id];
-	const groupedReactions = groupReactions(post.metadata?.reactions ?? [], currentUserId);
+	const groupedReactions = useMemo(
+		() => groupReactions(post.metadata?.reactions ?? [], currentUserId),
+		[post.metadata?.reactions, currentUserId]
+	);
 	const status = userStatuses[post.user_id]?.status;
+	const isOwnMessage = showOwnMessageIndicators && post.user_id === currentUserId;
 	return (
-		<div className="reply-message">
+		<div className={isOwnMessage ? "reply-message own" : "reply-message"}>
 			<div className="reply-message-meta">
 				<UserDetailsTrigger
 					currentUserId={currentUserId}
@@ -438,9 +517,9 @@ function ReplyMessage({
 			</EmojiPickerPopover>
 		</div>
 	);
-}
+});
 
-function MessageAttachments({
+const MessageAttachments = memo(function MessageAttachments({
 	files,
 	resolveImageSrc,
 	onOpenAttachment,
@@ -483,9 +562,9 @@ function MessageAttachments({
 			))}
 		</div>
 	);
-}
+});
 
-function InlineImageAttachment({
+const InlineImageAttachment = memo(function InlineImageAttachment({
 	file,
 	opening,
 	resolveImageSrc,
@@ -523,9 +602,9 @@ function InlineImageAttachment({
 			)}
 		</button>
 	);
-}
+});
 
-function FileAttachment({
+const FileAttachment = memo(function FileAttachment({
 	file,
 	opening,
 	onOpen,
@@ -540,7 +619,7 @@ function FileAttachment({
 			<span>{opening ? "Opening..." : file.name ?? file.id}</span>
 		</button>
 	);
-}
+});
 
 function isImageFile(file: MattermostFileInfo) {
 	const mimeType = file.mime_type?.toLowerCase() ?? "";
@@ -552,7 +631,7 @@ function isImageFile(file: MattermostFileInfo) {
 	);
 }
 
-function UserDetailsTrigger({
+const UserDetailsTrigger = memo(function UserDetailsTrigger({
 	currentUserId,
 	fallback,
 	imageSrc,
@@ -631,20 +710,13 @@ function UserDetailsTrigger({
 			</DropdownMenu.Portal>
 		</DropdownMenu.Root>
 	);
-}
+});
 
-function UserStatusDot({ inline = false, status }: { inline?: boolean; status?: string }) {
+const UserStatusDot = memo(function UserStatusDot({ inline = false, status }: { inline?: boolean; status?: string }) {
 	return <span className={`status-dot ${inline ? "inline" : ""} ${status ?? "offline"}`} title={status ?? "offline"} />;
-}
+});
 
-type GroupedReaction = {
-	emojiName: string;
-	count: number;
-	mine: boolean;
-	userIds: string[];
-};
-
-function ReactionPill({
+const ReactionPill = memo(function ReactionPill({
 	reaction,
 	users,
 	onClick,
@@ -677,29 +749,4 @@ function ReactionPill({
 			</Tooltip.Portal>
 		</Tooltip.Root>
 	);
-}
-
-function groupReactions(reactions: MattermostReaction[], currentUserId: string) {
-	const groups = new Map<string, GroupedReaction>();
-	for (const reaction of reactions) {
-		const existing = groups.get(reaction.emoji_name);
-		if (existing) {
-			existing.count += 1;
-			if (reaction.user_id === currentUserId) existing.mine = true;
-			if (!existing.userIds.includes(reaction.user_id)) existing.userIds.push(reaction.user_id);
-			continue;
-		}
-		groups.set(reaction.emoji_name, {
-			emojiName: reaction.emoji_name,
-			count: 1,
-			mine: reaction.user_id === currentUserId,
-			userIds: [reaction.user_id],
-		});
-	}
-	return [...groups.values()];
-}
-
-function formatReactionUsers(names: string[]) {
-	if (names.length <= 2) return names.join(" and ");
-	return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
-}
+});

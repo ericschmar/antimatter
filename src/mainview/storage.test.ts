@@ -3,11 +3,15 @@ import {
 	loadArchivedChannelIds,
 	loadChannelEmojis,
 	loadChannelOrder,
+	loadDismissedAppUpdateBannerKey,
+	loadSettings,
 	loadUserColorPaletteVersion,
 	loadUserColors,
 	saveArchivedChannelIds,
 	saveChannelEmojis,
 	saveChannelOrder,
+	saveDismissedAppUpdateBannerKey,
+	saveSettings,
 	saveUserColorPaletteVersion,
 	saveUserColors,
 } from "./storage";
@@ -87,5 +91,45 @@ describe("storage helpers", () => {
 		});
 		saveUserColorPaletteVersion("2");
 		expect(loadUserColorPaletteVersion()).toBe("2");
+	});
+
+	test("round-trips the dismissed app update banner key", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+		saveDismissedAppUpdateBannerKey("ready:1.2.3");
+		expect(loadDismissedAppUpdateBannerKey()).toBe("ready:1.2.3");
+	});
+
+	test("defaults own message indicators on for existing settings", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+		expect(loadSettings()).toMatchObject({
+			showOwnMessageIndicators: true,
+			ownMessageIndicatorColor: "#46a758",
+		});
+	});
+
+	test("round-trips disabled own message indicators and color", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+		saveSettings({
+			fontFamily: "system",
+			fontSize: 14,
+			theme: "default",
+			showOwnMessageIndicators: false,
+			ownMessageIndicatorColor: "#8b5cf6",
+			notificationSounds: true,
+			notificationPreference: "all",
+		});
+		expect(loadSettings()).toMatchObject({
+			showOwnMessageIndicators: false,
+			ownMessageIndicatorColor: "#8b5cf6",
+		});
 	});
 });

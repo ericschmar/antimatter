@@ -155,6 +155,8 @@ export type AppSettings = {
 	fontFamily: string;
 	fontSize: number;
 	theme: AppTheme;
+	showOwnMessageIndicators: boolean;
+	ownMessageIndicatorColor: string;
 	notificationSounds: boolean;
 	notificationPreference: NotificationPreference;
 };

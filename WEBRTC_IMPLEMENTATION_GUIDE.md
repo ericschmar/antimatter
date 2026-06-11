@@ -2,6 +2,23 @@
 
 Complete implementation guide for adding serverless voice/video calls to Antimatter.
 
+## ⚠️ Critical Fixes Applied (v2.0)
+
+This guide includes fixes for production issues found in v1.0:
+
+1. **✅ ICE Candidate Buffering** - Prevents race condition where ICE candidates arrive before setRemoteDescription
+2. **✅ ICE Candidate Batching** - Reduces Mattermost API load by batching candidates (prevents rate limiting)
+3. **✅ Device Switching** - Uses `replaceTrack()` API to properly update PeerConnection during active calls
+4. **✅ Remote Stream Assembly** - Waits for all tracks (audio + video) before emitting stream
+5. **✅ Multi-Tab Coordination** - Uses BroadcastChannel to prevent duplicate calls across browser tabs
+6. **✅ Session Recovery** - Detects orphaned sessions after page refresh and prompts user
+7. **✅ Sender Validation** - Validates signaling message sender to prevent spoofing
+8. **✅ ICE Restart** - Handles network changes (WiFi → cellular) with automatic ICE restart
+9. **✅ Memory Leak Prevention** - Properly removes event listeners in cleanup
+10. **✅ Complete Phase 3 UI** - Includes full React components (CallContext, buttons, toasts, panel)
+
+**Timeline updated**: 6-8 weeks for production-ready implementation (was 3-4 weeks)
+
 ---
 
 ## Table of Contents
@@ -17,6 +34,315 @@ Complete implementation guide for adding serverless voice/video calls to Antimat
 ---
 
 ## Architecture Overview
+
+### 📋 Quick Summary
+
+**What This Guide Builds:**
+- Direct peer-to-peer voice/video calls between Antimatter users
+- Uses Mattermost DM channels for signaling (connection setup)
+- No external servers required (except STUN for NAT traversal)
+- Audio/video streams never touch Mattermost server (peer-to-peer only)
+
+**Key Trade-offs:**
+- ✅ No external call server needed
+- ✅ Perfect for VPN/internal environments
+- ✅ Full control over implementation
+- ❌ Regular Mattermost users see signaling messages (5-10 per call)
+- ❌ 6-8 weeks development time
+- ❌ You maintain the WebRTC code
+
+**Best For:**
+- Internal/VPN environments
+- All users have Antimatter
+- You want full control
+- You have development resources
+
+**Not Ideal For:**
+- Mixed user base (Antimatter + regular Mattermost)
+- Need it working this week
+- External/public users
+- Want hands-off maintenance
+
+### ⚠️ IMPORTANT: VPN Considerations
+
+**Since Antimatter runs behind a VPN, you have a significant advantage:**
+- All clients are on the same private network
+- STUN servers should work for most connections
+- TURN servers may not be needed (test first!)
+- NAT traversal is simplified within VPN
+
+**However, be aware:**
+- Mobile users disconnecting from VPN will drop calls
+- Remote workers on different VPNs may still need TURN
+- Test thoroughly with your actual VPN topology
+
+### 🚨 CRITICAL: What Regular Mattermost Users Will See
+
+**This implementation "hijacks" Mattermost DMs for signaling. Here's what happens to users NOT using Antimatter:**
+
+#### What They'll See:
+
+**On Desktop/Web Mattermost:**
+```
+[Your Name]: 📞 Voice call
+[Your Name]: 📞 Call connecting...
+[Your Name]: 📞 Call connecting...
+[Your Name]: 📞 Call connecting...
+[Your Name]: 📞 Call answered
+[Your Name]: 📞 Call ended
+```
+
+- Each signaling message (offer, answer, ICE candidates batches) appears as a post
+- Posts have human-readable text (e.g., "📞 Voice call", "📞 Call connecting...")
+- They can't interact with these messages (no buttons)
+- Messages appear in chronological order in the DM
+- **Channel is polluted with 5-10 technical messages per call**
+
+**On Mobile Mattermost:**
+- Mobile push notifications for each signaling message (very annoying!)
+- Same message pollution in the DM thread
+- Users might think you're spamming them
+
+**In Search Results:**
+- Signaling messages appear when searching the channel
+- Clutters search with "📞 Call connecting..." messages
+
+#### Why This Happens:
+
+Custom post types (`custom_webrtc_call`) are still:
+- ✅ Stored in Mattermost database
+- ✅ Sent via WebSocket to all clients
+- ✅ Visible in channel history
+- ✅ Trigger mobile notifications
+- ❌ NOT hidden from regular Mattermost clients
+
+**Custom post types only hide special rendering in the web UI, but the post still exists.**
+
+#### Mitigation Options:
+
+**Option 1: Accept the Noise (Simplest)**
+- Document this as "known behavior"
+- Users learn to ignore call signaling messages
+- Only affects DM channels with Antimatter users
+
+**Option 2: Suppress Notifications on Mattermost Server**
+```javascript
+// Mattermost server plugin to suppress notifications
+// for custom_webrtc_call posts
+exports.MessageWillBePosted = async (post) => {
+  if (post.type === 'custom_webrtc_call') {
+    // Don't send push notifications
+    return { post: { ...post, props: { ...post.props, disable_notifications: true } } };
+  }
+  return { post };
+};
+```
+
+**Option 3: Hidden System Messages (Better)**
+
+Instead of regular posts, use Mattermost system messages:
+```typescript
+const post = {
+  channel_id: channelId,
+  message: '', // Empty message
+  type: 'system_webrtc_signal',
+  props: {
+    from_webhook: 'true', // Suppresses mobile notifications
+    ...signalingMessage,
+  },
+};
+```
+
+System messages:
+- ✅ Don't trigger mobile notifications
+- ✅ Less prominent in UI
+- ❌ Still visible in channel history
+
+**Option 4: Ephemeral Posts (Best, if supported)**
+
+Use Mattermost ephemeral messages (visible only to sender):
+```typescript
+await mattermostApi.createEphemeralPost({
+  user_id: recipientId,
+  post: {
+    channel_id: channelId,
+    message: JSON.stringify(signalingMessage),
+  },
+});
+```
+
+- ✅ Only visible to recipient
+- ✅ Not stored in database
+- ✅ No channel pollution
+- ❌ Requires server plugin or API support
+
+**Option 5: Use WebSocket Custom Events (Ideal)**
+
+Skip Mattermost posts entirely, use raw WebSocket:
+```typescript
+// Send custom WebSocket event (not a post)
+websocket.send(JSON.stringify({
+  action: 'custom_event',
+  seq: 1,
+  data: {
+    event: 'webrtc_signal',
+    data: signalingMessage,
+    broadcast: {
+      user_id: recipientId,
+    },
+  },
+}));
+```
+
+- ✅ No posts created
+- ✅ No channel pollution
+- ✅ No notifications
+- ❌ Requires Mattermost server plugin to relay events
+- ❌ More complex implementation
+
+#### Recommended Approach:
+
+**For VPN/Internal Use:**
+1. Start with **Option 1** (accept the noise) - simplest to implement
+2. Add **Option 3** (system messages + `from_webhook`) to suppress notifications
+3. Users should understand these are "technical messages" for calls
+4. Most users will have Antimatter, so they won't see the messages in the UI
+
+**For Production/External Use:**
+1. Implement **Option 5** (WebSocket custom events) with a Mattermost plugin
+2. Falls back to **Option 3** if plugin not available
+
+#### Testing with Regular Mattermost Users:
+
+Before deploying, test with a regular Mattermost user:
+
+1. Install standard Mattermost desktop/mobile client
+2. Have Antimatter user call this regular user
+3. Check their experience:
+   - Do they see signaling messages?
+   - Do they get notifications?
+   - Is the DM channel polluted?
+4. Document expected behavior for mixed users
+
+#### Visual Comparison:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│           ANTIMATTER USER                                       │
+├────────────────────────────────────────────────────────────────┤
+│ DM with Bob                                                     │
+│                                                                 │
+│ You: Hey, can we discuss the project?                          │
+│ Bob: Sure, give me 5 minutes                                   │
+│                                                                 │
+│ [User clicks call button]                                      │
+│                                                                 │
+│ ╔═══════════════════════════════════════╗                      │
+│ ║  🔊 Call with Bob          00:45    ║  ← Active call panel   │
+│ ║  [🔇] [📹] [❌]                      ║                         │
+│ ╚═══════════════════════════════════════╝                      │
+│                                                                 │
+│ [No signaling messages visible - hidden by Antimatter]         │
+└────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────┐
+│           REGULAR MATTERMOST USER (Desktop)                     │
+├────────────────────────────────────────────────────────────────┤
+│ DM with Alice                                                   │
+│                                                                 │
+│ Alice: Hey, can we discuss the project?                        │
+│ You: Sure, give me 5 minutes                                   │
+│                                                                 │
+│ Alice: 📞 Voice call                    ← Sees this!           │
+│ Alice: 📞 Call connecting...            ← And this!            │
+│ Alice: 📞 Call connecting...            ← And this!            │
+│ Alice: 📞 Call connecting...            ← And this!            │
+│ Alice: 📞 Call ended                    ← And this!            │
+│                                                                 │
+│ You: Wait, what was that?                                      │
+│ Alice: Sorry, that's our internal calling system.              │
+│        If you install Antimatter, you won't see those!         │
+└────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────┐
+│           REGULAR MATTERMOST USER (Mobile)                      │
+├────────────────────────────────────────────────────────────────┤
+│ 📱 Notification: Alice sent a message                          │
+│ 📱 Notification: Alice sent a message                          │
+│ 📱 Notification: Alice sent a message    ← VERY ANNOYING!     │
+│ 📱 Notification: Alice sent a message                          │
+│ 📱 Notification: Alice sent a message                          │
+│                                                                 │
+│ [User opens app to see "📞 Call connecting..." spam]           │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### Sample Message Flow:
+
+**Call Sequence (What Non-Antimatter User Sees):**
+```
+You: Hey, can we discuss the project?
+Them: Sure, give me 5 minutes
+
+[Antimatter user initiates call]
+
+Them: 📞 Voice call
+Them: 📞 Call connecting...
+Them: 📞 Call connecting...
+Them: 📞 Call ended
+
+You: Wait, what was that?
+Them: Sorry, that's our internal calling system. 
+      If you install Antimatter, you won't see those messages!
+```
+
+#### User Education Required:
+
+**If you deploy this, you MUST:**
+
+1. **Document the behavior** in your user guide
+2. **Train internal users** to expect these messages
+3. **Add a help command** or info message:
+   ```
+   /webrtc-help
+   
+   Response:
+   "When Antimatter users make calls, you may see technical 
+   messages like '📞 Call connecting...' in the chat. 
+   These are normal and can be ignored. 
+   Install Antimatter to make calls yourself and hide these messages."
+   ```
+4. **Consider an auto-response** for the first call with each user:
+   ```typescript
+   // First time calling a non-Antimatter user
+   if (isFirstCallWithUser(userId)) {
+     await sendInfoMessage(channelId, 
+       "Note: Since you're using Antimatter's calling feature, " +
+       "the other user may see some technical messages. " +
+       "They can ignore these or install Antimatter to join calls."
+     );
+   }
+   ```
+
+#### Impact Assessment:
+
+**Low Impact (acceptable):**
+- ✅ Internal-only deployment where all users have Antimatter
+- ✅ Users are tech-savvy and understand the system
+- ✅ VPN environment with controlled user base
+- ✅ You add `from_webhook: 'true'` to suppress mobile notifications
+
+**High Impact (problematic):**
+- ❌ Mixed user base (some Mattermost, some Antimatter)
+- ❌ External users or clients on Mattermost
+- ❌ Mobile-heavy user base (notification spam)
+- ❌ High-volume calling (dozens per day)
+
+**Your Situation (VPN/Internal):**
+- Likely **LOW IMPACT** since it's internal use
+- Most users probably have Antimatter
+- VPN suggests controlled environment
+- Adding `from_webhook: 'true'` mitigates most annoyance
 
 ### Data Flow
 
@@ -145,16 +471,25 @@ export interface SignalingMessage {
   action: SignalingAction;
   sessionId: string;
   timestamp: number;
+  senderId: string;  // ADDED: Validate sender identity
   
   // For 'offer' and 'answer'
   sdp?: string;
   callType?: CallType;
   
-  // For 'ice-candidate'
+  // For 'ice-candidate' - CHANGED: Support batching
   candidate?: RTCIceCandidateInit;
+  candidates?: RTCIceCandidateInit[];  // Batch multiple ICE candidates
   
   // For 'decline'
   reason?: 'busy' | 'declined' | 'timeout';
+}
+
+// Multi-tab coordination
+export interface TabCoordinationMessage {
+  type: 'call-accepted' | 'call-declined' | 'call-ended';
+  sessionId: string;
+  timestamp: number;
 }
 
 // Mattermost custom post for signaling
@@ -374,9 +709,13 @@ export class MediaDevicesManager {
 
   /**
    * Switch to a different microphone
+   * Returns the new track so PeerConnection can be updated
    */
-  async switchMicrophone(deviceId: string): Promise<void> {
-    if (!this.stream) return;
+  async switchMicrophone(
+    deviceId: string,
+    peerConnection?: RTCPeerConnection
+  ): Promise<MediaStreamTrack> {
+    if (!this.stream) throw new Error('No active stream');
 
     const audioTrack = this.stream.getAudioTracks()[0];
     const constraints = {
@@ -387,20 +726,37 @@ export class MediaDevicesManager {
     const newStream = await navigator.mediaDevices.getUserMedia(constraints);
     const newAudioTrack = newStream.getAudioTracks()[0];
 
+    // Update PeerConnection sender if provided
+    if (peerConnection) {
+      const sender = peerConnection
+        .getSenders()
+        .find((s) => s.track?.kind === 'audio');
+      
+      if (sender) {
+        await sender.replaceTrack(newAudioTrack);
+      }
+    }
+
     // Replace track in existing stream
     this.stream.removeTrack(audioTrack);
     this.stream.addTrack(newAudioTrack);
     audioTrack.stop();
+
+    return newAudioTrack;
   }
 
   /**
    * Switch to a different camera
+   * Returns the new track so PeerConnection can be updated
    */
-  async switchCamera(deviceId: string): Promise<void> {
-    if (!this.stream) return;
+  async switchCamera(
+    deviceId: string,
+    peerConnection?: RTCPeerConnection
+  ): Promise<MediaStreamTrack> {
+    if (!this.stream) throw new Error('No active stream');
 
     const videoTrack = this.stream.getVideoTracks()[0];
-    if (!videoTrack) return;
+    if (!videoTrack) throw new Error('No active video track');
 
     const constraints = {
       audio: false,
@@ -410,10 +766,23 @@ export class MediaDevicesManager {
     const newStream = await navigator.mediaDevices.getUserMedia(constraints);
     const newVideoTrack = newStream.getVideoTracks()[0];
 
+    // Update PeerConnection sender if provided
+    if (peerConnection) {
+      const sender = peerConnection
+        .getSenders()
+        .find((s) => s.track?.kind === 'video');
+      
+      if (sender) {
+        await sender.replaceTrack(newVideoTrack);
+      }
+    }
+
     // Replace track in existing stream
     this.stream.removeTrack(videoTrack);
     this.stream.addTrack(newVideoTrack);
     videoTrack.stop();
+
+    return newVideoTrack;
   }
 
   /**
@@ -462,25 +831,45 @@ import type { SignalingMessage, CallPost } from './types';
 
 /**
  * Handles sending/receiving signaling messages via Mattermost
+ * 
+ * IMPORTANT: ICE candidates are batched to reduce Mattermost API load
  */
 export class CallSignaling {
+  private iceCandidateBuffer: Map<string, RTCIceCandidateInit[]> = new Map();
+  private batchTimeout: Map<string, number> = new Map();
+  private readonly BATCH_DELAY_MS = 100; // Wait 100ms to collect ICE candidates
+
   constructor(
     private mattermostApi: MattermostApiClient,
+    private currentUserId: string,
     private onMessage: (message: SignalingMessage, channelId: string) => void
   ) {}
 
   /**
    * Send a signaling message via Mattermost DM
+   * ICE candidates are batched automatically
    */
   async send(
     message: SignalingMessage,
     channelId: string
   ): Promise<void> {
+    // Add sender ID for validation
+    message.senderId = this.currentUserId;
+
+    // Batch ICE candidates to reduce API load
+    if (message.action === 'ice-candidate' && message.candidate) {
+      this.batchIceCandidate(message, channelId);
+      return;
+    }
+
     const post: Partial<CallPost> = {
       channel_id: channelId,
       message: this.getHumanReadableMessage(message),
       type: 'custom_webrtc_call',
-      props: message,
+      props: {
+        ...message,
+        from_webhook: 'true', // Suppress mobile push notifications
+      },
     };
 
     try {
@@ -492,9 +881,79 @@ export class CallSignaling {
   }
 
   /**
-   * Handle incoming post - check if it's a signaling message
+   * Batch ICE candidates to send in groups rather than individually
    */
-  handlePost(post: any): boolean {
+  private batchIceCandidate(
+    message: SignalingMessage,
+    channelId: string
+  ): void {
+    const key = `${message.sessionId}-${channelId}`;
+    
+    // Add to buffer
+    if (!this.iceCandidateBuffer.has(key)) {
+      this.iceCandidateBuffer.set(key, []);
+    }
+    this.iceCandidateBuffer.get(key)!.push(message.candidate!);
+
+    // Clear existing timeout
+    const existingTimeout = this.batchTimeout.get(key);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Set new timeout to flush batch
+    const timeout = window.setTimeout(() => {
+      this.flushIceCandidates(message.sessionId, channelId);
+    }, this.BATCH_DELAY_MS);
+
+    this.batchTimeout.set(key, timeout);
+  }
+
+  /**
+   * Flush batched ICE candidates
+   */
+  private async flushIceCandidates(
+    sessionId: string,
+    channelId: string
+  ): Promise<void> {
+    const key = `${sessionId}-${channelId}`;
+    const candidates = this.iceCandidateBuffer.get(key);
+    
+    if (!candidates || candidates.length === 0) {
+      return;
+    }
+
+    const message: SignalingMessage = {
+      action: 'ice-candidate',
+      sessionId,
+      timestamp: Date.now(),
+      senderId: this.currentUserId,
+      candidates, // Send as batch
+    };
+
+    const post: Partial<CallPost> = {
+      channel_id: channelId,
+      message: this.getHumanReadableMessage(message),
+      type: 'custom_webrtc_call',
+      props: message,
+    };
+
+    try {
+      await this.mattermostApi.createPost(post);
+    } catch (error) {
+      console.error('Failed to send batched ICE candidates:', error);
+    }
+
+    // Clear buffer
+    this.iceCandidateBuffer.delete(key);
+    this.batchTimeout.delete(key);
+  }
+
+  /**
+   * Handle incoming post - check if it's a signaling message
+   * SECURITY: Validates sender identity
+   */
+  handlePost(post: any, expectedUserId?: string): boolean {
     // Check if this is a call signaling message
     if (post.type !== 'custom_webrtc_call') {
       return false;
@@ -502,7 +961,13 @@ export class CallSignaling {
 
     const message = post.props as SignalingMessage;
     
-    // Validate message
+    // SECURITY: Validate sender matches expected user
+    if (expectedUserId && message.senderId !== expectedUserId) {
+      console.warn('Ignoring message from unexpected user:', message.senderId);
+      return false;
+    }
+
+    // Validate message structure
     if (!this.isValidSignalingMessage(message)) {
       console.warn('Invalid signaling message:', message);
       return false;
@@ -520,6 +985,20 @@ export class CallSignaling {
     // Pass to handler
     this.onMessage(message, post.channel_id);
     return true;
+  }
+
+  /**
+   * Cleanup batched candidates for a session
+   */
+  cleanup(sessionId: string): void {
+    // Clear any pending batches
+    for (const [key, timeout] of this.batchTimeout.entries()) {
+      if (key.startsWith(sessionId)) {
+        clearTimeout(timeout);
+        this.batchTimeout.delete(key);
+        this.iceCandidateBuffer.delete(key);
+      }
+    }
   }
 
   /**
@@ -541,6 +1020,7 @@ export class CallSignaling {
     if (typeof message.sessionId !== 'string') return false;
     if (typeof message.action !== 'string') return false;
     if (typeof message.timestamp !== 'number') return false;
+    if (typeof message.senderId !== 'string') return false; // ADDED
 
     // Validate action-specific fields
     switch (message.action) {
@@ -548,7 +1028,8 @@ export class CallSignaling {
       case 'answer':
         return typeof message.sdp === 'string' && !!message.callType;
       case 'ice-candidate':
-        return !!message.candidate;
+        // Support both single candidate and batched candidates
+        return !!message.candidate || (Array.isArray(message.candidates) && message.candidates.length > 0);
       case 'hangup':
       case 'decline':
         return true;
@@ -558,8 +1039,8 @@ export class CallSignaling {
   }
 
   private getHumanReadableMessage(message: SignalingMessage): string {
-    // These messages won't be shown in the timeline (custom type)
-    // but include a readable message for logs/debugging
+    // These messages WILL be visible to regular Mattermost users
+    // Keep them brief and user-friendly
     switch (message.action) {
       case 'offer':
         return `📞 ${message.callType === 'video' ? 'Video' : 'Voice'} call`;
@@ -574,6 +1055,53 @@ export class CallSignaling {
       default:
         return '📞 Call signaling';
     }
+  }
+
+  /**
+   * OPTIONAL: Send signaling via WebSocket custom event instead of post
+   * Requires Mattermost server plugin to relay custom events
+   */
+  async sendViaWebSocket(
+    message: SignalingMessage,
+    recipientUserId: string,
+    websocket: WebSocket
+  ): Promise<void> {
+    const event = {
+      action: 'custom_event',
+      seq: Date.now(),
+      data: {
+        event: 'webrtc_signal',
+        data: message,
+        broadcast: {
+          user_id: recipientUserId,
+        },
+      },
+    };
+
+    websocket.send(JSON.stringify(event));
+  }
+
+  /**
+   * Handle incoming WebSocket custom event (alternative to posts)
+   */
+  handleWebSocketEvent(event: any): boolean {
+    if (event.event !== 'webrtc_signal') {
+      return false;
+    }
+
+    const message = event.data as SignalingMessage;
+    
+    if (!this.isValidSignalingMessage(message)) {
+      console.warn('Invalid signaling message from WebSocket:', message);
+      return false;
+    }
+
+    // Get or create channel ID for the session
+    // Note: We still need to know which channel this relates to
+    const channelId = event.channel_id || 'direct-message';
+    
+    this.onMessage(message, channelId);
+    return true;
   }
 }
 ```
@@ -608,19 +1136,37 @@ export class CallManager {
   private statsInterval: number | null = null;
   private answerTimeout: number | null = null;
   
+  // NEW: ICE candidate buffering for race condition prevention
+  private pendingIceCandidates: RTCIceCandidateInit[] = [];
+  
+  // NEW: Remote stream assembly
+  private remoteStream: MediaStream | null = null;
+  
+  // NEW: Multi-tab coordination
+  private tabChannel: BroadcastChannel;
+  
   // Event callbacks
   private events: Partial<CallEvents> = {};
 
   constructor(
     mattermostApi: any,
+    private currentUserId: string,
     config: Partial<CallConfig> = {}
   ) {
     this.config = { ...DEFAULT_CALL_CONFIG, ...config };
     this.mediaManager = new MediaDevicesManager();
     this.signaling = new CallSignaling(
       mattermostApi,
+      currentUserId,
       this.handleSignalingMessage.bind(this)
     );
+    
+    // Multi-tab coordination
+    this.tabChannel = new BroadcastChannel('antimatter-calls');
+    this.tabChannel.onmessage = this.handleTabMessage.bind(this);
+    
+    // Check for orphaned sessions on startup
+    this.checkForOrphanedSession();
   }
 
   /**
@@ -720,6 +1266,13 @@ export class CallManager {
     if (this.state !== 'incoming' || !this.currentSession) {
       throw new Error('No incoming call to accept');
     }
+
+    // Notify other tabs that we're accepting
+    this.tabChannel.postMessage({
+      type: 'call-accepted',
+      sessionId: this.currentSession.sessionId,
+      timestamp: Date.now(),
+    });
 
     this.setState('connecting');
 
@@ -850,7 +1403,23 @@ export class CallManager {
    * Handle incoming signaling message
    */
   handleIncomingPost(post: any): void {
-    this.signaling.handlePost(post);
+    // Pass expected user ID for validation
+    const expectedUserId = this.currentSession?.otherUserId;
+    this.signaling.handlePost(post, expectedUserId);
+  }
+
+  /**
+   * Switch microphone device during active call
+   */
+  async switchMicrophone(deviceId: string): Promise<void> {
+    await this.mediaManager.switchMicrophone(deviceId, this.peerConnection || undefined);
+  }
+
+  /**
+   * Switch camera device during active call
+   */
+  async switchCamera(deviceId: string): Promise<void> {
+    await this.mediaManager.switchCamera(deviceId, this.peerConnection || undefined);
   }
 
   /**
@@ -876,11 +1445,27 @@ export class CallManager {
       }
     };
 
-    // Handle remote tracks
+    // Handle remote tracks - assemble complete stream
     this.peerConnection.ontrack = (event) => {
       console.log('Received remote track:', event.track.kind);
-      if (this.events.onRemoteStream) {
-        this.events.onRemoteStream(event.streams[0]);
+      
+      // Create remote stream if it doesn't exist
+      if (!this.remoteStream) {
+        this.remoteStream = new MediaStream();
+      }
+      
+      // Add track to remote stream
+      this.remoteStream.addTrack(event.track);
+      
+      // Check if we have all expected tracks
+      const hasAudio = this.remoteStream.getAudioTracks().length > 0;
+      const hasVideo = this.currentSession?.callType === 'video'
+        ? this.remoteStream.getVideoTracks().length > 0
+        : true;
+      
+      // Notify when stream is complete
+      if (hasAudio && hasVideo && this.events.onRemoteStream) {
+        this.events.onRemoteStream(this.remoteStream);
       }
     };
 
@@ -907,17 +1492,28 @@ export class CallManager {
       }
     };
 
-    // Handle ICE connection state
-    this.peerConnection.oniceconnectionstatechange = () => {
+    // Handle ICE connection state with restart capability
+    this.peerConnection.oniceconnectionstatechange = async () => {
       const state = this.peerConnection!.iceConnectionState;
       console.log('ICE connection state:', state);
 
-      if (state === 'failed') {
-        this.handleError({
-          code: 'network-error',
-          message: 'Failed to establish connection. This may be due to firewall or network restrictions.',
-          fatal: true,
-        });
+      switch (state) {
+        case 'disconnected':
+          // Attempt ICE restart on network change
+          console.log('Connection disconnected, attempting ICE restart...');
+          setTimeout(() => {
+            if (this.peerConnection?.iceConnectionState === 'disconnected') {
+              this.restartIce();
+            }
+          }, 3000); // Wait 3s before restart
+          break;
+        case 'failed':
+          this.handleError({
+            code: 'network-error',
+            message: 'Failed to establish connection. This may be due to firewall or network restrictions.',
+            fatal: true,
+          });
+          break;
       }
     };
   }
@@ -990,6 +1586,9 @@ export class CallManager {
         sdp: message.sdp!,
       });
 
+      // CRITICAL: Flush buffered ICE candidates
+      await this.flushPendingIceCandidates();
+
       this.setState('incoming');
 
     } catch (error) {
@@ -1017,6 +1616,9 @@ export class CallManager {
         sdp: message.sdp!,
       });
 
+      // CRITICAL: Flush buffered ICE candidates
+      await this.flushPendingIceCandidates();
+
       // Clear answer timeout
       if (this.answerTimeout) {
         clearTimeout(this.answerTimeout);
@@ -1035,7 +1637,7 @@ export class CallManager {
   }
 
   /**
-   * Handle incoming ICE candidate
+   * Handle incoming ICE candidate(s) - with buffering for race conditions
    */
   private async handleIceCandidate(message: SignalingMessage): Promise<void> {
     if (!this.currentSession || message.sessionId !== this.currentSession.sessionId) {
@@ -1046,14 +1648,46 @@ export class CallManager {
       return;
     }
 
-    try {
-      await this.peerConnection.addIceCandidate(
-        new RTCIceCandidate(message.candidate!)
-      );
-    } catch (error) {
-      console.error('Failed to add ICE candidate:', error);
-      // Don't treat as fatal - some candidates may fail
+    // Collect all candidates (single or batch)
+    const candidates = message.candidates || (message.candidate ? [message.candidate] : []);
+
+    // If remote description isn't set yet, buffer candidates
+    if (!this.peerConnection.remoteDescription) {
+      console.log('Buffering ICE candidates until remote description is set');
+      this.pendingIceCandidates.push(...candidates);
+      return;
     }
+
+    // Add candidates immediately
+    for (const candidate of candidates) {
+      try {
+        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.error('Failed to add ICE candidate:', error);
+        // Don't treat as fatal - some candidates may fail
+      }
+    }
+  }
+
+  /**
+   * Flush buffered ICE candidates after setRemoteDescription
+   */
+  private async flushPendingIceCandidates(): Promise<void> {
+    if (this.pendingIceCandidates.length === 0) {
+      return;
+    }
+
+    console.log(`Flushing ${this.pendingIceCandidates.length} buffered ICE candidates`);
+
+    for (const candidate of this.pendingIceCandidates) {
+      try {
+        await this.peerConnection!.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.error('Failed to add buffered ICE candidate:', error);
+      }
+    }
+
+    this.pendingIceCandidates = [];
   }
 
   /**
@@ -1175,6 +1809,104 @@ export class CallManager {
   }
 
   /**
+   * Restart ICE on network change
+   */
+  private async restartIce(): Promise<void> {
+    if (!this.peerConnection || !this.currentSession) {
+      return;
+    }
+
+    console.log('Attempting ICE restart...');
+
+    try {
+      const offer = await this.peerConnection.createOffer({ iceRestart: true });
+      await this.peerConnection.setLocalDescription(offer);
+
+      const message: SignalingMessage = {
+        action: 'offer',
+        sessionId: this.currentSession.sessionId,
+        timestamp: Date.now(),
+        senderId: this.currentUserId,
+        sdp: offer.sdp!,
+        callType: this.currentSession.callType,
+      };
+
+      await this.signaling.send(message, this.currentSession.channelId);
+    } catch (error) {
+      console.error('ICE restart failed:', error);
+      this.handleError({
+        code: 'network-error',
+        message: 'Failed to restart connection',
+        fatal: true,
+      });
+    }
+  }
+
+  /**
+   * Handle messages from other tabs
+   */
+  private handleTabMessage(event: MessageEvent<TabCoordinationMessage>): void {
+    const message = event.data;
+
+    if (!this.currentSession || message.sessionId !== this.currentSession.sessionId) {
+      return;
+    }
+
+    switch (message.type) {
+      case 'call-accepted':
+        // Another tab accepted, close this one
+        this.cleanup('Call accepted in another tab');
+        break;
+      case 'call-declined':
+        this.cleanup('Call declined in another tab');
+        break;
+      case 'call-ended':
+        this.cleanup('Call ended in another tab');
+        break;
+    }
+  }
+
+  /**
+   * Check for orphaned session after page refresh
+   */
+  private checkForOrphanedSession(): void {
+    const savedSession = localStorage.getItem('antimatter-active-call');
+    
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession) as CallSession;
+        
+        // Check if session is recent (within 5 minutes)
+        const age = Date.now() - session.startedAt;
+        if (age < 5 * 60 * 1000) {
+          // Prompt user to reconnect
+          if (this.events.onError) {
+            this.events.onError({
+              code: 'unknown',
+              message: `You have an active call with ${session.otherUserId}. Reconnect?`,
+              fatal: false,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse saved session:', error);
+      }
+      
+      // Clear regardless
+      localStorage.removeItem('antimatter-active-call');
+    }
+  }
+
+  /**
+   * Save session to localStorage for recovery after refresh
+   */
+  private saveSessionToStorage(): void {
+    if (this.currentSession && this.state === 'connected') {
+      localStorage.setItem('antimatter-active-call', JSON.stringify(this.currentSession));
+    }
+  }
+
+  /**
    * Clean up resources and end call
    */
   private cleanup(reason: string): void {
@@ -1192,14 +1924,39 @@ export class CallManager {
       this.statsInterval = null;
     }
 
-    // Close peer connection
+    // Close peer connection and remove event listeners
     if (this.peerConnection) {
+      this.peerConnection.onicecandidate = null;
+      this.peerConnection.ontrack = null;
+      this.peerConnection.onconnectionstatechange = null;
+      this.peerConnection.oniceconnectionstatechange = null;
       this.peerConnection.close();
       this.peerConnection = null;
     }
 
     // Release media devices
     this.mediaManager.cleanup();
+
+    // Clear ICE candidate buffer
+    this.pendingIceCandidates = [];
+    
+    // Clear remote stream
+    this.remoteStream = null;
+
+    // Clear signaling batches
+    if (this.currentSession) {
+      this.signaling.cleanup(this.currentSession.sessionId);
+      
+      // Notify other tabs
+      this.tabChannel.postMessage({
+        type: 'call-ended',
+        sessionId: this.currentSession.sessionId,
+        timestamp: Date.now(),
+      });
+    }
+
+    // Clear session from storage
+    localStorage.removeItem('antimatter-active-call');
 
     // Clear session
     this.currentSession = null;
@@ -1212,14 +1969,23 @@ export class CallManager {
       this.events.onCallEnded(reason);
     }
   }
+
+  /**
+   * Cleanup on destruction
+   */
+  destroy(): void {
+    this.cleanup('Manager destroyed');
+    this.tabChannel.close();
+  }
 }
 
 // Export singleton or factory
 export function createCallManager(
   mattermostApi: any,
+  currentUserId: string,
   config?: Partial<CallConfig>
 ): CallManager {
-  return new CallManager(mattermostApi, config);
+  return new CallManager(mattermostApi, currentUserId, config);
 }
 ```
 
@@ -1227,12 +1993,385 @@ export function createCallManager(
 
 ## Phase 3: UI Components
 
-See the guide for complete UI component implementation including:
+### Step 3.1: Call Context Provider
 
-- **CallContext.tsx** - React Context provider for global call state
-- **CallButton.tsx** - Button to initiate calls
-- **IncomingCallToast.tsx** - Upper-right toast-style incoming call invite with accept/decline controls
-- **ActiveCallPanel.tsx** - Discord-style active call panel docked to the bottom of the sidebar
+Create `src/mainview/contexts/CallContext.tsx`:
+
+```typescript
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import type { CallManager } from '../webrtc/CallManager';
+import type { CallState, CallSession, CallError, CallStats } from '../webrtc/types';
+
+interface CallContextValue {
+  callManager: CallManager;
+  state: CallState;
+  session: CallSession | null;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
+  stats: CallStats | null;
+  error: CallError | null;
+  
+  // Actions
+  initiateCall: (userId: string, username: string, callType: 'audio' | 'video') => Promise<void>;
+  acceptCall: () => Promise<void>;
+  declineCall: (reason?: 'busy' | 'declined') => Promise<void>;
+  hangup: () => Promise<void>;
+  setAudioMuted: (muted: boolean) => void;
+  setVideoEnabled: (enabled: boolean) => void;
+  switchMicrophone: (deviceId: string) => Promise<void>;
+  switchCamera: (deviceId: string) => Promise<void>;
+}
+
+const CallContext = createContext<CallContextValue | null>(null);
+
+export function CallProvider({
+  children,
+  callManager,
+  currentUserId,
+}: {
+  children: React.ReactNode;
+  callManager: CallManager;
+  currentUserId: string;
+}) {
+  const [state, setState] = useState<CallState>('idle');
+  const [session, setSession] = useState<CallSession | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [stats, setStats] = useState<CallStats | null>(null);
+  const [error, setError] = useState<CallError | null>(null);
+
+  // Register event callbacks
+  useEffect(() => {
+    callManager.on('onStateChange', (newState) => {
+      setState(newState);
+      setSession(callManager.getSession());
+      
+      // Update local stream when state changes
+      if (newState === 'connected' || newState === 'ringing') {
+        setLocalStream(callManager.getLocalStream());
+      }
+    });
+
+    callManager.on('onRemoteStream', (stream) => {
+      setRemoteStream(stream);
+    });
+
+    callManager.on('onStatsUpdate', (newStats) => {
+      setStats(newStats);
+    });
+
+    callManager.on('onError', (err) => {
+      setError(err);
+    });
+
+    callManager.on('onCallEnded', (reason) => {
+      console.log('Call ended:', reason);
+      setLocalStream(null);
+      setRemoteStream(null);
+      setStats(null);
+      setError(null);
+    });
+  }, [callManager]);
+
+  const initiateCall = useCallback(
+    async (userId: string, username: string, callType: 'audio' | 'video') => {
+      try {
+        await callManager.initiateCall(userId, currentUserId, callType);
+      } catch (err) {
+        console.error('Failed to initiate call:', err);
+      }
+    },
+    [callManager, currentUserId]
+  );
+
+  const acceptCall = useCallback(async () => {
+    try {
+      await callManager.acceptCall();
+    } catch (err) {
+      console.error('Failed to accept call:', err);
+    }
+  }, [callManager]);
+
+  const declineCall = useCallback(
+    async (reason: 'busy' | 'declined' = 'declined') => {
+      try {
+        await callManager.declineCall(reason);
+      } catch (err) {
+        console.error('Failed to decline call:', err);
+      }
+    },
+    [callManager]
+  );
+
+  const hangup = useCallback(async () => {
+    try {
+      await callManager.hangup();
+    } catch (err) {
+      console.error('Failed to hang up:', err);
+    }
+  }, [callManager]);
+
+  const setAudioMuted = useCallback(
+    (muted: boolean) => {
+      callManager.setAudioMuted(muted);
+    },
+    [callManager]
+  );
+
+  const setVideoEnabled = useCallback(
+    (enabled: boolean) => {
+      callManager.setVideoEnabled(enabled);
+    },
+    [callManager]
+  );
+
+  const switchMicrophone = useCallback(
+    async (deviceId: string) => {
+      await callManager.switchMicrophone(deviceId);
+    },
+    [callManager]
+  );
+
+  const switchCamera = useCallback(
+    async (deviceId: string) => {
+      await callManager.switchCamera(deviceId);
+    },
+    [callManager]
+  );
+
+  return (
+    <CallContext.Provider
+      value={{
+        callManager,
+        state,
+        session,
+        localStream,
+        remoteStream,
+        stats,
+        error,
+        initiateCall,
+        acceptCall,
+        declineCall,
+        hangup,
+        setAudioMuted,
+        setVideoEnabled,
+        switchMicrophone,
+        switchCamera,
+      }}
+    >
+      {children}
+    </CallContext.Provider>
+  );
+}
+
+export function useCall() {
+  const context = useContext(CallContext);
+  if (!context) {
+    throw new Error('useCall must be used within CallProvider');
+  }
+  return context;
+}
+```
+
+### Step 3.2: Call Button
+
+Create `src/mainview/components/CallButton.tsx`:
+
+```typescript
+import React from 'react';
+import { useCall } from '../contexts/CallContext';
+
+interface CallButtonProps {
+  userId: string;
+  username: string;
+  variant: 'audio' | 'video';
+  disabled?: boolean;
+}
+
+export function CallButton({ userId, username, variant, disabled }: CallButtonProps) {
+  const { state, initiateCall } = useCall();
+
+  const isDisabled = disabled || state !== 'idle';
+
+  const handleClick = async () => {
+    await initiateCall(userId, username, variant);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={isDisabled}
+      className="call-button"
+      title={`Start ${variant} call with ${username}`}
+    >
+      {variant === 'audio' ? '📞' : '📹'}
+    </button>
+  );
+}
+```
+
+### Step 3.3: Incoming Call Toast
+
+Create `src/mainview/components/IncomingCallToast.tsx`:
+
+```typescript
+import React, { useEffect, useState } from 'react';
+import { useCall } from '../contexts/CallContext';
+
+interface IncomingCallToastProps {
+  callerName: string;
+  callerAvatar?: string;
+}
+
+export function IncomingCallToast({ callerName, callerAvatar }: IncomingCallToastProps) {
+  const { state, session, acceptCall, declineCall } = useCall();
+  const [countdown, setCountdown] = useState(45);
+
+  // Show only for incoming calls
+  if (state !== 'incoming' || !session) {
+    return null;
+  }
+
+  // Countdown timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="incoming-call-toast">
+      <div className="toast-header">
+        <span className="call-icon">📞</span>
+        <span className="call-type">
+          {session.callType === 'video' ? 'Video' : 'Voice'} Call
+        </span>
+        <span className="countdown">{countdown}s</span>
+      </div>
+
+      <div className="toast-body">
+        {callerAvatar && (
+          <img src={callerAvatar} alt={callerName} className="caller-avatar" />
+        )}
+        <div className="caller-info">
+          <div className="caller-name">{callerName}</div>
+          <div className="caller-status">is calling...</div>
+        </div>
+      </div>
+
+      <div className="toast-actions">
+        <button onClick={() => declineCall('declined')} className="btn-decline">
+          Decline
+        </button>
+        <button onClick={acceptCall} className="btn-accept">
+          Accept
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+### Step 3.4: Active Call Panel
+
+Create `src/mainview/components/ActiveCallPanel.tsx`:
+
+```typescript
+import React, { useState, useEffect } from 'react';
+import { useCall } from '../contexts/CallContext';
+
+interface ActiveCallPanelProps {
+  callerName: string;
+}
+
+export function ActiveCallPanel({ callerName }: ActiveCallPanelProps) {
+  const { state, session, stats, hangup, setAudioMuted, setVideoEnabled } = useCall();
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [duration, setDuration] = useState('00:00');
+
+  // Show only when connected
+  if (state !== 'connected' || !session) {
+    return null;
+  }
+
+  // Update duration
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (stats) {
+        const minutes = Math.floor(stats.duration / 60);
+        const seconds = stats.duration % 60;
+        setDuration(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [stats]);
+
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    setAudioMuted(newMuted);
+  };
+
+  const toggleVideo = () => {
+    const newVideoOff = !isVideoOff;
+    setIsVideoOff(newVideoOff);
+    setVideoEnabled(!newVideoOff);
+  };
+
+  return (
+    <div className="active-call-panel">
+      <div className="call-header">
+        <div className="call-indicator">
+          <span className="indicator-dot"></span>
+          <span className="call-with">Call with {callerName}</span>
+        </div>
+        <div className="call-duration">{duration}</div>
+      </div>
+
+      <div className="call-controls">
+        <button
+          onClick={toggleMute}
+          className={`control-btn ${isMuted ? 'active' : ''}`}
+          title={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {isMuted ? '🔇' : '🔊'}
+        </button>
+
+        {session.callType === 'video' && (
+          <button
+            onClick={toggleVideo}
+            className={`control-btn ${isVideoOff ? 'active' : ''}`}
+            title={isVideoOff ? 'Enable video' : 'Disable video'}
+          >
+            {isVideoOff ? '📹' : '📷'}
+          </button>
+        )}
+
+        <button onClick={hangup} className="control-btn btn-hangup" title="Hang up">
+          ❌
+        </button>
+      </div>
+
+      {stats && (
+        <div className="call-stats">
+          <div className="stat">
+            <span className="stat-label">Latency:</span>
+            <span className="stat-value">{Math.round(stats.roundTripTime)}ms</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">Packet Loss:</span>
+            <span className="stat-value">{stats.packetsLost}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
 
 ### UI Behavior Notes
 
@@ -1243,6 +2382,232 @@ See the guide for complete UI component implementation including:
 - Once a call connects, dismiss the incoming/outgoing toast state and show the active call as a docked panel at the bottom of the left sidebar, similar to Discord's active voice panel.
 - The sidebar call panel should remain visible while navigating channels and should include the other participant, connection state/duration, mute, device/settings if available, and hangup controls.
 - The active call panel should reserve space at the bottom of the sidebar rather than overlaying the channel list. The channel list should scroll above it.
+
+### Step 3.5: Basic Styling (CSS)
+
+Add to your main CSS file:
+
+```css
+/* Incoming Call Toast - Upper Right */
+.incoming-call-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 320px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.call-icon {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+.countdown {
+  margin-left: auto;
+  color: #666;
+  font-size: 12px;
+}
+
+.toast-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.caller-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.caller-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.caller-status {
+  font-size: 14px;
+  color: #666;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-decline,
+.btn-accept {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-decline {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.btn-decline:hover {
+  opacity: 0.8;
+}
+
+.btn-accept {
+  background: #28a745;
+  color: white;
+}
+
+.btn-accept:hover {
+  opacity: 0.9;
+}
+
+/* Active Call Panel - Bottom of Sidebar */
+.active-call-panel {
+  position: sticky;
+  bottom: 0;
+  background: #2c2f33;
+  color: white;
+  padding: 12px;
+  border-top: 1px solid #202225;
+}
+
+.call-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.call-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.indicator-dot {
+  width: 8px;
+  height: 8px;
+  background: #28a745;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.call-duration {
+  font-size: 12px;
+  color: #b9bbbe;
+}
+
+.call-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.control-btn {
+  flex: 1;
+  padding: 8px;
+  background: #40444b;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.control-btn:hover {
+  background: #4f545c;
+}
+
+.control-btn.active {
+  background: #ed4245;
+}
+
+.btn-hangup {
+  background: #ed4245;
+}
+
+.btn-hangup:hover {
+  background: #c03537;
+}
+
+.call-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #b9bbbe;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-label {
+  opacity: 0.7;
+}
+
+.stat-value {
+  font-weight: 600;
+}
+
+/* Call Button */
+.call-button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.call-button:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.call-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+```
 
 ---
 
@@ -1257,7 +2622,7 @@ import { createCallManager } from './webrtc/CallManager';
 import { CallProvider } from './contexts/CallContext';
 
 // Create call manager instance
-const callManager = createCallManager(mattermostApi);
+const callManager = createCallManager(mattermostApi, currentUser.id);
 
 // Wrap app with CallProvider
 <CallProvider callManager={callManager} currentUserId={currentUser.id}>
@@ -1280,13 +2645,48 @@ private handleMessage(event: MessageEvent) {
     if (post.type === 'custom_webrtc_call') {
       // Pass to call manager
       callManager.handleIncomingPost(post);
-      return; // Don't show as regular message
+      
+      // CRITICAL: Return early to hide from UI
+      // This prevents signaling messages from appearing in Antimatter's timeline
+      return;
     }
     
     // Regular message handling...
   }
 }
 ```
+
+### Step 4.2b: Filter Signaling Messages from Timeline
+
+In your message timeline component, add an additional filter:
+
+```typescript
+// In MessageTimeline.tsx or wherever messages are rendered
+function MessageTimeline({ messages }: { messages: Post[] }) {
+  // Filter out call signaling messages
+  const visibleMessages = messages.filter((post) => {
+    // Hide WebRTC signaling posts
+    if (post.type === 'custom_webrtc_call') {
+      return false;
+    }
+    return true;
+  });
+
+  return (
+    <div className="timeline">
+      {visibleMessages.map((message) => (
+        <Message key={message.id} post={message} />
+      ))}
+    </div>
+  );
+}
+```
+
+This ensures:
+- ✅ Antimatter users never see signaling messages in their UI
+- ✅ Messages are still processed by CallManager
+- ✅ Clean chat experience for Antimatter users
+- ❌ Regular Mattermost users still see them (can't be fixed without server plugin)
 
 ### Step 4.3: Add Call Buttons to UI
 
@@ -1403,16 +2803,48 @@ function CallErrorToast({ error }: { error: CallError }) {
 
 ### Step 5.3: Testing Checklist
 
+**Basic Functionality:**
 - [ ] Test audio-only calls between two users
+- [ ] Test video calls between two users
 - [ ] Test call decline/hangup
 - [ ] Test call timeout (no answer)
 - [ ] Test "busy" scenario (call while already on call)
-- [ ] Test network interruption/reconnection
-- [ ] Test microphone permissions denied
-- [ ] Test with different network conditions
-- [ ] Test STUN server fallback
-- [ ] Test ICE candidate exchange
 - [ ] Verify media devices cleanup on hangup
+
+**Critical Fixes:**
+- [ ] **ICE Buffering**: Start call, check browser console for "Flushing X buffered ICE candidates"
+- [ ] **ICE Batching**: During connection, verify < 5 signaling posts sent (not 15-20)
+- [ ] **Device Switching**: During active call, switch microphone/camera - verify audio/video continues
+- [ ] **Remote Stream**: Video calls should wait for both audio + video tracks before rendering
+- [ ] **Multi-Tab**: Open two browser tabs, initiate call - only one should show active state
+- [ ] **Page Refresh**: Refresh during call - should prompt to reconnect (within 5 min)
+- [ ] **Sender Validation**: Manually send spoofed signaling message - should be ignored
+- [ ] **ICE Restart**: During call, change network (WiFi → Ethernet) - call should auto-recover
+
+**Network Conditions:**
+- [ ] Test with different network conditions (use Chrome DevTools throttling)
+- [ ] Test on VPN (your primary use case)
+- [ ] Test with restrictive firewall (block some STUN servers)
+- [ ] Test symmetric NAT (may need TURN)
+- [ ] Verify STUN server fallback if one fails
+
+**Browser Compatibility:**
+- [ ] Chrome/Edge (Chromium)
+- [ ] Firefox
+- [ ] Safari (has WebRTC quirks)
+
+**Error Handling:**
+- [ ] Microphone permissions denied
+- [ ] Camera permissions denied (video call)
+- [ ] No microphone detected
+- [ ] Network disconnection during call
+- [ ] Mattermost WebSocket disconnection
+
+**VPN-Specific Tests:**
+- [ ] Both users on same VPN
+- [ ] One user on VPN, one off VPN
+- [ ] User disconnects from VPN during call
+- [ ] User reconnects to VPN during call
 
 ---
 
@@ -1425,6 +2857,9 @@ function CallErrorToast({ error }: { error: CallError }) {
 - [ ] Document network requirements for users
 - [ ] Add telemetry for call quality monitoring
 - [ ] Set up error tracking (Sentry, etc.)
+- [ ] **Test with regular Mattermost users** - verify message visibility
+- [ ] **Document expected behavior** for mixed user base
+- [ ] **Add user education materials** about call signaling messages
 
 ### Production
 
@@ -1434,6 +2869,185 @@ function CallErrorToast({ error }: { error: CallError }) {
 - [ ] Document TURN server setup in README
 - [ ] Add settings page for audio/video device selection
 - [ ] Add call history/logs (optional)
+- [ ] **Communicate to team** about signaling message visibility
+- [ ] **Create `/webrtc-help` command** to explain system to users
+- [ ] **Monitor user feedback** about message pollution
+
+### Regular Mattermost User Impact
+
+**Before deploying, consider:**
+
+1. **User Awareness:**
+   - [ ] All users informed about call signaling messages?
+   - [ ] Help documentation written and shared?
+   - [ ] Support team trained on expected behavior?
+
+2. **Message Pollution:**
+   - [ ] Acceptable for your use case? (internal vs. external)
+   - [ ] `from_webhook: 'true'` added to suppress mobile notifications?
+   - [ ] Timeline filtering works in Antimatter?
+
+3. **Mixed User Base:**
+   - [ ] Percentage of users with Antimatter: ____%
+   - [ ] Percentage of users with regular Mattermost: ____%
+   - [ ] If >20% regular Mattermost users → consider impact carefully
+
+4. **Fallback Plan:**
+   - [ ] If complaints arise, can you quickly disable the feature?
+   - [ ] Alternative ready (Jitsi, fixed Mattermost plugin)?
+
+### Post-Deployment Monitoring
+
+**Track these metrics:**
+
+```typescript
+// Add to your analytics/telemetry
+interface CallMetrics {
+  totalCalls: number;
+  successfulConnections: number;
+  failedConnections: number;
+  averageDuration: number;
+  userComplaints: number; // Manual tracking
+  messageSpamReports: number; // Track feedback
+}
+```
+
+**Red flags to watch for:**
+- Call success rate < 85%
+- User complaints about "message spam"
+- Support tickets about "weird call messages"
+- Mobile users reporting notification spam
+- Regular Mattermost users confused by signaling messages
+
+### Rollback Plan
+
+If signaling message pollution becomes problematic:
+
+1. **Immediate:** Disable call feature via feature flag
+2. **Short-term:** Deploy Mattermost server plugin to hide messages
+3. **Long-term:** Migrate to WebSocket custom events (Option 5)
+
+---
+
+## Alternative Solutions (Before You Start)
+
+### Why the Mattermost Calls Plugin Fails
+
+The Mattermost Calls plugin likely fails because:
+1. **No TURN server configured** - Most corporate/VPN networks have restrictive NAT
+2. **Mattermost server can't reach STUN servers** - Outbound UDP blocked
+3. **Clients can't reach the call server** - Firewall rules
+
+### Should You Build Custom WebRTC or Use Something Else?
+
+**✅ Build Custom WebRTC If:**
+- All users are on the same VPN (private network)
+- You control the network infrastructure
+- You can configure firewall rules for STUN/TURN
+- You want full control and no external dependencies
+
+**❌ Consider Alternatives If:**
+- Users are on different networks/VPNs
+- You can't configure network infrastructure
+- You need screen sharing, recording, or group calls soon
+- You don't have time for 6-8 weeks of development
+
+### Alternative 1: Fix Mattermost Calls Plugin
+
+**Pros:**
+- Already built and maintained
+- Screen sharing, group calls included
+- Better mobile support
+
+**Cons:**
+- Requires configuring TURN server (coturn, Twilio, etc.)
+- May require Mattermost server changes
+- Less control
+
+**How to fix:**
+1. Deploy coturn TURN server on your VPN
+2. Configure Mattermost Calls plugin with TURN credentials
+3. Open UDP ports 3478-3479 for TURN
+4. Test with clients on different networks
+
+See: https://github.com/mattermost/mattermost-plugin-calls
+
+### Alternative 2: Embed Jitsi Meet
+
+**Pros:**
+- Open source, battle-tested
+- Screen sharing, recording, breakout rooms
+- Can self-host or use jitsi.org
+
+**Cons:**
+- Separate UI (iframe/new tab)
+- Heavier than WebRTC-only solution
+- Requires Jitsi server setup for self-hosting
+
+**Implementation:**
+```typescript
+// Create Jitsi room for DM
+function startJitsiCall(userId: string, username: string) {
+  const roomName = `antimatter-${[currentUserId, userId].sort().join('-')}`;
+  const jitsiUrl = `https://meet.jit.si/${roomName}`;
+  
+  // Option 1: Open in new window
+  window.open(jitsiUrl, '_blank');
+  
+  // Option 2: Embed in app
+  const iframe = document.createElement('iframe');
+  iframe.src = jitsiUrl;
+  iframe.allow = 'camera; microphone';
+  document.body.appendChild(iframe);
+}
+```
+
+### Alternative 3: Use Daily.co or Whereby
+
+**Pros:**
+- Fully managed, no infrastructure
+- Drop-in video components
+- Free tier available
+
+**Cons:**
+- External dependency
+- Privacy concerns (calls go through their servers)
+- Costs scale with usage
+
+### Alternative 4: Simple SIP/VoIP Integration
+
+If you only need audio calls (no video):
+
+**Pros:**
+- Mature, stable protocols
+- Can integrate with existing phone systems
+- Lower bandwidth than video
+
+**Cons:**
+- Requires SIP server (Asterisk, FreeSWITCH)
+- More complex than WebRTC
+- No built-in video path
+
+### Recommendation for VPN Environment
+
+**Since you're on a VPN:**
+
+1. **Try fixing Mattermost Calls first** (2-3 days):
+   - Deploy coturn on VPN
+   - Configure Mattermost plugin
+   - Test with 2-3 users
+   - If it works → you're done! 
+
+2. **If that fails, build custom WebRTC** (6-8 weeks):
+   - You have VPN advantage (easier NAT traversal)
+   - Test STUN-only first (may be enough!)
+   - Add TURN only if needed
+   - Follow this guide
+
+3. **If you need it working this week**:
+   - Use Jitsi Meet (embed or link out)
+   - Takes 1-2 days to integrate
+   - Not as polished but functional
 
 ---
 

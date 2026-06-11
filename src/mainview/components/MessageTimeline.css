@@ -162,12 +162,14 @@
 	background: var(--panel-raised);
 }
 
-.message.own {
-	background: transparent;
-}
-
-.message.own:hover {
-	background: var(--panel-raised);
+.message.own::before {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	left: 0;
+	width: 2px;
+	background: color-mix(in srgb, var(--own-message-indicator-color) 42%, transparent);
+	content: "";
 }
 
 .message-meta {
@@ -243,6 +245,10 @@
 	padding: 4px 58px 4px 8px;
 	font-size: 0.84rem;
 	line-height: 1.36;
+}
+
+.reply-message.own {
+	border-left-color: color-mix(in srgb, var(--own-message-indicator-color) 58%, var(--border-strong));
 }
 
 .reply-message-meta {
