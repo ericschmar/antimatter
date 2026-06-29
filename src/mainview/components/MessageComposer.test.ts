@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { matchMentionQuery } from "./MessageComposer";
+import { buildMentionInsertion, matchMentionQuery } from "./MessageComposer";
 
 describe("matchMentionQuery", () => {
 	test("matches an empty mention query after @", () => {
@@ -16,5 +16,13 @@ describe("matchMentionQuery", () => {
 
 	test("does not match once a typed space completes the mention", () => {
 		expect(matchMentionQuery("@sar ")).toBeNull();
+	});
+});
+
+describe("buildMentionInsertion", () => {
+	test("places the cursor after the inserted mention", () => {
+		expect(
+			buildMentionInsertion("hey @sar", { query: "sar", start: 4 }, "sarah"),
+		).toEqual({ message: "hey @sarah ", cursorPosition: 11 });
 	});
 });

@@ -63,8 +63,9 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { COMMAND_PRIORITY_HIGH, PASTE_COMMAND, $getRoot } from "lexical";
 import type { KeyboardEvent } from "react";
-import { COMMAND_PRIORITY_HIGH, PASTE_COMMAND } from "lexical";
+import type { LexicalEditor } from "lexical";
 import type { MattermostPost, MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 import { normalizeOutgoingMessage } from "../utils/outgoingMessage";
@@ -115,7 +116,27 @@ const preserveCodePastePlugin = realmPlugin({
 	},
 });
 
-export function matchMentionQuery(message: string) {
+function captureRootEditorPlugin(editorRef: React.RefObject<LexicalEditor | null>) {
+	return realmPlugin({
+		init(realm) {
+			realm.pub(createRootEditorSubscription$, (editor) => {
+				editorRef.current = editor;
+				return () => {
+					if (editorRef.current === editor) {
+						editorRef.current = null;
+					}
+				};
+			});
+		},
+	});
+}
+
+type MentionMatch = {
+	query: string;
+	start: number;
+};
+
+export function matchMentionQuery(message: string): MentionMatch | null {
 	const normalizedMessage = message.replace(/\u00a0/g, " ").replace(/\u200b/g, "");
 	const match = /(^|\s)@([A-Za-z0-9._-]*)[\r\n]*$/.exec(normalizedMessage);
 	if (!match) return null;
@@ -123,6 +144,15 @@ export function matchMentionQuery(message: string) {
 		query: match[2] ?? "",
 		start: match.index + (match[1]?.length ?? 0),
 	};
+}
+
+export function buildMentionInsertion(
+	message: string,
+	mentionMatch: MentionMatch,
+	username: string,
+) {
+	const nextMessage = `${message.slice(0, mentionMatch.start)}@${username} `;
+	return { message: nextMessage, cursorPosition: nextMessage.length };
 }
 
 function composerToolbarIcon(name: string) {
@@ -245,6 +275,7 @@ export const MessageComposer = forwardRef<
 	const messageRef = useRef("");
 	const composerEditorRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MDXEditorMethods>(null);
+	const lexicalEditorRef = useRef<LexicalEditor | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const lastTypingUpdateRef = useRef(0);
 	const mentionSuggestionRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -347,13 +378,19 @@ export const MessageComposer = forwardRef<
 	const insertMention = useCallback(
 		(user: MattermostUser) => {
 			if (!mentionMatch) return;
-			const nextMessage = `${message.slice(0, mentionMatch.start)}@${user.username} `;
-			messageRef.current = nextMessage;
-			setMessage(nextMessage);
-			editorRef.current?.setMarkdown(nextMessage);
-			editorRef.current?.focus(undefined, {
+			const insertion = buildMentionInsertion(
+				message,
+				mentionMatch,
+				user.username,
+			);
+			messageRef.current = insertion.message;
+			setMessage(insertion.message);
+			editorRef.current?.setMarkdown(insertion.message);
+			lexicalEditorRef.current?.update(() => {
+				$getRoot().selectEnd();
+			});
+			lexicalEditorRef.current?.focus(undefined, {
 				defaultSelection: "rootEnd",
-				preventScroll: true,
 			});
 		},
 		[mentionMatch, message],
@@ -371,6 +408,7 @@ export const MessageComposer = forwardRef<
 	const plugins = useMemo(
 		() => [
 			preserveCodePastePlugin(),
+			captureRootEditorPlugin(lexicalEditorRef)(),
 			toolbarPlugin({
 				toolbarClassName: "composer-toolbar",
 				toolbarContents: () => (

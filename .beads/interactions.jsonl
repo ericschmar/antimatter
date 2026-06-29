@@ -1,0 +1,2 @@
+{"id":"int-0205f9b5","kind":"field_change","created_at":"2026-06-29T17:39:07.061275Z","actor":"Eric Schmar","issue_id":"antimatter-0dq","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"fixed"}}
+{"id":"int-23f576b1","kind":"field_change","created_at":"2026-06-29T17:47:34.180994Z","actor":"Eric Schmar","issue_id":"antimatter-0dq","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"fixed"}}
