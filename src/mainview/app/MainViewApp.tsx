@@ -31,6 +31,7 @@ import {
 } from "../utils/format";
 import { normalizeEmojiName } from "../utils/emoji";
 import {
+	applyChannelHistory,
 	applyReaction,
 	setPostReactions,
 	updatePost as updatePostInState,
@@ -133,6 +134,10 @@ export function MainViewApp() {
 		null,
 	);
 	const [state, setState] = useState<NormalizedState>(emptyState);
+	// Read the latest posts inside the channel-history sync effect without subscribing to every
+	// state change (which would re-run the effect on every reaction load).
+	const stateRef = useRef(state);
+	stateRef.current = state;
 	const [envConfig, setEnvConfig] = useState<MattermostConfig | null>(null);
 	const [giphyApiKey, setGiphyApiKey] = useState<string | undefined>();
 	const {
@@ -470,23 +475,22 @@ export function MainViewApp() {
 
 	useEffect(() => {
 		if (!api || !selectedChannelId || !selectedChannelHistory) return;
-		setState((current) => ({
-			...current,
-			users: {
-				...current.users,
-				...Object.fromEntries(
-					selectedChannelHistory.postUsers.map((user) => [user.id, user]),
-				),
-				...Object.fromEntries(
-					selectedChannelHistory.memberUsers.map((user) => [user.id, user]),
-				),
-			},
-			posts: selectedChannelHistory.posts,
-			postOrder: selectedChannelHistory.postOrder,
-		}));
+		setState((current) => applyChannelHistory(current, selectedChannelHistory));
 		setChannelMembers(selectedChannelHistory.members);
 		setStatus("ready");
-		void loadPostReactions(api, Object.values(selectedChannelHistory.posts));
+		// Only fetch reactions for posts that don't already have them. The history cache
+		// never carries reactions, and re-fetching every post on each new message wiped
+		// already-loaded reactions and then restored them (flicker).
+		const postsWithReactions = new Set(
+			Object.values(stateRef.current.posts)
+				.filter((post) => post.metadata?.reactions)
+				.map((post) => post.id),
+		);
+		const postsNeedingReactions = Object.values(selectedChannelHistory.posts).filter(
+			(post) => !post.metadata?.reactions && !postsWithReactions.has(post.id),
+		);
+		if (postsNeedingReactions.length > 0)
+			void loadPostReactions(api, postsNeedingReactions);
 	}, [api, loadPostReactions, selectedChannelHistory, selectedChannelId]);
 
 	useEffect(() => {

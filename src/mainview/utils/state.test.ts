@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import type { MattermostPost, MattermostReaction, NormalizedState } from "../types";
+import type {
+	ChannelHistoryData,
+	MattermostPost,
+	MattermostReaction,
+	MattermostUser,
+	NormalizedState,
+} from "../types";
 import {
 	addPost,
+	applyChannelHistory,
 	applyReaction,
 	replacePost,
 	setPostReactions,
@@ -105,3 +112,65 @@ describe("message state helpers", () => {
 		expect(newer.channels["channel-1"]?.last_post_at).toBe(150);
 	});
 });
+
+describe("applyChannelHistory", () => {
+	const reaction: MattermostReaction = {
+		emoji_name: "thumbsup",
+		post_id: "post-1",
+		user_id: "user-2",
+	};
+	const secondPost: MattermostPost = { ...basePost, id: "post-2" };
+
+	function historyWith(posts: Record<string, MattermostPost>, postOrder: string[]): ChannelHistoryData {
+		return { memberUsers: [], members: [], postOrder, posts, postUsers: [] };
+	}
+
+	test("carries over already-loaded reactions when history re-syncs", () => {
+		const withReactions = setPostReactions(stateWithPost(), "post-1", [reaction]);
+		// A new message arrived, so history re-syncs post-1 (reaction-less) alongside post-2.
+		const history = historyWith({ "post-1": basePost, "post-2": secondPost }, ["post-1", "post-2"]);
+
+		const merged = applyChannelHistory(withReactions, history);
+
+		expect(merged.postOrder).toEqual(["post-1", "post-2"]);
+		expect(merged.posts["post-1"]?.metadata?.reactions).toEqual([reaction]);
+		expect(merged.posts["post-2"]?.metadata?.reactions).toBeUndefined();
+	});
+
+	test("does not overwrite reactions carried from server-provided history", () => {
+		const serverReaction: MattermostReaction = { ...reaction, user_id: "user-9" };
+		const incoming: MattermostPost = {
+			...basePost,
+			metadata: { reactions: [serverReaction] },
+		};
+		const history = historyWith({ "post-1": incoming }, ["post-1"]);
+
+		const merged = applyChannelHistory(withoutReactionsState(), history);
+
+		expect(merged.posts["post-1"]?.metadata?.reactions).toEqual([serverReaction]);
+	});
+
+	test("merges history users into state", () => {
+		const user: MattermostUser = {
+			id: "user-3",
+			username: "third",
+			is_bot: false,
+		} as MattermostUser;
+		const history = historyWith({ "post-1": basePost }, ["post-1"]);
+		history.postUsers = [user];
+
+		const merged = applyChannelHistory(stateWithPost(), history);
+
+		expect(merged.users["user-3"]).toBe(user);
+	});
+});
+
+function withoutReactionsState(): NormalizedState {
+	return {
+		channels: {},
+		postOrder: ["post-1"],
+		posts: { "post-1": basePost },
+		teams: {},
+		users: {},
+	};
+}

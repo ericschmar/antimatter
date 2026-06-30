@@ -1,4 +1,10 @@
-import type { MattermostPost, MattermostReaction, MattermostUser, NormalizedState } from "../types";
+import type {
+	ChannelHistoryData,
+	MattermostPost,
+	MattermostReaction,
+	MattermostUser,
+	NormalizedState,
+} from "../types";
 
 export function addPost(state: NormalizedState, post: MattermostPost): NormalizedState {
 	if (state.posts[post.id]) return state;
@@ -116,4 +122,28 @@ export function applyReaction(
 			: [...current, reaction];
 
 	return setPostReactions(state, reaction.post_id, nextReactions);
+}
+
+export function applyChannelHistory(
+	state: NormalizedState,
+	history: ChannelHistoryData,
+): NormalizedState {
+	const posts: Record<string, MattermostPost> = {};
+	for (const [id, incoming] of Object.entries(history.posts)) {
+		const carriedReactions = state.posts[id]?.metadata?.reactions;
+		posts[id] =
+			carriedReactions && !incoming.metadata?.reactions
+				? { ...incoming, metadata: { ...incoming.metadata, reactions: carriedReactions } }
+				: incoming;
+	}
+	return {
+		...state,
+		users: {
+			...state.users,
+			...Object.fromEntries(history.postUsers.map((user) => [user.id, user])),
+			...Object.fromEntries(history.memberUsers.map((user) => [user.id, user])),
+		},
+		posts,
+		postOrder: history.postOrder,
+	};
 }
