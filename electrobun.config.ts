@@ -41,6 +41,13 @@ export default {
 			bundleCEF: false,
 		},
 	},
+	scripts: {
+		// Disable macOS App Nap so the bun process keeps forwarding WebSocket
+		// events (and the mainview keeps processing them) while the app is in
+		// the background, instead of delivering a burst on focus.
+		// See issue antimatter-vkb.
+		postWrap: "scripts/disable-app-nap.ts",
+	},
 	release: {
 		baseUrl:
 			"https://github.com/ericschmar/antimatter/releases/latest/download",
