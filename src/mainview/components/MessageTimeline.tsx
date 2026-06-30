@@ -160,6 +160,24 @@ export function MessageTimeline({
 		return () => resizeObserver.disconnect();
 	}, []);
 
+	useEffect(() => {
+		function handleReturnToApp() {
+			if (document.hidden) return;
+			const viewport = viewportRef.current;
+			if (!viewport || !isAtEndRef.current) return;
+			scrollToTimelineEnd(viewport);
+			previousScrollHeightRef.current = viewport.scrollHeight;
+			previousScrollTopRef.current = viewport.scrollTop;
+		}
+
+		document.addEventListener("visibilitychange", handleReturnToApp);
+		window.addEventListener("focus", handleReturnToApp);
+		return () => {
+			document.removeEventListener("visibilitychange", handleReturnToApp);
+			window.removeEventListener("focus", handleReturnToApp);
+		};
+	}, []);
+
 	const loadMoreFromTop = useCallback(() => {
 		onLoadMore?.();
 	}, [onLoadMore]);
