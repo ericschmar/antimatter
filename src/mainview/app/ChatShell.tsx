@@ -282,6 +282,7 @@ export function ChatShell({
 								selectedChannelId={selectedChannelId}
 								selectedTeam={selectedTeam}
 								selectedTeamId={selectedTeamId}
+								teamUnread={ui.teamUnread}
 								teams={teams}
 								userImages={userImages}
 								userStatuses={userStatuses}

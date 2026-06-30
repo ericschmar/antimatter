@@ -12,6 +12,7 @@ type MattermostWebSocketMessage = {
 		reaction?: string;
 		status?: unknown;
 		server_version?: string;
+		team_id?: string;
 		user_id?: string;
 	};
 	status?: string;
@@ -51,7 +52,9 @@ export function readMattermostWebSocketEvent(
 
 	if (message.event === "posted" && typeof message.data?.post === "string") {
 		const post = parseJsonObject(message.data.post);
-		return post ? { type: "post", post } : null;
+		return post
+			? { type: "post", post, teamId: message.data.team_id || undefined }
+			: null;
 	}
 
 	if (

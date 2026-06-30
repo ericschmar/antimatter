@@ -16,6 +16,7 @@ import type {
 	MattermostUser,
 	MattermostUserStatus,
 	NormalizedState,
+	TeamUnreadState,
 	TypingUsersByChannel,
 	WebSocketStatus,
 } from "../../types";
@@ -49,6 +50,7 @@ export function useMainViewEvents({
 	setStatus,
 	setState,
 	setAppUpdate,
+	setTeamUnread,
 	setUserStatuses,
 	setTypingUsers,
 	setWsStatus,
@@ -82,7 +84,11 @@ export function useMainViewEvents({
 		}
 
 		function handlePost(event: Event) {
-			const post = (event as CustomEvent<{ post: MattermostPost }>).detail.post;
+			const detail = (
+				event as CustomEvent<{ post: MattermostPost; teamId?: string }>
+			).detail;
+			const post = detail.post;
+			const { teamId } = detail;
 			const postUsersPromise =
 				api && currentUser ? getPostUsers(api, [post], currentUser.id) : null;
 			setTypingUsers((current) => removeTypingUser(current, post.channel_id, post.user_id));
@@ -149,6 +155,11 @@ export function useMainViewEvents({
 						mention: current[post.channel_id]?.mention || mention,
 					},
 				}));
+				if (teamId) {
+					setTeamUnread((current) =>
+						current[teamId] ? current : { ...current, [teamId]: true },
+					);
+				}
 				const channel = state.channels[post.channel_id];
 				if (
 					settings.notificationPreference === "all" ||
@@ -244,7 +255,7 @@ export function useMainViewEvents({
 			);
 			window.removeEventListener("mattermost-websocket-typing", handleTyping);
 		};
-	}, [api, connect, currentUser, loadPostReactions, mutateSelectedChannelHistory, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setAppUpdate, setChannelNotifications, setError, setState, setStatus, setTypingUsers, setUserStatuses, setWsStatus]);
+	}, [api, connect, currentUser, loadPostReactions, mutateSelectedChannelHistory, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setAppUpdate, setChannelNotifications, setError, setState, setStatus, setTeamUnread, setTypingUsers, setUserStatuses, setWsStatus]);
 
 	useEffect(() => {
 		function handleSettingsUpdate(event: Event) {
@@ -335,6 +346,7 @@ type UseMainViewEventsArgs = {
 	setStatus: (status: AppStatus) => void;
 	setState: Dispatch<SetStateAction<NormalizedState>>;
 	setAppUpdate: Dispatch<SetStateAction<AppUpdateState>>;
+	setTeamUnread: Dispatch<SetStateAction<TeamUnreadState>>;
 	setTypingUsers: Dispatch<SetStateAction<TypingUsersByChannel>>;
 	setUserStatuses: Dispatch<SetStateAction<Record<string, MattermostUserStatus>>>;
 	setWsStatus: (status: WebSocketStatus) => void;

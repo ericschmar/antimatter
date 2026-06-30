@@ -136,6 +136,8 @@ export type ChannelNotificationState = Record<
 	}
 >;
 
+export type TeamUnreadState = Record<string, boolean>;
+
 export type TypingUsersByChannel = Record<
 	string,
 	Record<

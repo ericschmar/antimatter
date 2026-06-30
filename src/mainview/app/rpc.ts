@@ -13,10 +13,10 @@ const rpc = Electroview.defineRPC<MattermostClientRPC>({
 					}),
 				);
 			},
-			mattermostWebSocketPost: ({ post }) => {
+			mattermostWebSocketPost: ({ post, teamId }) => {
 				window.dispatchEvent(
 					new CustomEvent("mattermost-websocket-post", {
-						detail: { post },
+						detail: { post, teamId },
 					}),
 				);
 			},

@@ -850,6 +850,7 @@ function handleMattermostWebSocketMessage(raw: unknown) {
 	if (event.type === "post") {
 		sendMainWebviewMessage(mainWindow, "mattermostWebSocketPost", {
 			post: event.post,
+			teamId: event.teamId,
 		});
 	}
 	if (event.type === "reaction") {

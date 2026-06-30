@@ -101,6 +101,7 @@ h2 {
 	display: grid;
 	place-items: center;
 	flex: 0 0 auto;
+	position: relative;
 	width: 30px;
 	height: 30px;
 	border: 1px solid var(--border-strong);
@@ -124,6 +125,17 @@ h2 {
 	border-color: var(--amber-8);
 	background: var(--warm-bg);
 	color: var(--slate-1);
+}
+
+.team-tab-unread-dot {
+	position: absolute;
+	top: -2px;
+	right: -2px;
+	width: 7px;
+	height: 7px;
+	border-radius: 999px;
+	background: var(--warm-bg);
+	border: 1px solid var(--panel-bg);
 }
 
 .channel-scroll {

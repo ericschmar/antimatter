@@ -2,6 +2,7 @@ import { proxy } from "valtio";
 import type {
 	ChannelNotificationState,
 	MattermostPost,
+	TeamUnreadState,
 	TypingUsersByChannel,
 	WebSocketStatus,
 } from "../types";
@@ -21,6 +22,7 @@ export type MainViewUiState = {
 	loadingHistory: boolean;
 	replyTarget: MattermostPost | null;
 	status: AppStatus;
+	teamUnread: TeamUnreadState;
 	typingUsers: TypingUsersByChannel;
 	wsStatus: WebSocketStatus;
 };
@@ -36,6 +38,7 @@ export const initialMainViewUiState: MainViewUiState = {
 	loadingHistory: false,
 	replyTarget: null,
 	status: "idle",
+	teamUnread: {},
 	typingUsers: {},
 	wsStatus: "idle",
 };
@@ -85,6 +88,9 @@ export const uiActions = {
 	},
 	setStatus(status: AppStatus) {
 		uiStore.status = status;
+	},
+	setTeamUnread(next: Updater<TeamUnreadState>) {
+		uiStore.teamUnread = resolveUpdater(next, uiStore.teamUnread);
 	},
 	setTypingUsers(next: Updater<TypingUsersByChannel>) {
 		uiStore.typingUsers = resolveUpdater(next, uiStore.typingUsers);

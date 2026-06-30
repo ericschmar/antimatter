@@ -190,6 +190,7 @@ export function MainViewApp() {
 		setLoadingHistory,
 		setReplyTarget,
 		setStatus,
+		setTeamUnread,
 		setTypingUsers,
 		setWsStatus,
 	} = uiActions;
@@ -807,6 +808,12 @@ export function MainViewApp() {
 			}
 			setSelectedTeamId(team.id);
 			setSelectedChannelId(firstChannel?.id ?? null);
+			setTeamUnread((current) => {
+				if (!current[team.id]) return current;
+				const next = { ...current };
+				delete next[team.id];
+				return next;
+			});
 			setState((current) => ({
 				...current,
 				channels: {
@@ -1124,6 +1131,7 @@ export function MainViewApp() {
 		setWsStatus("idle");
 		setError(null);
 		setChannelNotifications({});
+		setTeamUnread({});
 		setChannelMembers([]);
 		resetUserPresence();
 	}
@@ -1237,6 +1245,7 @@ export function MainViewApp() {
 		setState,
 		setTypingUsers,
 		setAppUpdate,
+		setTeamUnread,
 		setUserStatuses,
 		setWsStatus,
 	});

@@ -1,65 +1,67 @@
 {
   "ping-federate-client": {
     "use_count": 0,
-    "view_count": 6,
+    "view_count": 9,
     "patch_count": 0,
-    "last_viewed_at": "2026-06-29T17:18:05.280233+00:00",
+    "last_viewed_at": "2026-06-30T15:19:11.233450+00:00",
     "created_at": "2026-06-29T16:47:17.903964+00:00",
     "state": "active",
     "pinned": false
   },
-  "svelte": {
+  "vercel-react-best-practices": {
     "use_count": 0,
-    "view_count": 6,
+    "view_count": 9,
     "patch_count": 0,
-    "last_viewed_at": "2026-06-29T17:18:05.298708+00:00",
-    "created_at": "2026-06-29T16:47:17.925051+00:00",
-    "state": "active",
-    "pinned": false
-  },
-  "redesign-existing-projects": {
-    "use_count": 0,
-    "view_count": 6,
-    "patch_count": 0,
-    "last_viewed_at": "2026-06-29T17:18:05.293554+00:00",
-    "created_at": "2026-06-29T16:47:17.919365+00:00",
+    "last_viewed_at": "2026-06-30T15:19:11.258536+00:00",
+    "created_at": "2026-06-29T16:47:17.930949+00:00",
     "state": "active",
     "pinned": false
   },
   "react": {
     "use_count": 0,
-    "view_count": 6,
+    "view_count": 9,
     "patch_count": 0,
-    "last_viewed_at": "2026-06-29T17:18:05.286676+00:00",
+    "last_viewed_at": "2026-06-30T15:19:11.240239+00:00",
     "created_at": "2026-06-29T16:47:17.913291+00:00",
     "state": "active",
     "pinned": false
   },
   "antimatter-workflow": {
     "created_by": "agent",
-    "use_count": 0,
-    "view_count": 2,
-    "patch_count": 0,
-    "last_viewed_at": "2026-06-29T17:18:05.266344+00:00",
+    "use_count": 2,
+    "view_count": 7,
+    "patch_count": 2,
+    "last_used_at": "2026-06-30T15:38:06.393252+00:00",
+    "last_viewed_at": "2026-06-30T15:38:06.384487+00:00",
+    "last_patched_at": "2026-06-30T15:38:30.767881+00:00",
     "created_at": "2026-06-29T16:53:41.994976+00:00",
     "state": "active",
     "pinned": false
   },
   "minimalist-ui": {
     "use_count": 0,
-    "view_count": 6,
+    "view_count": 9,
     "patch_count": 0,
-    "last_viewed_at": "2026-06-29T17:18:05.273487+00:00",
+    "last_viewed_at": "2026-06-30T15:19:11.227235+00:00",
     "created_at": "2026-06-29T16:47:17.892498+00:00",
     "state": "active",
     "pinned": false
   },
-  "vercel-react-best-practices": {
+  "svelte": {
     "use_count": 0,
-    "view_count": 6,
+    "view_count": 9,
     "patch_count": 0,
-    "last_viewed_at": "2026-06-29T17:18:05.304899+00:00",
-    "created_at": "2026-06-29T16:47:17.930949+00:00",
+    "last_viewed_at": "2026-06-30T15:19:11.252822+00:00",
+    "created_at": "2026-06-29T16:47:17.925051+00:00",
+    "state": "active",
+    "pinned": false
+  },
+  "redesign-existing-projects": {
+    "use_count": 0,
+    "view_count": 9,
+    "patch_count": 0,
+    "last_viewed_at": "2026-06-30T15:19:11.246499+00:00",
+    "created_at": "2026-06-29T16:47:17.919365+00:00",
     "state": "active",
     "pinned": false
   }

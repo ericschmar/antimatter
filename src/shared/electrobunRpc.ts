@@ -88,6 +88,7 @@ export type MattermostWebSocketEvent =
 	| {
 			type: "post";
 			post: object;
+			teamId?: string;
 	  }
 	| {
 			type: "reaction";
@@ -283,7 +284,7 @@ export type MattermostClientRPC = {
 		requests: {};
 		messages: {
 			mattermostWebSocketStatus: MattermostWebSocketStatus;
-			mattermostWebSocketPost: { post: object };
+			mattermostWebSocketPost: { post: object; teamId?: string };
 			mattermostWebSocketReaction: { reaction: object; removed: boolean };
 			mattermostWebSocketStatusChange: { status: unknown };
 			mattermostWebSocketTyping: {

@@ -11,6 +11,7 @@ describe("mattermost websocket event parsing", () => {
 			JSON.stringify({
 				event: "posted",
 				data: {
+					team_id: "team1",
 					post: JSON.stringify({
 						id: "post1",
 						channel_id: "channel1",
@@ -29,6 +30,35 @@ describe("mattermost websocket event parsing", () => {
 				channel_id: "channel1",
 				user_id: "user1",
 				message: "hello",
+			},
+			teamId: "team1",
+		});
+	});
+
+	test("omits teamId for direct messages", () => {
+		const message = parseMattermostWebSocketMessage(
+			JSON.stringify({
+				event: "posted",
+				data: {
+					team_id: "",
+					post: JSON.stringify({
+						id: "post2",
+						channel_id: "channel2",
+						user_id: "user2",
+						message: "dm",
+					}),
+				},
+			}),
+		);
+
+		expect(message).not.toBeNull();
+		expect(readMattermostWebSocketEvent(message!)).toEqual({
+			type: "post",
+			post: {
+				id: "post2",
+				channel_id: "channel2",
+				user_id: "user2",
+				message: "dm",
 			},
 		});
 	});

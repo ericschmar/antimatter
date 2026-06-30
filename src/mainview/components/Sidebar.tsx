@@ -42,6 +42,7 @@ import { UserMenu } from "./UserMenu";
 import type { WebSocketStatus, MattermostUser } from "../types";
 import type { ChannelContextMenuAction } from "../../shared/electrobunRpc";
 import { sortChannelsForSection } from "../utils/channelNavigation";
+import { showTeamUnreadDot } from "../utils/teamUnread";
 import "./Sidebar.css";
 
 export function Sidebar({
@@ -57,6 +58,7 @@ export function Sidebar({
 	teams,
 	wsStatus,
 	notifications,
+	teamUnread,
 	userImages,
 	userStatuses,
 	users,
@@ -85,6 +87,7 @@ export function Sidebar({
 	teams: MattermostTeam[];
 	wsStatus: WebSocketStatus;
 	notifications: ChannelNotificationState;
+	teamUnread: Record<string, boolean>;
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
 	users: Record<string, MattermostUser>;
@@ -186,9 +189,12 @@ export function Sidebar({
 					{teams.map((team) => (
 						<Tooltip.Root key={team.id}>
 							<Tooltip.Trigger asChild>
-								<Tabs.Trigger className="team-tab" value={team.id}>
-									{initials(team.display_name || team.name)}
-								</Tabs.Trigger>
+							<Tabs.Trigger className="team-tab" value={team.id}>
+								{initials(team.display_name || team.name)}
+								{showTeamUnreadDot(teamUnread, team.id, selectedTeamId) ? (
+									<span className="team-tab-unread-dot" aria-hidden />
+								) : null}
+							</Tabs.Trigger>
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Content
