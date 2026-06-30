@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildMentionInsertion, matchMentionQuery } from "./MessageComposer";
+import { buildMentionInsertion, matchMentionQuery } from "./mentions";
 
 describe("matchMentionQuery", () => {
 	test("matches an empty mention query after @", () => {
