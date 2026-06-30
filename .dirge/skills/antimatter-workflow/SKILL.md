@@ -64,4 +64,6 @@ TDD sequence that works here: write the failing storage test first (default + a 
 
 ## Known gaps
 
+- The test suite is pure-logic only — no DOM test harness (no @testing-library, jsdom, or happy-dom in `package.json`; tests are `*.test.ts` using `bun:test` that assert exported functions, not rendered components). So the TDD "write a failing test" step is not possible for runtime/DOM behavior such as scroll position, focus, or visibility. For those changes, implement the fix, run `bun run typecheck` / `bun test` / `bun run build` to confirm no regressions, and verify the actual behavior manually in the running ElectroBun app.
+- The main view runs in a WKWebView (via ElectroBun) that defers layout for non-visible windows, so scroll/geometry taken on return-to-app is stale. Scroll-pinned UI (e.g. `MessageTimeline`) needs a `visibilitychange` + window `focus` effect to re-assert position, not just `useLayoutEffect` + `ResizeObserver`.
 - `CLAUDE.md` may lag behind the actual scripts; confirm commands from `package.json` if they change.
