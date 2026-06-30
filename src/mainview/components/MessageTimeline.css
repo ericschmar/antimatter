@@ -183,6 +183,31 @@
 	line-height: 1.45;
 }
 
+.message-meta.has-avatar {
+	grid-template-columns: 22px minmax(0, 116px) 42px minmax(0, 1fr);
+	align-items: center;
+	column-gap: 6px;
+}
+
+.message-meta-avatar {
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 4px;
+	background: var(--warm-bg);
+	color: var(--slate-1);
+	font-size: 0.62rem;
+	font-weight: 800;
+	overflow: hidden;
+}
+
+.message-meta-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
 .message-author {
 	display: inline-flex;
 	align-items: center;

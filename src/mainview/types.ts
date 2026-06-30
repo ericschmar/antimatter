@@ -159,6 +159,7 @@ export type AppSettings = {
 	ownMessageIndicatorColor: string;
 	notificationSounds: boolean;
 	notificationPreference: NotificationPreference;
+	showProfilePictures: boolean;
 };
 
 export type WebSocketStatus = "idle" | "connecting" | "connected" | "disconnected" | "error";

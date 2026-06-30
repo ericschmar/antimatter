@@ -23,6 +23,7 @@ const showOwnMessageIndicatorsInput = document.getElementById("show-own-message-
 const ownMessageIndicatorColorInput = document.getElementById("own-message-indicator-color") as HTMLInputElement;
 const notificationPreferenceInput = document.getElementById("notification-preference") as HTMLSelectElement;
 const notificationSoundsInput = document.getElementById("notification-sounds") as HTMLInputElement;
+const showProfilePicturesInput = document.getElementById("show-profile-pictures") as HTMLInputElement;
 const closeButton = document.getElementById("close-settings") as HTMLButtonElement;
 const windowControlButtons = document.querySelectorAll<HTMLButtonElement>("[data-window-action]");
 
@@ -39,6 +40,7 @@ for (const element of [
 	ownMessageIndicatorColorInput,
 	notificationPreferenceInput,
 	notificationSoundsInput,
+	showProfilePicturesInput,
 ]) {
 	element.addEventListener("input", updateSettings);
 	element.addEventListener("change", updateSettings);
@@ -79,6 +81,7 @@ function renderSettings(settings: AppSettingsPayload) {
 	ownMessageIndicatorColorInput.value = settings.ownMessageIndicatorColor;
 	notificationPreferenceInput.value = settings.notificationPreference;
 	notificationSoundsInput.checked = settings.notificationSounds;
+	showProfilePicturesInput.checked = settings.showProfilePictures;
 }
 
 function readSettings(): AppSettingsPayload {
@@ -94,6 +97,7 @@ function readSettings(): AppSettingsPayload {
 			["all", "mentions", "none"],
 			"all",
 		),
+		showProfilePictures: showProfilePicturesInput.checked,
 	};
 }
 

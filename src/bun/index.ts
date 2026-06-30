@@ -56,6 +56,7 @@ let latestSettings: AppSettingsPayload = {
 	ownMessageIndicatorColor: "#46a758",
 	notificationSounds: true,
 	notificationPreference: "all",
+	showProfilePictures: true,
 };
 let installedFontCache: string[] | null = null;
 let appUpdateState: AppUpdateState = {

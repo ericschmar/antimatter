@@ -19,6 +19,7 @@ export const defaultSettings: AppSettings = {
 	ownMessageIndicatorColor: "#46a758",
 	notificationSounds: true,
 	notificationPreference: "all",
+	showProfilePictures: true,
 };
 
 export function loadConfig(): MattermostConfig | null {
@@ -177,6 +178,10 @@ function normalizeSettings(value: Partial<AppSettings>): AppSettings {
 			value.notificationPreference === "none"
 				? value.notificationPreference
 				: "all",
+		showProfilePictures:
+			typeof value.showProfilePictures === "boolean"
+				? value.showProfilePictures
+				: defaultSettings.showProfilePictures,
 	};
 }
 

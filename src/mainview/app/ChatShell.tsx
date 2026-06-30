@@ -413,8 +413,9 @@ export function ChatShell({
 								loadingHistory={ui.loadingHistory}
 								posts={posts}
 								resolveImageSrc={resolveImageSrc}
-								ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
-								showOwnMessageIndicators={settings.showOwnMessageIndicators}
+							ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
+							showOwnMessageIndicators={settings.showOwnMessageIndicators}
+							showProfilePictures={settings.showProfilePictures}
 								typingUsers={typingUsers}
 								userColors={userColors}
 								userImages={userImages}

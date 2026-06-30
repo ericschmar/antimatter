@@ -132,6 +132,7 @@ export type AppSettingsPayload = {
 	ownMessageIndicatorColor: string;
 	notificationSounds: boolean;
 	notificationPreference: "all" | "mentions" | "none";
+	showProfilePictures: boolean;
 };
 
 export type ChannelContextMenuRequest = {

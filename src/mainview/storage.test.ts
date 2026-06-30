@@ -110,6 +110,27 @@ describe("storage helpers", () => {
 		expect(loadSettings()).toMatchObject({
 			showOwnMessageIndicators: true,
 			ownMessageIndicatorColor: "#46a758",
+			showProfilePictures: true,
+		});
+	});
+
+	test("round-trips disabled profile pictures", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+		saveSettings({
+			fontFamily: "system",
+			fontSize: 14,
+			theme: "default",
+			showOwnMessageIndicators: false,
+			ownMessageIndicatorColor: "#8b5cf6",
+			notificationSounds: true,
+			notificationPreference: "all",
+			showProfilePictures: false,
+		});
+		expect(loadSettings()).toMatchObject({
+			showProfilePictures: false,
 		});
 	});
 
@@ -126,6 +147,7 @@ describe("storage helpers", () => {
 			ownMessageIndicatorColor: "#8b5cf6",
 			notificationSounds: true,
 			notificationPreference: "all",
+			showProfilePictures: true,
 		});
 		expect(loadSettings()).toMatchObject({
 			showOwnMessageIndicators: false,

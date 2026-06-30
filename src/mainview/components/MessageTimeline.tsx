@@ -27,6 +27,7 @@ export function MessageTimeline({
 	resolveImageSrc,
 	ownMessageIndicatorColor,
 	showOwnMessageIndicators,
+	showProfilePictures,
 	typingUsers,
 	onOpenAttachment,
 	onShowMessageContextMenu,
@@ -47,6 +48,7 @@ export function MessageTimeline({
 	resolveImageSrc: (src: string) => Promise<string>;
 	ownMessageIndicatorColor: string;
 	showOwnMessageIndicators: boolean;
+	showProfilePictures: boolean;
 	typingUsers: MattermostUser[];
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
@@ -200,9 +202,10 @@ export function MessageTimeline({
 									userImages={userImages}
 									userStatuses={userStatuses}
 									users={users}
-									resolveImageSrc={resolveImageSrc}
-									showOwnMessageIndicators={showOwnMessageIndicators}
-									onOpenAttachment={onOpenAttachment}
+								resolveImageSrc={resolveImageSrc}
+								showOwnMessageIndicators={showOwnMessageIndicators}
+								showProfilePictures={showProfilePictures}
+								onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
 									onSetUserColor={onSetUserColor}
 									onReply={onReply}
@@ -297,6 +300,7 @@ const MessageRow = memo(function MessageRow({
 	users,
 	resolveImageSrc,
 	showOwnMessageIndicators,
+	showProfilePictures,
 	onOpenAttachment,
 	onShowMessageContextMenu,
 	onSetUserColor,
@@ -313,6 +317,7 @@ const MessageRow = memo(function MessageRow({
 	users: Record<string, MattermostUser>;
 	resolveImageSrc: (src: string) => Promise<string>;
 	showOwnMessageIndicators: boolean;
+	showProfilePictures: boolean;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onSetUserColor: (userId: string, color: string) => void;
@@ -335,16 +340,25 @@ const MessageRow = memo(function MessageRow({
 				onShowMessageContextMenu(post);
 			}}
 		>
-			<div className="message-meta">
-				<UserDetailsTrigger
-					currentUserId={currentUserId}
-					fallback={post.user_id}
-					imageSrc={userImages[post.user_id]}
-					status={authorStatus}
-					userColor={userColor}
-					user={author}
-					onSetUserColor={onSetUserColor}
-				/>
+		<div className={showProfilePictures ? "message-meta has-avatar" : "message-meta"}>
+			{showProfilePictures ? (
+				<div className="message-meta-avatar">
+					{userImages[post.user_id] ? (
+						<img alt="" src={userImages[post.user_id]} />
+					) : (
+						initials(author?.nickname || author?.username || post.user_id)
+					)}
+				</div>
+			) : null}
+			<UserDetailsTrigger
+				currentUserId={currentUserId}
+				fallback={post.user_id}
+				imageSrc={userImages[post.user_id]}
+				status={authorStatus}
+				userColor={userColor}
+				user={author}
+				onSetUserColor={onSetUserColor}
+			/>
 				<time>{formatTime(post.create_at)}</time>
 				{post.pending ? <span className="message-state">sending</span> : null}
 				{post.failed ? <span className="message-state failed">failed</span> : null}
@@ -431,6 +445,7 @@ const MessageRow = memo(function MessageRow({
 	const visualPropsUnchanged =
 		prevProps.userColor === nextProps.userColor &&
 		prevProps.showOwnMessageIndicators === nextProps.showOwnMessageIndicators &&
+		prevProps.showProfilePictures === nextProps.showProfilePictures &&
 		prevProps.userStatuses[prevProps.post.user_id]?.status === nextProps.userStatuses[nextProps.post.user_id]?.status;
 
 	return postUnchanged && repliesUnchanged && visualPropsUnchanged;
