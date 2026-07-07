@@ -134,6 +134,7 @@ export type AppSettingsPayload = {
 	notificationSounds: boolean;
 	notificationPreference: "all" | "mentions" | "none";
 	showProfilePictures: boolean;
+	useNewComposer: boolean;
 };
 
 export type ChannelContextMenuRequest = {

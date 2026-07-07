@@ -162,6 +162,7 @@ export type AppSettings = {
 	notificationSounds: boolean;
 	notificationPreference: NotificationPreference;
 	showProfilePictures: boolean;
+	useNewComposer: boolean;
 };
 
 export type WebSocketStatus = "idle" | "connecting" | "connected" | "disconnected" | "error";

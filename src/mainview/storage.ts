@@ -20,6 +20,7 @@ export const defaultSettings: AppSettings = {
 	notificationSounds: true,
 	notificationPreference: "all",
 	showProfilePictures: true,
+	useNewComposer: false,
 };
 
 export function loadConfig(): MattermostConfig | null {
@@ -182,6 +183,10 @@ function normalizeSettings(value: Partial<AppSettings>): AppSettings {
 			typeof value.showProfilePictures === "boolean"
 				? value.showProfilePictures
 				: defaultSettings.showProfilePictures,
+		useNewComposer:
+			typeof value.useNewComposer === "boolean"
+				? value.useNewComposer
+				: defaultSettings.useNewComposer,
 	};
 }
 

@@ -94,6 +94,7 @@ let latestSettings: AppSettingsPayload = {
 	notificationSounds: true,
 	notificationPreference: "all",
 	showProfilePictures: true,
+	useNewComposer: false,
 };
 let installedFontCache: string[] | null = null;
 let appUpdateState: AppUpdateState = {

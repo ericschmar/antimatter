@@ -128,9 +128,42 @@ describe("storage helpers", () => {
 			notificationSounds: true,
 			notificationPreference: "all",
 			showProfilePictures: false,
+			useNewComposer: false,
 		});
 		expect(loadSettings()).toMatchObject({
 			showProfilePictures: false,
+		});
+	});
+
+	test("round-trips the new composer flag", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+		saveSettings({
+			fontFamily: "system",
+			fontSize: 14,
+			theme: "default",
+			showOwnMessageIndicators: true,
+			ownMessageIndicatorColor: "#46a758",
+			notificationSounds: true,
+			notificationPreference: "all",
+			showProfilePictures: true,
+			useNewComposer: true,
+		});
+		expect(loadSettings()).toMatchObject({
+			useNewComposer: true,
+		});
+	});
+
+	test("defaults the new composer flag off when omitted", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+		localStorage.setItem("mm-clone:settings", JSON.stringify({ fontFamily: "system" }));
+		expect(loadSettings()).toMatchObject({
+			useNewComposer: false,
 		});
 	});
 
@@ -148,6 +181,7 @@ describe("storage helpers", () => {
 			notificationSounds: true,
 			notificationPreference: "all",
 			showProfilePictures: true,
+			useNewComposer: false,
 		});
 		expect(loadSettings()).toMatchObject({
 			showOwnMessageIndicators: false,

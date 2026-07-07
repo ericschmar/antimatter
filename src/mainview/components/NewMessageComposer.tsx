@@ -1,59 +1,6 @@
-import {
-	BlockTypeSelect,
-	BoldItalicUnderlineToggles,
-	ChangeCodeMirrorLanguage,
-	CodeToggle,
-	codeBlockPlugin,
-	codeMirrorPlugin,
-	ConditionalContents,
-	createRootEditorSubscription$,
-	DiffSourceToggleWrapper,
-	diffSourcePlugin,
-	headingsPlugin,
-	imagePlugin,
-	InsertCodeBlock,
-	InsertTable,
-	InsertThematicBreak,
-	insertCodeMirror$,
-	linkDialogPlugin,
-	linkPlugin,
-	listsPlugin,
-	ListsToggle,
-	markdownShortcutPlugin,
-	MDXEditor,
-	type MDXEditorMethods,
-	quotePlugin,
-	realmPlugin,
-	Separator,
-	tablePlugin,
-	thematicBreakPlugin,
-	toolbarPlugin,
-	UndoRedo,
-} from "@mdxeditor/editor";
-import "@mdxeditor/editor/style.css";
-import {
-	Bold,
-	CheckSquare,
-	Code2,
-	FileCode2,
-	GitCompare,
-	Image,
-	Italic,
-	Link,
-	List,
-	ListOrdered,
-	Minus,
-	Paperclip,
-	Redo2,
-	Send,
-	SmilePlus,
-	Sticker,
-	Table2,
-	Type,
-	Underline,
-	Undo2,
-	X,
-} from "lucide-react";
+import MDEditor from "@uiw/react-md-editor";
+import "@uiw/react-md-editor/markdown-editor.css";
+import { Paperclip, Send, SmilePlus, Sticker, X } from "lucide-react";
 import {
 	forwardRef,
 	useCallback,
@@ -63,122 +10,21 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { COMMAND_PRIORITY_HIGH, PASTE_COMMAND, $getRoot } from "lexical";
-import type { KeyboardEvent } from "react";
-import type { LexicalEditor } from "lexical";
-import type { MattermostPost, MattermostUser } from "../types";
+import type { DragEvent, KeyboardEvent } from "react";
+import type { MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 import { normalizeOutgoingMessage } from "../utils/outgoingMessage";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { GiphyPickerPopover } from "./GiphyPickerPopover";
 import type { GiphyGif } from "./GiphyPickerPopover";
 import { MarkdownMessage } from "./MarkdownMessage";
+import type { MessageComposerHandle, MessageComposerProps } from "./MessageComposer";
 import { buildMentionInsertion, matchMentionQuery } from "./mentions";
-import "./MessageComposer.css";
+import "./NewMessageComposer.css";
 
-const TOOLBAR_ICON_SIZE = 14;
 const TYPING_UPDATE_INTERVAL_MS = 4000;
-
-function isLikelyCodePaste(text: string) {
-	const normalizedText = text.replace(/\r\n?/g, "\n");
-	const lines = normalizedText.split("\n");
-	const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
-	if (nonEmptyLines.length < 2) return false;
-
-	return (
-		nonEmptyLines.some((line) => /^\s{2,}|\t/.test(line)) ||
-		/[{}()[\];=<>]/.test(normalizedText) ||
-		/\b(class|const|def|enum|export|function|if|import|interface|let|return|type|var)\b/.test(
-			normalizedText,
-		)
-	);
-}
-
-const preserveCodePastePlugin = realmPlugin({
-	init(realm) {
-		realm.pub(createRootEditorSubscription$, (editor) =>
-			editor.registerCommand(
-				PASTE_COMMAND,
-				(event) => {
-					if (!(event instanceof ClipboardEvent)) return false;
-					const text = event.clipboardData?.getData("text/plain");
-					if (!text || !isLikelyCodePaste(text)) return false;
-
-					event.preventDefault();
-					realm.pub(insertCodeMirror$, {
-						code: text.replace(/\r\n?/g, "\n"),
-						language: "txt",
-					});
-					return true;
-				},
-				COMMAND_PRIORITY_HIGH,
-			),
-		);
-	},
-});
-
-function captureRootEditorPlugin(editorRef: React.RefObject<LexicalEditor | null>) {
-	return realmPlugin({
-		init(realm) {
-			realm.pub(createRootEditorSubscription$, (editor) => {
-				editorRef.current = editor;
-				return () => {
-					if (editorRef.current === editor) {
-						editorRef.current = null;
-					}
-				};
-			});
-		},
-	});
-}
-
-function composerToolbarIcon(name: string) {
-	const iconProps = {
-		"aria-hidden": true,
-		className: "composer-toolbar-icon",
-		size: TOOLBAR_ICON_SIZE,
-		strokeWidth: 2,
-	};
-
-	switch (name) {
-		case "undo":
-			return <Undo2 {...iconProps} />;
-		case "redo":
-			return <Redo2 {...iconProps} />;
-		case "format_bold":
-			return <Bold {...iconProps} />;
-		case "format_italic":
-			return <Italic {...iconProps} />;
-		case "format_underlined":
-			return <Underline {...iconProps} />;
-		case "frame_source":
-			return <Code2 {...iconProps} />;
-		case "code":
-			return <Code2 {...iconProps} />;
-		case "format_list_bulleted":
-			return <List {...iconProps} />;
-		case "format_list_numbered":
-			return <ListOrdered {...iconProps} />;
-		case "format_list_checked":
-			return <CheckSquare {...iconProps} />;
-		case "link":
-			return <Link {...iconProps} />;
-		case "add_photo":
-			return <Image {...iconProps} />;
-		case "table":
-			return <Table2 {...iconProps} />;
-		case "horizontal_rule":
-			return <Minus {...iconProps} />;
-		case "rich_text":
-			return <Type {...iconProps} />;
-		case "difference":
-			return <GitCompare {...iconProps} />;
-		case "markdown":
-			return <FileCode2 {...iconProps} />;
-		default:
-			return <span aria-hidden className="composer-toolbar-icon" />;
-	}
-}
+const MIN_CONTENT_HEIGHT = 72;
+const COMPOSER_CHROME_PX = 18;
 
 function giphyGifMarkdown(gif: GiphyGif) {
 	const src =
@@ -191,36 +37,10 @@ function giphyGifMarkdown(gif: GiphyGif) {
 	return `![${alt}](${src})`;
 }
 
-export type MessageComposerHandle = {
-	attachFiles: () => void;
-	attachImages: () => void;
-	focus: () => void;
-	openEmojiPicker: () => void;
-};
-
-export type MessageComposerProps = {
-	disabled: boolean;
-	replyTarget: MattermostPost | null;
-	editTarget: MattermostPost | null;
-	giphyApiKey?: string;
-	mentionUsers: MattermostUser[];
-	users: Record<string, MattermostUser>;
-	userColors: Record<string, string>;
-	currentUserId: string;
-	composerHeight: number;
-	maxComposerHeight: number;
-	onCancelEdit: () => void;
-	onCancelReply: () => void;
-	onEdit: (post: MattermostPost, message: string) => Promise<void>;
-	onRequestComposerHeight: (height: number) => void;
-	onSend: (message: string, rootId?: string, files?: File[]) => Promise<void>;
-	onTyping: (rootId?: string) => Promise<void>;
-};
-
-export const MessageComposer = forwardRef<
+export const NewMessageComposer = forwardRef<
 	MessageComposerHandle,
 	MessageComposerProps
->(function MessageComposer(
+>(function NewMessageComposer(
 	{
 		disabled,
 		editTarget,
@@ -251,8 +71,6 @@ export const MessageComposer = forwardRef<
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
 	const messageRef = useRef("");
 	const composerEditorRef = useRef<HTMLDivElement>(null);
-	const editorRef = useRef<MDXEditorMethods>(null);
-	const lexicalEditorRef = useRef<LexicalEditor | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const lastTypingUpdateRef = useRef(0);
 	const mentionSuggestionRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -277,24 +95,30 @@ export const MessageComposer = forwardRef<
 	}, [currentUserId, disabled, mentionMatch, mentionUsers]);
 	const showMentionSuggestions = mentionSuggestions.length > 0;
 
+	const getTextarea = useCallback(
+		() =>
+			composerEditorRef.current?.querySelector<HTMLTextAreaElement>(
+				"textarea",
+			) ?? null,
+		[],
+	);
+
 	const handleMessageChange = useCallback(
 		(nextMessage: string) => {
 			messageRef.current = nextMessage;
 			setMessage(nextMessage);
-			const lineCount = nextMessage.split(/\r\n|\r|\n/).length;
-			const shouldExpandForLargePaste =
-				composerHeight < maxComposerHeight &&
-				(lineCount > 6 || nextMessage.length > 800);
-			if (shouldExpandForLargePaste) {
-				onRequestComposerHeight(maxComposerHeight);
-			}
 			requestAnimationFrame(() => {
-				const editor = composerEditorRef.current;
-				const input = editor?.querySelector<HTMLElement>(".composer-input");
-				if (!input || composerHeight >= maxComposerHeight) return;
-				if (input.scrollHeight > input.clientHeight + 2) {
-					onRequestComposerHeight(maxComposerHeight);
-				}
+				const textarea = getTextarea();
+				if (!textarea) return;
+				const previousHeight = textarea.style.height;
+				textarea.style.height = "auto";
+				const contentHeight = textarea.scrollHeight;
+				textarea.style.height = previousHeight;
+				const next = Math.min(
+					maxComposerHeight,
+					Math.max(MIN_CONTENT_HEIGHT, contentHeight + COMPOSER_CHROME_PX),
+				);
+				if (next !== composerHeight) onRequestComposerHeight(next);
 			});
 			if (disabled || editTarget || nextMessage.trim().length === 0) return;
 
@@ -308,6 +132,7 @@ export const MessageComposer = forwardRef<
 			composerHeight,
 			disabled,
 			editTarget,
+			getTextarea,
 			maxComposerHeight,
 			onRequestComposerHeight,
 			onTyping,
@@ -316,20 +141,33 @@ export const MessageComposer = forwardRef<
 		],
 	);
 
+	const insertAtCaret = useCallback(
+		(text: string) => {
+			const textarea = getTextarea();
+			const start = textarea?.selectionStart ?? messageRef.current.length;
+			const end = textarea?.selectionEnd ?? messageRef.current.length;
+			const next =
+				messageRef.current.slice(0, start) +
+				text +
+				messageRef.current.slice(end);
+			const pos = start + text.length;
+			messageRef.current = next;
+			setMessage(next);
+			requestAnimationFrame(() => {
+				const ta = getTextarea();
+				ta?.focus();
+				ta?.setSelectionRange(pos, pos);
+			});
+		},
+		[getTextarea],
+	);
+
 	const insertEmoji = useCallback(
 		(emoji: string) => {
 			if (disabled || !emoji) return;
-			editorRef.current?.focus(
-				() => {
-					editorRef.current?.insertMarkdown(emoji);
-					handleMessageChange(
-						editorRef.current?.getMarkdown() ?? messageRef.current + emoji,
-					);
-				},
-				{ defaultSelection: "rootEnd", preventScroll: true },
-			);
+			insertAtCaret(emoji);
 		},
-		[disabled, handleMessageChange],
+		[disabled, insertAtCaret],
 	);
 
 	const insertGif = useCallback(
@@ -337,40 +175,32 @@ export const MessageComposer = forwardRef<
 			const gifMarkdown = giphyGifMarkdown(gif);
 			if (disabled || !gifMarkdown) return;
 			const markdownToInsert =
-				messageRef.current.trim().length > 0 ? `\n${gifMarkdown}\n` : gifMarkdown;
-			editorRef.current?.focus(
-				() => {
-					editorRef.current?.insertMarkdown(markdownToInsert);
-					handleMessageChange(
-						editorRef.current?.getMarkdown() ??
-							`${messageRef.current}${markdownToInsert}`,
-					);
-				},
-				{ defaultSelection: "rootEnd", preventScroll: true },
-			);
+				messageRef.current.trim().length > 0
+					? `\n${gifMarkdown}\n`
+					: gifMarkdown;
+			insertAtCaret(markdownToInsert);
 		},
-		[disabled, handleMessageChange],
+		[disabled, insertAtCaret],
 	);
 
 	const insertMention = useCallback(
 		(user: MattermostUser) => {
 			if (!mentionMatch) return;
 			const insertion = buildMentionInsertion(
-				message,
+				messageRef.current,
 				mentionMatch,
 				user.username,
 			);
 			messageRef.current = insertion.message;
 			setMessage(insertion.message);
-			editorRef.current?.setMarkdown(insertion.message);
-			lexicalEditorRef.current?.update(() => {
-				$getRoot().selectEnd();
-			});
-			lexicalEditorRef.current?.focus(undefined, {
-				defaultSelection: "rootEnd",
+			setActiveMentionIndex(0);
+			requestAnimationFrame(() => {
+				const ta = getTextarea();
+				ta?.focus();
+				ta?.setSelectionRange(insertion.cursorPosition, insertion.cursorPosition);
 			});
 		},
-		[mentionMatch, message],
+		[getTextarea, mentionMatch],
 	);
 
 	const openFilePicker = useCallback(
@@ -382,111 +212,6 @@ export const MessageComposer = forwardRef<
 		[disabled, editTarget],
 	);
 
-	const plugins = useMemo(
-		() => [
-			preserveCodePastePlugin(),
-			captureRootEditorPlugin(lexicalEditorRef)(),
-			toolbarPlugin({
-				toolbarClassName: "composer-toolbar",
-				toolbarContents: () => (
-					<DiffSourceToggleWrapper options={["rich-text", "source"]}>
-						<ConditionalContents
-							options={[
-								{
-									when: (editor) => editor?.editorType === "codeblock",
-									contents: () => <ChangeCodeMirrorLanguage />,
-								},
-								{
-									fallback: () => (
-										<>
-											<UndoRedo />
-											<Separator />
-											<BoldItalicUnderlineToggles />
-											<CodeToggle />
-											<Separator />
-											<ListsToggle />
-											<Separator />
-											<BlockTypeSelect />
-											<Separator />
-											<button
-												aria-label="Attach files"
-												className="composer-toolbar-button"
-												disabled={disabled || Boolean(editTarget)}
-												type="button"
-												onClick={() => openFilePicker()}
-											>
-												<Paperclip size={TOOLBAR_ICON_SIZE} />
-											</button>
-											<EmojiPickerPopover
-												label="Insert emoji"
-												open={emojiPickerOpen}
-												onSelectEmoji={(emoji) => insertEmoji(emoji)}
-												onOpenChange={setEmojiPickerOpen}
-											>
-												<button
-													aria-label="Insert emoji"
-													className="composer-toolbar-button"
-													disabled={disabled}
-													type="button"
-												>
-													<SmilePlus size={TOOLBAR_ICON_SIZE} />
-												</button>
-											</EmojiPickerPopover>
-											{giphyApiKey ? (
-												<GiphyPickerPopover
-													apiKey={giphyApiKey}
-													open={giphyPickerOpen}
-													onSelectGif={insertGif}
-													onOpenChange={setGiphyPickerOpen}
-												>
-													<button
-														aria-label="Insert GIF"
-														className="composer-toolbar-button"
-														disabled={disabled}
-														type="button"
-													>
-														<Sticker size={TOOLBAR_ICON_SIZE} />
-													</button>
-												</GiphyPickerPopover>
-											) : null}
-											<Separator />
-											<InsertTable />
-											<InsertThematicBreak />
-											<Separator />
-											<InsertCodeBlock />
-										</>
-									),
-								},
-							]}
-						/>
-					</DiffSourceToggleWrapper>
-				),
-			}),
-			headingsPlugin(),
-			listsPlugin(),
-			quotePlugin(),
-			thematicBreakPlugin(),
-			linkPlugin(),
-			linkDialogPlugin(),
-			imagePlugin(),
-			tablePlugin(),
-			codeBlockPlugin({ defaultCodeBlockLanguage: "txt" }),
-			codeMirrorPlugin(),
-			diffSourcePlugin({ viewMode: "rich-text" }),
-			markdownShortcutPlugin(),
-		],
-		[
-			disabled,
-			editTarget,
-			emojiPickerOpen,
-			giphyApiKey,
-			giphyPickerOpen,
-			insertEmoji,
-			insertGif,
-			openFilePicker,
-		],
-	);
-
 	async function submit() {
 		const normalizedMessage = normalizeOutgoingMessage(message.trim());
 		if (sending || (!normalizedMessage && files.length === 0)) return;
@@ -495,7 +220,6 @@ export const MessageComposer = forwardRef<
 			lastTypingUpdateRef.current = 0;
 			messageRef.current = "";
 			setMessage("");
-			editorRef.current?.setMarkdown("");
 			return;
 		}
 		const rootId = replyTarget?.root_id || replyTarget?.id;
@@ -507,7 +231,6 @@ export const MessageComposer = forwardRef<
 			messageRef.current = "";
 			setMessage("");
 			setFiles([]);
-			editorRef.current?.setMarkdown("");
 			onCancelReply();
 		} catch {
 			// MainViewApp surfaces send errors; keep the draft intact for retry.
@@ -517,9 +240,12 @@ export const MessageComposer = forwardRef<
 	}
 
 	function handleComposerKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+		// Capture phase: intercept before @uiw's handleKeyDown, which otherwise
+		// swallows Tab entirely and Enter on list-marker lines.
 		if (showMentionSuggestions) {
 			if (event.key === "ArrowDown") {
 				event.preventDefault();
+				event.stopPropagation();
 				setActiveMentionIndex((current) =>
 					(current + 1) % mentionSuggestions.length,
 				);
@@ -527,6 +253,7 @@ export const MessageComposer = forwardRef<
 			}
 			if (event.key === "ArrowUp") {
 				event.preventDefault();
+				event.stopPropagation();
 				setActiveMentionIndex(
 					(current) =>
 						(current - 1 + mentionSuggestions.length) %
@@ -536,38 +263,40 @@ export const MessageComposer = forwardRef<
 			}
 			if (event.key === "Enter" || event.key === "Tab") {
 				event.preventDefault();
+				event.stopPropagation();
 				insertMention(mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0]);
 				return;
 			}
 			if (event.key === "Escape") {
 				event.preventDefault();
+				event.stopPropagation();
 				setActiveMentionIndex(-1);
 				return;
 			}
 		}
 		if (
-			event.key !== "Enter" ||
-			event.shiftKey ||
-			event.metaKey ||
-			event.ctrlKey ||
-			event.altKey
+			event.key === "Enter" &&
+			!event.shiftKey &&
+			!event.metaKey &&
+			!event.ctrlKey &&
+			!event.altKey
 		) {
-			return;
+			event.preventDefault();
+			event.stopPropagation();
+			submit();
 		}
-		event.preventDefault();
-		submit();
 	}
 
-	function focusEditor() {
+	const focusEditor = useCallback(() => {
 		if (disabled) return;
-		editorRef.current?.focus(undefined, {
-			defaultSelection: "rootEnd",
-			preventScroll: true,
-		});
-	}
+		const textarea = getTextarea();
+		textarea?.focus();
+		const len = textarea?.value.length ?? 0;
+		textarea?.setSelectionRange(len, len);
+	}, [disabled, getTextarea]);
 
 	const handleDragEnter = useCallback(
-		(event: React.DragEvent<HTMLDivElement>) => {
+		(event: DragEvent<HTMLDivElement>) => {
 			if (disabled || editTarget) return;
 			event.preventDefault();
 			event.stopPropagation();
@@ -580,7 +309,7 @@ export const MessageComposer = forwardRef<
 	);
 
 	const handleDragLeave = useCallback(
-		(event: React.DragEvent<HTMLDivElement>) => {
+		(event: DragEvent<HTMLDivElement>) => {
 			if (disabled || editTarget) return;
 			event.preventDefault();
 			event.stopPropagation();
@@ -593,7 +322,7 @@ export const MessageComposer = forwardRef<
 	);
 
 	const handleDragOver = useCallback(
-		(event: React.DragEvent<HTMLDivElement>) => {
+		(event: DragEvent<HTMLDivElement>) => {
 			if (disabled || editTarget) return;
 			event.preventDefault();
 			event.stopPropagation();
@@ -603,7 +332,7 @@ export const MessageComposer = forwardRef<
 	);
 
 	const handleDrop = useCallback(
-		(event: React.DragEvent<HTMLDivElement>) => {
+		(event: DragEvent<HTMLDivElement>) => {
 			if (disabled || editTarget) return;
 			event.preventDefault();
 			event.stopPropagation();
@@ -629,14 +358,14 @@ export const MessageComposer = forwardRef<
 				setEmojiPickerOpen(true);
 			},
 		}),
-		[disabled, openFilePicker],
+		[disabled, focusEditor, openFilePicker],
 	);
 
 	useEffect(() => {
 		if (disabled) return;
 		const frame = requestAnimationFrame(focusEditor);
 		return () => cancelAnimationFrame(frame);
-	}, [disabled]);
+	}, [disabled, focusEditor]);
 
 	useEffect(() => {
 		setActiveMentionIndex(0);
@@ -654,9 +383,8 @@ export const MessageComposer = forwardRef<
 		setFiles([]);
 		messageRef.current = editTarget.message;
 		setMessage(editTarget.message);
-		editorRef.current?.setMarkdown(editTarget.message);
 		requestAnimationFrame(focusEditor);
-	}, [editTarget]);
+	}, [editTarget, focusEditor]);
 
 	const replyAuthor = replyTarget ? users[replyTarget.user_id] : undefined;
 	const replyLabel = replyTarget
@@ -666,7 +394,7 @@ export const MessageComposer = forwardRef<
 		: "";
 
 	return (
-		<div className="composer" onKeyDown={handleComposerKeyDown}>
+		<div className="composer composer-new" onKeyDownCapture={handleComposerKeyDown}>
 			<div
 				className={
 					disabled
@@ -678,10 +406,7 @@ export const MessageComposer = forwardRef<
 				ref={composerEditorRef}
 				onClick={(event) => {
 					const target = event.target as HTMLElement;
-					if (
-						target.closest("[contenteditable='true'], button, [role='toolbar']")
-					)
-						return;
+					if (target.closest("textarea, button, [role='toolbar']")) return;
 					focusEditor();
 				}}
 				onDragEnter={handleDragEnter}
@@ -689,15 +414,14 @@ export const MessageComposer = forwardRef<
 				onDragOver={handleDragOver}
 				onDrop={handleDrop}
 			>
-				<MDXEditor
-					className="composer-mdxeditor"
-					contentEditableClassName="composer-input"
-					iconComponentFor={composerToolbarIcon}
-					markdown={message}
-					plugins={plugins}
-					ref={editorRef}
-					readOnly={disabled}
-					onChange={handleMessageChange}
+				<MDEditor
+					hideToolbar
+					highlightEnable={false}
+					preview="edit"
+					textareaProps={{ readOnly: disabled }}
+					value={message}
+					visibleDragbar={false}
+					onChange={(value) => handleMessageChange(value ?? "")}
 				/>
 				{editTarget ? (
 					<div className="composer-reply-target edit">
@@ -714,7 +438,6 @@ export const MessageComposer = forwardRef<
 							onClick={() => {
 								messageRef.current = "";
 								setMessage("");
-								editorRef.current?.setMarkdown("");
 								onCancelEdit();
 							}}
 						>
@@ -818,6 +541,47 @@ export const MessageComposer = forwardRef<
 				}}
 			/>
 			<div className="composer-actions">
+				<button
+					aria-label="Attach files"
+					className="composer-action-button"
+					disabled={disabled || Boolean(editTarget)}
+					type="button"
+					onClick={() => openFilePicker()}
+				>
+					<Paperclip size={16} />
+				</button>
+				<EmojiPickerPopover
+					label="Insert emoji"
+					open={emojiPickerOpen}
+					onSelectEmoji={(emoji) => insertEmoji(emoji)}
+					onOpenChange={setEmojiPickerOpen}
+				>
+					<button
+						aria-label="Insert emoji"
+						className="composer-action-button"
+						disabled={disabled}
+						type="button"
+					>
+						<SmilePlus size={16} />
+					</button>
+				</EmojiPickerPopover>
+				{giphyApiKey ? (
+					<GiphyPickerPopover
+						apiKey={giphyApiKey}
+						open={giphyPickerOpen}
+						onSelectGif={insertGif}
+						onOpenChange={setGiphyPickerOpen}
+					>
+						<button
+							aria-label="Insert GIF"
+							className="composer-action-button"
+							disabled={disabled}
+							type="button"
+						>
+							<Sticker size={16} />
+						</button>
+					</GiphyPickerPopover>
+				) : null}
 				<button
 					aria-label="Send message"
 					className="send-button"

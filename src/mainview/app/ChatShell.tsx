@@ -9,7 +9,9 @@ import { CreateChannelDialog } from "../components/CreateChannelDialog";
 import {
 	MessageComposer,
 	type MessageComposerHandle,
+	type MessageComposerProps,
 } from "../components/MessageComposer";
+import { NewMessageComposer } from "../components/NewMessageComposer";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import { MessageTimeline } from "../components/MessageTimeline";
 import { Sidebar } from "../components/Sidebar";
@@ -147,6 +149,24 @@ export function ChatShell({
 				username: "Someone",
 			},
 	);
+	const composerProps: MessageComposerProps = {
+		composerHeight: visibleComposerHeight,
+		currentUserId: currentUser.id,
+		disabled: !selectedChannelId || ui.status === "loading",
+		editTarget,
+		giphyApiKey,
+		maxComposerHeight: effectiveMaxComposerHeight,
+		mentionUsers: selectedChannelUsers,
+		replyTarget,
+		userColors,
+		users,
+		onCancelEdit,
+		onCancelReply,
+		onEdit: onEditMessage,
+		onRequestComposerHeight: onSetComposerHeight,
+		onSend: onSendMessage,
+		onTyping: onSendTyping,
+	};
 
 	function resizeSidebar(_: SyntheticEvent, data: ResizeCallbackData) {
 		onSetSidebarWidth(data.size.width);
@@ -442,25 +462,11 @@ export function ChatShell({
 									className="resizable-composer"
 									style={{ height: visibleComposerHeight }}
 								>
-									<MessageComposer
-										composerHeight={visibleComposerHeight}
-										currentUserId={currentUser.id}
-										disabled={!selectedChannelId || ui.status === "loading"}
-										editTarget={editTarget}
-										giphyApiKey={giphyApiKey}
-										maxComposerHeight={effectiveMaxComposerHeight}
-										mentionUsers={selectedChannelUsers}
-										ref={composerRef}
-										replyTarget={replyTarget}
-										userColors={userColors}
-										users={users}
-										onCancelEdit={onCancelEdit}
-										onCancelReply={onCancelReply}
-										onEdit={onEditMessage}
-										onRequestComposerHeight={onSetComposerHeight}
-										onSend={onSendMessage}
-										onTyping={onSendTyping}
-									/>
+								{settings.useNewComposer ? (
+									<NewMessageComposer {...composerProps} ref={composerRef} />
+								) : (
+									<MessageComposer {...composerProps} ref={composerRef} />
+								)}
 								</div>
 							</Resizable>
 						</section>

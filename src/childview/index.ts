@@ -24,6 +24,7 @@ const ownMessageIndicatorColorInput = document.getElementById("own-message-indic
 const notificationPreferenceInput = document.getElementById("notification-preference") as HTMLSelectElement;
 const notificationSoundsInput = document.getElementById("notification-sounds") as HTMLInputElement;
 const showProfilePicturesInput = document.getElementById("show-profile-pictures") as HTMLInputElement;
+const useNewComposerInput = document.getElementById("use-new-composer") as HTMLInputElement;
 const closeButton = document.getElementById("close-settings") as HTMLButtonElement;
 const windowControlButtons = document.querySelectorAll<HTMLButtonElement>("[data-window-action]");
 
@@ -41,6 +42,7 @@ for (const element of [
 	notificationPreferenceInput,
 	notificationSoundsInput,
 	showProfilePicturesInput,
+	useNewComposerInput,
 ]) {
 	element.addEventListener("input", updateSettings);
 	element.addEventListener("change", updateSettings);
@@ -82,6 +84,7 @@ function renderSettings(settings: AppSettingsPayload) {
 	notificationPreferenceInput.value = settings.notificationPreference;
 	notificationSoundsInput.checked = settings.notificationSounds;
 	showProfilePicturesInput.checked = settings.showProfilePictures;
+	useNewComposerInput.checked = settings.useNewComposer;
 }
 
 function readSettings(): AppSettingsPayload {
@@ -98,6 +101,7 @@ function readSettings(): AppSettingsPayload {
 			"all",
 		),
 		showProfilePictures: showProfilePicturesInput.checked,
+		useNewComposer: useNewComposerInput.checked,
 	};
 }
 
