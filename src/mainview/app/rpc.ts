@@ -1,5 +1,6 @@
 import Electrobun, { Electroview } from "electrobun/view";
 import type { MattermostClientRPC } from "../../shared/electrobunRpc";
+import { rendererLogVia } from "./rendererLog";
 
 const rpc = Electroview.defineRPC<MattermostClientRPC>({
 	maxRequestTime: 30000,
@@ -14,6 +15,11 @@ const rpc = Electroview.defineRPC<MattermostClientRPC>({
 				);
 			},
 			mattermostWebSocketPost: ({ post, teamId }) => {
+				rendererLog("renderer", "RPC message received:", {
+					eventType: "mattermost-websocket-post",
+					postId: (post as any).id,
+					hasFocus: document.hasFocus(),
+				});
 				window.dispatchEvent(
 					new CustomEvent("mattermost-websocket-post", {
 						detail: { post, teamId },
@@ -88,3 +94,12 @@ const rpc = Electroview.defineRPC<MattermostClientRPC>({
 });
 
 export const electrobun = new Electrobun.Electroview({ rpc });
+
+// Forward a renderer log line to the bun process, which appends it to the
+// shared log file. Renderer console output is invisible in packaged builds, so
+// routing through here keeps the whole notification pipeline in one file for
+// cross-process timestamp correlation. See issue antimatter-vkb.
+export function rendererLog(tag: string, ...args: unknown[]): void {
+	const send = electrobun.rpc?.send?.rendererLog;
+	if (send) rendererLogVia(send, tag, args);
+}

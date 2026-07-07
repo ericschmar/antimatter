@@ -56,6 +56,19 @@ TDD sequence that works here: write the failing storage test first (default + a 
   - `bun test`
   - `bun run build`
 
+## Building & inspecting packaged builds
+
+- `bun run build` (alias `electrobun build`) defaults to **env=dev** and produces `build/dev-macos-arm64/Antimatter-dev.app` — a DEV build that does NOT bundle JS into the .app (it runs from source). Use `bun run build:release` (`--env=stable` → `build/stable-macos-arm64/Antimatter.app`) or `bun run build:canary` (`--env=canary` → `build/canary-macos-arm64/Antimatter-canary.app`) to produce a real packaged bundle.
+- Stable/canary bundles ship JS inside `Contents/Resources/<hash>.tar.zst`. To verify source changes are actually in the bundle: `tar --use-compress-program=unzstd -xf <file>` then grep the extracted `app/bun/index.js` / `app/views/mainview/index.js`.
+- A stale `.tar.zst` dated before your source means you built the wrong env; `bun run build` (dev) does NOT refresh a stable/canary dir. `rm -rf build/<env>-macos-arm64` and rebuild with the matching `--env`.
+
+## Reading runtime logs from a packaged build
+
+- A GUI app launched from Finder routes stdout/stderr to `/dev/null`, so bun-process `console.log` is invisible by default.
+- To see bun logs (`[WS]`, `[RPC]`, `[Notification]`): run the launcher from a terminal so stdout is attached — `<bundle>/Contents/MacOS/launcher 2>&1 | tee ~/Desktop/antimatter-bun.log`, then `grep -E '\[WS\]|\[RPC\]|\[Notification\]'`. App Nap still engages (it is keyed on window occlusion, not launch method), so terminal-launching is safe for reproducing backgrounded behavior.
+- Renderer (WKWebView) logs (`[Renderer]`, `[Notification] Requesting from renderer`) do NOT reach the terminal — they are only visible in DEV mode via Safari → Develop menu → machine → the Antimatter webview → Console; release/packaged builds suppress the JS console, so correlate renderer timestamps by reproducing in `bun run dev`.
+- `log stream` / Console.app are unreliable for raw `console.log` (ElectroBun does not bridge to os_log); prefer the terminal-launch method.
+
 ## MDXEditor/Lexical notes
 
 - `MDXEditorMethods.focus({ defaultSelection: "rootEnd" })` only uses the default selection when no Lexical selection exists; it does not force an existing caret to the end.

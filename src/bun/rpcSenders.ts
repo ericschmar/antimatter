@@ -16,7 +16,13 @@ export function sendMainWebviewMessage<K extends keyof MainWebviewMessages>(
 	payload: MainWebviewMessages[K],
 ) {
 	const rpc = window.webview.rpc as MessageSender<MainWebviewMessages>;
+	console.log("[RPC] Sending message:", {
+		message,
+		rpcSendExists: !!rpc.send?.[message],
+		timestamp: Date.now(),
+	});
 	rpc.send?.[message]?.(payload);
+	console.log("[RPC] Message sent:", { message });
 }
 
 export function sendSettingsWebviewMessage<K extends keyof SettingsWebviewMessages>(

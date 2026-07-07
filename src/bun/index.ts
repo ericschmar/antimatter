@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { tmpdir } from "node:os";
 import { app as electrobunApp, ApplicationMenu, BrowserView, BrowserWindow, ContextMenu, Updater, Utils } from "electrobun/bun";
 import { getFonts } from "font-list";
 import {
@@ -19,6 +20,7 @@ import {
 	sendMainWebviewMessage,
 	sendSettingsWebviewMessage,
 } from "./rpcSenders";
+import { appendLogLine, formatLogLine } from "./logger";
 import type {
 	ApplicationMenuAction,
 	AppSettingsPayload,
@@ -33,6 +35,41 @@ import type {
 	MattermostWebSocketConfig,
 	SettingsWindowRPC,
 } from "../shared/electrobunRpc";
+
+// Resolve an app-scoped logs directory and tee all bun console output into it
+// so the notification-pipeline diagnostic logs survive even when the packaged
+// app's stdout is /dev/null. See issue antimatter-vkb.
+let logDir: string;
+try {
+	logDir = Utils.paths.userLogs;
+} catch {
+	logDir = tmpdir();
+}
+
+function installConsoleTee(dir: string): void {
+	const original = {
+		log: console.log,
+		warn: console.warn,
+		error: console.error,
+		info: console.info,
+	};
+	const tee = (tag: string, fn: (...args: unknown[]) => void) =>
+		(...args: unknown[]) => {
+			try {
+				appendLogLine(dir, formatLogLine(Date.now(), tag, args));
+			} catch {
+				// Logging must never crash the app.
+			}
+			fn(...args);
+		};
+	console.log = tee("log", original.log);
+	console.warn = tee("warn", original.warn);
+	console.error = tee("error", original.error);
+	console.info = tee("info", original.info);
+}
+
+installConsoleTee(logDir);
+appendLogLine(logDir, formatLogLine(Date.now(), "session", ["--- Antimatter session started ---"]));
 
 let mattermostSocket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -114,6 +151,13 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 				return { success: true };
 			},
 			showNotification: (notification) => {
+				// Final handoff: OS notification fired from bun. Correlate vs the
+				// bun [WS]/[RPC] and renderer [Notification] logs to distinguish
+				// bun-process throttling from renderer/WKWebView throttling (antimatter-vkb).
+				console.log("[Notification] Fired by bun:", {
+					title: notification.title,
+					timestamp: Date.now(),
+				});
 				Utils.showNotification(notification);
 				return { success: true };
 			},
@@ -143,7 +187,19 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 			downloadAppUpdate: () => downloadAppUpdate(),
 			applyAppUpdate: () => applyAppUpdate(),
 		},
-		messages: {},
+		messages: {
+			// Renderer (WKWebView) console output is invisible in packaged
+			// builds, so the webview forwards each log line here for the bun
+			// process to append to the shared log file. The line is already
+			// formatted (timestamp + tag) on the renderer side. See antimatter-vkb.
+			rendererLog: ({ line }) => {
+				try {
+					appendLogLine(logDir, line);
+				} catch {
+					// Logging must never crash the app.
+				}
+			},
+		},
 	},
 });
 
@@ -800,7 +856,12 @@ function openMattermostWebSocket(config: MattermostWebSocketConfig) {
 
 	socket.addEventListener("message", (event) => {
 		if (mattermostSocket !== socket) return;
-		handleMattermostWebSocketMessage(event.data);
+		const rawMessage = event.data;
+		console.log("[WS] Message received:", {
+			timestamp: Date.now(),
+			rawType: typeof rawMessage,
+		});
+		handleMattermostWebSocketMessage(rawMessage);
 	});
 
 	socket.addEventListener("close", (event) => {
@@ -848,6 +909,11 @@ function handleMattermostWebSocketMessage(raw: unknown) {
 		});
 	}
 	if (event.type === "post") {
+		console.log("[WS] Post event:", {
+			postId: (event.post as any).id,
+			createAt: (event.post as any).create_at,
+			channelId: (event.post as any).channel_id,
+		});
 		sendMainWebviewMessage(mainWindow, "mattermostWebSocketPost", {
 			post: event.post,
 			teamId: event.teamId,

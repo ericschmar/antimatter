@@ -29,7 +29,7 @@ import {
 	mergeUsers,
 	updateChannelLastPostAt,
 } from "../../utils/state";
-import { electrobun } from "../../app/rpc";
+import { electrobun, rendererLog } from "../../app/rpc";
 
 export function useMainViewEvents({
 	api,
@@ -143,6 +143,12 @@ export function useMainViewEvents({
 				});
 				void loadPostReactions(api, [post]);
 			}
+			rendererLog("Notification", "Channel check:", {
+				postId: post.id,
+				postChannelId: post.channel_id,
+				selectedChannelId: selectedChannelRef.current,
+				isSelectedChannel: post.channel_id === selectedChannelRef.current,
+			});
 			if (post.channel_id !== selectedChannelRef.current) {
 				const mention = Boolean(
 					currentUser &&
@@ -161,6 +167,14 @@ export function useMainViewEvents({
 					);
 				}
 				const channel = state.channels[post.channel_id];
+				rendererLog("Notification", "Settings check:", {
+					postId: post.id,
+					notificationPreference: settings.notificationPreference,
+					hasMention: mention,
+					willNotify:
+						settings.notificationPreference === "all" ||
+						(settings.notificationPreference === "mentions" && mention),
+				});
 				if (
 					settings.notificationPreference === "all" ||
 					(settings.notificationPreference === "mentions" && mention)
@@ -180,6 +194,13 @@ export function useMainViewEvents({
 						const channelName = channel
 							? channelLabel(channel, notificationUsers, currentUser?.id)
 							: "Mattermost";
+						// Handoff back to bun: renderer asks bun to fire the OS notification.
+						// Correlate vs "[Notification] Fired by bun" to separate renderer
+						// decision delay from bun fire delay (antimatter-vkb).
+						rendererLog("Notification", "Requesting from renderer:", {
+							postId: post.id,
+							hasFocus: document.hasFocus(),
+						});
 						void electrobun.rpc!.request.showNotification({
 							title: `${sender} in ${channelName}`,
 							body: post.message,
@@ -187,9 +208,28 @@ export function useMainViewEvents({
 						});
 					};
 					if (state.users[post.user_id] || !postUsersPromise) {
+						rendererLog("Notification", "Showing immediately:", {
+							postId: post.id,
+							userCached: !!state.users[post.user_id],
+						});
 						showNotification();
 					} else {
-						void postUsersPromise.then(showNotification).catch(() => showNotification());
+						rendererLog("Notification", "Waiting for user data:", {
+							postId: post.id,
+							userId: post.user_id,
+						});
+						void postUsersPromise.then((users) => {
+							rendererLog("Notification", "User data loaded, showing:", {
+								postId: post.id,
+								usersLoaded: users.length,
+							});
+							showNotification(users);
+						}).catch(() => {
+							rendererLog("Notification", "User data failed, showing anyway:", {
+								postId: post.id,
+							});
+							showNotification();
+						});
 					}
 				}
 			}

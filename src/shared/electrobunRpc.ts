@@ -278,7 +278,9 @@ export type MattermostClientRPC = {
 				response: AppUpdateState;
 			};
 		};
-		messages: {};
+		messages: {
+			rendererLog: { line: string };
+		};
 	};
 	webview: {
 		requests: {};
