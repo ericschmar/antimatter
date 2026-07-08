@@ -1,6 +1,25 @@
 import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
-import { Paperclip, Send, SmilePlus, Sticker, X } from "lucide-react";
+import {
+	Bold,
+	CaseSensitive,
+	Code,
+	Code2,
+	Eye,
+	EyeOff,
+	Heading,
+	Italic,
+	Link,
+	List,
+	ListOrdered,
+	Paperclip,
+	Quote,
+	Send,
+	SmilePlus,
+	Sticker,
+	Strikethrough,
+	X,
+} from "lucide-react";
 import {
 	forwardRef,
 	useCallback,
@@ -14,6 +33,12 @@ import type { DragEvent, KeyboardEvent } from "react";
 import type { MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 import { normalizeOutgoingMessage } from "../utils/outgoingMessage";
+import {
+	insertLink,
+	toggleLinePrefix,
+	wrapSelection,
+} from "./markdownActions";
+import type { SelectionRange, TransformResult } from "./markdownActions";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { GiphyPickerPopover } from "./GiphyPickerPopover";
 import type { GiphyGif } from "./GiphyPickerPopover";
@@ -23,8 +48,6 @@ import { buildMentionInsertion, matchMentionQuery } from "./mentions";
 import "./NewMessageComposer.css";
 
 const TYPING_UPDATE_INTERVAL_MS = 4000;
-const MIN_CONTENT_HEIGHT = 72;
-const COMPOSER_CHROME_PX = 18;
 
 function giphyGifMarkdown(gif: GiphyGif) {
 	const src =
@@ -50,12 +73,9 @@ export const NewMessageComposer = forwardRef<
 		users,
 		userColors,
 		currentUserId,
-		composerHeight,
-		maxComposerHeight,
 		onCancelEdit,
 		onCancelReply,
 		onEdit,
-		onRequestComposerHeight,
 		onSend,
 		onTyping,
 	},
@@ -69,6 +89,8 @@ export const NewMessageComposer = forwardRef<
 	const [fileAccept, setFileAccept] = useState<string | undefined>();
 	const [sending, setSending] = useState(false);
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
+	const [showToolbar, setShowToolbar] = useState(false);
+	const [previewMode, setPreviewMode] = useState(false);
 	const messageRef = useRef("");
 	const composerEditorRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +99,7 @@ export const NewMessageComposer = forwardRef<
 	const dragCounterRef = useRef(0);
 	const canSend =
 		!disabled && !sending && (message.trim().length > 0 || files.length > 0);
+	const formattingDisabled = disabled || previewMode;
 	const mentionMatch = useMemo(() => matchMentionQuery(message), [message]);
 	const mentionSuggestions = useMemo(() => {
 		if (!mentionMatch || disabled) return [];
@@ -94,6 +117,74 @@ export const NewMessageComposer = forwardRef<
 			.slice(0, 8);
 	}, [currentUserId, disabled, mentionMatch, mentionUsers]);
 	const showMentionSuggestions = mentionSuggestions.length > 0;
+	const formatActions = useMemo<
+		{
+			key: string;
+			label: string;
+			Icon: typeof Bold;
+			run: (message: string, selection: SelectionRange) => TransformResult;
+		}[]
+	>(
+		() => [
+			{
+				key: "bold",
+				label: "Bold",
+				Icon: Bold,
+				run: (message, selection) => wrapSelection(message, selection, "**", "**"),
+			},
+			{
+				key: "italic",
+				label: "Italic",
+				Icon: Italic,
+				run: (message, selection) => wrapSelection(message, selection, "*", "*"),
+			},
+			{
+				key: "strikethrough",
+				label: "Strikethrough",
+				Icon: Strikethrough,
+				run: (message, selection) => wrapSelection(message, selection, "~~", "~~"),
+			},
+			{
+				key: "code",
+				label: "Inline code",
+				Icon: Code,
+				run: (message, selection) => wrapSelection(message, selection, "`", "`"),
+			},
+			{
+				key: "code-block",
+				label: "Code block",
+				Icon: Code2,
+				run: (message, selection) =>
+					wrapSelection(message, selection, "\n```\n", "\n```\n"),
+			},
+			{ key: "link", label: "Link", Icon: Link, run: insertLink },
+			{
+				key: "heading",
+				label: "Heading",
+				Icon: Heading,
+				run: (message, selection) => toggleLinePrefix(message, selection, "## "),
+			},
+			{
+				key: "quote",
+				label: "Quote",
+				Icon: Quote,
+				run: (message, selection) => toggleLinePrefix(message, selection, "> "),
+			},
+			{
+				key: "list",
+				label: "Bulleted list",
+				Icon: List,
+				run: (message, selection) => toggleLinePrefix(message, selection, "- "),
+			},
+			{
+				key: "numbered",
+				label: "Numbered list",
+				Icon: ListOrdered,
+				run: (message, selection) => toggleLinePrefix(message, selection, "1. "),
+			},
+		],
+		[],
+	);
 
 	const getTextarea = useCallback(
 		() =>
@@ -107,19 +198,6 @@ export const NewMessageComposer = forwardRef<
 		(nextMessage: string) => {
 			messageRef.current = nextMessage;
 			setMessage(nextMessage);
-			requestAnimationFrame(() => {
-				const textarea = getTextarea();
-				if (!textarea) return;
-				const previousHeight = textarea.style.height;
-				textarea.style.height = "auto";
-				const contentHeight = textarea.scrollHeight;
-				textarea.style.height = previousHeight;
-				const next = Math.min(
-					maxComposerHeight,
-					Math.max(MIN_CONTENT_HEIGHT, contentHeight + COMPOSER_CHROME_PX),
-				);
-				if (next !== composerHeight) onRequestComposerHeight(next);
-			});
 			if (disabled || editTarget || nextMessage.trim().length === 0) return;
 
 			const now = Date.now();
@@ -128,17 +206,7 @@ export const NewMessageComposer = forwardRef<
 			lastTypingUpdateRef.current = now;
 			void onTyping(replyTarget?.root_id || replyTarget?.id);
 		},
-		[
-			composerHeight,
-			disabled,
-			editTarget,
-			getTextarea,
-			maxComposerHeight,
-			onRequestComposerHeight,
-			onTyping,
-			replyTarget?.id,
-			replyTarget?.root_id,
-		],
+		[disabled, editTarget, onTyping, replyTarget?.id, replyTarget?.root_id],
 	);
 
 	const insertAtCaret = useCallback(
@@ -202,6 +270,39 @@ export const NewMessageComposer = forwardRef<
 		},
 		[getTextarea, mentionMatch],
 	);
+
+	const runTransform = useCallback(
+		(
+			transform: (
+				message: string,
+				selection: SelectionRange,
+			) => TransformResult,
+		) => {
+			if (disabled) return;
+			const textarea = getTextarea();
+			const selection: SelectionRange = {
+				start: textarea?.selectionStart ?? messageRef.current.length,
+				end: textarea?.selectionEnd ?? messageRef.current.length,
+			};
+			const result = transform(messageRef.current, selection);
+			messageRef.current = result.message;
+			setMessage(result.message);
+			requestAnimationFrame(() => {
+				const ta = getTextarea();
+				if (!ta) return;
+				ta.focus();
+				ta.setSelectionRange(result.selection.start, result.selection.end);
+			});
+		},
+		[disabled, getTextarea],
+	);
+
+	const toggleToolbar = useCallback(() => {
+		setShowToolbar((on) => {
+			if (on) setPreviewMode(false);
+			return !on;
+		});
+	}, []);
 
 	const openFilePicker = useCallback(
 		(accept?: string) => {
@@ -417,7 +518,7 @@ export const NewMessageComposer = forwardRef<
 				<MDEditor
 					hideToolbar
 					highlightEnable={false}
-					preview="edit"
+					preview={previewMode ? "preview" : "edit"}
 					textareaProps={{ readOnly: disabled }}
 					value={message}
 					visibleDragbar={false}
@@ -541,47 +642,100 @@ export const NewMessageComposer = forwardRef<
 				}}
 			/>
 			<div className="composer-actions">
-				<button
-					aria-label="Attach files"
-					className="composer-action-button"
-					disabled={disabled || Boolean(editTarget)}
-					type="button"
-					onClick={() => openFilePicker()}
-				>
-					<Paperclip size={16} />
-				</button>
-				<EmojiPickerPopover
-					label="Insert emoji"
-					open={emojiPickerOpen}
-					onSelectEmoji={(emoji) => insertEmoji(emoji)}
-					onOpenChange={setEmojiPickerOpen}
-				>
+				<div className="composer-actions-group">
 					<button
-						aria-label="Insert emoji"
-						className="composer-action-button"
-						disabled={disabled}
+						aria-label={
+							showToolbar
+								? "Hide formatting toolbar"
+								: "Show formatting toolbar"
+						}
+						className={
+							showToolbar
+								? "composer-action-button active"
+								: "composer-action-button"
+						}
+						title="Formatting"
 						type="button"
+						onClick={toggleToolbar}
 					>
-						<SmilePlus size={16} />
+						<CaseSensitive size={14} />
 					</button>
-				</EmojiPickerPopover>
-				{giphyApiKey ? (
-					<GiphyPickerPopover
-						apiKey={giphyApiKey}
-						open={giphyPickerOpen}
-						onSelectGif={insertGif}
-						onOpenChange={setGiphyPickerOpen}
+					{showToolbar ? (
+						<>
+							{formatActions.map(({ key, label, Icon, run }) => (
+								<button
+									aria-label={label}
+									className="composer-toolbar-button"
+									disabled={formattingDisabled}
+									key={key}
+									title={label}
+									type="button"
+									onClick={() => runTransform(run)}
+								>
+									<Icon size={14} />
+								</button>
+							))}
+							<span aria-hidden="true" className="composer-toolbar-separator" />
+							<button
+								aria-label={
+									previewMode ? "Edit markdown" : "Preview markdown"
+								}
+								className={
+									previewMode
+										? "composer-action-button active"
+										: "composer-action-button"
+								}
+								title={previewMode ? "Edit" : "Preview"}
+								type="button"
+								onClick={() => setPreviewMode((on) => !on)}
+							>
+								{previewMode ? <EyeOff size={14} /> : <Eye size={14} />}
+							</button>
+							<span aria-hidden="true" className="composer-toolbar-separator" />
+						</>
+					) : null}
+					<button
+						aria-label="Attach files"
+						className="composer-action-button"
+						disabled={disabled || Boolean(editTarget)}
+						type="button"
+						onClick={() => openFilePicker()}
+					>
+						<Paperclip size={14} />
+					</button>
+					<EmojiPickerPopover
+						label="Insert emoji"
+						open={emojiPickerOpen}
+						onSelectEmoji={(emoji) => insertEmoji(emoji)}
+						onOpenChange={setEmojiPickerOpen}
 					>
 						<button
-							aria-label="Insert GIF"
+							aria-label="Insert emoji"
 							className="composer-action-button"
 							disabled={disabled}
 							type="button"
 						>
-							<Sticker size={16} />
+							<SmilePlus size={14} />
 						</button>
-					</GiphyPickerPopover>
-				) : null}
+					</EmojiPickerPopover>
+					{giphyApiKey ? (
+						<GiphyPickerPopover
+							apiKey={giphyApiKey}
+							open={giphyPickerOpen}
+							onSelectGif={insertGif}
+							onOpenChange={setGiphyPickerOpen}
+						>
+							<button
+								aria-label="Insert GIF"
+								className="composer-action-button"
+								disabled={disabled}
+								type="button"
+							>
+								<Sticker size={14} />
+							</button>
+						</GiphyPickerPopover>
+					) : null}
+				</div>
 				<button
 					aria-label="Send message"
 					className="send-button"
@@ -589,7 +743,7 @@ export const NewMessageComposer = forwardRef<
 					type="button"
 					onClick={submit}
 				>
-					<Send size={18} />
+					<Send size={16} />
 				</button>
 			</div>
 		</div>
