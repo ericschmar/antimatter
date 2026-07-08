@@ -35,6 +35,28 @@ Use this skill when starting or executing coding work in the Antimatter reposito
 - Use `useCallback` for callbacks passed to memoized children.
 - Avoid premature broad refactors; apply performance changes only within the requested scope or where directly relevant.
 
+## UI conventions (Radix + lucide)
+
+- Icons: import PascalCase components from `lucide-react` (e.g. `Bold`, `Italic`, `Strikethrough`, `Code`/`Code2`, `Heading`, `Quote`, `List`, `ListOrdered`, `Link`, `Paperclip`, `Send`, `SmilePlus`, `Sticker`, `CaseSensitive`, `Eye`/`EyeOff`). Render with `<Icon size={n} />`. All of these exist in the pinned `lucide-react ^1.16.0`.
+- Icon button + tooltip (canonical pattern; see `Sidebar.tsx`, `ChatShell.tsx`): wrap the app once in `<Tooltip.Provider>` near the root, then per button:
+  ```tsx
+  <Tooltip.Root>
+    <Tooltip.Trigger asChild>
+      <button aria-label="…" className="…" type="button" onClick={…}>
+        <Icon size={14} />
+      </button>
+    </Tooltip.Trigger>
+    <Tooltip.Portal>
+      <Tooltip.Content className="tooltip-content" side="right" sideOffset={6}>
+        Label
+      </Tooltip.Content>
+    </Tooltip.Portal>
+  </Tooltip.Root>
+  ```
+  The `.tooltip-content` style already lives in `src/mainview/index.css` — reuse it rather than adding new tooltip CSS.
+- Other Radix primitives in use: `@radix-ui/react-dropdown-menu` (popovers/menus via `* as DropdownMenu`), `react-scroll-area`, `react-tabs`, `react-dialog`, `react-slot`, plus `@radix-ui/colors`. They follow the same `asChild` + `Portal` shape.
+- Scoping CSS for the new (`@uiw`-based) composer vs. the old (MDX) one: target `.composer-new` / `.composer.composer-new` selectors so the MDX `MessageComposer` styles in `MessageComposer.css` stay untouched.
+
 ## Adding an app setting
 
 Settings flow: settings window (`src/childview`) → bun (`src/bun`) → main-view state (`src/mainview/app/ChatShell.tsx`) → component props. The RPC + bun handlers pass the whole `AppSettingsPayload` generically, so a new boolean setting rides along once it exists on the type — but several spots must be updated together or `bun run typecheck` fails with cascading errors:
@@ -47,6 +69,22 @@ Settings flow: settings window (`src/childview`) → bun (`src/bun`) → main-vi
 
 TDD sequence that works here: write the failing storage test first (default + a disabled round-trip), confirm red, then land the type defs + literals + normalizer, confirm green.
 
+## Timeline markdown renderer toggle
+
+- `settings.useNewComposer` now gates both the composer and message timeline markdown renderer. Pass it from `ChatShell` into `MessageTimeline`, then into `MessageRow` and reply rows.
+- Timeline renderer split: flag off uses `MarkdownMessage` (`react-markdown`); flag on uses `@uiw/react-md-editor/nohighlight` via `MDEditor.Markdown` plus `@uiw/react-markdown-preview/markdown.css` and a scoped `.markdown-message-new` class.
+- Preserve existing Mattermost behavior when using `MDEditor.Markdown`: reuse/export `highlightMentionsInMarkdown` from `MarkdownMessage`, and use the same image resolution/load helpers (`useResolvedImageSrc`, `useImageLoadInfo`) for inline markdown images.
+- `MessageRow` is memoized with a custom comparator. Any renderer-affecting prop such as `useNewComposer` must be included in the comparator, or toggling the setting will not re-render existing rows.
+- Component tests can use `react-dom/server` `renderToString` for this renderer toggle. Assert the legacy path lacks `.markdown-message-new`, and the new path contains both `.markdown-message-new` and @uiw's `.wmde-markdown` output.
+
+## Message composer architecture & editor transforms
+
+- Two composer components, switched in `src/mainview/app/ChatShell.tsx` on `settings.useNewComposer`: `MessageComposer.tsx` (MDXEditor/Lexical, the default) and `NewMessageComposer.tsx` (@uiw/react-md-editor, behind the flag). Both share the `MessageComposerHandle`/`MessageComposerProps` types (defined in MessageComposer.tsx) and `MessageComposer.css`. New-composer-only overrides live in `NewMessageComposer.css` — scope every new rule under `.composer.composer-new` so the two composers never collide.
+- **Editor transforms live in their own zero-heavy-import module** so their unit tests don't pull the editor runtime into the test graph (the lexical TDZ rule below). `mentions.ts` (mention match/insert) and `markdownActions.ts` (`wrapSelection` / `toggleLinePrefix` / `insertLink`, each taking `message + { start, end }` selection and returning `{ message, selection }`) follow this pattern; both the component and its `.test.ts` import from there.
+- Applying a transform from the component: read the textarea's `selectionStart/End`, call the helper, `setMessage(result.message)`, then in a `requestAnimationFrame` call `textarea.focus()` + `textarea.setSelectionRange(result.selection.start, result.selection.end)` to restore caret. Share one `recomputeHeight` call (the `handleMessageChange` auto-resize) so programmatic edits resize the editor too.
+- **lucide-react icon check:** before importing an icon name, confirm it exists — the pinned `^1.16.0` ships fewer aliases than current releases. `node -e "const l=require('./node_modules/lucide-react/dist/cjs/lucide-react.js'); ['Bold','Italic','Strikethrough','Code','Code2','Link','Heading','Quote','List','ListOrdered','Eye','EyeOff','CaseSensitive'].forEach(n=>console.log(n, typeof l[n]))"`.
+- **Color tokens:** green/accent greens come from `@radix-ui/colors/grass-dark.css` (imported in index.css, with local overrides). `--grass-9` (#278747, overridden) backs the `--accent-*` aliases; `--grass-11` (#71d083, lighter) reads well for an outlined green affordance. Outline a `border:0` toggle with `box-shadow: inset 0 0 0 1px <color>` rather than flipping `border`, to avoid a 1px layout shift.
+
 ## Verification commands
 
 - Use Bun for project scripts and tests.
@@ -55,6 +93,7 @@ TDD sequence that works here: write the failing storage test first (default + a 
   - `bun run typecheck`
   - `bun test`
   - `bun run build`
+- `bun run typecheck` (tsc --noEmit) is the source of truth for type errors. Inline LSP diagnostics surfaced by the edit/write tools can be stale or pre-existing and may not reflect the working tree (e.g. phantom `useNewComposer`/`AppSettingsPayload` errors that persist even though the types are in sync) — only chase type errors the standalone tsc run also reports.
 
 ## Building & inspecting packaged builds
 
