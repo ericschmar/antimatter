@@ -1,15 +1,17 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
+import MDEditor from "@uiw/react-md-editor/nohighlight";
+import "@uiw/react-markdown-preview/markdown.css";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 import type { MattermostFileInfo, MattermostPost, MattermostReaction, MattermostUser, MattermostUserStatus } from "../types";
 import { formatTime, initials, userLabel } from "../utils/format";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
 import { buildTimelineRows } from "../utils/timeline";
 import { USER_COLOR_PALETTE } from "../utils/userColors";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
-import { MarkdownMessage, useImageLoadInfo, useResolvedImageSrc } from "./MarkdownMessage";
+import { MarkdownMessage, highlightMentionsInMarkdown, useImageLoadInfo, useResolvedImageSrc } from "./MarkdownMessage";
 import "./MessageTimeline.css";
 
 const SCROLL_END_THRESHOLD = 96;
@@ -28,6 +30,7 @@ export function MessageTimeline({
 	ownMessageIndicatorColor,
 	showOwnMessageIndicators,
 	showProfilePictures,
+	useNewComposer,
 	typingUsers,
 	onOpenAttachment,
 	onShowMessageContextMenu,
@@ -49,6 +52,7 @@ export function MessageTimeline({
 	ownMessageIndicatorColor: string;
 	showOwnMessageIndicators: boolean;
 	showProfilePictures: boolean;
+	useNewComposer: boolean;
 	typingUsers: MattermostUser[];
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
@@ -220,10 +224,11 @@ export function MessageTimeline({
 									userImages={userImages}
 									userStatuses={userStatuses}
 									users={users}
-								resolveImageSrc={resolveImageSrc}
-								showOwnMessageIndicators={showOwnMessageIndicators}
-								showProfilePictures={showProfilePictures}
-								onOpenAttachment={onOpenAttachment}
+									resolveImageSrc={resolveImageSrc}
+									showOwnMessageIndicators={showOwnMessageIndicators}
+									showProfilePictures={showProfilePictures}
+									useNewComposer={useNewComposer}
+									onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
 									onSetUserColor={onSetUserColor}
 									onReply={onReply}
@@ -307,6 +312,65 @@ function formatReactionUsers(names: string[]) {
 	return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
 }
 
+function MarkdownRenderer({
+	currentUsername,
+	markdown,
+	resolveImageSrc,
+	useNewComposer,
+}: {
+	currentUsername?: string;
+	markdown: string;
+	resolveImageSrc: (src: string) => Promise<string>;
+	useNewComposer: boolean;
+}) {
+	if (useNewComposer) {
+		return (
+			<MDEditor.Markdown
+				className="markdown-message markdown-message-new"
+				components={{
+					img: (props: ComponentProps<"img">) => <TimelineMarkdownImage {...props} resolveImageSrc={resolveImageSrc} />,
+				}}
+				source={highlightMentionsInMarkdown(markdown, currentUsername)}
+			/>
+		);
+	}
+	return <MarkdownMessage currentUsername={currentUsername} markdown={markdown} resolveImageSrc={resolveImageSrc} />;
+}
+
+function TimelineMarkdownImage({
+	resolveImageSrc,
+	src,
+	alt,
+	...props
+}: ComponentProps<"img"> & {
+	resolveImageSrc: (src: string) => Promise<string>;
+}) {
+	const resolvedSrc = useResolvedImageSrc(src, resolveImageSrc);
+	const loadInfo = useImageLoadInfo(resolvedSrc);
+	if (!src) return null;
+	if (!resolvedSrc) {
+		return <span className="markdown-image-frame loading">Loading image...</span>;
+	}
+	if (loadInfo.state === "failed") {
+		return (
+			<a className="markdown-image-fallback" href={resolvedSrc ?? src} rel="noreferrer" target="_blank">
+				Open image
+			</a>
+		);
+	}
+	if (loadInfo.state !== "loaded") {
+		return <span className="markdown-image-frame loading">Loading image...</span>;
+	}
+	return (
+		<span
+			className="markdown-image-frame loaded"
+			style={{ aspectRatio: loadInfo.width / loadInfo.height, width: Math.min(loadInfo.width, 520) }}
+		>
+			<img {...props} alt={alt ?? ""} loading="lazy" src={resolvedSrc ?? src} />
+		</span>
+	);
+}
+
 const MessageRow = memo(function MessageRow({
 	currentUserId,
 	post,
@@ -319,6 +383,7 @@ const MessageRow = memo(function MessageRow({
 	resolveImageSrc,
 	showOwnMessageIndicators,
 	showProfilePictures,
+	useNewComposer,
 	onOpenAttachment,
 	onShowMessageContextMenu,
 	onSetUserColor,
@@ -336,6 +401,7 @@ const MessageRow = memo(function MessageRow({
 	resolveImageSrc: (src: string) => Promise<string>;
 	showOwnMessageIndicators: boolean;
 	showProfilePictures: boolean;
+	useNewComposer: boolean;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onSetUserColor: (userId: string, color: string) => void;
@@ -382,10 +448,11 @@ const MessageRow = memo(function MessageRow({
 				{post.failed ? <span className="message-state failed">failed</span> : null}
 			</div>
 			<div className="message-content">
-				<MarkdownMessage
+				<MarkdownRenderer
 					currentUsername={users[currentUserId]?.username}
 					markdown={post.message}
 					resolveImageSrc={resolveImageSrc}
+					useNewComposer={useNewComposer}
 				/>
 				<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
 				{groupedReactions.length > 0 ? (
@@ -409,6 +476,7 @@ const MessageRow = memo(function MessageRow({
 								post={reply}
 								resolveImageSrc={resolveImageSrc}
 								showOwnMessageIndicators={showOwnMessageIndicators}
+								useNewComposer={useNewComposer}
 								userColor={userColors[reply.user_id]}
 								userImages={userImages}
 								userStatuses={userStatuses}
@@ -464,6 +532,7 @@ const MessageRow = memo(function MessageRow({
 		prevProps.userColor === nextProps.userColor &&
 		prevProps.showOwnMessageIndicators === nextProps.showOwnMessageIndicators &&
 		prevProps.showProfilePictures === nextProps.showProfilePictures &&
+		prevProps.useNewComposer === nextProps.useNewComposer &&
 		prevProps.userStatuses[prevProps.post.user_id]?.status === nextProps.userStatuses[nextProps.post.user_id]?.status;
 
 	return postUnchanged && repliesUnchanged && visualPropsUnchanged;
@@ -474,6 +543,7 @@ const ReplyMessage = memo(function ReplyMessage({
 	post,
 	resolveImageSrc,
 	showOwnMessageIndicators,
+	useNewComposer,
 	userColor,
 	userImages,
 	userStatuses,
@@ -487,6 +557,7 @@ const ReplyMessage = memo(function ReplyMessage({
 	post: MattermostPost;
 	resolveImageSrc: (src: string) => Promise<string>;
 	showOwnMessageIndicators: boolean;
+	useNewComposer: boolean;
 	userColor?: string;
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
@@ -518,7 +589,12 @@ const ReplyMessage = memo(function ReplyMessage({
 				/>
 				<time>{formatTime(post.create_at)}</time>
 			</div>
-			<MarkdownMessage currentUsername={users[currentUserId]?.username} markdown={post.message} resolveImageSrc={resolveImageSrc} />
+			<MarkdownRenderer
+				currentUsername={users[currentUserId]?.username}
+				markdown={post.message}
+				resolveImageSrc={resolveImageSrc}
+				useNewComposer={useNewComposer}
+			/>
 			<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
 			{groupedReactions.length > 0 ? (
 				<div className="reaction-list">

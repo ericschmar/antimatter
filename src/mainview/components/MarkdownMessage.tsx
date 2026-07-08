@@ -36,7 +36,7 @@ export function MarkdownMessage({
 	);
 }
 
-function highlightMentionsInMarkdown(markdown: string, currentUsername?: string) {
+export function highlightMentionsInMarkdown(markdown: string, currentUsername?: string) {
 	if (!currentUsername) return markdown;
 	const escapedUsername = currentUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const pattern = new RegExp(`@(${escapedUsername}|channel|here)(?=\\b|\\s|$)`, "gi");

@@ -362,6 +362,22 @@
 	line-height: 1.32;
 }
 
+.markdown-message-new.wmde-markdown {
+	background: transparent;
+	color: var(--text-primary);
+	font-family: inherit;
+}
+
+.reply-message .markdown-message-new.wmde-markdown {
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
+}
+
+.markdown-message-new.wmde-markdown code {
+	font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
 .markdown-message p,
 .markdown-message ul,
 .markdown-message ol,

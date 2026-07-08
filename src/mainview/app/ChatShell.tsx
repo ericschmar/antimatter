@@ -434,9 +434,10 @@ export function ChatShell({
 								loadingHistory={ui.loadingHistory}
 								posts={posts}
 								resolveImageSrc={resolveImageSrc}
-							ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
-							showOwnMessageIndicators={settings.showOwnMessageIndicators}
-							showProfilePictures={settings.showProfilePictures}
+								ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
+								showOwnMessageIndicators={settings.showOwnMessageIndicators}
+								showProfilePictures={settings.showProfilePictures}
+								useNewComposer={settings.useNewComposer}
 								typingUsers={typingUsers}
 								userColors={userColors}
 								userImages={userImages}
