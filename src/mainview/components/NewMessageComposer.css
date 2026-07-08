@@ -46,8 +46,8 @@
 	color: var(--text-primary);
 	caret-color: var(--text-primary);
 	font-family: inherit;
-	font-size: 0.9rem;
-	line-height: 1.38;
+	font-size: 0.92rem;
+	line-height: 1.32;
 	padding: 8px 10px;
 	resize: none;
 }
@@ -55,8 +55,8 @@
 .composer-new .composer-editor .w-md-editor-text-pre {
 	box-sizing: border-box;
 	font-family: inherit;
-	font-size: 0.9rem;
-	line-height: 1.38;
+	font-size: 0.92rem;
+	line-height: 1.32;
 	padding: 8px 10px;
 	color: var(--text-primary);
 }
@@ -183,8 +183,8 @@
 	background: var(--slate-1);
 	color: var(--text-primary);
 	padding: 8px 12px;
-	font-size: 0.9rem;
-	line-height: 1.38;
+	font-size: 0.92rem;
+	line-height: 1.32;
 }
 
 .composer.composer-new .composer-editor .w-md-editor-preview .wmde-markdown {

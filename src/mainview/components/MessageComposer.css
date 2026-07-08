@@ -174,7 +174,9 @@
 	background: var(--slate-1);
 	caret-color: var(--text-primary);
 	color: var(--text-primary);
-	line-height: 1.38;
+	font-family: inherit;
+	font-size: 0.92rem;
+	line-height: 1.32;
 	padding: 8px 10px;
 	outline: none;
 	overflow-y: auto;
