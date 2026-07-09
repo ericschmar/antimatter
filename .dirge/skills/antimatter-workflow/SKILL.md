@@ -94,6 +94,7 @@ TDD sequence that works here: write the failing storage test first (default + a 
   - `bun test`
   - `bun run build`
 - `bun run typecheck` (tsc --noEmit) is the source of truth for type errors. Inline LSP diagnostics surfaced by the edit/write tools can be stale or pre-existing and may not reflect the working tree (e.g. phantom `useNewComposer`/`AppSettingsPayload` errors that persist even though the types are in sync) — only chase type errors the standalone tsc run also reports.
+- If `bun run typecheck` fails with TS2882 side-effect CSS import declaration errors during a CSS-only change, treat it as a pre-existing declaration/config blocker unless the change touched TS imports. Verify the intended CSS delta with `git diff -- <css files>` and report the blocker accurately rather than expanding scope.
 
 ## Building & inspecting packaged builds
 

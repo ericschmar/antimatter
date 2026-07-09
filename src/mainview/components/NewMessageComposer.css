@@ -16,6 +16,7 @@
 	box-shadow: none;
 	background: var(--slate-1);
 	color: var(--text-primary);
+	font-family: inherit;
 }
 
 .composer-new .composer-editor .w-md-editor-toolbar {
@@ -191,3 +192,8 @@
 	color: inherit;
 	background: transparent;
 }
+
+.composer-new .composer-editor .w-md-editor-text-pre,
+ .composer-new .composer-editor .w-md-editor-text-input {
+ 	font-family: inherit !important;
+ }
