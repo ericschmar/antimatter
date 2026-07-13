@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MattermostApiClient } from "../mattermostApi";
+import type { MattermostApiClient } from "../mattermostApi";
 import type { MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 
@@ -28,7 +28,8 @@ export function UserPickerDialog({
 			return;
 		}
 		let cancelled = false;
-		void api.searchUsers(query, selectedTeamId ?? undefined)
+		void api
+			.searchUsers(query, selectedTeamId ?? undefined)
 			.then((nextUsers) => {
 				if (!cancelled) setUsers(nextUsers.slice(0, 12));
 			})
@@ -43,13 +44,18 @@ export function UserPickerDialog({
 	if (!open) return null;
 	return (
 		<div className="modal-backdrop" onMouseDown={onClose}>
-			<div className="settings-panel" role="dialog" onMouseDown={(event) => event.stopPropagation()}>
+			<div
+				className="settings-panel"
+				role="dialog"
+				onMouseDown={(event) => event.stopPropagation()}
+			>
 				<header>
 					<h2>{title}</h2>
-					<button type="button" onClick={onClose}>Cancel</button>
+					<button type="button" onClick={onClose}>
+						Cancel
+					</button>
 				</header>
 				<input
-					autoFocus
 					placeholder="Search users..."
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
@@ -64,7 +70,9 @@ export function UserPickerDialog({
 								type="button"
 								onClick={() =>
 									setSelectedUserIds((current) =>
-										selected ? current.filter((id) => id !== user.id) : [...current, user.id],
+										selected
+											? current.filter((id) => id !== user.id)
+											: [...current, user.id],
 									)
 								}
 							>

@@ -20,6 +20,7 @@ import {
 	Strikethrough,
 	X,
 } from "lucide-react";
+import type { DragEvent, KeyboardEvent } from "react";
 import {
 	forwardRef,
 	useCallback,
@@ -29,21 +30,19 @@ import {
 	useRef,
 	useState,
 } from "react";
-import type { DragEvent, KeyboardEvent } from "react";
 import type { MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 import { normalizeOutgoingMessage } from "../utils/outgoingMessage";
-import {
-	insertLink,
-	toggleLinePrefix,
-	wrapSelection,
-} from "./markdownActions";
-import type { SelectionRange, TransformResult } from "./markdownActions";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
-import { GiphyPickerPopover } from "./GiphyPickerPopover";
 import type { GiphyGif } from "./GiphyPickerPopover";
+import { GiphyPickerPopover } from "./GiphyPickerPopover";
 import { MarkdownMessage } from "./MarkdownMessage";
-import type { MessageComposerHandle, MessageComposerProps } from "./MessageComposer";
+import type {
+	MessageComposerHandle,
+	MessageComposerProps,
+} from "./MessageComposer";
+import type { SelectionRange, TransformResult } from "./markdownActions";
+import { insertLink, toggleLinePrefix, wrapSelection } from "./markdownActions";
 import { buildMentionInsertion, matchMentionQuery } from "./mentions";
 import "./NewMessageComposer.css";
 
@@ -58,6 +57,18 @@ function giphyGifMarkdown(gif: GiphyGif) {
 	if (!src) return null;
 	const alt = (gif.title?.trim() || "GIPHY GIF").replace(/[\r\n[\]]/g, " ");
 	return `![${alt}](${src})`;
+}
+
+type ComposerFile = {
+	id: string;
+	file: File;
+};
+
+function toComposerFile(file: File): ComposerFile {
+	return {
+		id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+		file,
+	};
 }
 
 export const NewMessageComposer = forwardRef<
@@ -82,7 +93,7 @@ export const NewMessageComposer = forwardRef<
 	ref,
 ) {
 	const [message, setMessage] = useState("");
-	const [files, setFiles] = useState<File[]>([]);
+	const [files, setFiles] = useState<ComposerFile[]>([]);
 	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
 	const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
 	const [giphyPickerOpen, setGiphyPickerOpen] = useState(false);
@@ -130,25 +141,29 @@ export const NewMessageComposer = forwardRef<
 				key: "bold",
 				label: "Bold",
 				Icon: Bold,
-				run: (message, selection) => wrapSelection(message, selection, "**", "**"),
+				run: (message, selection) =>
+					wrapSelection(message, selection, "**", "**"),
 			},
 			{
 				key: "italic",
 				label: "Italic",
 				Icon: Italic,
-				run: (message, selection) => wrapSelection(message, selection, "*", "*"),
+				run: (message, selection) =>
+					wrapSelection(message, selection, "*", "*"),
 			},
 			{
 				key: "strikethrough",
 				label: "Strikethrough",
 				Icon: Strikethrough,
-				run: (message, selection) => wrapSelection(message, selection, "~~", "~~"),
+				run: (message, selection) =>
+					wrapSelection(message, selection, "~~", "~~"),
 			},
 			{
 				key: "code",
 				label: "Inline code",
 				Icon: Code,
-				run: (message, selection) => wrapSelection(message, selection, "`", "`"),
+				run: (message, selection) =>
+					wrapSelection(message, selection, "`", "`"),
 			},
 			{
 				key: "code-block",
@@ -162,7 +177,8 @@ export const NewMessageComposer = forwardRef<
 				key: "heading",
 				label: "Heading",
 				Icon: Heading,
-				run: (message, selection) => toggleLinePrefix(message, selection, "## "),
+				run: (message, selection) =>
+					toggleLinePrefix(message, selection, "## "),
 			},
 			{
 				key: "quote",
@@ -180,7 +196,8 @@ export const NewMessageComposer = forwardRef<
 				key: "numbered",
 				label: "Numbered list",
 				Icon: ListOrdered,
-				run: (message, selection) => toggleLinePrefix(message, selection, "1. "),
+				run: (message, selection) =>
+					toggleLinePrefix(message, selection, "1. "),
 			},
 		],
 		[],
@@ -265,7 +282,10 @@ export const NewMessageComposer = forwardRef<
 			requestAnimationFrame(() => {
 				const ta = getTextarea();
 				ta?.focus();
-				ta?.setSelectionRange(insertion.cursorPosition, insertion.cursorPosition);
+				ta?.setSelectionRange(
+					insertion.cursorPosition,
+					insertion.cursorPosition,
+				);
 			});
 		},
 		[getTextarea, mentionMatch],
@@ -324,7 +344,7 @@ export const NewMessageComposer = forwardRef<
 			return;
 		}
 		const rootId = replyTarget?.root_id || replyTarget?.id;
-		const filesToSend = files;
+		const filesToSend = files.map(({ file }) => file);
 		setSending(true);
 		try {
 			await onSend(normalizedMessage, rootId, filesToSend);
@@ -347,8 +367,8 @@ export const NewMessageComposer = forwardRef<
 			if (event.key === "ArrowDown") {
 				event.preventDefault();
 				event.stopPropagation();
-				setActiveMentionIndex((current) =>
-					(current + 1) % mentionSuggestions.length,
+				setActiveMentionIndex(
+					(current) => (current + 1) % mentionSuggestions.length,
 				);
 				return;
 			}
@@ -365,7 +385,9 @@ export const NewMessageComposer = forwardRef<
 			if (event.key === "Enter" || event.key === "Tab") {
 				event.preventDefault();
 				event.stopPropagation();
-				insertMention(mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0]);
+				insertMention(
+					mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0],
+				);
 				return;
 			}
 			if (event.key === "Escape") {
@@ -442,7 +464,10 @@ export const NewMessageComposer = forwardRef<
 
 			const droppedFiles = Array.from(event.dataTransfer.files);
 			if (droppedFiles.length > 0) {
-				setFiles((current) => [...current, ...droppedFiles]);
+				setFiles((current) => [
+					...current,
+					...droppedFiles.map(toComposerFile),
+				]);
 			}
 		},
 		[disabled, editTarget],
@@ -470,7 +495,7 @@ export const NewMessageComposer = forwardRef<
 
 	useEffect(() => {
 		setActiveMentionIndex(0);
-	}, [mentionMatch?.query]);
+	}, []);
 
 	useEffect(() => {
 		if (!showMentionSuggestions || activeMentionIndex < 0) return;
@@ -495,7 +520,10 @@ export const NewMessageComposer = forwardRef<
 		: "";
 
 	return (
-		<div className="composer composer-new" onKeyDownCapture={handleComposerKeyDown}>
+		<div
+			className="composer composer-new"
+			onKeyDownCapture={handleComposerKeyDown}
+		>
 			<div
 				className={
 					disabled
@@ -574,18 +602,15 @@ export const NewMessageComposer = forwardRef<
 				) : null}
 				{files.length > 0 ? (
 					<div className="composer-files">
-						{files.map((file, index) => (
-							<span
-								className="composer-file-chip"
-								key={`${file.name}-${index}`}
-							>
+						{files.map(({ file, id }) => (
+							<span className="composer-file-chip" key={id}>
 								{file.name}
 								<button
 									aria-label={`Remove ${file.name}`}
 									type="button"
 									onClick={() =>
 										setFiles((current) =>
-											current.filter((_, fileIndex) => fileIndex !== index),
+											current.filter((item) => item.id !== id),
 										)
 									}
 								>
@@ -635,7 +660,7 @@ export const NewMessageComposer = forwardRef<
 				onChange={(event) => {
 					setFiles((current) => [
 						...current,
-						...Array.from(event.target.files ?? []),
+						...Array.from(event.target.files ?? []).map(toComposerFile),
 					]);
 					setFileAccept(undefined);
 					event.currentTarget.value = "";
@@ -677,9 +702,7 @@ export const NewMessageComposer = forwardRef<
 							))}
 							<span aria-hidden="true" className="composer-toolbar-separator" />
 							<button
-								aria-label={
-									previewMode ? "Edit markdown" : "Preview markdown"
-								}
+								aria-label={previewMode ? "Edit markdown" : "Preview markdown"}
 								className={
 									previewMode
 										? "composer-action-button active"

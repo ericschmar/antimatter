@@ -63,7 +63,10 @@ export const uiActions = {
 		uiStore.addUserOpen = open;
 	},
 	setChannelNotifications(next: Updater<ChannelNotificationState>) {
-		uiStore.channelNotifications = resolveUpdater(next, uiStore.channelNotifications);
+		uiStore.channelNotifications = resolveUpdater(
+			next,
+			uiStore.channelNotifications,
+		);
 	},
 	setCommandOpen(open: boolean) {
 		uiStore.commandOpen = open;

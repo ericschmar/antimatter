@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { MattermostApiClient } from "../../mattermostApi";
+import type { MattermostApiClient } from "../../mattermostApi";
 import {
 	loadSettings,
 	loadUserColorPaletteVersion,
@@ -8,7 +8,11 @@ import {
 	saveUserColorPaletteVersion,
 	saveUserColors,
 } from "../../storage";
-import type { AppSettings, MattermostUser, MattermostUserStatus } from "../../types";
+import type {
+	AppSettings,
+	MattermostUser,
+	MattermostUserStatus,
+} from "../../types";
 import { fontFamilyCssValue } from "../../utils/settings";
 import {
 	colorForUserId,
@@ -27,7 +31,9 @@ export function useUserPresence({
 		loadUserColors(),
 	);
 	const [userImages, setUserImages] = useState<Record<string, string>>({});
-	const [userStatuses, setUserStatuses] = useState<Record<string, MattermostUserStatus>>({});
+	const [userStatuses, setUserStatuses] = useState<
+		Record<string, MattermostUserStatus>
+	>({});
 	const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
 
 	const setUserColor = useCallback((userId: string, color: string) => {
@@ -75,7 +81,10 @@ export function useUserPresence({
 
 	useEffect(() => {
 		document.documentElement.dataset["theme"] = settings.theme;
-		document.documentElement.style.setProperty("--app-font-size", `${settings.fontSize}px`);
+		document.documentElement.style.setProperty(
+			"--app-font-size",
+			`${settings.fontSize}px`,
+		);
 		document.documentElement.style.setProperty(
 			"--app-font-family",
 			fontFamilyCssValue(settings.fontFamily),
@@ -88,27 +97,42 @@ export function useUserPresence({
 		const userIds = Object.keys(users);
 		if (userIds.length === 0) return;
 
-		void api.getStatusesByIds(userIds).then((statuses) => {
-			setUserStatuses((current) => ({
-				...current,
-				...Object.fromEntries(statuses.map((status) => [status.user_id, status])),
-			}));
-		}).catch(() => undefined);
+		void api
+			.getStatusesByIds(userIds)
+			.then((statuses) => {
+				setUserStatuses((current) => ({
+					...current,
+					...Object.fromEntries(
+						statuses.map((status) => [status.user_id, status]),
+					),
+				}));
+			})
+			.catch(() => undefined);
 
 		const missingImageIds = userIds.filter((userId) => !userImages[userId]);
 		if (missingImageIds.length === 0) return;
 		void Promise.all(
 			missingImageIds.map(async (userId) => {
 				try {
-					return [userId, await api.getFileDataUrl(`/api/v4/users/${encodeURIComponent(userId)}/image`)] as const;
+					return [
+						userId,
+						await api.getFileDataUrl(
+							`/api/v4/users/${encodeURIComponent(userId)}/image`,
+						),
+					] as const;
 				} catch {
 					return null;
 				}
 			}),
 		).then((entries) => {
-			const loaded = entries.filter((entry): entry is readonly [string, string] => Boolean(entry));
+			const loaded = entries.filter(
+				(entry): entry is readonly [string, string] => Boolean(entry),
+			);
 			if (loaded.length === 0) return;
-			setUserImages((current) => ({ ...current, ...Object.fromEntries(loaded) }));
+			setUserImages((current) => ({
+				...current,
+				...Object.fromEntries(loaded),
+			}));
 		});
 	}, [api, users, userImages]);
 

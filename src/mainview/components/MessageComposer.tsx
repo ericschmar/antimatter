@@ -3,25 +3,25 @@ import {
 	BoldItalicUnderlineToggles,
 	ChangeCodeMirrorLanguage,
 	CodeToggle,
+	ConditionalContents,
 	codeBlockPlugin,
 	codeMirrorPlugin,
-	ConditionalContents,
 	createRootEditorSubscription$,
 	DiffSourceToggleWrapper,
 	diffSourcePlugin,
 	headingsPlugin,
-	imagePlugin,
 	InsertCodeBlock,
 	InsertTable,
 	InsertThematicBreak,
+	imagePlugin,
 	insertCodeMirror$,
+	ListsToggle,
 	linkDialogPlugin,
 	linkPlugin,
 	listsPlugin,
-	ListsToggle,
-	markdownShortcutPlugin,
 	MDXEditor,
 	type MDXEditorMethods,
+	markdownShortcutPlugin,
 	quotePlugin,
 	realmPlugin,
 	Separator,
@@ -31,6 +31,8 @@ import {
 	UndoRedo,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
+import type { LexicalEditor } from "lexical";
+import { $getRoot, COMMAND_PRIORITY_HIGH, PASTE_COMMAND } from "lexical";
 import {
 	Bold,
 	CheckSquare,
@@ -54,6 +56,7 @@ import {
 	Undo2,
 	X,
 } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import {
 	forwardRef,
 	useCallback,
@@ -63,15 +66,12 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { COMMAND_PRIORITY_HIGH, PASTE_COMMAND, $getRoot } from "lexical";
-import type { KeyboardEvent } from "react";
-import type { LexicalEditor } from "lexical";
 import type { MattermostPost, MattermostUser } from "../types";
 import { initials, userLabel } from "../utils/format";
 import { normalizeOutgoingMessage } from "../utils/outgoingMessage";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
-import { GiphyPickerPopover } from "./GiphyPickerPopover";
 import type { GiphyGif } from "./GiphyPickerPopover";
+import { GiphyPickerPopover } from "./GiphyPickerPopover";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { buildMentionInsertion, matchMentionQuery } from "./mentions";
 import "./MessageComposer.css";
@@ -117,7 +117,9 @@ const preserveCodePastePlugin = realmPlugin({
 	},
 });
 
-function captureRootEditorPlugin(editorRef: React.RefObject<LexicalEditor | null>) {
+function captureRootEditorPlugin(
+	editorRef: React.RefObject<LexicalEditor | null>,
+) {
 	return realmPlugin({
 		init(realm) {
 			realm.pub(createRootEditorSubscription$, (editor) => {
@@ -217,6 +219,18 @@ export type MessageComposerProps = {
 	onTyping: (rootId?: string) => Promise<void>;
 };
 
+type ComposerFile = {
+	id: string;
+	file: File;
+};
+
+function toComposerFile(file: File): ComposerFile {
+	return {
+		id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+		file,
+	};
+}
+
 export const MessageComposer = forwardRef<
 	MessageComposerHandle,
 	MessageComposerProps
@@ -242,7 +256,7 @@ export const MessageComposer = forwardRef<
 	ref,
 ) {
 	const [message, setMessage] = useState("");
-	const [files, setFiles] = useState<File[]>([]);
+	const [files, setFiles] = useState<ComposerFile[]>([]);
 	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
 	const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
 	const [giphyPickerOpen, setGiphyPickerOpen] = useState(false);
@@ -337,7 +351,9 @@ export const MessageComposer = forwardRef<
 			const gifMarkdown = giphyGifMarkdown(gif);
 			if (disabled || !gifMarkdown) return;
 			const markdownToInsert =
-				messageRef.current.trim().length > 0 ? `\n${gifMarkdown}\n` : gifMarkdown;
+				messageRef.current.trim().length > 0
+					? `\n${gifMarkdown}\n`
+					: gifMarkdown;
 			editorRef.current?.focus(
 				() => {
 					editorRef.current?.insertMarkdown(markdownToInsert);
@@ -499,7 +515,7 @@ export const MessageComposer = forwardRef<
 			return;
 		}
 		const rootId = replyTarget?.root_id || replyTarget?.id;
-		const filesToSend = files;
+		const filesToSend = files.map(({ file }) => file);
 		setSending(true);
 		try {
 			await onSend(normalizedMessage, rootId, filesToSend);
@@ -520,8 +536,8 @@ export const MessageComposer = forwardRef<
 		if (showMentionSuggestions) {
 			if (event.key === "ArrowDown") {
 				event.preventDefault();
-				setActiveMentionIndex((current) =>
-					(current + 1) % mentionSuggestions.length,
+				setActiveMentionIndex(
+					(current) => (current + 1) % mentionSuggestions.length,
 				);
 				return;
 			}
@@ -536,7 +552,9 @@ export const MessageComposer = forwardRef<
 			}
 			if (event.key === "Enter" || event.key === "Tab") {
 				event.preventDefault();
-				insertMention(mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0]);
+				insertMention(
+					mentionSuggestions[activeMentionIndex] ?? mentionSuggestions[0],
+				);
 				return;
 			}
 			if (event.key === "Escape") {
@@ -558,13 +576,13 @@ export const MessageComposer = forwardRef<
 		submit();
 	}
 
-	function focusEditor() {
+	const focusEditor = useCallback(() => {
 		if (disabled) return;
 		editorRef.current?.focus(undefined, {
 			defaultSelection: "rootEnd",
 			preventScroll: true,
 		});
-	}
+	}, [disabled]);
 
 	const handleDragEnter = useCallback(
 		(event: React.DragEvent<HTMLDivElement>) => {
@@ -612,7 +630,10 @@ export const MessageComposer = forwardRef<
 
 			const droppedFiles = Array.from(event.dataTransfer.files);
 			if (droppedFiles.length > 0) {
-				setFiles((current) => [...current, ...droppedFiles]);
+				setFiles((current) => [
+					...current,
+					...droppedFiles.map(toComposerFile),
+				]);
 			}
 		},
 		[disabled, editTarget],
@@ -629,18 +650,18 @@ export const MessageComposer = forwardRef<
 				setEmojiPickerOpen(true);
 			},
 		}),
-		[disabled, openFilePicker],
+		[disabled, openFilePicker, focusEditor],
 	);
 
 	useEffect(() => {
 		if (disabled) return;
 		const frame = requestAnimationFrame(focusEditor);
 		return () => cancelAnimationFrame(frame);
-	}, [disabled]);
+	}, [disabled, focusEditor]);
 
 	useEffect(() => {
 		setActiveMentionIndex(0);
-	}, [mentionMatch?.query]);
+	}, []);
 
 	useEffect(() => {
 		if (!showMentionSuggestions || activeMentionIndex < 0) return;
@@ -656,7 +677,7 @@ export const MessageComposer = forwardRef<
 		setMessage(editTarget.message);
 		editorRef.current?.setMarkdown(editTarget.message);
 		requestAnimationFrame(focusEditor);
-	}, [editTarget]);
+	}, [editTarget, focusEditor]);
 
 	const replyAuthor = replyTarget ? users[replyTarget.user_id] : undefined;
 	const replyLabel = replyTarget
@@ -750,18 +771,15 @@ export const MessageComposer = forwardRef<
 				) : null}
 				{files.length > 0 ? (
 					<div className="composer-files">
-						{files.map((file, index) => (
-							<span
-								className="composer-file-chip"
-								key={`${file.name}-${index}`}
-							>
+						{files.map(({ file, id }) => (
+							<span className="composer-file-chip" key={id}>
 								{file.name}
 								<button
 									aria-label={`Remove ${file.name}`}
 									type="button"
 									onClick={() =>
 										setFiles((current) =>
-											current.filter((_, fileIndex) => fileIndex !== index),
+											current.filter((item) => item.id !== id),
 										)
 									}
 								>
@@ -811,7 +829,7 @@ export const MessageComposer = forwardRef<
 				onChange={(event) => {
 					setFiles((current) => [
 						...current,
-						...Array.from(event.target.files ?? []),
+						...Array.from(event.target.files ?? []).map(toComposerFile),
 					]);
 					setFileAccept(undefined);
 					event.currentTarget.value = "";

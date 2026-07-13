@@ -1,13 +1,10 @@
-import { MattermostApiClient } from "../mattermostApi";
+import type { MattermostApiClient } from "../mattermostApi";
 import type {
 	MattermostChannel,
 	MattermostPost,
 	MattermostUser,
 } from "../types";
-import {
-	directChannelOtherUserId,
-	isTeamChannel,
-} from "./format";
+import { directChannelOtherUserId, isTeamChannel } from "./format";
 
 export async function getPostUsers(
 	api: MattermostApiClient,

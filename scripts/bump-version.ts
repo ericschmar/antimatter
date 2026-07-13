@@ -33,7 +33,9 @@ const preid =
 	currentPrereleaseId() ??
 	"alpha";
 const nextVersion = bumpTypes.has(requestedBump)
-	? formatVersion(incrementVersion(parseVersion(currentVersion), requestedBump, preid))
+	? formatVersion(
+			incrementVersion(parseVersion(currentVersion), requestedBump, preid),
+		)
 	: assertVersion(requestedBump);
 
 packageJson.version = nextVersion;
@@ -67,7 +69,7 @@ function currentPrereleaseId() {
 }
 
 function readOption(args: string[], longName: string) {
-	const optionIndex = args.findIndex((arg) => arg === longName);
+	const optionIndex = args.indexOf(longName);
 	if (optionIndex >= 0) return args[optionIndex + 1];
 
 	const prefix = `${longName}=`;
@@ -101,19 +103,37 @@ function incrementVersion(
 ): ParsedVersion {
 	const next: ParsedVersion = { ...version, prerelease: [], build: undefined };
 
-	if (bump === "major") return { ...next, major: next.major + 1, minor: 0, patch: 0 };
+	if (bump === "major")
+		return { ...next, major: next.major + 1, minor: 0, patch: 0 };
 	if (bump === "minor") return { ...next, minor: next.minor + 1, patch: 0 };
 	if (bump === "patch") {
-		return version.prerelease.length > 0 ? next : { ...next, patch: next.patch + 1 };
+		return version.prerelease.length > 0
+			? next
+			: { ...next, patch: next.patch + 1 };
 	}
 	if (bump === "premajor") {
-		return { major: next.major + 1, minor: 0, patch: 0, prerelease: [preid, "0"] };
+		return {
+			major: next.major + 1,
+			minor: 0,
+			patch: 0,
+			prerelease: [preid, "0"],
+		};
 	}
 	if (bump === "preminor") {
-		return { major: next.major, minor: next.minor + 1, patch: 0, prerelease: [preid, "0"] };
+		return {
+			major: next.major,
+			minor: next.minor + 1,
+			patch: 0,
+			prerelease: [preid, "0"],
+		};
 	}
 	if (bump === "prepatch") {
-		return { major: next.major, minor: next.minor, patch: next.patch + 1, prerelease: [preid, "0"] };
+		return {
+			major: next.major,
+			minor: next.minor,
+			patch: next.patch + 1,
+			prerelease: [preid, "0"],
+		};
 	}
 
 	const currentPreid = version.prerelease[0];

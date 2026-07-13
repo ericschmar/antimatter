@@ -3,15 +3,34 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import MDEditor from "@uiw/react-md-editor/nohighlight";
 import "@uiw/react-markdown-preview/markdown.css";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, CSSProperties } from "react";
-import type { MattermostFileInfo, MattermostPost, MattermostReaction, MattermostUser, MattermostUserStatus } from "../types";
-import { formatTime, initials, userLabel } from "../utils/format";
+import {
+	memo,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import type {
+	MattermostFileInfo,
+	MattermostPost,
+	MattermostReaction,
+	MattermostUser,
+	MattermostUserStatus,
+} from "../types";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
+import { formatTime, initials, userLabel } from "../utils/format";
 import { buildTimelineRows } from "../utils/timeline";
 import { USER_COLOR_PALETTE } from "../utils/userColors";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
-import { MarkdownMessage, highlightMentionsInMarkdown, useImageLoadInfo, useResolvedImageSrc } from "./MarkdownMessage";
+import {
+	highlightMentionsInMarkdown,
+	MarkdownMessage,
+	useImageLoadInfo,
+	useResolvedImageSrc,
+} from "./MarkdownMessage";
 import "./MessageTimeline.css";
 
 const SCROLL_END_THRESHOLD = 96;
@@ -128,7 +147,6 @@ export function MessageTimeline({
 		lastPost?.user_id,
 		lastPostId,
 		lastRowKey,
-		timelineRows.length,
 	]);
 
 	useEffect(() => {
@@ -190,7 +208,11 @@ export function MessageTimeline({
 		<div
 			className="message-scroll"
 			ref={viewportRef}
-			style={{ "--own-message-indicator-color": ownMessageIndicatorColor } as CSSProperties}
+			style={
+				{
+					"--own-message-indicator-color": ownMessageIndicatorColor,
+				} as CSSProperties
+			}
 		>
 			<div className="message-list" ref={listRef}>
 				{!loading && posts.length > 0 && onLoadMore && showLoadMore ? (
@@ -203,7 +225,9 @@ export function MessageTimeline({
 						{loadingHistory ? "Loading..." : "Load more messages"}
 					</button>
 				) : null}
-				{loading ? <div className="timeline-state">Loading channel...</div> : null}
+				{loading ? (
+					<div className="timeline-state">Loading channel...</div>
+				) : null}
 				{!loading && posts.length === 0 ? (
 					<div className="timeline-state">No messages in this channel.</div>
 				) : null}
@@ -248,9 +272,7 @@ export function MessageTimeline({
 
 function isTimelineAtEnd(viewport: HTMLDivElement) {
 	return (
-		viewport.scrollHeight -
-			viewport.clientHeight -
-			viewport.scrollTop <=
+		viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop <=
 		SCROLL_END_THRESHOLD
 	);
 }
@@ -259,7 +281,11 @@ function scrollToTimelineEnd(viewport: HTMLDivElement) {
 	viewport.scrollTop = viewport.scrollHeight;
 }
 
-const TypingIndicator = memo(function TypingIndicator({ users }: { users: MattermostUser[] }) {
+const TypingIndicator = memo(function TypingIndicator({
+	users,
+}: {
+	users: MattermostUser[];
+}) {
 	return (
 		<div className="typing-indicator" role="status" aria-live="polite">
 			<span className="typing-dots" aria-hidden="true">
@@ -273,7 +299,8 @@ const TypingIndicator = memo(function TypingIndicator({ users }: { users: Matter
 });
 
 function typingLabel(users: MattermostUser[]) {
-	if (users.length === 1) return `${userLabel(users[0], users[0].id)} is typing`;
+	if (users.length === 1)
+		return `${userLabel(users[0], users[0].id)} is typing`;
 	if (users.length === 2) {
 		return `${userLabel(users[0], users[0].id)} and ${userLabel(users[1], users[1].id)} are typing`;
 	}
@@ -287,14 +314,18 @@ type GroupedReaction = {
 	userIds: string[];
 };
 
-function groupReactions(reactions: MattermostReaction[], currentUserId: string) {
+function groupReactions(
+	reactions: MattermostReaction[],
+	currentUserId: string,
+) {
 	const groups = new Map<string, GroupedReaction>();
 	for (const reaction of reactions) {
 		const existing = groups.get(reaction.emoji_name);
 		if (existing) {
 			existing.count += 1;
 			if (reaction.user_id === currentUserId) existing.mine = true;
-			if (!existing.userIds.includes(reaction.user_id)) existing.userIds.push(reaction.user_id);
+			if (!existing.userIds.includes(reaction.user_id))
+				existing.userIds.push(reaction.user_id);
 			continue;
 		}
 		groups.set(reaction.emoji_name, {
@@ -328,13 +359,24 @@ function MarkdownRenderer({
 			<MDEditor.Markdown
 				className="markdown-message markdown-message-new"
 				components={{
-					img: (props: ComponentProps<"img">) => <TimelineMarkdownImage {...props} resolveImageSrc={resolveImageSrc} />,
+					img: (props: ComponentProps<"img">) => (
+						<TimelineMarkdownImage
+							{...props}
+							resolveImageSrc={resolveImageSrc}
+						/>
+					),
 				}}
 				source={highlightMentionsInMarkdown(markdown, currentUsername)}
 			/>
 		);
 	}
-	return <MarkdownMessage currentUsername={currentUsername} markdown={markdown} resolveImageSrc={resolveImageSrc} />;
+	return (
+		<MarkdownMessage
+			currentUsername={currentUsername}
+			markdown={markdown}
+			resolveImageSrc={resolveImageSrc}
+		/>
+	);
 }
 
 function TimelineMarkdownImage({
@@ -349,211 +391,253 @@ function TimelineMarkdownImage({
 	const loadInfo = useImageLoadInfo(resolvedSrc);
 	if (!src) return null;
 	if (!resolvedSrc) {
-		return <span className="markdown-image-frame loading">Loading image...</span>;
+		return (
+			<span className="markdown-image-frame loading">Loading image...</span>
+		);
 	}
 	if (loadInfo.state === "failed") {
 		return (
-			<a className="markdown-image-fallback" href={resolvedSrc ?? src} rel="noreferrer" target="_blank">
+			<a
+				className="markdown-image-fallback"
+				href={resolvedSrc ?? src}
+				rel="noreferrer"
+				target="_blank"
+			>
 				Open image
 			</a>
 		);
 	}
 	if (loadInfo.state !== "loaded") {
-		return <span className="markdown-image-frame loading">Loading image...</span>;
+		return (
+			<span className="markdown-image-frame loading">Loading image...</span>
+		);
 	}
 	return (
 		<span
 			className="markdown-image-frame loaded"
-			style={{ aspectRatio: loadInfo.width / loadInfo.height, width: Math.min(loadInfo.width, 520) }}
+			style={{
+				aspectRatio: loadInfo.width / loadInfo.height,
+				width: Math.min(loadInfo.width, 520),
+			}}
 		>
 			<img {...props} alt={alt ?? ""} loading="lazy" src={resolvedSrc ?? src} />
 		</span>
 	);
 }
 
-export const MessageRow = memo(function MessageRow({
-	currentUserId,
-	post,
-	replies,
-	userColor,
-	userColors,
-	userImages,
-	userStatuses,
-	users,
-	resolveImageSrc,
-	showOwnMessageIndicators,
-	showProfilePictures,
-	useNewComposer,
-	onOpenAttachment,
-	onShowMessageContextMenu,
-	onSetUserColor,
-	onReply,
-	onToggleReaction,
-}: {
-	currentUserId: string;
-	post: MattermostPost;
-	replies: MattermostPost[];
-	userColor?: string;
-	userColors: Record<string, string>;
-	userImages: Record<string, string>;
-	userStatuses: Record<string, MattermostUserStatus>;
-	users: Record<string, MattermostUser>;
-	resolveImageSrc: (src: string) => Promise<string>;
-	showOwnMessageIndicators: boolean;
-	showProfilePictures: boolean;
-	useNewComposer: boolean;
-	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
-	onShowMessageContextMenu: (post: MattermostPost) => void;
-	onSetUserColor: (userId: string, color: string) => void;
-	onReply: (post: MattermostPost) => void;
-	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
-}) {
-	const author = users[post.user_id];
-	const groupedReactions = useMemo(
-		() => groupReactions(post.metadata?.reactions ?? [], currentUserId),
-		[post.metadata?.reactions, currentUserId]
-	);
-	const deleted = post.delete_at > 0;
-	const canReply = !deleted && (!post.root_id || post.root_id === post.id);
-	const authorStatus = userStatuses[post.user_id]?.status;
-	const isOwnMessage = showOwnMessageIndicators && post.user_id === currentUserId;
-	return (
-		<article
-			className={isOwnMessage ? "message own" : "message"}
-			onContextMenu={(event) => {
-				event.preventDefault();
-				onShowMessageContextMenu(post);
-			}}
-		>
-		<div className={showProfilePictures ? "message-meta has-avatar" : "message-meta"}>
-			{showProfilePictures ? (
-				<div className="message-meta-avatar">
-					{userImages[post.user_id] ? (
-						<img alt="" src={userImages[post.user_id]} />
-					) : (
-						initials(author?.nickname || author?.username || post.user_id)
-					)}
+export const MessageRow = memo(
+	function MessageRow({
+		currentUserId,
+		post,
+		replies,
+		userColor,
+		userColors,
+		userImages,
+		userStatuses,
+		users,
+		resolveImageSrc,
+		showOwnMessageIndicators,
+		showProfilePictures,
+		useNewComposer,
+		onOpenAttachment,
+		onShowMessageContextMenu,
+		onSetUserColor,
+		onReply,
+		onToggleReaction,
+	}: {
+		currentUserId: string;
+		post: MattermostPost;
+		replies: MattermostPost[];
+		userColor?: string;
+		userColors: Record<string, string>;
+		userImages: Record<string, string>;
+		userStatuses: Record<string, MattermostUserStatus>;
+		users: Record<string, MattermostUser>;
+		resolveImageSrc: (src: string) => Promise<string>;
+		showOwnMessageIndicators: boolean;
+		showProfilePictures: boolean;
+		useNewComposer: boolean;
+		onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
+		onShowMessageContextMenu: (post: MattermostPost) => void;
+		onSetUserColor: (userId: string, color: string) => void;
+		onReply: (post: MattermostPost) => void;
+		onToggleReaction: (
+			post: MattermostPost,
+			emojiName: string,
+		) => Promise<void>;
+	}) {
+		const author = users[post.user_id];
+		const groupedReactions = useMemo(
+			() => groupReactions(post.metadata?.reactions ?? [], currentUserId),
+			[post.metadata?.reactions, currentUserId],
+		);
+		const deleted = post.delete_at > 0;
+		const canReply = !deleted && (!post.root_id || post.root_id === post.id);
+		const authorStatus = userStatuses[post.user_id]?.status;
+		const isOwnMessage =
+			showOwnMessageIndicators && post.user_id === currentUserId;
+		return (
+			<article
+				className={isOwnMessage ? "message own" : "message"}
+				onContextMenu={(event) => {
+					event.preventDefault();
+					onShowMessageContextMenu(post);
+				}}
+			>
+				<div
+					className={
+						showProfilePictures ? "message-meta has-avatar" : "message-meta"
+					}
+				>
+					{showProfilePictures ? (
+						<div className="message-meta-avatar">
+							{userImages[post.user_id] ? (
+								<img alt="" src={userImages[post.user_id]} />
+							) : (
+								initials(author?.nickname || author?.username || post.user_id)
+							)}
+						</div>
+					) : null}
+					<UserDetailsTrigger
+						currentUserId={currentUserId}
+						fallback={post.user_id}
+						imageSrc={userImages[post.user_id]}
+						status={authorStatus}
+						userColor={userColor}
+						user={author}
+						onSetUserColor={onSetUserColor}
+					/>
+					<time>{formatTime(post.create_at)}</time>
+					{post.pending ? <span className="message-state">sending</span> : null}
+					{post.failed ? (
+						<span className="message-state failed">failed</span>
+					) : null}
 				</div>
-			) : null}
-			<UserDetailsTrigger
-				currentUserId={currentUserId}
-				fallback={post.user_id}
-				imageSrc={userImages[post.user_id]}
-				status={authorStatus}
-				userColor={userColor}
-				user={author}
-				onSetUserColor={onSetUserColor}
-			/>
-				<time>{formatTime(post.create_at)}</time>
-				{post.pending ? <span className="message-state">sending</span> : null}
-				{post.failed ? <span className="message-state failed">failed</span> : null}
-			</div>
-			<div className="message-content">
-				{deleted ? (
-					<div className="markdown-message">(deleted)</div>
-				) : (
-					<>
-						<MarkdownRenderer
-							currentUsername={users[currentUserId]?.username}
-							markdown={post.message}
-							resolveImageSrc={resolveImageSrc}
-							useNewComposer={useNewComposer}
-						/>
-						<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
-						{groupedReactions.length > 0 ? (
-							<div className="reaction-list">
-								{groupedReactions.map((reaction) => (
-									<ReactionPill
-										key={reaction.emojiName}
-										reaction={reaction}
-										users={users}
-										onClick={() => void onToggleReaction(post, reaction.emojiName)}
-									/>
-								))}
-							</div>
-						) : null}
-					</>
-				)}
-				{replies.length > 0 ? (
-					<div className="message-replies">
-						{replies.map((reply) => (
-							<ReplyMessage
-								currentUserId={currentUserId}
-								key={reply.id}
-								post={reply}
+				<div className="message-content">
+					{deleted ? (
+						<div className="markdown-message">(deleted)</div>
+					) : (
+						<>
+							<MarkdownRenderer
+								currentUsername={users[currentUserId]?.username}
+								markdown={post.message}
 								resolveImageSrc={resolveImageSrc}
-								showOwnMessageIndicators={showOwnMessageIndicators}
 								useNewComposer={useNewComposer}
-								userColor={userColors[reply.user_id]}
-								userImages={userImages}
-								userStatuses={userStatuses}
-								users={users}
-								onOpenAttachment={onOpenAttachment}
-								onReply={onReply}
-								onSetUserColor={onSetUserColor}
-								onToggleReaction={onToggleReaction}
 							/>
-						))}
-					</div>
-				) : null}
-			</div>
-			{canReply ? (
-				<button
-					aria-label="Reply"
-					className="message-reply-add"
-					type="button"
-					onClick={() => onReply(post)}
-				>
-					<Reply size={14} />
-				</button>
-			) : null}
-			{!deleted ? (
-				<EmojiPickerPopover
-					label="Add reaction"
-					onSelectEmoji={(_, emojiName) => void onToggleReaction(post, normalizeEmojiName(emojiName))}
-				>
-					<button aria-label="Add reaction" className="message-reaction-add" type="button">
-						<SmilePlus size={14} />
+							<MessageAttachments
+								files={post.metadata?.files ?? []}
+								resolveImageSrc={resolveImageSrc}
+								onOpenAttachment={onOpenAttachment}
+							/>
+							{groupedReactions.length > 0 ? (
+								<div className="reaction-list">
+									{groupedReactions.map((reaction) => (
+										<ReactionPill
+											key={reaction.emojiName}
+											reaction={reaction}
+											users={users}
+											onClick={() =>
+												void onToggleReaction(post, reaction.emojiName)
+											}
+										/>
+									))}
+								</div>
+							) : null}
+						</>
+					)}
+					{replies.length > 0 ? (
+						<div className="message-replies">
+							{replies.map((reply) => (
+								<ReplyMessage
+									currentUserId={currentUserId}
+									key={reply.id}
+									post={reply}
+									resolveImageSrc={resolveImageSrc}
+									showOwnMessageIndicators={showOwnMessageIndicators}
+									useNewComposer={useNewComposer}
+									userColor={userColors[reply.user_id]}
+									userImages={userImages}
+									userStatuses={userStatuses}
+									users={users}
+									onOpenAttachment={onOpenAttachment}
+									onReply={onReply}
+									onSetUserColor={onSetUserColor}
+									onToggleReaction={onToggleReaction}
+								/>
+							))}
+						</div>
+					) : null}
+				</div>
+				{canReply ? (
+					<button
+						aria-label="Reply"
+						className="message-reply-add"
+						type="button"
+						onClick={() => onReply(post)}
+					>
+						<Reply size={14} />
 					</button>
-				</EmojiPickerPopover>
-			) : null}
-		</article>
-	);
-}, (prevProps, nextProps) => {
-	// Only re-render if post content, reactions, replies, or visual properties change
-	const postUnchanged =
-		prevProps.post.id === nextProps.post.id &&
-		prevProps.post.update_at === nextProps.post.update_at &&
-		prevProps.post.delete_at === nextProps.post.delete_at &&
-		prevProps.post.message === nextProps.post.message &&
-		prevProps.post.pending === nextProps.post.pending &&
-		prevProps.post.failed === nextProps.post.failed &&
-		prevProps.post.metadata?.files?.length === nextProps.post.metadata?.files?.length &&
-		prevProps.post.metadata?.reactions?.length === nextProps.post.metadata?.reactions?.length;
+				) : null}
+				{!deleted ? (
+					<EmojiPickerPopover
+						label="Add reaction"
+						onSelectEmoji={(_, emojiName) =>
+							void onToggleReaction(post, normalizeEmojiName(emojiName))
+						}
+					>
+						<button
+							aria-label="Add reaction"
+							className="message-reaction-add"
+							type="button"
+						>
+							<SmilePlus size={14} />
+						</button>
+					</EmojiPickerPopover>
+				) : null}
+			</article>
+		);
+	},
+	(prevProps, nextProps) => {
+		// Only re-render if post content, reactions, replies, or visual properties change
+		const postUnchanged =
+			prevProps.post.id === nextProps.post.id &&
+			prevProps.post.update_at === nextProps.post.update_at &&
+			prevProps.post.delete_at === nextProps.post.delete_at &&
+			prevProps.post.message === nextProps.post.message &&
+			prevProps.post.pending === nextProps.post.pending &&
+			prevProps.post.failed === nextProps.post.failed &&
+			prevProps.post.metadata?.files?.length ===
+				nextProps.post.metadata?.files?.length &&
+			prevProps.post.metadata?.reactions?.length ===
+				nextProps.post.metadata?.reactions?.length;
 
-	const repliesUnchanged =
-		prevProps.replies.length === nextProps.replies.length &&
-		prevProps.replies.every((reply, i) => {
-			const nextReply = nextProps.replies[i];
-			return (
-				reply.id === nextReply?.id &&
-				reply.update_at === nextReply.update_at &&
-				reply.delete_at === nextReply.delete_at &&
-				reply.message === nextReply.message &&
-				reply.metadata?.files?.length === nextReply.metadata?.files?.length &&
-				reply.metadata?.reactions?.length === nextReply.metadata?.reactions?.length
-			);
-		});
+		const repliesUnchanged =
+			prevProps.replies.length === nextProps.replies.length &&
+			prevProps.replies.every((reply, i) => {
+				const nextReply = nextProps.replies[i];
+				return (
+					reply.id === nextReply?.id &&
+					reply.update_at === nextReply.update_at &&
+					reply.delete_at === nextReply.delete_at &&
+					reply.message === nextReply.message &&
+					reply.metadata?.files?.length === nextReply.metadata?.files?.length &&
+					reply.metadata?.reactions?.length ===
+						nextReply.metadata?.reactions?.length
+				);
+			});
 
-	const visualPropsUnchanged =
-		prevProps.userColor === nextProps.userColor &&
-		prevProps.showOwnMessageIndicators === nextProps.showOwnMessageIndicators &&
-		prevProps.showProfilePictures === nextProps.showProfilePictures &&
-		prevProps.useNewComposer === nextProps.useNewComposer &&
-		prevProps.userStatuses[prevProps.post.user_id]?.status === nextProps.userStatuses[nextProps.post.user_id]?.status;
+		const visualPropsUnchanged =
+			prevProps.userColor === nextProps.userColor &&
+			prevProps.showOwnMessageIndicators ===
+				nextProps.showOwnMessageIndicators &&
+			prevProps.showProfilePictures === nextProps.showProfilePictures &&
+			prevProps.useNewComposer === nextProps.useNewComposer &&
+			prevProps.userStatuses[prevProps.post.user_id]?.status ===
+				nextProps.userStatuses[nextProps.post.user_id]?.status;
 
-	return postUnchanged && repliesUnchanged && visualPropsUnchanged;
-});
+		return postUnchanged && repliesUnchanged && visualPropsUnchanged;
+	},
+);
 
 const ReplyMessage = memo(function ReplyMessage({
 	currentUserId,
@@ -587,11 +671,12 @@ const ReplyMessage = memo(function ReplyMessage({
 	const author = users[post.user_id];
 	const groupedReactions = useMemo(
 		() => groupReactions(post.metadata?.reactions ?? [], currentUserId),
-		[post.metadata?.reactions, currentUserId]
+		[post.metadata?.reactions, currentUserId],
 	);
 	const deleted = post.delete_at > 0;
 	const status = userStatuses[post.user_id]?.status;
-	const isOwnMessage = showOwnMessageIndicators && post.user_id === currentUserId;
+	const isOwnMessage =
+		showOwnMessageIndicators && post.user_id === currentUserId;
 	return (
 		<div className={isOwnMessage ? "reply-message own" : "reply-message"}>
 			<div className="reply-message-meta">
@@ -617,7 +702,11 @@ const ReplyMessage = memo(function ReplyMessage({
 						resolveImageSrc={resolveImageSrc}
 						useNewComposer={useNewComposer}
 					/>
-					<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
+					<MessageAttachments
+						files={post.metadata?.files ?? []}
+						resolveImageSrc={resolveImageSrc}
+						onOpenAttachment={onOpenAttachment}
+					/>
 					{groupedReactions.length > 0 ? (
 						<div className="reaction-list">
 							{groupedReactions.map((reaction) => (
@@ -625,7 +714,9 @@ const ReplyMessage = memo(function ReplyMessage({
 									key={reaction.emojiName}
 									reaction={reaction}
 									users={users}
-									onClick={() => void onToggleReaction(post, reaction.emojiName)}
+									onClick={() =>
+										void onToggleReaction(post, reaction.emojiName)
+									}
 								/>
 							))}
 						</div>
@@ -645,9 +736,15 @@ const ReplyMessage = memo(function ReplyMessage({
 			{!deleted ? (
 				<EmojiPickerPopover
 					label="Add reaction"
-					onSelectEmoji={(_, emojiName) => void onToggleReaction(post, normalizeEmojiName(emojiName))}
+					onSelectEmoji={(_, emojiName) =>
+						void onToggleReaction(post, normalizeEmojiName(emojiName))
+					}
 				>
-					<button aria-label="Add reaction" className="reply-reaction-add" type="button">
+					<button
+						aria-label="Add reaction"
+						className="reply-reaction-add"
+						type="button"
+					>
 						<SmilePlus size={14} />
 					</button>
 				</EmojiPickerPopover>
@@ -712,7 +809,10 @@ const InlineImageAttachment = memo(function InlineImageAttachment({
 	resolveImageSrc: (src: string) => Promise<string>;
 	onOpen: () => void;
 }) {
-	const src = useResolvedImageSrc(`/files/${encodeURIComponent(file.id)}`, resolveImageSrc);
+	const src = useResolvedImageSrc(
+		`/files/${encodeURIComponent(file.id)}`,
+		resolveImageSrc,
+	);
 	const loadInfo = useImageLoadInfo(src);
 	return (
 		<button
@@ -730,12 +830,21 @@ const InlineImageAttachment = memo(function InlineImageAttachment({
 						width: Math.min(loadInfo.width, 520),
 					}}
 				>
-					<img alt={file.name ?? "Attached image"} className="inline-image" loading="lazy" src={src} />
+					<img
+						alt={file.name ?? "Attached image"}
+						className="inline-image"
+						loading="lazy"
+						src={src}
+					/>
 				</span>
 			) : src && loadInfo.state === "failed" ? (
-				<span className="inline-image-loading">{opening ? "Opening..." : file.name ?? "Open image"}</span>
+				<span className="inline-image-loading">
+					{opening ? "Opening..." : (file.name ?? "Open image")}
+				</span>
 			) : (
-				<span className="inline-image-loading">{opening ? "Opening..." : file.name ?? "Loading image..."}</span>
+				<span className="inline-image-loading">
+					{opening ? "Opening..." : (file.name ?? "Loading image...")}
+				</span>
 			)}
 		</button>
 	);
@@ -751,16 +860,24 @@ const FileAttachment = memo(function FileAttachment({
 	onOpen: () => void;
 }) {
 	return (
-		<button className="file-attachment" disabled={opening} type="button" onClick={onOpen}>
+		<button
+			className="file-attachment"
+			disabled={opening}
+			type="button"
+			onClick={onOpen}
+		>
 			<FileText size={16} />
-			<span>{opening ? "Opening..." : file.name ?? file.id}</span>
+			<span>{opening ? "Opening..." : (file.name ?? file.id)}</span>
 		</button>
 	);
 });
 
 function isImageFile(file: MattermostFileInfo) {
 	const mimeType = file.mime_type?.toLowerCase() ?? "";
-	const extension = file.extension?.toLowerCase() || file.name?.split(".").pop()?.toLowerCase() || "";
+	const extension =
+		file.extension?.toLowerCase() ||
+		file.name?.split(".").pop()?.toLowerCase() ||
+		"";
 	return (
 		mimeType.startsWith("image/") ||
 		["gif", "jpg", "jpeg", "png", "webp", "avif"].includes(extension) ||
@@ -803,7 +920,11 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 				<DropdownMenu.Content className="user-popover" sideOffset={6}>
 					<div className="user-popover-header">
 						<div className="user-avatar">
-							{imageSrc ? <img alt="" src={imageSrc} /> : initials(user?.nickname || user?.username || fallback)}
+							{imageSrc ? (
+								<img alt="" src={imageSrc} />
+							) : (
+								initials(user?.nickname || user?.username || fallback)
+							)}
 							<UserStatusDot status={status} />
 						</div>
 						<div>
@@ -812,7 +933,9 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 							<span>{status ?? "offline"}</span>
 						</div>
 					</div>
-					{user?.position ? <p className="user-popover-detail">{user.position}</p> : null}
+					{user?.position ? (
+						<p className="user-popover-detail">{user.position}</p>
+					) : null}
 					<DropdownMenu.Separator className="dropdown-separator" />
 					<div className="user-color-section">
 						<p>Color</p>
@@ -820,7 +943,9 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 							{USER_COLOR_PALETTE.map((color) => (
 								<button
 									aria-label={`Use ${color}`}
-									aria-pressed={color.toLowerCase() === userColor?.toLowerCase()}
+									aria-pressed={
+										color.toLowerCase() === userColor?.toLowerCase()
+									}
 									className="user-color-swatch"
 									key={color}
 									style={{ backgroundColor: color }}
@@ -834,7 +959,9 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 							<input
 								type="color"
 								value={selectedColor}
-								onChange={(event) => onSetUserColor(fallback, event.currentTarget.value)}
+								onChange={(event) =>
+									onSetUserColor(fallback, event.currentTarget.value)
+								}
 							/>
 						</label>
 					</div>
@@ -849,8 +976,19 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 	);
 });
 
-const UserStatusDot = memo(function UserStatusDot({ inline = false, status }: { inline?: boolean; status?: string }) {
-	return <span className={`status-dot ${inline ? "inline" : ""} ${status ?? "offline"}`} title={status ?? "offline"} />;
+const UserStatusDot = memo(function UserStatusDot({
+	inline = false,
+	status,
+}: {
+	inline?: boolean;
+	status?: string;
+}) {
+	return (
+		<span
+			className={`status-dot ${inline ? "inline" : ""} ${status ?? "offline"}`}
+			title={status ?? "offline"}
+		/>
+	);
 });
 
 const ReactionPill = memo(function ReactionPill({
@@ -863,7 +1001,9 @@ const ReactionPill = memo(function ReactionPill({
 	onClick: () => void;
 }) {
 	const glyph = emojiNameToGlyph(reaction.emojiName);
-	const reactionUsers = reaction.userIds.map((userId) => userLabel(users[userId], userId));
+	const reactionUsers = reaction.userIds.map((userId) =>
+		userLabel(users[userId], userId),
+	);
 	const tooltipLabel = `${formatReactionUsers(reactionUsers)} reacted with ${glyph}`;
 
 	return (
@@ -880,7 +1020,11 @@ const ReactionPill = memo(function ReactionPill({
 				</button>
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
-				<Tooltip.Content className="tooltip-content reaction-tooltip" side="top" sideOffset={6}>
+				<Tooltip.Content
+					className="tooltip-content reaction-tooltip"
+					side="top"
+					sideOffset={6}
+				>
 					{tooltipLabel}
 				</Tooltip.Content>
 			</Tooltip.Portal>

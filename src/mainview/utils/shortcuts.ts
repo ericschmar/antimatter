@@ -10,7 +10,9 @@ type ShortcutEvent = {
 	shiftKey?: boolean;
 };
 
-export function readShortcutAction(event: ShortcutEvent): ShortcutAction | null {
+export function readShortcutAction(
+	event: ShortcutEvent,
+): ShortcutAction | null {
 	const key = event.key.toLowerCase();
 	const primary = Boolean(event.metaKey || event.ctrlKey);
 	if (!primary) return null;

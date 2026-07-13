@@ -90,7 +90,9 @@ export function loadChannelOrder(): Record<string, string[]> {
 				.filter(([, ids]) => Array.isArray(ids))
 				.map(([key, ids]) => [
 					key,
-					(ids as unknown[]).filter((id): id is string => typeof id === "string"),
+					(ids as unknown[]).filter(
+						(id): id is string => typeof id === "string",
+					),
 				]),
 		);
 	} catch {
@@ -131,7 +133,10 @@ export function loadSettings(): AppSettings {
 }
 
 export function saveSettings(settings: AppSettings) {
-	localStorage.setItem(SETTINGS_KEY, JSON.stringify(normalizeSettings(settings)));
+	localStorage.setItem(
+		SETTINGS_KEY,
+		JSON.stringify(normalizeSettings(settings)),
+	);
 }
 
 export function loadDismissedAppUpdateBannerKey() {
@@ -167,8 +172,8 @@ function normalizeSettings(value: Partial<AppSettings>): AppSettings {
 				: defaultSettings.showOwnMessageIndicators,
 		ownMessageIndicatorColor:
 			typeof value.ownMessageIndicatorColor === "string"
-				? normalizeUserColor(value.ownMessageIndicatorColor) ??
-					defaultSettings.ownMessageIndicatorColor
+				? (normalizeUserColor(value.ownMessageIndicatorColor) ??
+					defaultSettings.ownMessageIndicatorColor)
 				: defaultSettings.ownMessageIndicatorColor,
 		notificationSounds:
 			typeof value.notificationSounds === "boolean"

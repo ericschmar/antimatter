@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
 import type { ComponentProps, CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -26,7 +26,9 @@ export function MarkdownMessage({
 		<div className="markdown-message">
 			<ReactMarkdown
 				components={{
-					img: (props: ComponentProps<"img">) => <MarkdownImage {...props} resolveImageSrc={resolveImageSrc} />,
+					img: (props: ComponentProps<"img">) => (
+						<MarkdownImage {...props} resolveImageSrc={resolveImageSrc} />
+					),
 				}}
 				remarkPlugins={[remarkGfm]}
 			>
@@ -36,10 +38,19 @@ export function MarkdownMessage({
 	);
 }
 
-export function highlightMentionsInMarkdown(markdown: string, currentUsername?: string) {
+export function highlightMentionsInMarkdown(
+	markdown: string,
+	currentUsername?: string,
+) {
 	if (!currentUsername) return markdown;
-	const escapedUsername = currentUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const pattern = new RegExp(`@(${escapedUsername}|channel|here)(?=\\b|\\s|$)`, "gi");
+	const escapedUsername = currentUsername.replace(
+		/[.*+?^${}()|[\]\\]/g,
+		"\\$&",
+	);
+	const pattern = new RegExp(
+		`@(${escapedUsername}|channel|here)(?=\\b|\\s|$)`,
+		"gi",
+	);
 	return markdown.replace(pattern, "**$&**");
 }
 
@@ -56,17 +67,28 @@ function MarkdownImage({
 	const frameStyle = imageFrameStyle(loadInfo, props.width, props.height);
 	if (!src) return null;
 	if (resolveImageSrc && !resolvedSrc) {
-		return <span className="markdown-image-frame loading">Loading image...</span>;
+		return (
+			<span className="markdown-image-frame loading">Loading image...</span>
+		);
 	}
 	if (loadInfo.state === "failed") {
 		return (
-			<a className="markdown-image-fallback" href={resolvedSrc ?? src} rel="noreferrer" target="_blank">
+			<a
+				className="markdown-image-fallback"
+				href={resolvedSrc ?? src}
+				rel="noreferrer"
+				target="_blank"
+			>
 				Open image
 			</a>
 		);
 	}
 	if (loadInfo.state !== "loaded") {
-		return <span className="markdown-image-frame loading" style={frameStyle}>Loading image...</span>;
+		return (
+			<span className="markdown-image-frame loading" style={frameStyle}>
+				Loading image...
+			</span>
+		);
 	}
 	return (
 		<span className="markdown-image-frame loaded" style={frameStyle}>
@@ -80,7 +102,7 @@ export function useResolvedImageSrc(
 	resolveImageSrc?: (src: string) => Promise<string>,
 ) {
 	const [resolvedSrc, setResolvedSrc] = useState<string | null>(() =>
-		src ? imageSrcCache.get(src) ?? null : null,
+		src ? (imageSrcCache.get(src) ?? null) : null,
 	);
 
 	useEffect(() => {
@@ -174,7 +196,8 @@ function imageFrameStyle(
 			: loadInfo.state === "loaded"
 				? loadInfo.width / loadInfo.height
 				: undefined;
-	const intrinsicWidth = explicitWidth ?? (loadInfo.state === "loaded" ? loadInfo.width : undefined);
+	const intrinsicWidth =
+		explicitWidth ?? (loadInfo.state === "loaded" ? loadInfo.width : undefined);
 	if (!aspectRatio && !intrinsicWidth) return undefined;
 	return {
 		...(aspectRatio ? { aspectRatio } : {}),
@@ -183,7 +206,8 @@ function imageFrameStyle(
 }
 
 function numericDimension(value: string | number | undefined) {
-	if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+	if (typeof value === "number" && Number.isFinite(value) && value > 0)
+		return value;
 	if (typeof value !== "string") return undefined;
 	const parsed = Number.parseFloat(value);
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;

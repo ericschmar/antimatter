@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
-import { MattermostApiClient } from "../mattermostApi";
-import type { MattermostChannel, MattermostPost, MattermostUser } from "../types";
+import type { MattermostApiClient } from "../mattermostApi";
+import type {
+	MattermostChannel,
+	MattermostPost,
+	MattermostUser,
+} from "../types";
 import { channelLabel, userLabel } from "../utils/format";
 
 export function CommandMenu({
@@ -80,16 +84,22 @@ export function CommandMenu({
 				selectedTeamId
 					? api.searchChannels(selectedTeamId, trimmedQuery).catch(() => [])
 					: Promise.resolve([]),
-				api.searchPosts(trimmedQuery, selectedTeamId ?? undefined).catch(() => ({
-					order: [],
-					posts: {} as Record<string, MattermostPost>,
-				})),
-				api.searchUsers(trimmedQuery, selectedTeamId ?? undefined).catch(() => []),
+				api
+					.searchPosts(trimmedQuery, selectedTeamId ?? undefined)
+					.catch(() => ({
+						order: [],
+						posts: {} as Record<string, MattermostPost>,
+					})),
+				api
+					.searchUsers(trimmedQuery, selectedTeamId ?? undefined)
+					.catch(() => []),
 			]).then(([nextChannels, nextPosts, nextUsers]) => {
 				if (cancelled) return;
 				setApiChannels(nextChannels);
 				setApiPosts(
-					nextPosts.order.map((postId) => nextPosts.posts[postId]).filter(Boolean),
+					nextPosts.order
+						.map((postId) => nextPosts.posts[postId])
+						.filter(Boolean),
 				);
 				setApiUsers(nextUsers);
 				setSearching(false);
@@ -104,7 +114,7 @@ export function CommandMenu({
 
 	useEffect(() => {
 		setActiveIndex(0);
-	}, [query, apiChannels, apiPosts, apiUsers]);
+	}, []);
 
 	if (!open) return null;
 	function runActiveCommand() {
@@ -128,9 +138,12 @@ export function CommandMenu({
 	}
 	return (
 		<div className="modal-backdrop" onMouseDown={onClose}>
-			<div className="command-panel" role="dialog" onMouseDown={(event) => event.stopPropagation()}>
+			<div
+				className="command-panel"
+				role="dialog"
+				onMouseDown={(event) => event.stopPropagation()}
+			>
 				<input
-					autoFocus
 					placeholder="Search channels, people, or messages..."
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
@@ -142,7 +155,10 @@ export function CommandMenu({
 						}
 						if (event.key === "ArrowUp") {
 							event.preventDefault();
-							setActiveIndex((current) => (current - 1 + commandItemCount) % commandItemCount);
+							setActiveIndex(
+								(current) =>
+									(current - 1 + commandItemCount) % commandItemCount,
+							);
 						}
 						if (event.key === "Enter") {
 							event.preventDefault();
@@ -151,7 +167,9 @@ export function CommandMenu({
 					}}
 				/>
 				<div className="command-results">
-					{localResults.length > 0 && <p className="command-section-label">Channels</p>}
+					{localResults.length > 0 && (
+						<p className="command-section-label">Channels</p>
+					)}
 					{localResults.map((channel, index) => (
 						<CommandChannelButton
 							active={activeIndex === index}
@@ -163,7 +181,9 @@ export function CommandMenu({
 							onSelect={onSelectChannel}
 						/>
 					))}
-					{remoteChannels.length > 0 && <p className="command-section-label">Public channels</p>}
+					{remoteChannels.length > 0 && (
+						<p className="command-section-label">Public channels</p>
+					)}
 					{remoteChannels.map((channel, index) => (
 						<CommandChannelButton
 							active={activeIndex === remoteChannelOffset + index}
@@ -175,10 +195,14 @@ export function CommandMenu({
 							onSelect={onSelectChannel}
 						/>
 					))}
-					{postResults.length > 0 && <p className="command-section-label">Messages</p>}
+					{postResults.length > 0 && (
+						<p className="command-section-label">Messages</p>
+					)}
 					{postResults.map((post, index) => (
 						<button
-							className={activeIndex === postOffset + index ? "active" : undefined}
+							className={
+								activeIndex === postOffset + index ? "active" : undefined
+							}
 							key={post.id}
 							type="button"
 							onMouseEnter={() => setActiveIndex(postOffset + index)}
@@ -186,13 +210,20 @@ export function CommandMenu({
 						>
 							<span>msg</span>
 							<strong>{users[post.user_id]?.username ?? "Unknown user"}</strong>
-							<small>{post.message.replace(/\s+/g, " ").slice(0, 96) || "(empty message)"}</small>
+							<small>
+								{post.message.replace(/\s+/g, " ").slice(0, 96) ||
+									"(empty message)"}
+							</small>
 						</button>
 					))}
-					{remoteUsers.length > 0 && <p className="command-section-label">People</p>}
+					{remoteUsers.length > 0 && (
+						<p className="command-section-label">People</p>
+					)}
 					{remoteUsers.map((user, index) => (
 						<button
-							className={activeIndex === userOffset + index ? "active" : undefined}
+							className={
+								activeIndex === userOffset + index ? "active" : undefined
+							}
 							key={user.id}
 							type="button"
 							onMouseEnter={() => setActiveIndex(userOffset + index)}
@@ -254,9 +285,9 @@ function CommandChannelButton({
 		>
 			<span>{channel.type === "D" ? "DM" : "#"}</span>
 			<strong>{label}</strong>
-			{channel.type === "O" && channel.display_name && channel.name !== channel.display_name && (
-				<small>{channel.name}</small>
-			)}
+			{channel.type === "O" &&
+				channel.display_name &&
+				channel.name !== channel.display_name && <small>{channel.name}</small>}
 		</button>
 	);
 }

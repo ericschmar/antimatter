@@ -1,6 +1,13 @@
 import type {
-	MattermostChannelMember,
+	MattermostAttachmentOpenRequest,
+	MattermostAttachmentOpenResponse,
+	MattermostFileUploadItem,
+	MattermostRpcRequest,
+	MattermostRpcResponse,
+} from "../shared/electrobunRpc";
+import type {
 	MattermostChannel,
+	MattermostChannelMember,
 	MattermostConfig,
 	MattermostFileInfo,
 	MattermostFileUploadResponse,
@@ -12,13 +19,6 @@ import type {
 	PostListResponse,
 	PostSearchResponse,
 } from "./types";
-import type {
-	MattermostAttachmentOpenRequest,
-	MattermostAttachmentOpenResponse,
-	MattermostFileUploadItem,
-	MattermostRpcRequest,
-	MattermostRpcResponse,
-} from "../shared/electrobunRpc";
 
 type RequestOptions = {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -26,7 +26,9 @@ type RequestOptions = {
 	responseType?: "json" | "dataUrl";
 };
 
-type MattermostTransport = (request: MattermostRpcRequest) => Promise<MattermostRpcResponse>;
+type MattermostTransport = (
+	request: MattermostRpcRequest,
+) => Promise<MattermostRpcResponse>;
 type MattermostUploadTransport = (request: {
 	serverUrl: string;
 	token: string;
@@ -125,17 +127,21 @@ export class MattermostApiClient {
 		});
 	}
 
-	viewChannel(userId: string, channelId: string, previousChannelId?: string | null) {
-		return this.request<{ status?: string; last_viewed_at_times?: Record<string, number> }>(
-			`/channels/members/${encodeURIComponent(userId)}/view`,
-			{
-				method: "POST",
-				body: {
-					channel_id: channelId,
-					...(previousChannelId ? { prev_channel_id: previousChannelId } : {}),
-				},
+	viewChannel(
+		userId: string,
+		channelId: string,
+		previousChannelId?: string | null,
+	) {
+		return this.request<{
+			status?: string;
+			last_viewed_at_times?: Record<string, number>;
+		}>(`/channels/members/${encodeURIComponent(userId)}/view`, {
+			method: "POST",
+			body: {
+				channel_id: channelId,
+				...(previousChannelId ? { prev_channel_id: previousChannelId } : {}),
 			},
-		);
+		});
 	}
 
 	getTeamsForCurrentUser() {
@@ -164,7 +170,12 @@ export class MattermostApiClient {
 		);
 	}
 
-	createChannel(teamId: string, displayName: string, name: string, type: "O" | "P") {
+	createChannel(
+		teamId: string,
+		displayName: string,
+		name: string,
+		type: "O" | "P",
+	) {
 		return this.request<MattermostChannel>("/channels", {
 			method: "POST",
 			body: {
@@ -243,14 +254,23 @@ export class MattermostApiClient {
 	async getFileDataUrl(filePathOrUrl: string) {
 		const resolution = await this.resolveFileImage(filePathOrUrl);
 		if (!resolution.ok || !resolution.src) {
-			throw new MattermostApiError(resolution.status ?? 0, resolution.error ?? "Could not load image.");
+			throw new MattermostApiError(
+				resolution.status ?? 0,
+				resolution.error ?? "Could not load image.",
+			);
 		}
 		return resolution.src;
 	}
 
-	async resolveFileImage(filePathOrUrl: string | string[]): Promise<MattermostImageResolution> {
-		const originalSrc = Array.isArray(filePathOrUrl) ? filePathOrUrl[0] ?? "" : filePathOrUrl;
-		const candidates = Array.isArray(filePathOrUrl) ? filePathOrUrl : [filePathOrUrl];
+	async resolveFileImage(
+		filePathOrUrl: string | string[],
+	): Promise<MattermostImageResolution> {
+		const originalSrc = Array.isArray(filePathOrUrl)
+			? (filePathOrUrl[0] ?? "")
+			: filePathOrUrl;
+		const candidates = Array.isArray(filePathOrUrl)
+			? filePathOrUrl
+			: [filePathOrUrl];
 		const attemptedPaths: string[] = [];
 		let lastFailure: MattermostImageResolution | null = null;
 
@@ -269,12 +289,16 @@ export class MattermostApiClient {
 			for (const path of paths) {
 				attemptedPaths.push(path);
 				try {
-					const response = await this.requestWithResponse<string>(path, { responseType: "dataUrl" });
+					const response = await this.requestWithResponse<string>(path, {
+						responseType: "dataUrl",
+					});
 					const dataUrl = response.body;
 					return {
 						apiPath: path,
 						attemptedPaths: [...attemptedPaths],
-						contentType: response.headers.get("content-type") ?? readDataUrlContentType(dataUrl),
+						contentType:
+							response.headers.get("content-type") ??
+							readDataUrlContentType(dataUrl),
 						dataUrlLength: dataUrl.length,
 						ok: true,
 						originalSrc,
@@ -285,34 +309,47 @@ export class MattermostApiClient {
 					lastFailure = {
 						apiPath: path,
 						attemptedPaths: [...attemptedPaths],
-						error: error instanceof Error ? error.message : "Could not load image.",
+						error:
+							error instanceof Error ? error.message : "Could not load image.",
 						ok: false,
 						originalSrc,
 						src: null,
-						status: error instanceof MattermostApiError ? error.status : undefined,
+						status:
+							error instanceof MattermostApiError ? error.status : undefined,
 					};
 				}
 			}
 		}
 
-		return lastFailure ?? {
-			apiPath: null,
-			attemptedPaths,
-			error: "No image source provided.",
-			ok: false,
-			originalSrc,
-			src: null,
-		};
+		return (
+			lastFailure ?? {
+				apiPath: null,
+				attemptedPaths,
+				error: "No image source provided.",
+				ok: false,
+				originalSrc,
+				src: null,
+			}
+		);
 	}
 
 	createPost(channelId: string, message: string, rootId?: string) {
 		return this.request<MattermostPost>("/posts", {
 			method: "POST",
-			body: { channel_id: channelId, message, ...(rootId ? { root_id: rootId } : {}) },
+			body: {
+				channel_id: channelId,
+				message,
+				...(rootId ? { root_id: rootId } : {}),
+			},
 		});
 	}
 
-	createPostWithFiles(channelId: string, message: string, fileIds: string[], rootId?: string) {
+	createPostWithFiles(
+		channelId: string,
+		message: string,
+		fileIds: string[],
+		rootId?: string,
+	) {
 		return this.request<MattermostPost>("/posts", {
 			method: "POST",
 			body: {
@@ -349,17 +386,26 @@ export class MattermostApiClient {
 				files,
 			}).then((response) => {
 				if (!response.ok) {
-					throw new MattermostApiError(response.status, readRpcError(response.body, response.status));
+					throw new MattermostApiError(
+						response.status,
+						readRpcError(response.body, response.status),
+					);
 				}
 				return response.body as MattermostFileUploadResponse;
 			});
 		}
-		throw new MattermostApiError(0, "File upload requires the desktop transport.");
+		throw new MattermostApiError(
+			0,
+			"File upload requires the desktop transport.",
+		);
 	}
 
 	async openAttachment(file: MattermostFileInfo) {
 		if (!this.attachmentOpenTransport) {
-			throw new MattermostApiError(0, "Opening attachments requires the desktop transport.");
+			throw new MattermostApiError(
+				0,
+				"Opening attachments requires the desktop transport.",
+			);
 		}
 		const response = await this.attachmentOpenTransport({
 			serverUrl: this.serverUrl,
@@ -369,7 +415,10 @@ export class MattermostApiClient {
 			mimeType: file.mime_type,
 		});
 		if (!response.success) {
-			throw new MattermostApiError(0, response.message ?? "Could not open attachment.");
+			throw new MattermostApiError(
+				0,
+				response.message ?? "Could not open attachment.",
+			);
 		}
 		return response;
 	}
@@ -400,12 +449,18 @@ export class MattermostApiClient {
 		);
 	}
 
-	private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+	private async request<T>(
+		path: string,
+		options: RequestOptions = {},
+	): Promise<T> {
 		const response = await this.requestWithResponse<T>(path, options);
 		return response.body;
 	}
 
-	private async requestWithResponse<T>(path: string, options: RequestOptions = {}): Promise<MattermostResponse<T>> {
+	private async requestWithResponse<T>(
+		path: string,
+		options: RequestOptions = {},
+	): Promise<MattermostResponse<T>> {
 		if (this.transport) {
 			const response = await this.transport({
 				serverUrl: this.serverUrl,
@@ -417,7 +472,10 @@ export class MattermostApiClient {
 			});
 
 			if (!response.ok) {
-				throw new MattermostApiError(response.status, readRpcError(response.body, response.status));
+				throw new MattermostApiError(
+					response.status,
+					readRpcError(response.body, response.status),
+				);
 			}
 
 			return {
@@ -441,10 +499,11 @@ export class MattermostApiClient {
 		}
 
 		if (options.responseType === "dataUrl") {
-			const contentType = response.headers.get("Content-Type") ?? "application/octet-stream";
+			const contentType =
+				response.headers.get("Content-Type") ?? "application/octet-stream";
 			const blob = await response.blob();
 			return {
-				body: await blobToDataUrl(blob, contentType) as T,
+				body: (await blobToDataUrl(blob, contentType)) as T,
 				headers: response.headers,
 				status: response.status,
 			};
@@ -474,9 +533,12 @@ export class MattermostApiClient {
 			const serverUrl = new URL(this.serverUrl);
 			if (url.origin !== serverUrl.origin) return [];
 			const search = url.search || "";
-			if (url.pathname.startsWith("/api/v4/")) return [`${url.pathname.slice("/api/v4".length)}${search}`];
-			if (url.pathname.startsWith("/users/")) return [`${url.pathname}${search}`];
-			if (url.pathname.startsWith("/files/")) return [`${url.pathname}${search}`];
+			if (url.pathname.startsWith("/api/v4/"))
+				return [`${url.pathname.slice("/api/v4".length)}${search}`];
+			if (url.pathname.startsWith("/users/"))
+				return [`${url.pathname}${search}`];
+			if (url.pathname.startsWith("/files/"))
+				return [`${url.pathname}${search}`];
 			return [];
 		} catch {
 			return [];
@@ -500,7 +562,9 @@ function blobToDataUrl(blob: Blob, contentType: string) {
 			if (typeof result === "string") resolve(result);
 			else reject(new Error(`Could not read ${contentType} response.`));
 		});
-		reader.addEventListener("error", () => reject(reader.error ?? new Error("Could not read file.")));
+		reader.addEventListener("error", () =>
+			reject(reader.error ?? new Error("Could not read file.")),
+		);
 		reader.readAsDataURL(blob);
 	});
 }
@@ -529,8 +593,13 @@ export function normalizeServerUrl(value: string) {
 
 async function readError(response: Response) {
 	try {
-		const body = (await response.json()) as { message?: string; error?: string };
-		return body.message ?? body.error ?? `Request failed with ${response.status}`;
+		const body = (await response.json()) as {
+			message?: string;
+			error?: string;
+		};
+		return (
+			body.message ?? body.error ?? `Request failed with ${response.status}`
+		);
 	} catch {
 		return `Request failed with ${response.status}`;
 	}

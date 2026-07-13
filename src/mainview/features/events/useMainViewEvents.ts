@@ -1,11 +1,13 @@
-import { useEffect } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import { useEffect } from "react";
 import type {
 	ApplicationMenuAction,
 	AppUpdateState,
 	MattermostSsoLoginResult,
 } from "../../../shared/electrobunRpc";
-import { MattermostApiClient } from "../../mattermostApi";
+import { electrobun, rendererLog } from "../../app/rpc";
+import type { MattermostApiClient } from "../../mattermostApi";
+import type { AppStatus } from "../../state/uiStore";
 import type {
 	AppSettings,
 	ChannelHistoryData,
@@ -20,9 +22,11 @@ import type {
 	TypingUsersByChannel,
 	WebSocketStatus,
 } from "../../types";
-import type { AppStatus } from "../../state/uiStore";
 import { channelLabel, includesMention, userLabel } from "../../utils/format";
-import { getDirectChannelUsers, getPostUsers } from "../../utils/mattermostLoaders";
+import {
+	getDirectChannelUsers,
+	getPostUsers,
+} from "../../utils/mattermostLoaders";
 import {
 	addPost,
 	applyReaction,
@@ -30,7 +34,6 @@ import {
 	updateChannelLastPostAt,
 	updatePost,
 } from "../../utils/state";
-import { electrobun, rendererLog } from "../../app/rpc";
 
 export function useMainViewEvents({
 	api,
@@ -92,34 +95,39 @@ export function useMainViewEvents({
 			const { teamId } = detail;
 			const postUsersPromise =
 				api && currentUser ? getPostUsers(api, [post], currentUser.id) : null;
-			setTypingUsers((current) => removeTypingUser(current, post.channel_id, post.user_id));
+			setTypingUsers((current) =>
+				removeTypingUser(current, post.channel_id, post.user_id),
+			);
 			if (api && currentUser && !state.channels[post.channel_id]) {
-				void api.getChannel(post.channel_id).then(async (channel) => {
-					const channelUsers = await getDirectChannelUsers(
-						api,
-						[channel],
-						currentUser.id,
-					);
-					setState((current) =>
-						updateChannelLastPostAt(
-							{
-								...current,
-								channels: {
-									...current.channels,
-									[channel.id]: channel,
+				void api
+					.getChannel(post.channel_id)
+					.then(async (channel) => {
+						const channelUsers = await getDirectChannelUsers(
+							api,
+							[channel],
+							currentUser.id,
+						);
+						setState((current) =>
+							updateChannelLastPostAt(
+								{
+									...current,
+									channels: {
+										...current.channels,
+										[channel.id]: channel,
+									},
+									users: {
+										...current.users,
+										...Object.fromEntries(
+											channelUsers.map((user) => [user.id, user]),
+										),
+									},
 								},
-								users: {
-									...current.users,
-									...Object.fromEntries(
-										channelUsers.map((user) => [user.id, user]),
-									),
-								},
-							},
-							post.channel_id,
-							post.create_at,
-						),
-					);
-				}).catch(() => undefined);
+								post.channel_id,
+								post.create_at,
+							),
+						);
+					})
+					.catch(() => undefined);
 			}
 			if (post.channel_id === selectedChannelRef.current) {
 				mutateSelectedChannelHistory((current) =>
@@ -127,7 +135,9 @@ export function useMainViewEvents({
 				);
 				setState((current) =>
 					updateChannelLastPostAt(
-						current.posts[post.id] ? updatePost(current, post) : addPost(current, post),
+						current.posts[post.id]
+							? updatePost(current, post)
+							: addPost(current, post),
 						post.channel_id,
 						post.create_at,
 					),
@@ -152,8 +162,7 @@ export function useMainViewEvents({
 			});
 			if (post.channel_id !== selectedChannelRef.current) {
 				const mention = Boolean(
-					currentUser &&
-						includesMention(post.message, currentUser.username),
+					currentUser && includesMention(post.message, currentUser.username),
 				);
 				setChannelNotifications((current) => ({
 					...current,
@@ -202,7 +211,7 @@ export function useMainViewEvents({
 							postId: post.id,
 							hasFocus: document.hasFocus(),
 						});
-						void electrobun.rpc!.request.showNotification({
+						void electrobun.rpc?.request.showNotification({
 							title: `${sender} in ${channelName}`,
 							body: post.message,
 							silent: !settings.notificationSounds,
@@ -219,18 +228,24 @@ export function useMainViewEvents({
 							postId: post.id,
 							userId: post.user_id,
 						});
-						void postUsersPromise.then((users) => {
-							rendererLog("Notification", "User data loaded, showing:", {
-								postId: post.id,
-								usersLoaded: users.length,
+						void postUsersPromise
+							.then((users) => {
+								rendererLog("Notification", "User data loaded, showing:", {
+									postId: post.id,
+									usersLoaded: users.length,
+								});
+								showNotification(users);
+							})
+							.catch(() => {
+								rendererLog(
+									"Notification",
+									"User data failed, showing anyway:",
+									{
+										postId: post.id,
+									},
+								);
+								showNotification();
 							});
-							showNotification(users);
-						}).catch(() => {
-							rendererLog("Notification", "User data failed, showing anyway:", {
-								postId: post.id,
-							});
-							showNotification();
-						});
 					}
 				}
 			}
@@ -246,7 +261,8 @@ export function useMainViewEvents({
 		}
 
 		function handleStatusChange(event: Event) {
-			const status = (event as CustomEvent<{ status: MattermostUserStatus }>).detail.status;
+			const status = (event as CustomEvent<{ status: MattermostUserStatus }>)
+				.detail.status;
 			if (!status?.user_id) return;
 			setUserStatuses((current) => ({ ...current, [status.user_id]: status }));
 		}
@@ -259,7 +275,11 @@ export function useMainViewEvents({
 					userId: string;
 				}>
 			).detail;
-			if (!detail.channelId || !detail.userId || detail.userId === currentUser?.id)
+			if (
+				!detail.channelId ||
+				!detail.userId ||
+				detail.userId === currentUser?.id
+			)
 				return;
 
 			setTypingUsers((current) => ({
@@ -279,12 +299,18 @@ export function useMainViewEvents({
 		window.addEventListener("mattermost-sso-login-result", handleSsoResult);
 		window.addEventListener("mattermost-websocket-post", handlePost);
 		window.addEventListener("mattermost-websocket-reaction", handleReaction);
-		window.addEventListener("mattermost-websocket-status-change", handleStatusChange);
+		window.addEventListener(
+			"mattermost-websocket-status-change",
+			handleStatusChange,
+		);
 		window.addEventListener("mattermost-websocket-typing", handleTyping);
 		return () => {
 			window.removeEventListener("mattermost-websocket-status", handleStatus);
 			window.removeEventListener("app-update-state", handleAppUpdateState);
-			window.removeEventListener("mattermost-sso-login-result", handleSsoResult);
+			window.removeEventListener(
+				"mattermost-sso-login-result",
+				handleSsoResult,
+			);
 			window.removeEventListener("mattermost-websocket-post", handlePost);
 			window.removeEventListener(
 				"mattermost-websocket-reaction",
@@ -296,23 +322,48 @@ export function useMainViewEvents({
 			);
 			window.removeEventListener("mattermost-websocket-typing", handleTyping);
 		};
-	}, [api, connect, currentUser, loadPostReactions, mutateSelectedChannelHistory, selectedChannelRef, settings.notificationPreference, settings.notificationSounds, state, setAppUpdate, setChannelNotifications, setError, setState, setStatus, setTeamUnread, setTypingUsers, setUserStatuses, setWsStatus]);
+	}, [
+		api,
+		connect,
+		currentUser,
+		loadPostReactions,
+		mutateSelectedChannelHistory,
+		selectedChannelRef,
+		settings.notificationPreference,
+		settings.notificationSounds,
+		state,
+		setAppUpdate,
+		setChannelNotifications,
+		setError,
+		setState,
+		setStatus,
+		setTeamUnread,
+		setTypingUsers,
+		setUserStatuses,
+		setWsStatus,
+	]);
 
 	useEffect(() => {
 		function handleSettingsUpdate(event: Event) {
-			const nextSettings = (event as CustomEvent<{ settings: AppSettings }>).detail.settings;
+			const nextSettings = (event as CustomEvent<{ settings: AppSettings }>)
+				.detail.settings;
 			setSettings(nextSettings);
 		}
 
 		function handleMessageMenu(event: Event) {
 			const detail = (
-				event as CustomEvent<{ action: "copy" | "delete" | "edit" | "reply"; postId: string }>
+				event as CustomEvent<{
+					action: "copy" | "delete" | "edit" | "reply";
+					postId: string;
+				}>
 			).detail;
 			const post = state.posts[detail.postId];
 			if (!post) return;
-			if (detail.action === "copy") void navigator.clipboard.writeText(post.message);
+			if (detail.action === "copy")
+				void navigator.clipboard.writeText(post.message);
 			if (detail.action === "reply") startReply(post);
-			if (detail.action === "edit" && post.user_id === currentUser?.id) setEditTarget(post);
+			if (detail.action === "edit" && post.user_id === currentUser?.id)
+				setEditTarget(post);
 			if (
 				detail.action === "delete" &&
 				api &&
@@ -322,11 +373,17 @@ export function useMainViewEvents({
 			) {
 				const previousPost = post;
 				const deletedAt = Date.now();
-				const deletedPost = { ...post, delete_at: deletedAt, update_at: deletedAt };
+				const deletedPost = {
+					...post,
+					delete_at: deletedAt,
+					update_at: deletedAt,
+				};
 				setState((current) => updatePost(current, deletedPost));
 				void api.deletePost(post.id).catch((err) => {
 					setState((current) => updatePost(current, previousPost));
-					setError(err instanceof Error ? err.message : "Could not delete message.");
+					setError(
+						err instanceof Error ? err.message : "Could not delete message.",
+					);
 				});
 			}
 		}
@@ -356,11 +413,11 @@ export function useMainViewEvents({
 			const target = event.target as HTMLElement;
 			const anchor = target.closest("a");
 
-			if (anchor && anchor.href) {
+			if (anchor?.href) {
 				if (anchor.href.match(/^(https?|mailto|tel):/i)) {
 					event.preventDefault();
 					event.stopPropagation();
-					void electrobun.rpc!.request.openExternal({ url: anchor.href });
+					void electrobun.rpc?.request.openExternal({ url: anchor.href });
 				}
 			}
 		}
@@ -372,19 +429,40 @@ export function useMainViewEvents({
 		window.addEventListener("click", handleLinkClick, { capture: true });
 		return () => {
 			window.removeEventListener("settings-updated", handleSettingsUpdate);
-			window.removeEventListener("message-context-menu-action", handleMessageMenu);
-			window.removeEventListener("application-menu-action", handleApplicationMenu);
+			window.removeEventListener(
+				"message-context-menu-action",
+				handleMessageMenu,
+			);
+			window.removeEventListener(
+				"application-menu-action",
+				handleApplicationMenu,
+			);
 			window.removeEventListener("keydown", handleKeyDown, { capture: true });
 			window.removeEventListener("click", handleLinkClick, { capture: true });
 		};
-	}, [api, currentUser?.id, openSettingsWindow, settings, setCommandOpen, setEditTarget, setError, setSettings, setState, startReply, state.posts]);
+	}, [
+		api,
+		currentUser?.id,
+		openSettingsWindow,
+		settings,
+		setCommandOpen,
+		setEditTarget,
+		setError,
+		setSettings,
+		setState,
+		startReply,
+		state.posts,
+	]);
 }
 
 type UseMainViewEventsArgs = {
 	api: MattermostApiClient | null;
 	connect: (config: MattermostConfig) => Promise<void>;
 	currentUser: MattermostUser | null;
-	loadPostReactions: (api: MattermostApiClient, posts: MattermostPost[]) => Promise<void>;
+	loadPostReactions: (
+		api: MattermostApiClient,
+		posts: MattermostPost[],
+	) => Promise<void>;
 	mutateSelectedChannelHistory: (
 		updater: (
 			current: ChannelHistoryData | undefined,
@@ -405,7 +483,9 @@ type UseMainViewEventsArgs = {
 	setAppUpdate: Dispatch<SetStateAction<AppUpdateState>>;
 	setTeamUnread: Dispatch<SetStateAction<TeamUnreadState>>;
 	setTypingUsers: Dispatch<SetStateAction<TypingUsersByChannel>>;
-	setUserStatuses: Dispatch<SetStateAction<Record<string, MattermostUserStatus>>>;
+	setUserStatuses: Dispatch<
+		SetStateAction<Record<string, MattermostUserStatus>>
+	>;
 	setWsStatus: (status: WebSocketStatus) => void;
 };
 

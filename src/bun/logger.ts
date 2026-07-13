@@ -1,8 +1,8 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { LOG_FILENAME, formatLogLine } from "../shared/logFormat";
+import { formatLogLine, LOG_FILENAME } from "../shared/logFormat";
 
-export { LOG_FILENAME, formatLogLine };
+export { formatLogLine, LOG_FILENAME };
 
 export function appendLogLine(dir: string, line: string): void {
 	mkdirSync(dir, { recursive: true });

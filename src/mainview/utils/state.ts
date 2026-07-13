@@ -6,7 +6,10 @@ import type {
 	NormalizedState,
 } from "../types";
 
-export function addPost(state: NormalizedState, post: MattermostPost): NormalizedState {
+export function addPost(
+	state: NormalizedState,
+	post: MattermostPost,
+): NormalizedState {
 	if (state.posts[post.id]) return state;
 	return {
 		...state,
@@ -38,7 +41,10 @@ export function replacePost(
 	};
 }
 
-export function updatePost(state: NormalizedState, post: MattermostPost): NormalizedState {
+export function updatePost(
+	state: NormalizedState,
+	post: MattermostPost,
+): NormalizedState {
 	if (!state.posts[post.id]) return state;
 	return {
 		...state,
@@ -49,7 +55,10 @@ export function updatePost(state: NormalizedState, post: MattermostPost): Normal
 	};
 }
 
-export function mergeUsers(state: NormalizedState, users: MattermostUser[]): NormalizedState {
+export function mergeUsers(
+	state: NormalizedState,
+	users: MattermostUser[],
+): NormalizedState {
 	if (users.length === 0) return state;
 	return {
 		...state,
@@ -112,11 +121,13 @@ export function applyReaction(
 	const nextReactions = removed
 		? current.filter(
 				(item) =>
-					item.user_id !== reaction.user_id || item.emoji_name !== reaction.emoji_name,
+					item.user_id !== reaction.user_id ||
+					item.emoji_name !== reaction.emoji_name,
 			)
 		: current.some(
 					(item) =>
-						item.user_id === reaction.user_id && item.emoji_name === reaction.emoji_name,
+						item.user_id === reaction.user_id &&
+						item.emoji_name === reaction.emoji_name,
 				)
 			? current
 			: [...current, reaction];
@@ -133,7 +144,10 @@ export function applyChannelHistory(
 		const carriedReactions = state.posts[id]?.metadata?.reactions;
 		posts[id] =
 			carriedReactions && !incoming.metadata?.reactions
-				? { ...incoming, metadata: { ...incoming.metadata, reactions: carriedReactions } }
+				? {
+						...incoming,
+						metadata: { ...incoming.metadata, reactions: carriedReactions },
+					}
 				: incoming;
 	}
 	return {

@@ -103,7 +103,10 @@ export class MattermostWebSocketClient {
 				const post = JSON.parse(message.data.post) as MattermostPost;
 				this.listener({ type: "postCreated", post });
 			} catch {
-				this.listener({ type: "error", message: "Could not parse incoming post." });
+				this.listener({
+					type: "error",
+					message: "Could not parse incoming post.",
+				});
 			}
 		}
 	}

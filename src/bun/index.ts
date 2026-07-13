@@ -1,12 +1,30 @@
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
-import { app as electrobunApp, ApplicationMenu, BrowserView, BrowserWindow, ContextMenu, Updater, Utils } from "electrobun/bun";
-import { getFonts } from "font-list";
 import {
-	parseMattermostWebSocketMessage,
-	readMattermostWebSocketEvent,
-	readMattermostWebSocketStatus,
-} from "./mattermostWebSocketEvents";
+	ApplicationMenu,
+	BrowserView,
+	BrowserWindow,
+	ContextMenu,
+	app as electrobunApp,
+	Updater,
+	Utils,
+} from "electrobun/bun";
+import { getFonts } from "font-list";
+import type {
+	ApplicationMenuAction,
+	AppSettingsPayload,
+	AppUpdateState,
+	AppUpdateStatus,
+	ChannelContextMenuAction,
+	MattermostClientRPC,
+	MattermostSsoLoginRequest,
+	MattermostSsoProvider,
+	MattermostTypingRequest,
+	MattermostWebSocketConfig,
+	MessageContextMenuAction,
+	SettingsWindowRPC,
+} from "../shared/electrobunRpc";
+import { appendLogLine, formatLogLine } from "./logger";
 import {
 	getEnvConfig,
 	loginWithMattermostDesktopToken,
@@ -17,24 +35,14 @@ import {
 	uploadMattermostFiles,
 } from "./mattermostHttp";
 import {
+	parseMattermostWebSocketMessage,
+	readMattermostWebSocketEvent,
+	readMattermostWebSocketStatus,
+} from "./mattermostWebSocketEvents";
+import {
 	sendMainWebviewMessage,
 	sendSettingsWebviewMessage,
 } from "./rpcSenders";
-import { appendLogLine, formatLogLine } from "./logger";
-import type {
-	ApplicationMenuAction,
-	AppSettingsPayload,
-	AppUpdateState,
-	AppUpdateStatus,
-	ChannelContextMenuAction,
-	MessageContextMenuAction,
-	MattermostClientRPC,
-	MattermostSsoLoginRequest,
-	MattermostSsoProvider,
-	MattermostTypingRequest,
-	MattermostWebSocketConfig,
-	SettingsWindowRPC,
-} from "../shared/electrobunRpc";
 
 // Resolve an app-scoped logs directory and tee all bun console output into it
 // so the notification-pipeline diagnostic logs survive even when the packaged
@@ -53,7 +61,8 @@ function installConsoleTee(dir: string): void {
 		error: console.error,
 		info: console.info,
 	};
-	const tee = (tag: string, fn: (...args: unknown[]) => void) =>
+	const tee =
+		(tag: string, fn: (...args: unknown[]) => void) =>
 		(...args: unknown[]) => {
 			try {
 				appendLogLine(dir, formatLogLine(Date.now(), tag, args));
@@ -69,7 +78,10 @@ function installConsoleTee(dir: string): void {
 }
 
 installConsoleTee(logDir);
-appendLogLine(logDir, formatLogLine(Date.now(), "session", ["--- Antimatter session started ---"]));
+appendLogLine(
+	logDir,
+	formatLogLine(Date.now(), "session", ["--- Antimatter session started ---"]),
+);
 
 let mattermostSocket: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -105,22 +117,24 @@ let appUpdateState: AppUpdateState = {
 let updateCheckInFlight: Promise<AppUpdateState> | null = null;
 let updateDownloadInFlight: Promise<AppUpdateState> | null = null;
 
-const rendererApplicationMenuActions = new Set<ApplicationMenuAction["action"]>([
-	"command-menu",
-	"settings",
-	"navigate-favorites",
-	"navigate-channels",
-	"navigate-dms",
-	"navigate-prev-channel",
-	"navigate-next-channel",
-	"navigate-prev-unread",
-	"navigate-next-unread",
-	"navigate-prev-mention",
-	"navigate-next-mention",
-	"attach-file",
-	"attach-image",
-	"open-emoji-picker",
-]);
+const rendererApplicationMenuActions = new Set<ApplicationMenuAction["action"]>(
+	[
+		"command-menu",
+		"settings",
+		"navigate-favorites",
+		"navigate-channels",
+		"navigate-dms",
+		"navigate-prev-channel",
+		"navigate-next-channel",
+		"navigate-prev-unread",
+		"navigate-next-unread",
+		"navigate-prev-mention",
+		"navigate-next-mention",
+		"attach-file",
+		"attach-image",
+		"open-emoji-picker",
+	],
+);
 
 const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 	maxRequestTime: 30000,
@@ -129,7 +143,8 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 			getEnvConfig: () => getEnvConfig(),
 			mattermostRequest: async (request) => mattermostRequest(request),
 			mattermostLogin: async (request) => mattermostLogin(request),
-			startMattermostSsoLogin: async (request) => startMattermostSsoLogin(request),
+			startMattermostSsoLogin: async (request) =>
+				startMattermostSsoLogin(request),
 			uploadMattermostFiles: async (request) => uploadMattermostFiles(request),
 			openMattermostAttachment: async (request) =>
 				openMattermostAttachment(request, (path) => Utils.openPath(path)),
@@ -172,7 +187,11 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 				return { success: true };
 			},
 			showMessageContextMenu: (request) => {
-				showMessageContextMenu(request.postId, request.canEdit, request.canDelete);
+				showMessageContextMenu(
+					request.postId,
+					request.canEdit,
+					request.canDelete,
+				);
 				return { success: true };
 			},
 			openSettingsWindow: ({ settings }) => {
@@ -387,12 +406,20 @@ ApplicationMenu.setApplicationMenu([
 	},
 ]);
 
-function showChannelContextMenu(channelId: string, label: string, hasEmoji: boolean, archived: boolean) {
+function showChannelContextMenu(
+	channelId: string,
+	label: string,
+	hasEmoji: boolean,
+	archived: boolean,
+) {
 	ContextMenu.showContextMenu([
 		{
 			label: hasEmoji ? `Change emoji for ${label}` : `Set emoji for ${label}`,
 			action: "set-emoji",
-			data: { action: "set-emoji", channelId } satisfies ChannelContextMenuAction,
+			data: {
+				action: "set-emoji",
+				channelId,
+			} satisfies ChannelContextMenuAction,
 		},
 		{ type: "divider" },
 		{
@@ -406,7 +433,11 @@ function showChannelContextMenu(channelId: string, label: string, hasEmoji: bool
 	]);
 }
 
-function showMessageContextMenu(postId: string, canEdit: boolean, canDelete: boolean) {
+function showMessageContextMenu(
+	postId: string,
+	canEdit: boolean,
+	canDelete: boolean,
+) {
 	ContextMenu.showContextMenu([
 		{
 			label: "Copy message",
@@ -433,7 +464,9 @@ function showMessageContextMenu(postId: string, canEdit: boolean, canDelete: boo
 	]);
 }
 
-function readContextMenuData(event: unknown):
+function readContextMenuData(
+	event: unknown,
+):
 	| { kind: "channel"; action: ChannelContextMenuAction }
 	| { kind: "message"; action: MessageContextMenuAction }
 	| null {
@@ -447,7 +480,10 @@ function readContextMenuData(event: unknown):
 			maybeAction.action === "unarchive") &&
 		typeof maybeAction.channelId === "string"
 	) {
-		return { kind: "channel", action: { action: maybeAction.action, channelId: maybeAction.channelId } };
+		return {
+			kind: "channel",
+			action: { action: maybeAction.action, channelId: maybeAction.channelId },
+		};
 	}
 
 	const maybeMessageAction = data as Partial<MessageContextMenuAction>;
@@ -460,7 +496,10 @@ function readContextMenuData(event: unknown):
 	) {
 		return {
 			kind: "message",
-			action: { action: maybeMessageAction.action, postId: maybeMessageAction.postId },
+			action: {
+				action: maybeMessageAction.action,
+				postId: maybeMessageAction.postId,
+			},
 		};
 	}
 	return null;
@@ -478,19 +517,30 @@ function readApplicationMenuData(event: unknown) {
 			action: maybeEvent.data.action as ApplicationMenuAction["action"],
 		};
 	}
-	if (maybeEvent.data?.action === "check-for-updates") return { action: "check-for-updates" as const };
-	if (maybeEvent.data?.action === "apply-update") return { action: "apply-update" as const };
+	if (maybeEvent.data?.action === "check-for-updates")
+		return { action: "check-for-updates" as const };
+	if (maybeEvent.data?.action === "apply-update")
+		return { action: "apply-update" as const };
 	return null;
 }
 
-async function checkForAppUpdate(options: { autoDownload?: boolean; quietNoUpdate?: boolean } = {}) {
+async function checkForAppUpdate(
+	options: { autoDownload?: boolean; quietNoUpdate?: boolean } = {},
+) {
 	if (updateCheckInFlight) return updateCheckInFlight;
 
 	updateCheckInFlight = (async () => {
-		setAppUpdateState({ status: "checking", message: "Checking for updates..." });
+		setAppUpdateState({
+			status: "checking",
+			message: "Checking for updates...",
+		});
 		try {
 			const localInfo = await Updater.getLocalInfo();
-			if (!localInfo.baseUrl || !localInfo.channel || localInfo.channel === "dev") {
+			if (
+				!localInfo.baseUrl ||
+				!localInfo.channel ||
+				localInfo.channel === "dev"
+			) {
 				setAppUpdateState({
 					status: "none",
 					localVersion: localInfo.version,
@@ -512,19 +562,24 @@ async function checkForAppUpdate(options: { autoDownload?: boolean; quietNoUpdat
 				} else {
 					Utils.showNotification({
 						title: "Antimatter update available",
-						body: nextState.version ? `Version ${nextState.version} is available.` : "A new version is available.",
+						body: nextState.version
+							? `Version ${nextState.version} is available.`
+							: "A new version is available.",
 					});
 				}
 			} else if (!nextState.updateAvailable && !options.quietNoUpdate) {
 				Utils.showNotification({
 					title: "Antimatter is up to date",
-					body: nextState.localVersion ? `Version ${nextState.localVersion} is installed.` : undefined,
+					body: nextState.localVersion
+						? `Version ${nextState.localVersion} is installed.`
+						: undefined,
 				});
 			}
 
 			return appUpdateState;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Could not check for updates.";
+			const message =
+				error instanceof Error ? error.message : "Could not check for updates.";
 			setAppUpdateState({ status: "error", error: message, message });
 			return appUpdateState;
 		} finally {
@@ -539,7 +594,10 @@ async function downloadAppUpdate() {
 	if (updateDownloadInFlight) return updateDownloadInFlight;
 
 	updateDownloadInFlight = (async () => {
-		setAppUpdateState({ status: "downloading", message: "Downloading update..." });
+		setAppUpdateState({
+			status: "downloading",
+			message: "Downloading update...",
+		});
 		try {
 			await Updater.downloadUpdate();
 			const updateInfo = Updater.updateInfo();
@@ -553,7 +611,10 @@ async function downloadAppUpdate() {
 			}
 			return appUpdateState;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Could not download the update.";
+			const message =
+				error instanceof Error
+					? error.message
+					: "Could not download the update.";
 			setAppUpdateState({ status: "error", error: message, message });
 			return appUpdateState;
 		} finally {
@@ -580,7 +641,8 @@ async function applyAppUpdate() {
 		await Updater.applyUpdate();
 		return appUpdateState;
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "Could not apply the update.";
+		const message =
+			error instanceof Error ? error.message : "Could not apply the update.";
 		setAppUpdateState({ status: "error", error: message, message });
 		return appUpdateState;
 	}
@@ -606,7 +668,11 @@ function normalizeAppUpdateState(
 	const updateReady = Boolean(updateInfo?.updateReady);
 	const error = updateInfo?.error || undefined;
 	return {
-		status: resolveAppUpdateStatus(undefined, { updateAvailable, updateReady, error }),
+		status: resolveAppUpdateStatus(undefined, {
+			updateAvailable,
+			updateReady,
+			error,
+		}),
 		version: updateInfo?.version,
 		hash: updateInfo?.hash,
 		localVersion: localInfo?.version,
@@ -639,7 +705,9 @@ function openSettingsWindow(settings: AppSettingsPayload) {
 	latestSettings = settings;
 	if (settingsWindow && BrowserWindow.getById(settingsWindow.id)) {
 		settingsWindow.activate();
-		sendSettingsWebviewMessage(settingsWindow, "setSettings", { settings: latestSettings });
+		sendSettingsWebviewMessage(settingsWindow, "setSettings", {
+			settings: latestSettings,
+		});
 		return;
 	}
 	settingsWindow = null;
@@ -660,7 +728,9 @@ function openSettingsWindow(settings: AppSettingsPayload) {
 
 	setTimeout(() => {
 		if (settingsWindow) {
-			sendSettingsWebviewMessage(settingsWindow, "setSettings", { settings: latestSettings });
+			sendSettingsWebviewMessage(settingsWindow, "setSettings", {
+				settings: latestSettings,
+			});
 		}
 	}, 100);
 }
@@ -700,7 +770,9 @@ async function startMattermostSsoLogin(request: MattermostSsoLoginRequest) {
 		serverUrl,
 	};
 
-	console.info(`[sso:${request.provider}] opening external browser ${redactUrl(loginUrl)}`);
+	console.info(
+		`[sso:${request.provider}] opening external browser ${redactUrl(loginUrl)}`,
+	);
 	Utils.openExternal(loginUrl);
 	return { success: true, loginUrl };
 }
@@ -768,7 +840,9 @@ async function handleMattermostDesktopLoginUrl(value: string) {
 
 	const pending = pendingDesktopSsoLogin;
 	if (!pending) {
-		sendMattermostSsoLoginError("Received a desktop login callback with no pending SSO login.");
+		sendMattermostSsoLoginError(
+			"Received a desktop login callback with no pending SSO login.",
+		);
 		return;
 	}
 
@@ -776,14 +850,18 @@ async function handleMattermostDesktopLoginUrl(value: string) {
 	try {
 		url = new URL(value);
 	} catch {
-		sendMattermostSsoLoginError("Received an invalid desktop login callback URL.");
+		sendMattermostSsoLoginError(
+			"Received an invalid desktop login callback URL.",
+		);
 		return;
 	}
 
 	const clientToken = url.searchParams.get("client_token");
 	const serverToken = url.searchParams.get("server_token");
 	if (!serverToken || clientToken !== pending.clientToken) {
-		sendMattermostSsoLoginError("Mattermost desktop login callback did not match this SSO attempt.");
+		sendMattermostSsoLoginError(
+			"Mattermost desktop login callback did not match this SSO attempt.",
+		);
 		return;
 	}
 
@@ -799,7 +877,9 @@ async function handleMattermostDesktopLoginUrl(value: string) {
 			provider: pending.provider,
 			token,
 		});
-		console.info(`[sso:${pending.provider}] exchanged desktop token successfully`);
+		console.info(
+			`[sso:${pending.provider}] exchanged desktop token successfully`,
+		);
 	} catch (err) {
 		sendMattermostSsoLoginError(
 			err instanceof Error
@@ -900,10 +980,18 @@ function handleMattermostWebSocketMessage(raw: unknown) {
 		pendingWebsocketPingSeq = null;
 	}
 
-	const status = readMattermostWebSocketStatus(message, pendingWebsocketPingSeq);
+	const status = readMattermostWebSocketStatus(
+		message,
+		pendingWebsocketPingSeq,
+	);
 	if (status) {
 		sendWebSocketStatus(status);
-		if (message.status === "OK" || message.status === "FAIL" || message.event === "hello") return;
+		if (
+			message.status === "OK" ||
+			message.status === "FAIL" ||
+			message.event === "hello"
+		)
+			return;
 	}
 
 	const event = readMattermostWebSocketEvent(message);
@@ -917,10 +1005,15 @@ function handleMattermostWebSocketMessage(raw: unknown) {
 		});
 	}
 	if (event.type === "post") {
+		const post = event.post as {
+			id?: unknown;
+			create_at?: unknown;
+			channel_id?: unknown;
+		};
 		console.log("[WS] Post event:", {
-			postId: (event.post as any).id,
-			createAt: (event.post as any).create_at,
-			channelId: (event.post as any).channel_id,
+			postId: post.id,
+			createAt: post.create_at,
+			channelId: post.channel_id,
 		});
 		sendMainWebviewMessage(mainWindow, "mattermostWebSocketPost", {
 			post: event.post,
@@ -1008,9 +1101,10 @@ function reconnectStalledMattermostWebSocket(socket: WebSocket) {
 
 function scheduleMattermostReconnect() {
 	if (websocketClosedByUser || !websocketConfig) return;
+	const config = websocketConfig;
 	const delay = Math.min(30000, 1000 * 2 ** reconnectAttempts);
 	reconnectAttempts += 1;
-	reconnectTimer = setTimeout(() => openMattermostWebSocket(websocketConfig!), delay);
+	reconnectTimer = setTimeout(() => openMattermostWebSocket(config), delay);
 }
 
 function sendWebSocketStatus(payload: {

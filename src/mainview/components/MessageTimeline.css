@@ -168,7 +168,11 @@
 	bottom: 2px;
 	left: 0;
 	width: 2px;
-	background: color-mix(in srgb, var(--own-message-indicator-color) 42%, transparent);
+	background: color-mix(
+		in srgb,
+		var(--own-message-indicator-color) 42%,
+		transparent
+	);
 	content: "";
 }
 
@@ -273,7 +277,11 @@
 }
 
 .reply-message.own {
-	border-left-color: color-mix(in srgb, var(--own-message-indicator-color) 58%, var(--border-strong));
+	border-left-color: color-mix(
+		in srgb,
+		var(--own-message-indicator-color) 58%,
+		var(--border-strong)
+	);
 }
 
 .reply-message-meta {

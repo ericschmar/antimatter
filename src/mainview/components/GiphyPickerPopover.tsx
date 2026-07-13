@@ -1,7 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Film } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const GIPHY_LIMIT = 24;
 
@@ -50,20 +50,24 @@ export function GiphyPickerPopover({
 	useEffect(() => {
 		if (!pickerOpen) return;
 		const controller = new AbortController();
-		const timer = window.setTimeout(() => {
-			setLoading(true);
-			setError(null);
-			void fetchGifs(apiKey, trimmedQuery, controller.signal)
-				.then((nextGifs) => setGifs(nextGifs))
-				.catch((err) => {
-					if (err instanceof DOMException && err.name === "AbortError") return;
-					setGifs([]);
-					setError("Could not load GIFs.");
-				})
-				.finally(() => {
-					if (!controller.signal.aborted) setLoading(false);
-				});
-		}, trimmedQuery ? 250 : 0);
+		const timer = window.setTimeout(
+			() => {
+				setLoading(true);
+				setError(null);
+				void fetchGifs(apiKey, trimmedQuery, controller.signal)
+					.then((nextGifs) => setGifs(nextGifs))
+					.catch((err) => {
+						if (err instanceof DOMException && err.name === "AbortError")
+							return;
+						setGifs([]);
+						setError("Could not load GIFs.");
+					})
+					.finally(() => {
+						if (!controller.signal.aborted) setLoading(false);
+					});
+			},
+			trimmedQuery ? 250 : 0,
+		);
 
 		return () => {
 			controller.abort();
@@ -97,7 +101,6 @@ export function GiphyPickerPopover({
 				>
 					<div className="giphy-searchbox">
 						<input
-							autoFocus
 							aria-label="Search GIFs"
 							className="giphy-search-input"
 							placeholder="Search GIFs"

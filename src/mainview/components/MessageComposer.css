@@ -187,7 +187,9 @@
 	caret-color: var(--text-primary);
 }
 
-.composer-editor .mdxeditor-root-contenteditable > .composer-input:not([contenteditable="true"]) {
+.composer-editor
+	.mdxeditor-root-contenteditable
+	> .composer-input:not([contenteditable="true"]) {
 	display: none;
 	pointer-events: none;
 }
@@ -421,7 +423,7 @@
 	font-weight: 700;
 	transition:
 		background 160ms ease,
-	transform 120ms ease;
+		transform 120ms ease;
 }
 
 .send-button:hover {

@@ -36,7 +36,8 @@ export function parseMattermostWebSocketMessage(raw: unknown) {
 export function readMattermostWebSocketEvent(
 	message: MattermostWebSocketMessage,
 ): MattermostWebSocketEvent | null {
-	const typingChannelId = message.data?.channel_id ?? message.broadcast?.channel_id;
+	const typingChannelId =
+		message.data?.channel_id ?? message.broadcast?.channel_id;
 	if (
 		(message.event === "user_typing" || message.event === "typing") &&
 		typingChannelId &&
@@ -63,7 +64,8 @@ export function readMattermostWebSocketEvent(
 	}
 
 	if (
-		(message.event === "reaction_added" || message.event === "reaction_removed") &&
+		(message.event === "reaction_added" ||
+			message.event === "reaction_removed") &&
 		typeof message.data?.reaction === "string"
 	) {
 		const reaction = parseJsonObject(message.data.reaction);
@@ -77,7 +79,10 @@ export function readMattermostWebSocketEvent(
 	}
 
 	if (message.event === "status_change" && message.data?.status) {
-		return { type: "statusChange", status: readStatusPayload(message.data.status) };
+		return {
+			type: "statusChange",
+			status: readStatusPayload(message.data.status),
+		};
 	}
 
 	return null;

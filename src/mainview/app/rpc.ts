@@ -15,9 +15,10 @@ const rpc = Electroview.defineRPC<MattermostClientRPC>({
 				);
 			},
 			mattermostWebSocketPost: ({ post, teamId }) => {
+				const postDetails = post as { id?: unknown };
 				rendererLog("renderer", "RPC message received:", {
 					eventType: "mattermost-websocket-post",
-					postId: (post as any).id,
+					postId: postDetails.id,
 					hasFocus: document.hasFocus(),
 				});
 				window.dispatchEvent(

@@ -37,7 +37,13 @@ function stateWithPost(post: MattermostPost = basePost): NormalizedState {
 
 describe("message state helpers", () => {
 	test("adds a post once and preserves order", () => {
-		const state: NormalizedState = { channels: {}, postOrder: [], posts: {}, teams: {}, users: {} };
+		const state: NormalizedState = {
+			channels: {},
+			postOrder: [],
+			posts: {},
+			teams: {},
+			users: {},
+		};
 		const next = addPost(state, basePost);
 		expect(next.postOrder).toEqual(["post-1"]);
 		expect(addPost(next, basePost)).toBe(next);
@@ -53,7 +59,11 @@ describe("message state helpers", () => {
 
 	test("replaces an optimistic post without duplicating a websocket-added post", () => {
 		const optimistic = { ...basePost, id: "client-1", pending: true };
-		const websocketPost = { ...basePost, id: "post-1", message: "from websocket" };
+		const websocketPost = {
+			...basePost,
+			id: "post-1",
+			message: "from websocket",
+		};
 		const state: NormalizedState = {
 			channels: {},
 			postOrder: ["client-1", "post-1"],
@@ -77,8 +87,12 @@ describe("message state helpers", () => {
 			post_id: "post-1",
 			user_id: "user-2",
 		};
-		const withReactions = setPostReactions(stateWithPost(), "post-1", [reaction]);
-		expect(withReactions.posts["post-1"]?.metadata?.reactions).toEqual([reaction]);
+		const withReactions = setPostReactions(stateWithPost(), "post-1", [
+			reaction,
+		]);
+		expect(withReactions.posts["post-1"]?.metadata?.reactions).toEqual([
+			reaction,
+		]);
 
 		const removed = applyReaction(withReactions, reaction, true);
 		expect(removed.posts["post-1"]?.metadata?.reactions).toEqual([]);
@@ -121,14 +135,22 @@ describe("applyChannelHistory", () => {
 	};
 	const secondPost: MattermostPost = { ...basePost, id: "post-2" };
 
-	function historyWith(posts: Record<string, MattermostPost>, postOrder: string[]): ChannelHistoryData {
+	function historyWith(
+		posts: Record<string, MattermostPost>,
+		postOrder: string[],
+	): ChannelHistoryData {
 		return { memberUsers: [], members: [], postOrder, posts, postUsers: [] };
 	}
 
 	test("carries over already-loaded reactions when history re-syncs", () => {
-		const withReactions = setPostReactions(stateWithPost(), "post-1", [reaction]);
+		const withReactions = setPostReactions(stateWithPost(), "post-1", [
+			reaction,
+		]);
 		// A new message arrived, so history re-syncs post-1 (reaction-less) alongside post-2.
-		const history = historyWith({ "post-1": basePost, "post-2": secondPost }, ["post-1", "post-2"]);
+		const history = historyWith({ "post-1": basePost, "post-2": secondPost }, [
+			"post-1",
+			"post-2",
+		]);
 
 		const merged = applyChannelHistory(withReactions, history);
 
@@ -138,7 +160,10 @@ describe("applyChannelHistory", () => {
 	});
 
 	test("does not overwrite reactions carried from server-provided history", () => {
-		const serverReaction: MattermostReaction = { ...reaction, user_id: "user-9" };
+		const serverReaction: MattermostReaction = {
+			...reaction,
+			user_id: "user-9",
+		};
 		const incoming: MattermostPost = {
 			...basePost,
 			metadata: { reactions: [serverReaction] },
@@ -147,7 +172,9 @@ describe("applyChannelHistory", () => {
 
 		const merged = applyChannelHistory(withoutReactionsState(), history);
 
-		expect(merged.posts["post-1"]?.metadata?.reactions).toEqual([serverReaction]);
+		expect(merged.posts["post-1"]?.metadata?.reactions).toEqual([
+			serverReaction,
+		]);
 	});
 
 	test("merges history users into state", () => {

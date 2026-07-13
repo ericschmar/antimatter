@@ -63,7 +63,11 @@ describe("storage helpers", () => {
 			value: new MemoryStorage(),
 		});
 		saveChannelOrder({ channels: ["a", "b"], dms: ["c"], favorites: [] });
-		expect(loadChannelOrder()).toEqual({ channels: ["a", "b"], dms: ["c"], favorites: [] });
+		expect(loadChannelOrder()).toEqual({
+			channels: ["a", "b"],
+			dms: ["c"],
+			favorites: [],
+		});
 	});
 
 	test("round-trips archived channels", () => {
@@ -161,7 +165,10 @@ describe("storage helpers", () => {
 			configurable: true,
 			value: new MemoryStorage(),
 		});
-		localStorage.setItem("mm-clone:settings", JSON.stringify({ fontFamily: "system" }));
+		localStorage.setItem(
+			"mm-clone:settings",
+			JSON.stringify({ fontFamily: "system" }),
+		);
 		expect(loadSettings()).toMatchObject({
 			useNewComposer: false,
 		});

@@ -13,7 +13,9 @@ describe("normalizeOutgoingMessage", () => {
 	});
 
 	test("preserves encoded spaces inside the message", () => {
-		expect(normalizeOutgoingMessage("hello&#x20;there")).toBe("hello&#x20;there");
+		expect(normalizeOutgoingMessage("hello&#x20;there")).toBe(
+			"hello&#x20;there",
+		);
 	});
 
 	test("removes editor markdown escapes from pasted bare URLs", () => {

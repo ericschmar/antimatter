@@ -1,27 +1,32 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { X } from "lucide-react";
-import { Resizable, type ResizeCallbackData } from "react-resizable";
-import { useCallback, useEffect, useState } from "react";
 import type { RefObject, SyntheticEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Resizable, type ResizeCallbackData } from "react-resizable";
 import { useSnapshot } from "valtio";
+import type {
+	ApplicationMenuAction,
+	AppUpdateState,
+} from "../../shared/electrobunRpc";
 import { CommandMenu } from "../components/CommandMenu";
 import { CreateChannelDialog } from "../components/CreateChannelDialog";
+import { MarkdownMessage } from "../components/MarkdownMessage";
 import {
 	MessageComposer,
 	type MessageComposerHandle,
 	type MessageComposerProps,
 } from "../components/MessageComposer";
-import { NewMessageComposer } from "../components/NewMessageComposer";
-import { MarkdownMessage } from "../components/MarkdownMessage";
 import { MessageTimeline } from "../components/MessageTimeline";
+import { NewMessageComposer } from "../components/NewMessageComposer";
 import { Sidebar } from "../components/Sidebar";
 import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
-import { MattermostApiClient } from "../mattermostApi";
-import type {
-	ApplicationMenuAction,
-	AppUpdateState,
-} from "../../shared/electrobunRpc";
+import type { MattermostApiClient } from "../mattermostApi";
+import { uiActions, uiStore } from "../state/uiStore";
+import {
+	loadDismissedAppUpdateBannerKey,
+	saveDismissedAppUpdateBannerKey,
+} from "../storage";
 import type {
 	AppSettings,
 	ChannelSectionKey,
@@ -33,20 +38,15 @@ import type {
 	MattermostUser,
 	MattermostUserStatus,
 } from "../types";
-import { channelLabel, initials, isTeamChannel } from "../utils/format";
 import {
 	findAdjacentMentionChannel,
 	findAdjacentUnreadChannel,
 	findAdjacentVisibleChannel,
 	findSectionStartChannel,
 } from "../utils/channelNavigation";
+import { channelLabel, initials, isTeamChannel } from "../utils/format";
 import { readShortcutAction } from "../utils/shortcuts";
 import { electrobun } from "./rpc";
-import { uiActions, uiStore } from "../state/uiStore";
-import {
-	loadDismissedAppUpdateBannerKey,
-	saveDismissedAppUpdateBannerKey,
-} from "../storage";
 
 export function ChatShell({
 	api,
@@ -110,12 +110,12 @@ export function ChatShell({
 	onUnarchiveChannel,
 }: ChatShellProps) {
 	const ui = useSnapshot(uiStore);
-	const [dismissedAppUpdateBannerKey, setDismissedAppUpdateBannerKey] = useState(
-		() => loadDismissedAppUpdateBannerKey() ?? "",
-	);
+	const [dismissedAppUpdateBannerKey, setDismissedAppUpdateBannerKey] =
+		useState(() => loadDismissedAppUpdateBannerKey() ?? "");
 	const appUpdateBannerKey = getAppUpdateBannerKey(appUpdate);
 	const showAppUpdateBanner =
-		Boolean(appUpdateBannerKey) && appUpdateBannerKey !== dismissedAppUpdateBannerKey;
+		Boolean(appUpdateBannerKey) &&
+		appUpdateBannerKey !== dismissedAppUpdateBannerKey;
 
 	function dismissAppUpdateBanner() {
 		if (!appUpdateBannerKey) return;
@@ -129,7 +129,8 @@ export function ChatShell({
 		.filter((user): user is MattermostUser => Boolean(user));
 	const selectedChannelHeader = selectedChannel?.header?.trim();
 	const selectedChannelPurpose = selectedChannel?.purpose?.trim();
-	const selectedChannelDescription = selectedChannelHeader || selectedChannelPurpose;
+	const selectedChannelDescription =
+		selectedChannelHeader || selectedChannelPurpose;
 	const effectiveMaxComposerHeight = Math.max(
 		minComposerHeight,
 		Math.min(
@@ -139,9 +140,14 @@ export function ChatShell({
 				: Math.floor(window.innerHeight * 0.44),
 		),
 	);
-	const visibleComposerHeight = Math.min(composerHeight, effectiveMaxComposerHeight);
+	const visibleComposerHeight = Math.min(
+		composerHeight,
+		effectiveMaxComposerHeight,
+	);
 	const typingUsers = (
-		selectedChannelId ? Object.keys(ui.typingUsers[selectedChannelId] ?? {}) : []
+		selectedChannelId
+			? Object.keys(ui.typingUsers[selectedChannelId] ?? {})
+			: []
 	).map(
 		(userId) =>
 			users[userId] ?? {
@@ -248,7 +254,9 @@ export function ChatShell({
 
 	useEffect(() => {
 		function handleApplicationMenu(event: Event) {
-			handleShortcutAction((event as CustomEvent<ApplicationMenuAction>).detail.action);
+			handleShortcutAction(
+				(event as CustomEvent<ApplicationMenuAction>).detail.action,
+			);
 		}
 
 		function handleKeyDown(event: KeyboardEvent) {
@@ -263,7 +271,10 @@ export function ChatShell({
 		window.addEventListener("application-menu-action", handleApplicationMenu);
 		window.addEventListener("keydown", handleKeyDown, { capture: true });
 		return () => {
-			window.removeEventListener("application-menu-action", handleApplicationMenu);
+			window.removeEventListener(
+				"application-menu-action",
+				handleApplicationMenu,
+			);
 			window.removeEventListener("keydown", handleKeyDown, { capture: true });
 		};
 	}, [handleShortcutAction]);
@@ -274,7 +285,7 @@ export function ChatShell({
 				<Titlebar
 					onOpenSearch={() => uiActions.setCommandOpen(true)}
 					onWindowControl={(action) => {
-						void electrobun.rpc!.request.windowControl({ action });
+						void electrobun.rpc?.request.windowControl({ action });
 					}}
 				/>
 				<div
@@ -291,7 +302,7 @@ export function ChatShell({
 						onResize={resizeSidebar}
 					>
 						<div className="resizable-sidebar" style={{ width: sidebarWidth }}>
-								<Sidebar
+							<Sidebar
 								channelEmojis={channelEmojis}
 								channelOrder={channelOrder}
 								collapsedSections={collapsedSections}
@@ -348,7 +359,7 @@ export function ChatShell({
 							<div className="channel-header-actions">
 								<Tooltip.Root>
 									<Tooltip.Trigger asChild>
-										<div className="member-stack" aria-label="Channel members">
+										<div className="member-stack" title="Channel members">
 											{selectedChannelUsers.slice(0, 5).map((user) => (
 												<span className="member-avatar" key={user.id}>
 													{userImages[user.id] ? (
@@ -356,11 +367,15 @@ export function ChatShell({
 													) : (
 														initials(user.nickname || user.username)
 													)}
-													<span className={`status-dot ${userStatuses[user.id]?.status ?? "offline"}`} />
+													<span
+														className={`status-dot ${userStatuses[user.id]?.status ?? "offline"}`}
+													/>
 												</span>
 											))}
 											{channelMembers.length > 5 ? (
-												<span className="member-count">+{channelMembers.length - 5}</span>
+												<span className="member-count">
+													+{channelMembers.length - 5}
+												</span>
 											) : null}
 										</div>
 									</Tooltip.Trigger>
@@ -373,7 +388,9 @@ export function ChatShell({
 											<div className="channel-members-list">
 												{selectedChannelUsers.map((user) => (
 													<div key={user.id} className="channel-member-item">
-														<span className={`member-status ${userStatuses[user.id]?.status ?? "offline"}`} />
+														<span
+															className={`member-status ${userStatuses[user.id]?.status ?? "offline"}`}
+														/>
 														<span className="member-name">
 															{user.nickname || user.username}
 														</span>
@@ -384,7 +401,11 @@ export function ChatShell({
 									</Tooltip.Portal>
 								</Tooltip.Root>
 								{selectedChannel && isTeamChannel(selectedChannel) ? (
-									<button className="secondary-action" type="button" onClick={() => uiActions.setAddUserOpen(true)}>
+									<button
+										className="secondary-action"
+										type="button"
+										onClick={() => uiActions.setAddUserOpen(true)}
+									>
 										Add user
 									</button>
 								) : null}
@@ -407,7 +428,7 @@ export function ChatShell({
 										? appUpdate.version
 											? `Antimatter ${appUpdate.version} is ready to install.`
 											: "An Antimatter update is ready to install."
-										: appUpdate.message ?? "Downloading Antimatter update..."}
+										: (appUpdate.message ?? "Downloading Antimatter update...")}
 								</span>
 								{appUpdate.updateReady ? (
 									<button type="button" onClick={onApplyAppUpdate}>
@@ -463,11 +484,11 @@ export function ChatShell({
 									className="resizable-composer"
 									style={{ height: visibleComposerHeight }}
 								>
-								{settings.useNewComposer ? (
-									<NewMessageComposer {...composerProps} ref={composerRef} />
-								) : (
-									<MessageComposer {...composerProps} ref={composerRef} />
-								)}
+									{settings.useNewComposer ? (
+										<NewMessageComposer {...composerProps} ref={composerRef} />
+									) : (
+										<MessageComposer {...composerProps} ref={composerRef} />
+									)}
 								</div>
 							</Resizable>
 						</section>
@@ -501,7 +522,9 @@ export function ChatShell({
 				<CreateChannelDialog
 					open={ui.createChannelOpen}
 					onClose={() => uiActions.setCreateChannelOpen(false)}
-					onCreate={(displayName, name, type) => void onCreateChannel(displayName, name, type)}
+					onCreate={(displayName, name, type) =>
+						void onCreateChannel(displayName, name, type)
+					}
 				/>
 				<UserPickerDialog
 					api={api}
@@ -583,7 +606,11 @@ type ChatShellProps = {
 	onArchiveChannel: (channelId: string) => void;
 	onCancelEdit: () => void;
 	onCancelReply: () => void;
-	onCreateChannel: (displayName: string, name: string, type: "O" | "P") => Promise<void>;
+	onCreateChannel: (
+		displayName: string,
+		name: string,
+		type: "O" | "P",
+	) => Promise<void>;
 	onCreateDm: (userIds: string[]) => Promise<void>;
 	onEditMessage: (post: MattermostPost, message: string) => Promise<void>;
 	onLoadMoreMessages: () => Promise<void>;
@@ -593,7 +620,11 @@ type ChatShellProps = {
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
 	onSelectPost: (post: MattermostPost) => Promise<void>;
 	onSelectTeam: (team: MattermostTeam) => Promise<void>;
-	onSendMessage: (message: string, rootId?: string, files?: File[]) => Promise<void>;
+	onSendMessage: (
+		message: string,
+		rootId?: string,
+		files?: File[],
+	) => Promise<void>;
 	onSendTyping: (rootId?: string) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
 	onSetComposerHeight: (height: number) => void;

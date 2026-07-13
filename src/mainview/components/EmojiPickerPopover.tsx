@@ -1,9 +1,9 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { SmilePlus } from "lucide-react";
-import { useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
+import { useState } from "react";
 
 type EmojiMartSelection = {
 	id?: string;

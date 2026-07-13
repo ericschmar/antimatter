@@ -1,6 +1,9 @@
 import Electrobun, { Electroview } from "electrobun/view";
-import type { WindowControlAction } from "../shared/electrobunRpc";
-import type { AppSettingsPayload, SettingsWindowRPC } from "../shared/electrobunRpc";
+import type {
+	AppSettingsPayload,
+	SettingsWindowRPC,
+	WindowControlAction,
+} from "../shared/electrobunRpc";
 
 const rpc = Electroview.defineRPC<SettingsWindowRPC>({
 	maxRequestTime: 30000,
@@ -16,22 +19,43 @@ const rpc = Electroview.defineRPC<SettingsWindowRPC>({
 
 const electrobun = new Electrobun.Electroview({ rpc });
 
-const fontFamilyInput = document.getElementById("font-family") as HTMLSelectElement;
+const fontFamilyInput = document.getElementById(
+	"font-family",
+) as HTMLSelectElement;
 const fontSizeInput = document.getElementById("font-size") as HTMLInputElement;
 const themeInput = document.getElementById("theme") as HTMLSelectElement;
-const showOwnMessageIndicatorsInput = document.getElementById("show-own-message-indicators") as HTMLInputElement;
-const ownMessageIndicatorColorInput = document.getElementById("own-message-indicator-color") as HTMLInputElement;
-const notificationPreferenceInput = document.getElementById("notification-preference") as HTMLSelectElement;
-const notificationSoundsInput = document.getElementById("notification-sounds") as HTMLInputElement;
-const showProfilePicturesInput = document.getElementById("show-profile-pictures") as HTMLInputElement;
-const useNewComposerInput = document.getElementById("use-new-composer") as HTMLInputElement;
-const closeButton = document.getElementById("close-settings") as HTMLButtonElement;
-const windowControlButtons = document.querySelectorAll<HTMLButtonElement>("[data-window-action]");
+const showOwnMessageIndicatorsInput = document.getElementById(
+	"show-own-message-indicators",
+) as HTMLInputElement;
+const ownMessageIndicatorColorInput = document.getElementById(
+	"own-message-indicator-color",
+) as HTMLInputElement;
+const notificationPreferenceInput = document.getElementById(
+	"notification-preference",
+) as HTMLSelectElement;
+const notificationSoundsInput = document.getElementById(
+	"notification-sounds",
+) as HTMLInputElement;
+const showProfilePicturesInput = document.getElementById(
+	"show-profile-pictures",
+) as HTMLInputElement;
+const useNewComposerInput = document.getElementById(
+	"use-new-composer",
+) as HTMLInputElement;
+const closeButton = document.getElementById(
+	"close-settings",
+) as HTMLButtonElement;
+const windowControlButtons = document.querySelectorAll<HTMLButtonElement>(
+	"[data-window-action]",
+);
 
-void electrobun.rpc!.request.getSettings({}).then(renderSettings);
-void electrobun.rpc!.request.getInstalledFonts({}).then(renderFonts).catch(() => {
-	renderFonts([]);
-});
+void electrobun.rpc?.request.getSettings({}).then(renderSettings);
+void electrobun.rpc?.request
+	.getInstalledFonts({})
+	.then(renderFonts)
+	.catch(() => {
+		renderFonts([]);
+	});
 
 for (const element of [
 	fontFamilyInput,
@@ -49,14 +73,16 @@ for (const element of [
 }
 
 closeButton.addEventListener("click", () => {
-	void electrobun.rpc!.request.closeSettingsWindow({});
+	void electrobun.rpc?.request.closeSettingsWindow({});
 });
 
 for (const button of Array.from(windowControlButtons)) {
 	button.addEventListener("click", () => {
-		const action = button.dataset["windowAction"] as WindowControlAction | undefined;
+		const action = button.dataset["windowAction"] as
+			| WindowControlAction
+			| undefined;
 		if (!action) return;
-		void electrobun.rpc!.request.settingsWindowControl({ action });
+		void electrobun.rpc?.request.settingsWindowControl({ action });
 	});
 }
 
@@ -66,13 +92,19 @@ function renderFonts(fonts: string[]) {
 	for (const font of fonts) {
 		fontFamilyInput.add(new Option(font, font));
 	}
-	fontFamilyInput.value = Array.from(fontFamilyInput.options).some((option) => option.value === selectedFont)
+	fontFamilyInput.value = Array.from(fontFamilyInput.options).some(
+		(option) => option.value === selectedFont,
+	)
 		? selectedFont
 		: "system";
 }
 
 function renderSettings(settings: AppSettingsPayload) {
-	if (!Array.from(fontFamilyInput.options).some((option) => option.value === settings.fontFamily)) {
+	if (
+		!Array.from(fontFamilyInput.options).some(
+			(option) => option.value === settings.fontFamily,
+		)
+	) {
 		fontFamilyInput.add(new Option(settings.fontFamily, settings.fontFamily));
 	}
 	fontFamilyInput.value = settings.fontFamily;
@@ -91,9 +123,16 @@ function readSettings(): AppSettingsPayload {
 	return {
 		fontFamily: fontFamilyInput.value || "system",
 		fontSize: clamp(Number(fontSizeInput.value), 12, 18),
-		theme: readOption(themeInput.value, ["default", "light", "high-contrast", "warm"], "default"),
+		theme: readOption(
+			themeInput.value,
+			["default", "light", "high-contrast", "warm"],
+			"default",
+		),
 		showOwnMessageIndicators: showOwnMessageIndicatorsInput.checked,
-		ownMessageIndicatorColor: normalizeColorInput(ownMessageIndicatorColorInput.value, "#46a758"),
+		ownMessageIndicatorColor: normalizeColorInput(
+			ownMessageIndicatorColorInput.value,
+			"#46a758",
+		),
 		notificationSounds: notificationSoundsInput.checked,
 		notificationPreference: readOption(
 			notificationPreferenceInput.value,
@@ -109,7 +148,7 @@ function updateSettings() {
 	const settings = readSettings();
 	fontSizeInput.value = String(settings.fontSize);
 	document.documentElement.dataset["theme"] = settings.theme;
-	void electrobun.rpc!.request.updateSettings({ settings });
+	void electrobun.rpc?.request.updateSettings({ settings });
 }
 
 function readOption<const T extends string>(

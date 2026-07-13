@@ -10,7 +10,7 @@
 	min-width: 0;
 	min-height: 0;
 	max-height: 100%;
-	height: auto !important;
+	height: auto;
 	border: 0;
 	border-radius: 0;
 	box-shadow: none;
@@ -153,7 +153,7 @@
 	border: 1px solid var(--grass-11);
 	color: var(--grass-11);
 	width: 28px;
-	height: 28px;;
+	height: 28px;
 }
 
 .composer.composer-new .send-button:hover:not(:disabled) {
@@ -194,6 +194,6 @@
 }
 
 .composer-new .composer-editor .w-md-editor-text-pre,
- .composer-new .composer-editor .w-md-editor-text-input {
- 	font-family: inherit !important;
- }
+.composer-new .composer-editor .w-md-editor-text-input {
+	font-family: inherit;
+}

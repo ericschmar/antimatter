@@ -2,7 +2,9 @@ import type { MattermostChannel, MattermostUser } from "../types";
 
 export function userLabel(user: MattermostUser | undefined, fallback: string) {
 	if (!user) return fallback;
-	const displayName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+	const displayName = [user.first_name, user.last_name]
+		.filter(Boolean)
+		.join(" ");
 	return displayName || user.nickname || `@${user.username}`;
 }
 
@@ -61,9 +63,10 @@ export function isTeamChannel(channel: MattermostChannel) {
 
 export function includesMention(message: string, username: string) {
 	const escapedUsername = username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	return new RegExp(`(^|\\s)@(${escapedUsername}|channel|here)(?=\\b|\\s|$)`, "i").test(
-		message,
-	);
+	return new RegExp(
+		`(^|\\s)@(${escapedUsername}|channel|here)(?=\\b|\\s|$)`,
+		"i",
+	).test(message);
 }
 
 export function directChannelOtherUserId(

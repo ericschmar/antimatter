@@ -18,7 +18,9 @@ afterEach(async () => {
 	restoreEnv("GIPHY_API_KEY", originalGiphyApiKey);
 	globalThis.fetch = originalFetch;
 	await Promise.all(
-		tempRoots.splice(0).map((tempRoot) => rm(tempRoot, { force: true, recursive: true })),
+		tempRoots
+			.splice(0)
+			.map((tempRoot) => rm(tempRoot, { force: true, recursive: true })),
 	);
 });
 
@@ -61,7 +63,8 @@ describe("getEnvConfig", () => {
 
 describe("openMattermostAttachment", () => {
 	test("downloads an authenticated Mattermost file and opens the saved path", async () => {
-		const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+			[];
 		globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
 			fetchCalls.push({ input, init });
 			return Promise.resolve(
@@ -72,7 +75,9 @@ describe("openMattermostAttachment", () => {
 			);
 		}) as typeof fetch;
 		const openedPaths: string[] = [];
-		const tempRoot = await mkdtemp(join(tmpdir(), "antimatter-attachment-test-"));
+		const tempRoot = await mkdtemp(
+			join(tmpdir(), "antimatter-attachment-test-"),
+		);
 		tempRoots.push(tempRoot);
 
 		const result = await openMattermostAttachment(
@@ -105,8 +110,12 @@ describe("openMattermostAttachment", () => {
 
 	test("returns a failure response when the OS refuses to open the saved file", async () => {
 		globalThis.fetch = (() =>
-			Promise.resolve(new Response("hello", { status: 200 }))) as unknown as typeof fetch;
-		const tempRoot = await mkdtemp(join(tmpdir(), "antimatter-attachment-test-"));
+			Promise.resolve(
+				new Response("hello", { status: 200 }),
+			)) as unknown as typeof fetch;
+		const tempRoot = await mkdtemp(
+			join(tmpdir(), "antimatter-attachment-test-"),
+		);
 		tempRoots.push(tempRoot);
 
 		const result = await openMattermostAttachment(
@@ -127,13 +136,16 @@ describe("openMattermostAttachment", () => {
 	});
 
 	test("opens a cached attachment without downloading it again", async () => {
-		const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> =
+			[];
 		globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
 			fetchCalls.push({ input, init });
 			return Promise.resolve(new Response("fresh bytes", { status: 200 }));
 		}) as typeof fetch;
 		const openedPaths: string[] = [];
-		const tempRoot = await mkdtemp(join(tmpdir(), "antimatter-attachment-test-"));
+		const tempRoot = await mkdtemp(
+			join(tmpdir(), "antimatter-attachment-test-"),
+		);
 		tempRoots.push(tempRoot);
 		const cachedPath = join(tempRoot, "file-id-report.pdf");
 		await writeFile(cachedPath, "cached bytes");

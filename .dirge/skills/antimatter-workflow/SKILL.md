@@ -90,6 +90,8 @@ TDD sequence that works here: write the failing storage test first (default + a 
 ## Verification commands
 
 - Use Bun for project scripts and tests.
+- For Biome, run `bunx @biomejs/biome check .` or `bunx @biomejs/biome check . --max-diagnostics=200`; avoid `bunx biome`, which resolves the obsolete `biome` 0.3.x package and can falsely report clean output.
+- Keep Biome `complexity/useLiteralKeys` disabled while TypeScript `noPropertyAccessFromIndexSignature` is enabled; applying that unsafe fix creates TS4111 errors on index-signature-backed objects.
 - Focused component test example: `bun test src/mainview/components/MessageComposer.test.ts`.
 - Standard verification after code changes:
   - `bun run typecheck`

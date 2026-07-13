@@ -23,7 +23,8 @@ describe("mattermost websocket event parsing", () => {
 		);
 
 		expect(message).not.toBeNull();
-		expect(readMattermostWebSocketEvent(message!)).toEqual({
+		if (!message) return;
+		expect(readMattermostWebSocketEvent(message)).toEqual({
 			type: "post",
 			post: {
 				id: "post1",
@@ -52,7 +53,8 @@ describe("mattermost websocket event parsing", () => {
 		);
 
 		expect(message).not.toBeNull();
-		expect(readMattermostWebSocketEvent(message!)).toEqual({
+		if (!message) return;
+		expect(readMattermostWebSocketEvent(message)).toEqual({
 			type: "post",
 			post: {
 				id: "post1",
@@ -82,7 +84,8 @@ describe("mattermost websocket event parsing", () => {
 		);
 
 		expect(message).not.toBeNull();
-		expect(readMattermostWebSocketEvent(message!)).toEqual({
+		if (!message) return;
+		expect(readMattermostWebSocketEvent(message)).toEqual({
 			type: "post",
 			post: {
 				id: "post1",
@@ -112,7 +115,8 @@ describe("mattermost websocket event parsing", () => {
 		);
 
 		expect(message).not.toBeNull();
-		expect(readMattermostWebSocketEvent(message!)).toEqual({
+		if (!message) return;
+		expect(readMattermostWebSocketEvent(message)).toEqual({
 			type: "post",
 			post: {
 				id: "post2",
@@ -138,7 +142,8 @@ describe("mattermost websocket event parsing", () => {
 		);
 
 		expect(message).not.toBeNull();
-		expect(readMattermostWebSocketEvent(message!)).toEqual({
+		if (!message) return;
+		expect(readMattermostWebSocketEvent(message)).toEqual({
 			type: "reaction",
 			reaction: {
 				post_id: "post1",
@@ -158,7 +163,8 @@ describe("mattermost websocket event parsing", () => {
 		);
 
 		expect(message).not.toBeNull();
-		expect(readMattermostWebSocketStatus(message!, null)).toEqual({
+		if (!message) return;
+		expect(readMattermostWebSocketStatus(message, null)).toEqual({
 			status: "error",
 			message: "bad token",
 		});

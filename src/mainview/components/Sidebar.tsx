@@ -29,20 +29,21 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import type { ChannelContextMenuAction } from "../../shared/electrobunRpc";
 import type {
-	MattermostChannel,
-	MattermostTeam,
 	ChannelNotificationState,
 	ChannelSectionKey,
+	MattermostChannel,
+	MattermostTeam,
+	MattermostUser,
 	MattermostUserStatus,
+	WebSocketStatus,
 } from "../types";
+import { sortChannelsForSection } from "../utils/channelNavigation";
 import { channelLabel, initials } from "../utils/format";
+import { showTeamUnreadDot } from "../utils/teamUnread";
 import { EmojiPickerPanel } from "./EmojiPickerPopover";
 import { UserMenu } from "./UserMenu";
-import type { WebSocketStatus, MattermostUser } from "../types";
-import type { ChannelContextMenuAction } from "../../shared/electrobunRpc";
-import { sortChannelsForSection } from "../utils/channelNavigation";
-import { showTeamUnreadDot } from "../utils/teamUnread";
 import "./Sidebar.css";
 
 export function Sidebar({
@@ -189,12 +190,12 @@ export function Sidebar({
 					{teams.map((team) => (
 						<Tooltip.Root key={team.id}>
 							<Tooltip.Trigger asChild>
-							<Tabs.Trigger className="team-tab" value={team.id}>
-								{initials(team.display_name || team.name)}
-								{showTeamUnreadDot(teamUnread, team.id, selectedTeamId) ? (
-									<span className="team-tab-unread-dot" aria-hidden />
-								) : null}
-							</Tabs.Trigger>
+								<Tabs.Trigger className="team-tab" value={team.id}>
+									{initials(team.display_name || team.name)}
+									{showTeamUnreadDot(teamUnread, team.id, selectedTeamId) ? (
+										<span className="team-tab-unread-dot" aria-hidden />
+									) : null}
+								</Tabs.Trigger>
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Content
@@ -215,8 +216,8 @@ export function Sidebar({
 					<nav className="channel-list" aria-label="Channels">
 						<ChannelSection
 							channelEmojis={channelEmojis}
-							channels={sections.favorites}
-							collapsed={collapsedSections.favorites}
+							channels={sections["favorites"]}
+							collapsed={collapsedSections["favorites"]}
 							emptyLabel="No favorite channels."
 							favoriteChannelSet={favoriteChannelSet}
 							label="Favorites"
@@ -236,8 +237,8 @@ export function Sidebar({
 						/>
 						<ChannelSection
 							channelEmojis={channelEmojis}
-							channels={sections.channels}
-							collapsed={collapsedSections.channels}
+							channels={sections["channels"]}
+							collapsed={collapsedSections["channels"]}
 							emptyLabel="No channels found."
 							favoriteChannelSet={favoriteChannelSet}
 							label="Channels"
@@ -259,8 +260,8 @@ export function Sidebar({
 						/>
 						<ChannelSection
 							channelEmojis={channelEmojis}
-							channels={sections.dms}
-							collapsed={collapsedSections.dms}
+							channels={sections["dms"]}
+							collapsed={collapsedSections["dms"]}
 							emptyLabel="No direct messages."
 							favoriteChannelSet={favoriteChannelSet}
 							label="Direct Messages"
@@ -282,8 +283,8 @@ export function Sidebar({
 						/>
 						<ChannelSection
 							channelEmojis={channelEmojis}
-							channels={sections.archived}
-							collapsed={collapsedSections.archived}
+							channels={sections["archived"]}
+							collapsed={collapsedSections["archived"]}
 							emptyLabel="No archived channels."
 							favoriteChannelSet={favoriteChannelSet}
 							label="Archived"
@@ -424,7 +425,11 @@ function ChannelSection({
 								<div className="sidebar-empty">{emptyLabel}</div>
 							) : null}
 							{onAction ? (
-								<button className="channel-create-button" type="button" onClick={onAction}>
+								<button
+									className="channel-create-button"
+									type="button"
+									onClick={onAction}
+								>
 									<Plus size={14} />
 									{actionLabel}
 								</button>
@@ -483,7 +488,10 @@ function SortableChannelRow({
 	const icon =
 		channelEmoji || (channel.type === "D" || channel.type === "G" ? null : "#");
 	const showUnreadDot = notification?.unread && icon === "#";
-	const otherUserId = channel.type === "D" ? channel.name.split("__").find((id) => id !== currentUserId) : null;
+	const otherUserId =
+		channel.type === "D"
+			? channel.name.split("__").find((id) => id !== currentUserId)
+			: null;
 	const otherUser = otherUserId ? users[otherUserId] : undefined;
 	const status = otherUserId ? userStatuses[otherUserId]?.status : undefined;
 
@@ -532,7 +540,11 @@ function SortableChannelRow({
 							{userImages[otherUserId] ? (
 								<img alt="" src={userImages[otherUserId]} />
 							) : (
-								initials(otherUser?.nickname || otherUser?.username || channelLabel(channel, users, currentUserId))
+								initials(
+									otherUser?.nickname ||
+										otherUser?.username ||
+										channelLabel(channel, users, currentUserId),
+								)
 							)}
 						</span>
 						<span className={`status-dot ${status ?? "offline"}`} />

@@ -2,50 +2,13 @@ import "react-resizable/css/styles.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { unstable_serialize, useSWRConfig } from "swr";
 import { useSnapshot } from "valtio";
+import type {
+	AppUpdateState,
+	MattermostSsoProvider,
+} from "../../shared/electrobunRpc";
 import { AttachmentPreviewDialog } from "../components/AttachmentPreviewDialog";
 import { AuthScreen } from "../components/AuthScreen";
 import type { MessageComposerHandle } from "../components/MessageComposer";
-import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
-import { clearConfig, loadConfig, saveConfig } from "../storage";
-import type { MattermostSsoProvider } from "../../shared/electrobunRpc";
-import type {
-	AppSettings,
-	ChannelHistoryData,
-	MattermostChannelMember,
-	MattermostChannel,
-	MattermostConfig,
-	MattermostFileInfo,
-	MattermostPost,
-	MattermostReaction,
-	MattermostTeam,
-	MattermostUser,
-	WebSocketStatus,
-	NormalizedState,
-	TypingUsersByChannel,
-} from "../types";
-import {
-	channelLabel,
-	includesMention,
-	isDirectChannel,
-	isTeamChannel,
-} from "../utils/format";
-import { normalizeEmojiName } from "../utils/emoji";
-import {
-	applyChannelHistory,
-	applyReaction,
-	setPostReactions,
-	updatePost as updatePostInState,
-	updateChannelLastPostAt,
-} from "../utils/state";
-import { fileToUploadItem } from "../utils/fileUpload";
-import {
-	getChannelMembers,
-	getDirectChannelUsers,
-	getPostUsers,
-	getUsersForIds,
-	preferredFirstChannel,
-} from "../utils/mattermostLoaders";
-import { electrobun } from "./rpc";
 import {
 	MAX_COMPOSER_HEIGHT,
 	MAX_SIDEBAR_WIDTH,
@@ -53,12 +16,51 @@ import {
 	MIN_SIDEBAR_WIDTH,
 	useChannelPreferences,
 } from "../features/channels/useChannelPreferences";
-import { useUserPresence } from "../features/users/useUserPresence";
 import { useMainViewEvents } from "../features/events/useMainViewEvents";
-import { ChatShell } from "./ChatShell";
-import { uiActions, uiStore } from "../state/uiStore";
+import { useUserPresence } from "../features/users/useUserPresence";
+import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import type { AppStatus } from "../state/uiStore";
-import type { AppUpdateState } from "../../shared/electrobunRpc";
+import { uiActions, uiStore } from "../state/uiStore";
+import { clearConfig, loadConfig, saveConfig } from "../storage";
+import type {
+	AppSettings,
+	ChannelHistoryData,
+	MattermostChannel,
+	MattermostChannelMember,
+	MattermostConfig,
+	MattermostFileInfo,
+	MattermostPost,
+	MattermostReaction,
+	MattermostTeam,
+	MattermostUser,
+	NormalizedState,
+	TypingUsersByChannel,
+	WebSocketStatus,
+} from "../types";
+import { normalizeEmojiName } from "../utils/emoji";
+import { fileToUploadItem } from "../utils/fileUpload";
+import {
+	channelLabel,
+	includesMention,
+	isDirectChannel,
+	isTeamChannel,
+} from "../utils/format";
+import {
+	getChannelMembers,
+	getDirectChannelUsers,
+	getPostUsers,
+	getUsersForIds,
+	preferredFirstChannel,
+} from "../utils/mattermostLoaders";
+import {
+	applyChannelHistory,
+	applyReaction,
+	setPostReactions,
+	updateChannelLastPostAt,
+	updatePost as updatePostInState,
+} from "../utils/state";
+import { ChatShell } from "./ChatShell";
+import { electrobun } from "./rpc";
 
 const emptyState: NormalizedState = {
 	users: {},
@@ -317,14 +319,19 @@ export function MainViewApp() {
 		config?.serverUrl,
 		selectedChannelId,
 	);
+	const selectedChannelHistoryApi = api;
+	const selectedChannelHistoryRequest =
+		selectedChannelHistoryApi && selectedChannelHistoryKey
+			? ([selectedChannelHistoryApi, selectedChannelHistoryKey] as const)
+			: null;
 	const {
 		data: selectedChannelHistory,
 		error: selectedChannelHistoryError,
 		isLoading: selectedChannelHistoryLoading,
 	} = useSWR(
-		api ? selectedChannelHistoryKey : null,
-		([, , channelId]: [string, string, string]) =>
-			loadChannelHistory(api!, channelId, currentUser?.id),
+		selectedChannelHistoryRequest,
+		([historyApi, [, , channelId]]) =>
+			loadChannelHistory(historyApi, channelId, currentUser?.id),
 		{
 			revalidateOnFocus: false,
 		},
@@ -462,16 +469,7 @@ export function MainViewApp() {
 		} finally {
 			reconnectRefreshInFlightRef.current = false;
 		}
-	}, [
-		api,
-		config,
-		currentUser,
-		mutateSWR,
-		selectedTeamId,
-		setChannelNotifications,
-		setError,
-		state.channels,
-	]);
+	}, [api, config, currentUser, mutateSWR, selectedTeamId, state.channels]);
 
 	useEffect(() => {
 		if (!api || !selectedChannelId || !selectedChannelHistory) return;
@@ -486,7 +484,9 @@ export function MainViewApp() {
 				.filter((post) => post.metadata?.reactions)
 				.map((post) => post.id),
 		);
-		const postsNeedingReactions = Object.values(selectedChannelHistory.posts).filter(
+		const postsNeedingReactions = Object.values(
+			selectedChannelHistory.posts,
+		).filter(
 			(post) => !post.metadata?.reactions && !postsWithReactions.has(post.id),
 		);
 		if (postsNeedingReactions.length > 0)
@@ -527,17 +527,19 @@ export function MainViewApp() {
 			previousWsStatusRef.current = "idle";
 			websocketHasConnectedRef.current = false;
 			reconnectRefreshInFlightRef.current = false;
-			void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+			void electrobun.rpc?.request.disconnectMattermostWebSocket({});
 
 			const normalizedConfig = {
 				...nextConfig,
 				serverUrl: normalizeServerUrl(nextConfig.serverUrl),
 			};
+			const rpc = electrobun.rpc;
+			if (!rpc) throw new Error("Mattermost RPC is unavailable.");
 			const nextApi = new MattermostApiClient(
 				normalizedConfig,
-				(request) => electrobun.rpc!.request.mattermostRequest(request),
-				(request) => electrobun.rpc!.request.uploadMattermostFiles(request),
-				(request) => electrobun.rpc!.request.openMattermostAttachment(request),
+				(request) => rpc.request.mattermostRequest(request),
+				(request) => rpc.request.uploadMattermostFiles(request),
+				(request) => rpc.request.openMattermostAttachment(request),
 			);
 
 			try {
@@ -624,7 +626,7 @@ export function MainViewApp() {
 				void loadPostReactions(nextApi, Object.values(posts));
 
 				setWsStatus("connecting");
-				void electrobun.rpc!.request.connectMattermostWebSocket({
+				void electrobun.rpc?.request.connectMattermostWebSocket({
 					serverUrl: savedConfig.serverUrl,
 					token: savedConfig.token,
 				});
@@ -645,7 +647,9 @@ export function MainViewApp() {
 			setStatus("loading");
 			setError(null);
 			try {
-				const response = await electrobun.rpc!.request.mattermostLogin({
+				const rpc = electrobun.rpc;
+				if (!rpc) throw new Error("Mattermost RPC is unavailable.");
+				const response = await rpc.request.mattermostLogin({
 					serverUrl: normalizeServerUrl(serverUrl),
 					loginId,
 					password,
@@ -677,7 +681,9 @@ export function MainViewApp() {
 			setStatus("loading");
 			setError(null);
 			try {
-				const response = await electrobun.rpc!.request.startMattermostSsoLogin({
+				const rpc = electrobun.rpc;
+				if (!rpc) throw new Error("Mattermost RPC is unavailable.");
+				const response = await rpc.request.startMattermostSsoLogin({
 					serverUrl: normalizeServerUrl(serverUrl),
 					provider,
 				});
@@ -700,7 +706,7 @@ export function MainViewApp() {
 			void connect(config);
 		}
 
-		void electrobun.rpc!.request
+		void electrobun.rpc?.request
 			.getEnvConfig({})
 			.then((nextEnvConfig) => {
 				if (cancelled || !nextEnvConfig) return;
@@ -722,12 +728,12 @@ export function MainViewApp() {
 
 		return () => {
 			cancelled = true;
-			void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+			void electrobun.rpc?.request.disconnectMattermostWebSocket({});
 		};
-	}, []);
+	}, [config, connect]);
 
 	useEffect(() => {
-		void electrobun.rpc!.request.getAppUpdateState({}).then(setAppUpdate);
+		void electrobun.rpc?.request.getAppUpdateState({}).then(setAppUpdate);
 	}, []);
 
 	const teams = useMemo(() => Object.values(state.teams), [state.teams]);
@@ -987,7 +993,7 @@ export function MainViewApp() {
 
 	async function sendTyping(rootId?: string) {
 		if (!selectedChannelId || editTarget) return;
-		await electrobun.rpc!.request.sendMattermostTyping({
+		await electrobun.rpc?.request.sendMattermostTyping({
 			channelId: selectedChannelId,
 			parentId: rootId,
 		});
@@ -1024,29 +1030,32 @@ export function MainViewApp() {
 		}
 	}
 
-	const toggleReaction = useCallback(async (post: MattermostPost, emojiName: string) => {
-		if (!api || !currentUser || post.pending) return;
-		const normalizedName = normalizeEmojiName(emojiName);
-		const existing = post.metadata?.reactions?.some(
-			(reaction) =>
-				reaction.user_id === currentUser.id &&
-				reaction.emoji_name === normalizedName,
-		);
-		const reaction: MattermostReaction = {
-			user_id: currentUser.id,
-			post_id: post.id,
-			emoji_name: normalizedName,
-			create_at: Date.now(),
-		};
-		setState((current) => applyReaction(current, reaction, existing));
-		try {
-			if (existing)
-				await api.removeReaction(currentUser.id, post.id, normalizedName);
-			else await api.addReaction(currentUser.id, post.id, normalizedName);
-		} catch {
-			setState((current) => applyReaction(current, reaction, !existing));
-		}
-	}, [api, currentUser]);
+	const toggleReaction = useCallback(
+		async (post: MattermostPost, emojiName: string) => {
+			if (!api || !currentUser || post.pending) return;
+			const normalizedName = normalizeEmojiName(emojiName);
+			const existing = post.metadata?.reactions?.some(
+				(reaction) =>
+					reaction.user_id === currentUser.id &&
+					reaction.emoji_name === normalizedName,
+			);
+			const reaction: MattermostReaction = {
+				user_id: currentUser.id,
+				post_id: post.id,
+				emoji_name: normalizedName,
+				create_at: Date.now(),
+			};
+			setState((current) => applyReaction(current, reaction, existing));
+			try {
+				if (existing)
+					await api.removeReaction(currentUser.id, post.id, normalizedName);
+				else await api.addReaction(currentUser.id, post.id, normalizedName);
+			} catch {
+				setState((current) => applyReaction(current, reaction, !existing));
+			}
+		},
+		[api, currentUser],
+	);
 
 	async function loadMoreMessages() {
 		if (
@@ -1120,7 +1129,7 @@ export function MainViewApp() {
 	}
 
 	function signOut() {
-		void electrobun.rpc!.request.disconnectMattermostWebSocket({});
+		void electrobun.rpc?.request.disconnectMattermostWebSocket({});
 		previousWsStatusRef.current = "idle";
 		websocketHasConnectedRef.current = false;
 		reconnectRefreshInFlightRef.current = false;
@@ -1141,7 +1150,7 @@ export function MainViewApp() {
 	}
 
 	function showChannelContextMenu(channel: MattermostChannel) {
-		void electrobun.rpc!.request.showChannelContextMenu({
+		void electrobun.rpc?.request.showChannelContextMenu({
 			archived: archivedChannelSet.has(channel.id),
 			channelId: channel.id,
 			hasEmoji: Boolean(channelEmojis[channel.id]),
@@ -1153,24 +1162,27 @@ export function MainViewApp() {
 		setEditTarget(null);
 		setReplyTarget(post);
 		requestAnimationFrame(() => composerRef.current?.focus());
-	}, [composerRef]);
+	}, []);
 
-	const showMessageContextMenu = useCallback((post: MattermostPost) => {
-		if (post.delete_at > 0) return;
-		const canEdit = post.user_id === currentUser?.id && !post.pending;
-		void electrobun.rpc!.request.showMessageContextMenu({
-			postId: post.id,
-			canEdit,
-			canDelete: canEdit && post.delete_at === 0,
-		});
-	}, [currentUser?.id]);
+	const showMessageContextMenu = useCallback(
+		(post: MattermostPost) => {
+			if (post.delete_at > 0) return;
+			const canEdit = post.user_id === currentUser?.id && !post.pending;
+			void electrobun.rpc?.request.showMessageContextMenu({
+				postId: post.id,
+				canEdit,
+				canDelete: canEdit && post.delete_at === 0,
+			});
+		},
+		[currentUser?.id],
+	);
 
 	function openSettingsWindow(nextSettings: AppSettings) {
-		void electrobun.rpc!.request.openSettingsWindow({ settings: nextSettings });
+		void electrobun.rpc?.request.openSettingsWindow({ settings: nextSettings });
 	}
 
 	function installAppUpdate() {
-		void electrobun.rpc!.request.applyAppUpdate({}).then(setAppUpdate);
+		void electrobun.rpc?.request.applyAppUpdate({}).then(setAppUpdate);
 	}
 
 	async function createChannel(

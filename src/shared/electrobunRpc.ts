@@ -200,11 +200,13 @@ export type AppUpdateState = {
 	error?: string;
 };
 
+type EmptyParams = Record<string, never>;
+
 export type MattermostClientRPC = {
 	bun: {
 		requests: {
 			getEnvConfig: {
-				params: {};
+				params: EmptyParams;
 				response: MattermostEnvConfig | null;
 			};
 			mattermostRequest: {
@@ -232,7 +234,7 @@ export type MattermostClientRPC = {
 				response: { success: boolean };
 			};
 			disconnectMattermostWebSocket: {
-				params: {};
+				params: EmptyParams;
 				response: { success: boolean };
 			};
 			sendMattermostTyping: {
@@ -264,19 +266,19 @@ export type MattermostClientRPC = {
 				response: { success: boolean };
 			};
 			getAppUpdateState: {
-				params: {};
+				params: EmptyParams;
 				response: AppUpdateState;
 			};
 			checkForAppUpdate: {
-				params: {};
+				params: EmptyParams;
 				response: AppUpdateState;
 			};
 			downloadAppUpdate: {
-				params: {};
+				params: EmptyParams;
 				response: AppUpdateState;
 			};
 			applyAppUpdate: {
-				params: {};
+				params: EmptyParams;
 				response: AppUpdateState;
 			};
 		};
@@ -285,7 +287,7 @@ export type MattermostClientRPC = {
 		};
 	};
 	webview: {
-		requests: {};
+		requests: EmptyParams;
 		messages: {
 			mattermostWebSocketStatus: MattermostWebSocketStatus;
 			mattermostWebSocketPost: { post: object; teamId?: string };
@@ -310,11 +312,11 @@ export type SettingsWindowRPC = {
 	bun: {
 		requests: {
 			getSettings: {
-				params: {};
+				params: EmptyParams;
 				response: AppSettingsPayload;
 			};
 			getInstalledFonts: {
-				params: {};
+				params: EmptyParams;
 				response: string[];
 			};
 			updateSettings: {
@@ -326,14 +328,14 @@ export type SettingsWindowRPC = {
 				response: { success: boolean };
 			};
 			closeSettingsWindow: {
-				params: {};
+				params: EmptyParams;
 				response: { success: boolean };
 			};
 		};
-		messages: {};
+		messages: EmptyParams;
 	};
 	webview: {
-		requests: {};
+		requests: EmptyParams;
 		messages: {
 			setSettings: { settings: AppSettingsPayload };
 		};

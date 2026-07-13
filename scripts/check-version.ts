@@ -9,7 +9,9 @@ const packageJson = (await Bun.file("package.json").json()) as PackageJson;
 const packageVersion = packageJson.version;
 
 if (typeof packageVersion !== "string" || !semverPattern.test(packageVersion)) {
-	fail(`package.json version must be a valid SemVer string. Found: ${String(packageVersion)}`);
+	fail(
+		`package.json version must be a valid SemVer string. Found: ${String(packageVersion)}`,
+	);
 }
 
 const electrobunConfig = await Bun.file("electrobun.config.ts").text();
@@ -48,4 +50,3 @@ function fail(message: string): never {
 	console.error(message);
 	process.exit(1);
 }
-

@@ -30,24 +30,39 @@ export function CreateChannelDialog({
 			>
 				<header>
 					<h2>Create channel</h2>
-					<button type="button" onClick={onClose}>Cancel</button>
+					<button type="button" onClick={onClose}>
+						Cancel
+					</button>
 				</header>
 				<label>
 					<span>Display name</span>
-					<input autoFocus required value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+					<input
+						required
+						value={displayName}
+						onChange={(event) => setDisplayName(event.target.value)}
+					/>
 				</label>
 				<label>
 					<span>URL name</span>
-					<input placeholder={slugifyChannelName(displayName)} value={name} onChange={(event) => setName(event.target.value)} />
+					<input
+						placeholder={slugifyChannelName(displayName)}
+						value={name}
+						onChange={(event) => setName(event.target.value)}
+					/>
 				</label>
 				<label>
 					<span>Type</span>
-					<select value={type} onChange={(event) => setType(event.target.value as "O" | "P")}>
+					<select
+						value={type}
+						onChange={(event) => setType(event.target.value as "O" | "P")}
+					>
 						<option value="O">Public</option>
 						<option value="P">Private</option>
 					</select>
 				</label>
-				<button className="primary-action" type="submit">Create</button>
+				<button className="primary-action" type="submit">
+					Create
+				</button>
 			</form>
 		</div>
 	);

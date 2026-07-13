@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { proxy, useSnapshot } from "valtio";
-import type { ChannelSectionKey } from "../../types";
 import {
 	loadArchivedChannelIds,
 	loadChannelEmojis,
@@ -11,6 +10,7 @@ import {
 	saveChannelOrder,
 	saveFavoriteChannelIds,
 } from "../../storage";
+import type { ChannelSectionKey } from "../../types";
 
 export const DEFAULT_SIDEBAR_WIDTH = 248;
 export const MIN_SIDEBAR_WIDTH = 180;
@@ -101,13 +101,19 @@ export function useChannelPreferences() {
 	}
 
 	function setChannelEmoji(channelId: string, emoji: string) {
-		const next = { ...channelPreferencesStore.channelEmojis, [channelId]: emoji };
+		const next = {
+			...channelPreferencesStore.channelEmojis,
+			[channelId]: emoji,
+		};
 		channelPreferencesStore.channelEmojis = next;
 		saveChannelEmojis(next);
 	}
 
 	function moveChannel(section: ChannelSectionKey, channelIds: string[]) {
-		const next = { ...channelPreferencesStore.channelOrder, [section]: channelIds };
+		const next = {
+			...channelPreferencesStore.channelOrder,
+			[section]: channelIds,
+		};
 		channelPreferencesStore.channelOrder = next;
 		saveChannelOrder(next);
 	}

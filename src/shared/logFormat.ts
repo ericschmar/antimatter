@@ -9,6 +9,10 @@ function stringify(value: unknown): string {
 	}
 }
 
-export function formatLogLine(now: number, tag: string, args: unknown[]): string {
+export function formatLogLine(
+	now: number,
+	tag: string,
+	args: unknown[],
+): string {
 	return `${new Date(now).toISOString()} [${tag}] ${args.map(stringify).join(" ")}\n`;
 }

@@ -1,15 +1,14 @@
+import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, expect } from "bun:test";
 import { appendLogLine, formatLogLine, LOG_FILENAME } from "./logger";
 
 test("formatLogLine prepends an ISO timestamp and a bracketed tag", () => {
-	const line = formatLogLine(
-		Date.UTC(2026, 0, 1, 12, 0, 0, 0),
-		"WS",
-		["Post event:", { id: "abc" }],
-	);
+	const line = formatLogLine(Date.UTC(2026, 0, 1, 12, 0, 0, 0), "WS", [
+		"Post event:",
+		{ id: "abc" },
+	]);
 	expect(line).toContain("2026-01-01T12:00:00.000Z");
 	expect(line).toContain("[WS]");
 	expect(line).toContain("Post event:");

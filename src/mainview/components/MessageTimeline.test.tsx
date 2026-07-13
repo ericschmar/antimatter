@@ -1,9 +1,9 @@
-import * as Tooltip from "@radix-ui/react-tooltip";
-import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { renderToString } from "react-dom/server";
-import { MessageRow, MessageTimeline } from "./MessageTimeline";
 import type { MattermostPost, MattermostUser } from "../types";
+import { MessageRow, MessageTimeline } from "./MessageTimeline";
 
 const currentUser: MattermostUser = { id: "user-1", username: "sarah" };
 const otherUser: MattermostUser = { id: "user-2", username: "alex" };
@@ -44,7 +44,9 @@ const props = {
 
 describe("MessageTimeline", () => {
 	test("uses the legacy markdown renderer when the new composer flag is off", () => {
-		const html = renderToString(<MessageTimeline {...props} useNewComposer={false} />);
+		const html = renderToString(
+			<MessageTimeline {...props} useNewComposer={false} />,
+		);
 		expect(html).toContain("markdown-message");
 		expect(html).not.toContain("markdown-message-new");
 	});
@@ -74,7 +76,11 @@ describe("MessageTimeline", () => {
 
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MessageTimeline {...props} posts={[post, reply]} useNewComposer={false} />
+				<MessageTimeline
+					{...props}
+					posts={[post, reply]}
+					useNewComposer={false}
+				/>
 			</Tooltip.Provider>,
 		);
 
@@ -107,7 +113,11 @@ describe("MessageTimeline", () => {
 
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MessageTimeline {...props} posts={[deletedPost]} useNewComposer={false} />
+				<MessageTimeline
+					{...props}
+					posts={[deletedPost]}
+					useNewComposer={false}
+				/>
 			</Tooltip.Provider>,
 		);
 
@@ -115,8 +125,8 @@ describe("MessageTimeline", () => {
 		expect(html).not.toContain("stale deleted body");
 		expect(html).not.toContain("stale.png");
 		expect(html).not.toContain("👍");
-		expect(html).not.toContain("aria-label=\"Reply\"");
-		expect(html).not.toContain("aria-label=\"Add reaction\"");
+		expect(html).not.toContain('aria-label="Reply"');
+		expect(html).not.toContain('aria-label="Add reaction"');
 	});
 
 	test("renders deleted replies as deleted without stale content or controls", () => {
@@ -146,7 +156,11 @@ describe("MessageTimeline", () => {
 
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MessageTimeline {...props} posts={[post, reply]} useNewComposer={false} />
+				<MessageTimeline
+					{...props}
+					posts={[post, reply]}
+					useNewComposer={false}
+				/>
 			</Tooltip.Provider>,
 		);
 
@@ -159,7 +173,14 @@ describe("MessageTimeline", () => {
 	});
 
 	test("rerenders when a post is deleted", () => {
-		const compare = (MessageRow as unknown as { compare: (prevProps: Record<string, unknown>, nextProps: Record<string, unknown>) => boolean }).compare;
+		const compare = (
+			MessageRow as unknown as {
+				compare: (
+					prevProps: Record<string, unknown>,
+					nextProps: Record<string, unknown>,
+				) => boolean;
+			}
+		).compare;
 		const rowProps = {
 			currentUserId: currentUser.id,
 			post,
@@ -180,7 +201,9 @@ describe("MessageTimeline", () => {
 			onToggleReaction: props.onToggleReaction,
 		};
 
-		expect(compare(rowProps, { ...rowProps, post: { ...post, delete_at: 123 } })).toBe(false);
+		expect(
+			compare(rowProps, { ...rowProps, post: { ...post, delete_at: 123 } }),
+		).toBe(false);
 	});
 
 	test("rerenders when a reply is deleted", () => {
@@ -190,7 +213,14 @@ describe("MessageTimeline", () => {
 			message: "reply",
 			root_id: post.id,
 		};
-		const compare = (MessageRow as unknown as { compare: (prevProps: Record<string, unknown>, nextProps: Record<string, unknown>) => boolean }).compare;
+		const compare = (
+			MessageRow as unknown as {
+				compare: (
+					prevProps: Record<string, unknown>,
+					nextProps: Record<string, unknown>,
+				) => boolean;
+			}
+		).compare;
 		const rowProps = {
 			currentUserId: currentUser.id,
 			post,
@@ -211,7 +241,12 @@ describe("MessageTimeline", () => {
 			onToggleReaction: props.onToggleReaction,
 		};
 
-		expect(compare(rowProps, { ...rowProps, replies: [{ ...reply, delete_at: 123 }] })).toBe(false);
+		expect(
+			compare(rowProps, {
+				...rowProps,
+				replies: [{ ...reply, delete_at: 123 }],
+			}),
+		).toBe(false);
 	});
 
 	test("rerenders when reply reactions change", () => {
@@ -233,7 +268,14 @@ describe("MessageTimeline", () => {
 				],
 			},
 		};
-		const compare = (MessageRow as unknown as { compare: (prevProps: Record<string, unknown>, nextProps: Record<string, unknown>) => boolean }).compare;
+		const compare = (
+			MessageRow as unknown as {
+				compare: (
+					prevProps: Record<string, unknown>,
+					nextProps: Record<string, unknown>,
+				) => boolean;
+			}
+		).compare;
 		const rowProps = {
 			currentUserId: currentUser.id,
 			post,
@@ -254,14 +296,23 @@ describe("MessageTimeline", () => {
 			onToggleReaction: props.onToggleReaction,
 		};
 
-		expect(compare(rowProps, { ...rowProps, replies: [replyWithReaction] })).toBe(false);
+		expect(
+			compare(rowProps, { ...rowProps, replies: [replyWithReaction] }),
+		).toBe(false);
 	});
 
 	test("styles current-user reactions with an outline instead of a pale fill", () => {
-		const css = readFileSync(new URL("./MessageTimeline.css", import.meta.url), "utf8");
-		const mineRule = css.match(/\.reaction-pill\.mine \{(?<body>[^}]+)\}/)?.groups?.["body"] ?? "";
+		const css = readFileSync(
+			new URL("./MessageTimeline.css", import.meta.url),
+			"utf8",
+		);
+		const mineRule =
+			css.match(/\.reaction-pill\.mine \{(?<body>[^}]+)\}/)?.groups?.["body"] ??
+			"";
 
-		expect(mineRule).toContain("box-shadow: inset 0 0 0 1px var(--accent-border)");
+		expect(mineRule).toContain(
+			"box-shadow: inset 0 0 0 1px var(--accent-border)",
+		);
 		expect(mineRule).not.toContain("background: var(--grass-3)");
 		expect(mineRule).not.toContain("color: var(--accent-text)");
 	});

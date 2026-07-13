@@ -17,8 +17,7 @@ export function getEnvConfig(): MattermostEnvConfig | null {
 		Bun.env["MATTERMOST_SERVER_URL"]?.trim() ??
 		Bun.env["MATTERMOST_URL"]?.trim();
 	const token = Bun.env["MATTERMOST_PAT"]?.trim();
-	const giphyApiKey =
-		Bun.env["GIPHY_API_KEY"]?.trim() ?? getBuildGiphyApiKey();
+	const giphyApiKey = Bun.env["GIPHY_API_KEY"]?.trim() ?? getBuildGiphyApiKey();
 
 	if (!serverUrl && !token && !giphyApiKey) return null;
 	return {
@@ -292,7 +291,8 @@ function extensionForMimeType(mimeType?: string) {
 
 function sanitizeFileSegment(value: string) {
 	return value
-		.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+		.replace(/[<>:"/\\|?*]/g, "_")
+		.replace(/[\u0000-\u001f]/g, "_")
 		.replace(/\s+/g, " ")
 		.replace(/^\.+|\.+$/g, "")
 		.replace(/^_+|_+$/g, "")

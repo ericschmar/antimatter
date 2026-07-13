@@ -1,9 +1,9 @@
-import DocViewer, { DocViewerRenderers } from "@iamjariwala/react-doc-viewer";
 import type { IDocument } from "@iamjariwala/react-doc-viewer";
+import DocViewer, { DocViewerRenderers } from "@iamjariwala/react-doc-viewer";
 import "@iamjariwala/react-doc-viewer/dist/index.css";
 import { Download, ExternalLink, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { MattermostApiClient } from "../mattermostApi";
+import type { MattermostApiClient } from "../mattermostApi";
 import type { MattermostFileInfo } from "../types";
 
 type PreviewState =
@@ -85,7 +85,10 @@ export function AttachmentPreviewDialog({
 	if (!file) return null;
 
 	return (
-		<div className="modal-backdrop attachment-preview-backdrop" onMouseDown={onClose}>
+		<div
+			className="modal-backdrop attachment-preview-backdrop"
+			onMouseDown={onClose}
+		>
 			<section
 				aria-label={`Preview ${fileName}`}
 				className="attachment-preview-panel"
@@ -116,7 +119,12 @@ export function AttachmentPreviewDialog({
 								<Download size={16} />
 							</a>
 						) : null}
-						<button aria-label="Close preview" title="Close preview" type="button" onClick={onClose}>
+						<button
+							aria-label="Close preview"
+							title="Close preview"
+							type="button"
+							onClick={onClose}
+						>
 							<X size={16} />
 						</button>
 					</div>
@@ -128,7 +136,11 @@ export function AttachmentPreviewDialog({
 					{preview.status === "error" ? (
 						<div className="attachment-preview-state">
 							<p>{preview.message}</p>
-							<button className="primary-action" type="button" onClick={() => void onOpenExternal(file)}>
+							<button
+								className="primary-action"
+								type="button"
+								onClick={() => void onOpenExternal(file)}
+							>
 								Open externally
 							</button>
 						</div>
@@ -155,7 +167,10 @@ function fileTypeForAttachment(file: MattermostFileInfo | null) {
 
 function dataUrlToBlob(dataUrl: string, fallbackMimeType?: string) {
 	const [header, payload = ""] = dataUrl.split(",");
-	const mimeType = /data:([^;]+)/.exec(header)?.[1] ?? fallbackMimeType ?? "application/octet-stream";
+	const mimeType =
+		/data:([^;]+)/.exec(header)?.[1] ??
+		fallbackMimeType ??
+		"application/octet-stream";
 	const binary = atob(payload);
 	const bytes = new Uint8Array(binary.length);
 	for (let index = 0; index < binary.length; index += 1) {

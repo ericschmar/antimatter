@@ -165,7 +165,12 @@ export type AppSettings = {
 	useNewComposer: boolean;
 };
 
-export type WebSocketStatus = "idle" | "connecting" | "connected" | "disconnected" | "error";
+export type WebSocketStatus =
+	| "idle"
+	| "connecting"
+	| "connected"
+	| "disconnected"
+	| "error";
 
 export type WebSocketClientEvent =
 	| { type: "connected" }

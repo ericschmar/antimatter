@@ -3,7 +3,12 @@ import { dayKey, formatDateDivider } from "./format";
 
 export type TimelineRow =
 	| { type: "divider"; key: string; label: string }
-	| { type: "message"; key: string; post: MattermostPost; replies: MattermostPost[] };
+	| {
+			type: "message";
+			key: string;
+			post: MattermostPost;
+			replies: MattermostPost[];
+	  };
 
 export function buildTimelineRows(posts: MattermostPost[]): TimelineRow[] {
 	const rows: TimelineRow[] = [];
@@ -13,7 +18,11 @@ export function buildTimelineRows(posts: MattermostPost[]): TimelineRow[] {
 	const topLevelPosts: MattermostPost[] = [];
 
 	for (const post of posts) {
-		if (post.root_id && post.root_id !== post.id && postsById.has(post.root_id)) {
+		if (
+			post.root_id &&
+			post.root_id !== post.id &&
+			postsById.has(post.root_id)
+		) {
 			const replies = repliesByRootId.get(post.root_id) ?? [];
 			replies.push(post);
 			repliesByRootId.set(post.root_id, replies);

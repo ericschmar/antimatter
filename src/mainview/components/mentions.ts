@@ -4,7 +4,9 @@ export type MentionMatch = {
 };
 
 export function matchMentionQuery(message: string): MentionMatch | null {
-	const normalizedMessage = message.replace(/\u00a0/g, " ").replace(/\u200b/g, "");
+	const normalizedMessage = message
+		.replace(/\u00a0/g, " ")
+		.replace(/\u200b/g, "");
 	const match = /(^|\s)@([A-Za-z0-9._-]*)[\r\n]*$/.exec(normalizedMessage);
 	if (!match) return null;
 	return {

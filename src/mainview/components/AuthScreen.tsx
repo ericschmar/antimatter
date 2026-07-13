@@ -1,8 +1,8 @@
 import { CheckCircle2, KeyRound, RefreshCcw } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { MattermostConfig } from "../types";
 import type { MattermostSsoProvider } from "../../shared/electrobunRpc";
 import { electrobun } from "../app/rpc";
+import type { MattermostConfig } from "../types";
 import { Titlebar } from "./Titlebar";
 import "./AuthScreen.css";
 
@@ -30,7 +30,9 @@ export function AuthScreen({
 }) {
 	const [serverUrl, setServerUrl] = useState(defaultConfig?.serverUrl ?? "");
 	const [token, setToken] = useState(defaultConfig?.token ?? "");
-	const [authMethod, setAuthMethod] = useState<"pat" | "password" | "sso">("pat");
+	const [authMethod, setAuthMethod] = useState<"pat" | "password" | "sso">(
+		"pat",
+	);
 	const [loginId, setLoginId] = useState("");
 	const [password, setPassword] = useState("");
 
@@ -44,7 +46,7 @@ export function AuthScreen({
 		<div className="window-shell">
 			<Titlebar
 				onWindowControl={(action) => {
-					void electrobun.rpc!.request.windowControl({ action });
+					void electrobun.rpc?.request.windowControl({ action });
 				}}
 			/>
 			<div className="auth-page">
@@ -70,6 +72,7 @@ export function AuthScreen({
 					>
 						<button
 							aria-selected={authMethod === "pat"}
+							role="tab"
 							type="button"
 							onClick={() => setAuthMethod("pat")}
 						>
@@ -77,6 +80,7 @@ export function AuthScreen({
 						</button>
 						<button
 							aria-selected={authMethod === "password"}
+							role="tab"
 							type="button"
 							onClick={() => setAuthMethod("password")}
 						>
@@ -84,6 +88,7 @@ export function AuthScreen({
 						</button>
 						<button
 							aria-selected={authMethod === "sso"}
+							role="tab"
 							type="button"
 							onClick={() => setAuthMethod("sso")}
 						>

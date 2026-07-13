@@ -1,5 +1,5 @@
-import emojiMartData from "@emoji-mart/data";
 import type { Emoji, EmojiMartData } from "@emoji-mart/data";
+import emojiMartData from "@emoji-mart/data";
 
 const emojiData = emojiMartData as EmojiMartData;
 const emojiAliases = new Map<string, string>();
@@ -17,7 +17,11 @@ for (const [alias, id] of Object.entries(emojiData.aliases)) {
 
 export function normalizeEmojiName(value: string) {
 	const normalized = normalizeEmojiKey(value);
-	return emojiAliases.get(normalized) ?? emojiAliases.get(normalized.replace(/_/g, "")) ?? normalized;
+	return (
+		emojiAliases.get(normalized) ??
+		emojiAliases.get(normalized.replace(/_/g, "")) ??
+		normalized
+	);
 }
 
 export function emojiNameToGlyph(name: string) {

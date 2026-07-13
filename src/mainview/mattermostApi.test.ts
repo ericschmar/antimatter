@@ -9,7 +9,9 @@ describe("normalizeServerUrl", () => {
 	});
 
 	test("preserves explicit http protocol", () => {
-		expect(normalizeServerUrl("http://localhost:8065/")).toBe("http://localhost:8065");
+		expect(normalizeServerUrl("http://localhost:8065/")).toBe(
+			"http://localhost:8065",
+		);
 	});
 });
 
@@ -188,7 +190,7 @@ describe("MattermostApiClient", () => {
 		expect(fetchMock).toHaveBeenCalledWith(
 			"https://mattermost.example.com/api/v4/teams/team-id/posts/search",
 			expect.objectContaining({
-				body: expect.stringContaining("\"terms\":\"deploy notes\""),
+				body: expect.stringContaining('"terms":"deploy notes"'),
 				method: "POST",
 			}),
 		);
@@ -285,7 +287,9 @@ describe("MattermostApiClient", () => {
 	});
 
 	test("removes reactions through the Mattermost reaction endpoint", async () => {
-		const fetchMock = mock(() => Promise.resolve(new Response(null, { status: 200 })));
+		const fetchMock = mock(() =>
+			Promise.resolve(new Response(null, { status: 200 })),
+		);
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 		const client = new MattermostApiClient({
@@ -304,7 +308,9 @@ describe("MattermostApiClient", () => {
 	});
 
 	test("deletes posts through the Mattermost post endpoint", async () => {
-		const fetchMock = mock(() => Promise.resolve(new Response(null, { status: 200 })));
+		const fetchMock = mock(() =>
+			Promise.resolve(new Response(null, { status: 200 })),
+		);
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 		const client = new MattermostApiClient({

@@ -1,5 +1,8 @@
 import type { BrowserWindow } from "electrobun/bun";
-import type { MattermostClientRPC, SettingsWindowRPC } from "../shared/electrobunRpc";
+import type {
+	MattermostClientRPC,
+	SettingsWindowRPC,
+} from "../shared/electrobunRpc";
 
 type MainWebviewMessages = MattermostClientRPC["webview"]["messages"];
 type SettingsWebviewMessages = SettingsWindowRPC["webview"]["messages"];
@@ -25,11 +28,9 @@ export function sendMainWebviewMessage<K extends keyof MainWebviewMessages>(
 	console.log("[RPC] Message sent:", { message });
 }
 
-export function sendSettingsWebviewMessage<K extends keyof SettingsWebviewMessages>(
-	window: BrowserWindow,
-	message: K,
-	payload: SettingsWebviewMessages[K],
-) {
+export function sendSettingsWebviewMessage<
+	K extends keyof SettingsWebviewMessages,
+>(window: BrowserWindow, message: K, payload: SettingsWebviewMessages[K]) {
 	const rpc = window.webview.rpc as MessageSender<SettingsWebviewMessages>;
 	rpc.send?.[message]?.(payload);
 }

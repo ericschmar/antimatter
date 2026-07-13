@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { MattermostChannel } from "../types";
 import type { ChannelNavigationContext } from "./channelNavigation";
 import {
 	findAdjacentMentionChannel,
@@ -7,7 +8,6 @@ import {
 	findSectionStartChannel,
 	orderedSectionChannels,
 } from "./channelNavigation";
-import type { MattermostChannel } from "../types";
 
 describe("channel navigation", () => {
 	test("uses manual order for favorites and channels", () => {
@@ -16,10 +16,9 @@ describe("channel navigation", () => {
 			sections: { channels: [channel("a", "Alpha"), channel("b", "Beta")] },
 		});
 
-		expect(orderedSectionChannels(context, "channels").map((item) => item.id)).toEqual([
-			"b",
-			"a",
-		]);
+		expect(
+			orderedSectionChannels(context, "channels").map((item) => item.id),
+		).toEqual(["b", "a"]);
 		expect(findSectionStartChannel(context, "channels")?.id).toBe("b");
 	});
 
@@ -34,11 +33,9 @@ describe("channel navigation", () => {
 			},
 		});
 
-		expect(orderedSectionChannels(context, "dms").map((item) => item.id)).toEqual([
-			"new",
-			"middle",
-			"old",
-		]);
+		expect(
+			orderedSectionChannels(context, "dms").map((item) => item.id),
+		).toEqual(["new", "middle", "old"]);
 	});
 
 	test("cycles through visible channels", () => {
@@ -100,7 +97,10 @@ describe("channel navigation", () => {
 });
 
 function buildContext(
-	overrides: Omit<Partial<ChannelNavigationContext>, "channelOrder" | "sections"> & {
+	overrides: Omit<
+		Partial<ChannelNavigationContext>,
+		"channelOrder" | "sections"
+	> & {
 		channelOrder?: Partial<ChannelNavigationContext["channelOrder"]>;
 		sections?: Partial<ChannelNavigationContext["sections"]>;
 	} = {},
