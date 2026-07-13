@@ -1,4 +1,5 @@
 import MDEditor from "@uiw/react-md-editor";
+import type { ICommand } from "@uiw/react-md-editor/commands";
 import "@uiw/react-md-editor/markdown-editor.css";
 import {
 	Bold,
@@ -47,6 +48,7 @@ import { buildMentionInsertion, matchMentionQuery } from "./mentions";
 import "./NewMessageComposer.css";
 
 const TYPING_UPDATE_INTERVAL_MS = 4000;
+const DISABLED_MARKDOWN_COMMANDS: ICommand[] = [];
 
 function giphyGifMarkdown(gif: GiphyGif) {
 	const src =
@@ -544,6 +546,8 @@ export const NewMessageComposer = forwardRef<
 				onDrop={handleDrop}
 			>
 				<MDEditor
+					commands={DISABLED_MARKDOWN_COMMANDS}
+					extraCommands={DISABLED_MARKDOWN_COMMANDS}
 					hideToolbar
 					highlightEnable={false}
 					preview={previewMode ? "preview" : "edit"}

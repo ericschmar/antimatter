@@ -158,7 +158,7 @@ export function ChatShell({
 	const composerProps: MessageComposerProps = {
 		composerHeight: visibleComposerHeight,
 		currentUserId: currentUser.id,
-		disabled: !selectedChannelId || ui.status === "loading",
+		disabled: !selectedChannelId,
 		editTarget,
 		giphyApiKey,
 		maxComposerHeight: effectiveMaxComposerHeight,
