@@ -991,6 +991,17 @@ textarea:disabled {
 	background: var(--app-bg);
 }
 
+.attachment-preview-body .rdv-container,
+.attachment-preview-body #proxy-renderer,
+.attachment-preview-body .rdv-image-container {
+	background: var(--app-bg);
+}
+
+.attachment-preview-body .rdv-png-checkerboard,
+.attachment-preview-body .rdv-png-checkerboard .rdv-image-container {
+	background-image: none;
+}
+
 .attachment-preview-body #react-doc-viewer[data-theme="dark"] {
 	--rdv-primary: var(--accent);
 	--rdv-background: var(--app-bg);

@@ -11,6 +11,19 @@ type PreviewState =
 	| { status: "ready"; document: IDocument; objectUrl: string }
 	| { status: "error"; message: string };
 
+export const attachmentPreviewDocViewerConfig = {
+	dragDrop: { enableDragDrop: false },
+	fullscreen: { enableFullscreen: true },
+	header: { disableHeader: true, disableFileName: true },
+	keyboard: { enableKeyboardShortcuts: true },
+	loadingProgress: { enableProgressBar: true },
+	password: { enablePasswordPrompt: true },
+	pdfVerticalScrollByDefault: true,
+	search: { enableSearch: true },
+	themeMode: "dark" as const,
+	thumbnail: { enableThumbnails: true },
+};
+
 export function AttachmentPreviewDialog({
 	api,
 	file,
@@ -122,18 +135,7 @@ export function AttachmentPreviewDialog({
 					) : null}
 					{preview.status === "ready" ? (
 						<DocViewer
-							config={{
-								dragDrop: { enableDragDrop: false },
-								fullscreen: { enableFullscreen: true },
-								header: { disableFileName: true },
-								keyboard: { enableKeyboardShortcuts: true },
-								loadingProgress: { enableProgressBar: true },
-								password: { enablePasswordPrompt: true },
-								pdfVerticalScrollByDefault: true,
-								search: { enableSearch: true },
-								themeMode: "dark",
-								thumbnail: { enableThumbnails: true },
-							}}
+							config={attachmentPreviewDocViewerConfig}
 							documents={[preview.document]}
 							pluginRenderers={DocViewerRenderers}
 						/>
