@@ -57,6 +57,7 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   The `.tooltip-content` style already lives in `src/mainview/index.css` — reuse it rather than adding new tooltip CSS.
 - Other Radix primitives in use: `@radix-ui/react-dropdown-menu` (popovers/menus via `* as DropdownMenu`), `react-scroll-area`, `react-tabs`, `react-dialog`, `react-slot`, plus `@radix-ui/colors`. They follow the same `asChild` + `Portal` shape.
 - Scoping CSS for the new (`@uiw`-based) composer vs. the old (MDX) one: target `.composer-new` / `.composer.composer-new` selectors so the MDX `MessageComposer` styles in `MessageComposer.css` stay untouched.
+- Attachment preview uses `@iamjariwala/react-doc-viewer`; keep app-specific overrides scoped under `.attachment-preview-body` in `src/mainview/index.css`. To remove react-doc-viewer's extra top bar, set `config.header.disableHeader: true`; `disableFileName` alone only hides the filename. For PNG/image previews, override `.rdv-image-container` and `.rdv-png-checkerboard` backgrounds because the library defaults to a white image container plus checkerboard background image.
 
 ## Adding an app setting
 
@@ -95,7 +96,7 @@ TDD sequence that works here: write the failing storage test first (default + a 
   - `bun test`
   - `bun run build`
 - `bun run typecheck` (tsc --noEmit) is the source of truth for type errors. Inline LSP diagnostics surfaced by the edit/write tools can be stale or pre-existing and may not reflect the working tree (e.g. phantom `useNewComposer`/`AppSettingsPayload` errors that persist even though the types are in sync) — only chase type errors the standalone tsc run also reports.
-- If `bun run typecheck` fails with TS2882 side-effect CSS import declaration errors during a CSS-only change, treat it as a pre-existing declaration/config blocker unless the change touched TS imports. Verify the intended CSS delta with `git diff -- <css files>` and report the blocker accurately rather than expanding scope.
+- If `bun run typecheck` fails with TS2882 side-effect CSS import declaration errors for side-effect CSS imports (`react-resizable/css/styles.css`, component CSS files, `@mdxeditor/editor/style.css`, `@uiw` CSS, etc.), treat it as the current pre-existing declaration/config blocker unless new diagnostics point at the changed feature code. Report the blocker accurately rather than expanding scope.
 
 ## Building & inspecting packaged builds
 
