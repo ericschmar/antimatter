@@ -33,6 +33,7 @@ Use this skill when starting or executing coding work in the Antimatter reposito
 - For frequently rendered or list components, use `React.memo`.
 - Use `useMemo` for expensive computations and stable object/array props.
 - Use `useCallback` for callbacks passed to memoized children.
+- When a memo comparator receives nested arrays of rendered data, include every nested field that can affect visible output. For `MessageTimeline` replies, changes to reply text, attachments, and reactions must invalidate the row, not just reply `id`/`update_at`.
 - Avoid premature broad refactors; apply performance changes only within the requested scope or where directly relevant.
 
 ## UI conventions (Radix + lucide)

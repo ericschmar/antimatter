@@ -371,7 +371,7 @@ function TimelineMarkdownImage({
 	);
 }
 
-const MessageRow = memo(function MessageRow({
+export const MessageRow = memo(function MessageRow({
 	currentUserId,
 	post,
 	replies,
@@ -523,10 +523,16 @@ const MessageRow = memo(function MessageRow({
 
 	const repliesUnchanged =
 		prevProps.replies.length === nextProps.replies.length &&
-		prevProps.replies.every((reply, i) =>
-			reply.id === nextProps.replies[i]?.id &&
-			reply.update_at === nextProps.replies[i]?.update_at
-		);
+		prevProps.replies.every((reply, i) => {
+			const nextReply = nextProps.replies[i];
+			return (
+				reply.id === nextReply?.id &&
+				reply.update_at === nextReply.update_at &&
+				reply.message === nextReply.message &&
+				reply.metadata?.files?.length === nextReply.metadata?.files?.length &&
+				reply.metadata?.reactions?.length === nextReply.metadata?.reactions?.length
+			);
+		});
 
 	const visualPropsUnchanged =
 		prevProps.userColor === nextProps.userColor &&
