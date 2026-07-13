@@ -1,4 +1,5 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
 import { MessageRow, MessageTimeline } from "./MessageTimeline";
@@ -254,5 +255,14 @@ describe("MessageTimeline", () => {
 		};
 
 		expect(compare(rowProps, { ...rowProps, replies: [replyWithReaction] })).toBe(false);
+	});
+
+	test("styles current-user reactions with an outline instead of a pale fill", () => {
+		const css = readFileSync(new URL("./MessageTimeline.css", import.meta.url), "utf8");
+		const mineRule = css.match(/\.reaction-pill\.mine \{(?<body>[^}]+)\}/)?.groups?.["body"] ?? "";
+
+		expect(mineRule).toContain("box-shadow: inset 0 0 0 1px var(--accent-border)");
+		expect(mineRule).not.toContain("background: var(--grass-3)");
+		expect(mineRule).not.toContain("color: var(--accent-text)");
 	});
 });

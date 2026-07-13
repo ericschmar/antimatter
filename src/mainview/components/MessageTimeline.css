@@ -607,8 +607,7 @@
 
 .reaction-pill.mine {
 	border-color: var(--accent-border);
-	background: var(--grass-3);
-	color: var(--accent-text);
+	box-shadow: inset 0 0 0 1px var(--accent-border);
 }
 
 .reaction-pill:hover,
