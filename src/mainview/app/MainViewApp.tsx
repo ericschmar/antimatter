@@ -1156,9 +1156,12 @@ export function MainViewApp() {
 	}, [composerRef]);
 
 	const showMessageContextMenu = useCallback((post: MattermostPost) => {
+		if (post.delete_at > 0) return;
+		const canEdit = post.user_id === currentUser?.id && !post.pending;
 		void electrobun.rpc!.request.showMessageContextMenu({
 			postId: post.id,
-			canEdit: post.user_id === currentUser?.id && !post.pending,
+			canEdit,
+			canDelete: canEdit && post.delete_at === 0,
 		});
 	}, [currentUser?.id]);
 

@@ -152,10 +152,11 @@ export type ChannelContextMenuAction = {
 export type MessageContextMenuRequest = {
 	postId: string;
 	canEdit: boolean;
+	canDelete: boolean;
 };
 
 export type MessageContextMenuAction = {
-	action: "copy" | "edit" | "reply";
+	action: "copy" | "delete" | "edit" | "reply";
 	postId: string;
 };
 

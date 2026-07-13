@@ -302,4 +302,23 @@ describe("MattermostApiClient", () => {
 			}),
 		);
 	});
+
+	test("deletes posts through the Mattermost post endpoint", async () => {
+		const fetchMock = mock(() => Promise.resolve(new Response(null, { status: 200 })));
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+
+		await client.deletePost("post/id");
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/posts/post%2Fid",
+			expect.objectContaining({
+				method: "DELETE",
+			}),
+		);
+	});
 });

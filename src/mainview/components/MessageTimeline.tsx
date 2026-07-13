@@ -413,7 +413,8 @@ export const MessageRow = memo(function MessageRow({
 		() => groupReactions(post.metadata?.reactions ?? [], currentUserId),
 		[post.metadata?.reactions, currentUserId]
 	);
-	const canReply = !post.root_id || post.root_id === post.id;
+	const deleted = post.delete_at > 0;
+	const canReply = !deleted && (!post.root_id || post.root_id === post.id);
 	const authorStatus = userStatuses[post.user_id]?.status;
 	const isOwnMessage = showOwnMessageIndicators && post.user_id === currentUserId;
 	return (
@@ -448,25 +449,31 @@ export const MessageRow = memo(function MessageRow({
 				{post.failed ? <span className="message-state failed">failed</span> : null}
 			</div>
 			<div className="message-content">
-				<MarkdownRenderer
-					currentUsername={users[currentUserId]?.username}
-					markdown={post.message}
-					resolveImageSrc={resolveImageSrc}
-					useNewComposer={useNewComposer}
-				/>
-				<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
-				{groupedReactions.length > 0 ? (
-					<div className="reaction-list">
-						{groupedReactions.map((reaction) => (
-							<ReactionPill
-								key={reaction.emojiName}
-								reaction={reaction}
-								users={users}
-								onClick={() => void onToggleReaction(post, reaction.emojiName)}
-							/>
-						))}
-					</div>
-				) : null}
+				{deleted ? (
+					<div className="markdown-message">(deleted)</div>
+				) : (
+					<>
+						<MarkdownRenderer
+							currentUsername={users[currentUserId]?.username}
+							markdown={post.message}
+							resolveImageSrc={resolveImageSrc}
+							useNewComposer={useNewComposer}
+						/>
+						<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
+						{groupedReactions.length > 0 ? (
+							<div className="reaction-list">
+								{groupedReactions.map((reaction) => (
+									<ReactionPill
+										key={reaction.emojiName}
+										reaction={reaction}
+										users={users}
+										onClick={() => void onToggleReaction(post, reaction.emojiName)}
+									/>
+								))}
+							</div>
+						) : null}
+					</>
+				)}
 				{replies.length > 0 ? (
 					<div className="message-replies">
 						{replies.map((reply) => (
@@ -500,14 +507,16 @@ export const MessageRow = memo(function MessageRow({
 					<Reply size={14} />
 				</button>
 			) : null}
-			<EmojiPickerPopover
-				label="Add reaction"
-				onSelectEmoji={(_, emojiName) => void onToggleReaction(post, normalizeEmojiName(emojiName))}
-			>
-				<button aria-label="Add reaction" className="message-reaction-add" type="button">
-					<SmilePlus size={14} />
-				</button>
-			</EmojiPickerPopover>
+			{!deleted ? (
+				<EmojiPickerPopover
+					label="Add reaction"
+					onSelectEmoji={(_, emojiName) => void onToggleReaction(post, normalizeEmojiName(emojiName))}
+				>
+					<button aria-label="Add reaction" className="message-reaction-add" type="button">
+						<SmilePlus size={14} />
+					</button>
+				</EmojiPickerPopover>
+			) : null}
 		</article>
 	);
 }, (prevProps, nextProps) => {
@@ -515,6 +524,7 @@ export const MessageRow = memo(function MessageRow({
 	const postUnchanged =
 		prevProps.post.id === nextProps.post.id &&
 		prevProps.post.update_at === nextProps.post.update_at &&
+		prevProps.post.delete_at === nextProps.post.delete_at &&
 		prevProps.post.message === nextProps.post.message &&
 		prevProps.post.pending === nextProps.post.pending &&
 		prevProps.post.failed === nextProps.post.failed &&
@@ -528,6 +538,7 @@ export const MessageRow = memo(function MessageRow({
 			return (
 				reply.id === nextReply?.id &&
 				reply.update_at === nextReply.update_at &&
+				reply.delete_at === nextReply.delete_at &&
 				reply.message === nextReply.message &&
 				reply.metadata?.files?.length === nextReply.metadata?.files?.length &&
 				reply.metadata?.reactions?.length === nextReply.metadata?.reactions?.length
@@ -578,6 +589,7 @@ const ReplyMessage = memo(function ReplyMessage({
 		() => groupReactions(post.metadata?.reactions ?? [], currentUserId),
 		[post.metadata?.reactions, currentUserId]
 	);
+	const deleted = post.delete_at > 0;
 	const status = userStatuses[post.user_id]?.status;
 	const isOwnMessage = showOwnMessageIndicators && post.user_id === currentUserId;
 	return (
@@ -595,41 +607,51 @@ const ReplyMessage = memo(function ReplyMessage({
 				/>
 				<time>{formatTime(post.create_at)}</time>
 			</div>
-			<MarkdownRenderer
-				currentUsername={users[currentUserId]?.username}
-				markdown={post.message}
-				resolveImageSrc={resolveImageSrc}
-				useNewComposer={useNewComposer}
-			/>
-			<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
-			{groupedReactions.length > 0 ? (
-				<div className="reaction-list">
-					{groupedReactions.map((reaction) => (
-						<ReactionPill
-							key={reaction.emojiName}
-							reaction={reaction}
-							users={users}
-							onClick={() => void onToggleReaction(post, reaction.emojiName)}
-						/>
-					))}
-				</div>
-			) : null}
-			<button
-				aria-label="Reply"
-				className="reply-message-reply-add"
-				type="button"
-				onClick={() => onReply(post)}
-			>
-				<Reply size={13} />
-			</button>
-			<EmojiPickerPopover
-				label="Add reaction"
-				onSelectEmoji={(_, emojiName) => void onToggleReaction(post, normalizeEmojiName(emojiName))}
-			>
-				<button aria-label="Add reaction" className="reply-reaction-add" type="button">
-					<SmilePlus size={14} />
+			{deleted ? (
+				<div className="markdown-message">(deleted)</div>
+			) : (
+				<>
+					<MarkdownRenderer
+						currentUsername={users[currentUserId]?.username}
+						markdown={post.message}
+						resolveImageSrc={resolveImageSrc}
+						useNewComposer={useNewComposer}
+					/>
+					<MessageAttachments files={post.metadata?.files ?? []} resolveImageSrc={resolveImageSrc} onOpenAttachment={onOpenAttachment} />
+					{groupedReactions.length > 0 ? (
+						<div className="reaction-list">
+							{groupedReactions.map((reaction) => (
+								<ReactionPill
+									key={reaction.emojiName}
+									reaction={reaction}
+									users={users}
+									onClick={() => void onToggleReaction(post, reaction.emojiName)}
+								/>
+							))}
+						</div>
+					) : null}
+				</>
+			)}
+			{!deleted ? (
+				<button
+					aria-label="Reply"
+					className="reply-message-reply-add"
+					type="button"
+					onClick={() => onReply(post)}
+				>
+					<Reply size={13} />
 				</button>
-			</EmojiPickerPopover>
+			) : null}
+			{!deleted ? (
+				<EmojiPickerPopover
+					label="Add reaction"
+					onSelectEmoji={(_, emojiName) => void onToggleReaction(post, normalizeEmojiName(emojiName))}
+				>
+					<button aria-label="Add reaction" className="reply-reaction-add" type="button">
+						<SmilePlus size={14} />
+					</button>
+				</EmojiPickerPopover>
+			) : null}
 		</div>
 	);
 });

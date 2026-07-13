@@ -81,6 +81,138 @@ describe("MessageTimeline", () => {
 		expect(html).toContain("@sarah reacted with 👍");
 	});
 
+	test("renders deleted top-level messages as deleted without stale content or controls", () => {
+		const deletedPost: MattermostPost = {
+			...post,
+			delete_at: 123,
+			message: "stale deleted body",
+			metadata: {
+				files: [
+					{
+						id: "file-1",
+						mime_type: "image/png",
+						name: "stale.png",
+					},
+				],
+				reactions: [
+					{
+						emoji_name: "thumbsup",
+						post_id: post.id,
+						user_id: currentUser.id,
+					},
+				],
+			},
+		};
+
+		const html = renderToString(
+			<Tooltip.Provider>
+				<MessageTimeline {...props} posts={[deletedPost]} useNewComposer={false} />
+			</Tooltip.Provider>,
+		);
+
+		expect(html).toContain("(deleted)");
+		expect(html).not.toContain("stale deleted body");
+		expect(html).not.toContain("stale.png");
+		expect(html).not.toContain("👍");
+		expect(html).not.toContain("aria-label=\"Reply\"");
+		expect(html).not.toContain("aria-label=\"Add reaction\"");
+	});
+
+	test("renders deleted replies as deleted without stale content or controls", () => {
+		const reply: MattermostPost = {
+			...post,
+			delete_at: 123,
+			id: "reply-1",
+			message: "stale reply body",
+			metadata: {
+				files: [
+					{
+						id: "file-1",
+						mime_type: "image/png",
+						name: "stale-reply.png",
+					},
+				],
+				reactions: [
+					{
+						emoji_name: "thumbsup",
+						post_id: "reply-1",
+						user_id: currentUser.id,
+					},
+				],
+			},
+			root_id: post.id,
+		};
+
+		const html = renderToString(
+			<Tooltip.Provider>
+				<MessageTimeline {...props} posts={[post, reply]} useNewComposer={false} />
+			</Tooltip.Provider>,
+		);
+
+		expect(html).toContain("(deleted)");
+		expect(html).not.toContain("stale reply body");
+		expect(html).not.toContain("stale-reply.png");
+		expect(html).not.toContain("👍");
+		expect(html).not.toContain("reply-message-reply-add");
+		expect(html).not.toContain("reply-reaction-add");
+	});
+
+	test("rerenders when a post is deleted", () => {
+		const compare = (MessageRow as unknown as { compare: (prevProps: Record<string, unknown>, nextProps: Record<string, unknown>) => boolean }).compare;
+		const rowProps = {
+			currentUserId: currentUser.id,
+			post,
+			replies: [],
+			resolveImageSrc: props.resolveImageSrc,
+			showOwnMessageIndicators: true,
+			showProfilePictures: true,
+			useNewComposer: false,
+			userColor: undefined,
+			userColors: {},
+			userImages: {},
+			userStatuses: {},
+			users: props.users,
+			onOpenAttachment: props.onOpenAttachment,
+			onReply: props.onReply,
+			onSetUserColor: props.onSetUserColor,
+			onShowMessageContextMenu: props.onShowMessageContextMenu,
+			onToggleReaction: props.onToggleReaction,
+		};
+
+		expect(compare(rowProps, { ...rowProps, post: { ...post, delete_at: 123 } })).toBe(false);
+	});
+
+	test("rerenders when a reply is deleted", () => {
+		const reply: MattermostPost = {
+			...post,
+			id: "reply-1",
+			message: "reply",
+			root_id: post.id,
+		};
+		const compare = (MessageRow as unknown as { compare: (prevProps: Record<string, unknown>, nextProps: Record<string, unknown>) => boolean }).compare;
+		const rowProps = {
+			currentUserId: currentUser.id,
+			post,
+			replies: [reply],
+			resolveImageSrc: props.resolveImageSrc,
+			showOwnMessageIndicators: true,
+			showProfilePictures: true,
+			useNewComposer: false,
+			userColor: undefined,
+			userColors: {},
+			userImages: {},
+			userStatuses: {},
+			users: props.users,
+			onOpenAttachment: props.onOpenAttachment,
+			onReply: props.onReply,
+			onSetUserColor: props.onSetUserColor,
+			onShowMessageContextMenu: props.onShowMessageContextMenu,
+			onToggleReaction: props.onToggleReaction,
+		};
+
+		expect(compare(rowProps, { ...rowProps, replies: [{ ...reply, delete_at: 123 }] })).toBe(false);
+	});
+
 	test("rerenders when reply reactions change", () => {
 		const reply: MattermostPost = {
 			...post,

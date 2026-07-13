@@ -35,6 +35,66 @@ describe("mattermost websocket event parsing", () => {
 		});
 	});
 
+	test("normalizes edited post events", () => {
+		const message = parseMattermostWebSocketMessage(
+			JSON.stringify({
+				event: "post_edited",
+				data: {
+					team_id: "team1",
+					post: JSON.stringify({
+						id: "post1",
+						channel_id: "channel1",
+						user_id: "user1",
+						message: "edited",
+					}),
+				},
+			}),
+		);
+
+		expect(message).not.toBeNull();
+		expect(readMattermostWebSocketEvent(message!)).toEqual({
+			type: "post",
+			post: {
+				id: "post1",
+				channel_id: "channel1",
+				user_id: "user1",
+				message: "edited",
+			},
+			teamId: "team1",
+		});
+	});
+
+	test("normalizes deleted post events", () => {
+		const message = parseMattermostWebSocketMessage(
+			JSON.stringify({
+				event: "post_deleted",
+				data: {
+					team_id: "team1",
+					post: JSON.stringify({
+						id: "post1",
+						channel_id: "channel1",
+						user_id: "user1",
+						message: "deleted body",
+						delete_at: 123,
+					}),
+				},
+			}),
+		);
+
+		expect(message).not.toBeNull();
+		expect(readMattermostWebSocketEvent(message!)).toEqual({
+			type: "post",
+			post: {
+				id: "post1",
+				channel_id: "channel1",
+				user_id: "user1",
+				message: "deleted body",
+				delete_at: 123,
+			},
+			teamId: "team1",
+		});
+	});
+
 	test("omits teamId for direct messages", () => {
 		const message = parseMattermostWebSocketMessage(
 			JSON.stringify({

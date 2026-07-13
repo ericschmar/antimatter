@@ -28,6 +28,7 @@ import {
 	applyReaction,
 	mergeUsers,
 	updateChannelLastPostAt,
+	updatePost,
 } from "../../utils/state";
 import { electrobun, rendererLog } from "../../app/rpc";
 
@@ -126,7 +127,7 @@ export function useMainViewEvents({
 				);
 				setState((current) =>
 					updateChannelLastPostAt(
-						addPost(current, post),
+						current.posts[post.id] ? updatePost(current, post) : addPost(current, post),
 						post.channel_id,
 						post.create_at,
 					),
@@ -305,13 +306,29 @@ export function useMainViewEvents({
 
 		function handleMessageMenu(event: Event) {
 			const detail = (
-				event as CustomEvent<{ action: "copy" | "edit" | "reply"; postId: string }>
+				event as CustomEvent<{ action: "copy" | "delete" | "edit" | "reply"; postId: string }>
 			).detail;
 			const post = state.posts[detail.postId];
 			if (!post) return;
 			if (detail.action === "copy") void navigator.clipboard.writeText(post.message);
 			if (detail.action === "reply") startReply(post);
 			if (detail.action === "edit" && post.user_id === currentUser?.id) setEditTarget(post);
+			if (
+				detail.action === "delete" &&
+				api &&
+				post.user_id === currentUser?.id &&
+				!post.pending &&
+				post.delete_at === 0
+			) {
+				const previousPost = post;
+				const deletedAt = Date.now();
+				const deletedPost = { ...post, delete_at: deletedAt, update_at: deletedAt };
+				setState((current) => updatePost(current, deletedPost));
+				void api.deletePost(post.id).catch((err) => {
+					setState((current) => updatePost(current, previousPost));
+					setError(err instanceof Error ? err.message : "Could not delete message.");
+				});
+			}
 		}
 
 		function handleApplicationMenu(event: Event) {
@@ -360,7 +377,7 @@ export function useMainViewEvents({
 			window.removeEventListener("keydown", handleKeyDown, { capture: true });
 			window.removeEventListener("click", handleLinkClick, { capture: true });
 		};
-	}, [currentUser?.id, openSettingsWindow, settings, setCommandOpen, setEditTarget, setSettings, startReply, state.posts]);
+	}, [api, currentUser?.id, openSettingsWindow, settings, setCommandOpen, setEditTarget, setError, setSettings, setState, startReply, state.posts]);
 }
 
 type UseMainViewEventsArgs = {
@@ -396,7 +413,13 @@ function addPostToHistory(
 	history: ChannelHistoryData | undefined,
 	post: MattermostPost,
 ): ChannelHistoryData | undefined {
-	if (!history || history.posts[post.id]) return history;
+	if (!history) return history;
+	if (history.posts[post.id]) {
+		return {
+			...history,
+			posts: { ...history.posts, [post.id]: post },
+		};
+	}
 	return {
 		...history,
 		posts: { ...history.posts, [post.id]: post },

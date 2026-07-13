@@ -172,7 +172,7 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 				return { success: true };
 			},
 			showMessageContextMenu: (request) => {
-				showMessageContextMenu(request.postId, request.canEdit);
+				showMessageContextMenu(request.postId, request.canEdit, request.canDelete);
 				return { success: true };
 			},
 			openSettingsWindow: ({ settings }) => {
@@ -406,7 +406,7 @@ function showChannelContextMenu(channelId: string, label: string, hasEmoji: bool
 	]);
 }
 
-function showMessageContextMenu(postId: string, canEdit: boolean) {
+function showMessageContextMenu(postId: string, canEdit: boolean, canDelete: boolean) {
 	ContextMenu.showContextMenu([
 		{
 			label: "Copy message",
@@ -423,6 +423,12 @@ function showMessageContextMenu(postId: string, canEdit: boolean) {
 			action: "edit",
 			enabled: canEdit,
 			data: { action: "edit", postId } satisfies MessageContextMenuAction,
+		},
+		{
+			label: "Delete",
+			action: "delete",
+			enabled: canDelete,
+			data: { action: "delete", postId } satisfies MessageContextMenuAction,
 		},
 	]);
 }
@@ -447,6 +453,7 @@ function readContextMenuData(event: unknown):
 	const maybeMessageAction = data as Partial<MessageContextMenuAction>;
 	if (
 		(maybeMessageAction.action === "copy" ||
+			maybeMessageAction.action === "delete" ||
 			maybeMessageAction.action === "edit" ||
 			maybeMessageAction.action === "reply") &&
 		typeof maybeMessageAction.postId === "string"

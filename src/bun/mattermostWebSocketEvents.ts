@@ -50,7 +50,12 @@ export function readMattermostWebSocketEvent(
 		};
 	}
 
-	if (message.event === "posted" && typeof message.data?.post === "string") {
+	if (
+		(message.event === "posted" ||
+			message.event === "post_edited" ||
+			message.event === "post_deleted") &&
+		typeof message.data?.post === "string"
+	) {
 		const post = parseJsonObject(message.data.post);
 		return post
 			? { type: "post", post, teamId: message.data.team_id || undefined }

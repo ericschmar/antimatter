@@ -334,6 +334,12 @@ export class MattermostApiClient {
 		);
 	}
 
+	deletePost(postId: string) {
+		return this.request<unknown>(`/posts/${encodeURIComponent(postId)}`, {
+			method: "DELETE",
+		});
+	}
+
 	uploadFiles(channelId: string, files: MattermostFileUploadItem[]) {
 		if (this.uploadTransport) {
 			return this.uploadTransport({
