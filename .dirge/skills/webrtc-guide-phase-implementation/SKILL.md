@@ -41,6 +41,19 @@ A source-only review (no runtime execution) found these gaps. Re-verify against 
 - **No unit tests for WebRTC core logic.** `CallSignaling` validation/batching, ICE buffering, the timeline filter predicate, cleanup, and recovery are untested; the pure-logic pieces are unit-testable without browser APIs.
 - **Guide inaccuracies for Prompt 9:** Step 3.4 omits media elements; `createOffer` uses deprecated `offerToReceiveAudio/Video` instead of transceivers; `IncomingCallToast` countdown is hardcoded 45s rather than `config.answerTimeout`.
 
+## Known guide gaps (the guide is wrong or incomplete here)
+
+- **Step 3.4 omits media elements entirely.** The guide's `ActiveCallPanel` renders no `<video>`/`<audio>`. You MUST attach streams via refs (`srcObject`) so connected calls produce audio/video: a muted remote `<video>` + a muted local self-view `<video>` for video calls, and a separate unmuted remote `<audio>` as the single audio path. Never attach local audio (self-hear) and mute the remote `<video>` to avoid double playback.
+- **Teardown on refresh/close is absent from the guide.** Use `window` `pagehide` → `callManager.destroy()` (synchronous peer close + BroadcastChannel notify), not `hangup()` (its async signaling fetch is unreliable on unload) and not `beforeunload` (fires before the user confirms leaving).
+- **Stats on the shared context value cause a 1Hz whole-subtree re-render.** Put stats in a separate `CallStatsContext`/`useCallStats`.
+- **`offerToReceiveAudio/Video` in `createOffer` is deprecated**; prefer transceiver/track-based negotiation. The guide still shows the deprecated form.
+- **Incoming-toast countdown is hardcoded to 45s in the guide;** derive from `config.answerTimeout` so the two don't drift.
+- **`senderId` is self-attested** (lives in `post.props`, not the authenticated `post.user_id`). It must never be trusted for display identity or gating beyond the active-session/DM-scope check.
+
+## Already in the codebase (don't re-implement)
+
+`CallStatsContext`/`useCallStats` split; the `CallError.fatal` flag; `pagehide`+`destroy()` teardown; offer-bypass busy routing in `CallSignaling.handlePost`; the validating `isWebRtcCallPost` guard used in `useMainViewEvents`; media-element attachment in `ActiveCallPanel`; and `CallSignaling.test.ts` covering validation/batching/routing. Real session recovery is still a stub (non-fatal informational toast only).
+
 ## Verification
 
 ```bash
