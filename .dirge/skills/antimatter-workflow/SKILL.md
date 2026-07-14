@@ -28,6 +28,25 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   - Rerun the focused test, then relevant lint/type/build checks.
   - Re-read changes for scope creep and unrelated edits.
 
+## Verification notes
+
+- Run `bun install --frozen-lockfile` before `bun run typecheck` if dependencies are absent; otherwise Volta may report that it cannot locate `tsc`.
+- With TypeScript 7, use `--ignoreConfig` for focused file checks that pass file names directly. For TSX files, include `--jsx react-jsx`; if the files import CSS side effects, include `--noUncheckedSideEffectImports false`, for example `./node_modules/.bin/tsc --ignoreConfig --noEmit --jsx react-jsx --target ESNext --module ESNext --moduleResolution bundler --lib ESNext,DOM --strict --noUnusedLocals --noUnusedParameters --noFallthroughCasesInSwitch --noPropertyAccessFromIndexSignature --noUncheckedSideEffectImports false <files>`.
+- Project-wide `bun run typecheck` can fail on unrelated TS2882 CSS side-effect import declaration errors; report that separately from targeted WebRTC typecheck results.
+
+## WebRTC implementation guide workflow
+
+When working from `WEBRTC_IMPLEMENTATION_GUIDE.md`:
+
+- Read the relevant guide phase or section before editing, not the whole long file by default; use the markdown outline/headings to target the needed section.
+- Treat guide snippets and paths as a plan to validate, not code to copy blindly. Map each step to existing project files and conventions first.
+- Keep work phase-scoped: Foundation, WebRTC Core, UI Components, Integration, or Polish/Testing. Do not continue into the next phase unless asked.
+- Preserve the guide’s core requirements when in scope: ICE candidate buffering/batching, `replaceTrack()` device switching, remote stream assembly, `BroadcastChannel` multi-tab coordination, session recovery, sender/session validation, ICE restart, and cleanup of listeners/media resources.
+- Treat Mattermost signaling payloads as untrusted boundary data and validate sender/session fields.
+- For UI phases, follow the React memoization rules in this skill and avoid redesigning unrelated UI.
+- Verify with the fastest available typecheck/build/lint/test command after inspecting project config, because `CLAUDE.md` does not document authoritative commands.
+- Report guide deviations, blockers, manual WebRTC checks, and unverified areas explicitly.
+
 ## React work
 
 - For frequently rendered or list components, use `React.memo`.
