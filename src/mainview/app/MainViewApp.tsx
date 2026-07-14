@@ -702,6 +702,7 @@ export function MainViewApp() {
 
 	useEffect(() => {
 		let cancelled = false;
+		// Channel selection persists lastChannelId into config; rerunning this effect on config changes reconnects and can replay stale selected channels.
 		if (config) {
 			void connect(config);
 		}
@@ -730,7 +731,7 @@ export function MainViewApp() {
 			cancelled = true;
 			void electrobun.rpc?.request.disconnectMattermostWebSocket({});
 		};
-	}, [config, connect]);
+	}, []);
 
 	useEffect(() => {
 		void electrobun.rpc?.request.getAppUpdateState({}).then(setAppUpdate);

@@ -35,6 +35,7 @@ Use this skill when starting or executing coding work in the Antimatter reposito
 - Use `useCallback` for callbacks passed to memoized children.
 - When a memo comparator receives nested arrays of rendered data, include every nested field that can affect visible output. For `MessageTimeline` replies, changes to reply text, attachments, and reactions must invalidate the row, not just reply `id`/`update_at`.
 - Avoid premature broad refactors; apply performance changes only within the requested scope or where directly relevant.
+- Be careful with app-startup effects and persisted config: `selectChannel` writes `lastChannelId` via `setConfig`, so effects that connect on startup must not rerun just because channel navigation persisted config. A stale async reconnect can replay an old selected channel and cause oscillation.
 
 ## UI conventions (Radix + lucide)
 
@@ -78,17 +79,21 @@ TDD sequence that works here: write the failing storage test first (default + a 
 - Preserve existing Mattermost behavior when using `MDEditor.Markdown`: reuse/export `highlightMentionsInMarkdown` from `MarkdownMessage`, and use the same image resolution/load helpers (`useResolvedImageSrc`, `useImageLoadInfo`) for inline markdown images.
 - `MessageRow` is memoized with a custom comparator. Any renderer-affecting prop such as `useNewComposer` must be included in the comparator, or toggling the setting will not re-render existing rows.
 - Component tests can use `react-dom/server` `renderToString` for this renderer toggle. Assert the legacy path lacks `.markdown-message-new`, and the new path contains both `.markdown-message-new` and @uiw's `.wmde-markdown` output.
+- When server-rendering `ChatShell` tests, mock `./rpc` before dynamically importing `ChatShell` so ElectroBun browser APIs do not touch `window`, and mock `../storage` helpers that read `localStorage`. Capture mocked composer props when testing prop derivation such as disabled state instead of exporting one-off helper functions solely for tests.
 
 ## Message composer architecture & editor transforms
 
 - Two composer components, switched in `src/mainview/app/ChatShell.tsx` on `settings.useNewComposer`: `MessageComposer.tsx` (MDXEditor/Lexical, the default) and `NewMessageComposer.tsx` (@uiw/react-md-editor, behind the flag). Both share the `MessageComposerHandle`/`MessageComposerProps` types (defined in MessageComposer.tsx) and `MessageComposer.css`. New-composer-only overrides live in `NewMessageComposer.css` — scope every new rule under `.composer.composer-new` so the two composers never collide.
 - **Editor transforms live in their own zero-heavy-import module** so their unit tests don't pull the editor runtime into the test graph (the lexical TDZ rule below). `mentions.ts` (mention match/insert) and `markdownActions.ts` (`wrapSelection` / `toggleLinePrefix` / `insertLink`, each taking `message + { start, end }` selection and returning `{ message, selection }`) follow this pattern; both the component and its `.test.ts` import from there.
+- `@uiw/react-md-editor` still installs default keyboard shortcuts when `hideToolbar` is set. If Antimatter owns the toolbar/shortcuts, pass stable typed empty arrays to both `commands` and `extraCommands`; leaving them undefined enables defaults such as `Cmd/Ctrl+Q` quote insertion, which can steal macOS app quit.
 - Applying a transform from the component: read the textarea's `selectionStart/End`, call the helper, `setMessage(result.message)`, then in a `requestAnimationFrame` call `textarea.focus()` + `textarea.setSelectionRange(result.selection.start, result.selection.end)` to restore caret. Share one `recomputeHeight` call (the `handleMessageChange` auto-resize) so programmatic edits resize the editor too.
+- `@uiw/react-md-editor` installs shortcuts from `commands` and `extraCommands` even when `hideToolbar` is set. If Antimatter supplies its own toolbar/shortcuts, pass stable empty `ICommand[]` arrays to both props; otherwise default shortcuts like `Cmd/Ctrl+Q` quote insertion can intercept native app/menu shortcuts.
 - **lucide-react icon check:** before importing an icon name, confirm it exists — the pinned `^1.16.0` ships fewer aliases than current releases. `node -e "const l=require('./node_modules/lucide-react/dist/cjs/lucide-react.js'); ['Bold','Italic','Strikethrough','Code','Code2','Link','Heading','Quote','List','ListOrdered','Eye','EyeOff','CaseSensitive'].forEach(n=>console.log(n, typeof l[n]))"`.
 - **Color tokens:** green/accent greens come from `@radix-ui/colors/grass-dark.css` (imported in index.css, with local overrides). `--grass-9` (#278747, overridden) backs the `--accent-*` aliases; `--grass-11` (#71d083, lighter) reads well for an outlined green affordance. Outline a `border:0` toggle with `box-shadow: inset 0 0 0 1px <color>` rather than flipping `border`, to avoid a 1px layout shift.
 
 ## Verification commands
 
+- For Bun/server-rendered app component tests that import `ChatShell`, mock `./rpc` before dynamic import to avoid ElectroBun browser API (`window`) access. If rendering touches app-update banner state, mock `../storage` helpers too so tests don't require `localStorage`.
 - Use Bun for project scripts and tests.
 - For Biome, run `bunx @biomejs/biome check .` or `bunx @biomejs/biome check . --max-diagnostics=200`; avoid `bunx biome`, which resolves the obsolete `biome` 0.3.x package and can falsely report clean output.
 - Keep Biome `complexity/useLiteralKeys` disabled while TypeScript `noPropertyAccessFromIndexSignature` is enabled; applying that unsafe fix creates TS4111 errors on index-signature-backed objects.
