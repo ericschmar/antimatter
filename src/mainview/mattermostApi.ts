@@ -344,6 +344,23 @@ export class MattermostApiClient {
 		});
 	}
 
+	createCustomPost(post: {
+		channelId: string;
+		message: string;
+		type: string;
+		props: Record<string, unknown>;
+	}) {
+		return this.request<MattermostPost>("/posts", {
+			method: "POST",
+			body: {
+				channel_id: post.channelId,
+				message: post.message,
+				type: post.type,
+				props: post.props,
+			},
+		});
+	}
+
 	createPostWithFiles(
 		channelId: string,
 		message: string,
