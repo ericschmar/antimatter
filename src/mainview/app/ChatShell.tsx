@@ -388,7 +388,7 @@ export function ChatShell({
 								</div>
 							</div>
 							<div className="channel-header-actions">
-								{selectedDirectUserId ? (
+								{selectedDirectUserId && selectedDirectUserId !== currentUser.id ? (
 									<>
 										<CallButton
 											userId={selectedDirectUserId}
