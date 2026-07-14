@@ -123,6 +123,23 @@ export type DesktopNotification = {
 	silent?: boolean;
 };
 
+export type CallNotificationPayload = {
+	type: "incoming-call" | "call-ended" | "call-missed";
+	fromUserId: string;
+	fromUsername: string;
+	callType: "audio" | "video";
+	sessionId: string;
+};
+
+export type CallPermissionRequest = {
+	type: "microphone" | "camera";
+};
+
+export type CallPermissionResponse = {
+	granted: boolean;
+	error?: string;
+};
+
 export type AppThemePayload = "default" | "high-contrast" | "warm" | "light";
 
 export type AppSettingsPayload = {
