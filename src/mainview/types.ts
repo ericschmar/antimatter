@@ -164,6 +164,7 @@ export type AppSettings = {
 	notificationPreference: NotificationPreference;
 	showProfilePictures: boolean;
 	useNewComposer: boolean;
+	devLoopback: boolean;
 };
 
 export type WebSocketStatus =

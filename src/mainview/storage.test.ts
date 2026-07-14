@@ -133,6 +133,7 @@ describe("storage helpers", () => {
 			notificationPreference: "all",
 			showProfilePictures: false,
 			useNewComposer: false,
+			devLoopback: false,
 		});
 		expect(loadSettings()).toMatchObject({
 			showProfilePictures: false,
@@ -154,6 +155,7 @@ describe("storage helpers", () => {
 			notificationPreference: "all",
 			showProfilePictures: true,
 			useNewComposer: true,
+			devLoopback: false,
 		});
 		expect(loadSettings()).toMatchObject({
 			useNewComposer: true,
@@ -174,6 +176,20 @@ describe("storage helpers", () => {
 		});
 	});
 
+	test("defaults dev loopback off when omitted", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+		localStorage.setItem(
+			"mm-clone:settings",
+			JSON.stringify({ fontFamily: "system" }),
+		);
+		expect(loadSettings()).toMatchObject({
+			devLoopback: false,
+		});
+	});
+
 	test("round-trips disabled own message indicators and color", () => {
 		Object.defineProperty(globalThis, "localStorage", {
 			configurable: true,
@@ -189,6 +205,7 @@ describe("storage helpers", () => {
 			notificationPreference: "all",
 			showProfilePictures: true,
 			useNewComposer: false,
+			devLoopback: false,
 		});
 		expect(loadSettings()).toMatchObject({
 			showOwnMessageIndicators: false,

@@ -6,14 +6,14 @@ const SIGNALING_POST_TYPE = "custom_webrtc_call";
 const ICE_BATCH_DELAY_MS = 100;
 const OFFER_ANSWER_MAX_AGE_MS = 60_000;
 
-type SignalingPostInput = {
+export type SignalingPostInput = {
 	channelId: string;
 	message: string;
 	type: typeof SIGNALING_POST_TYPE;
 	props: SignalingMessage & { from_webhook?: "true" };
 };
 
-type SignalingApi = Pick<MattermostApiClient, "createDirectChannel"> & {
+export type SignalingApi = Pick<MattermostApiClient, "createDirectChannel"> & {
 	createCustomPost(post: SignalingPostInput): Promise<MattermostPost>;
 };
 

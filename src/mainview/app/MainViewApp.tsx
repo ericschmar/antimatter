@@ -784,8 +784,13 @@ export function MainViewApp() {
 		? state.channels[selectedChannelId]
 		: undefined;
 	const callManager = useMemo(
-		() => (api && currentUser ? createCallManager(api, currentUser.id) : null),
-		[api, currentUser],
+		() =>
+			api && currentUser
+				? createCallManager(api, currentUser.id, undefined, {
+						devLoopback: settings.devLoopback,
+					})
+				: null,
+		[api, currentUser, settings.devLoopback],
 	);
 
 	useEffect(() => {

@@ -1,5 +1,6 @@
 import type { MattermostApiClient } from "../mattermostApi";
-import { CallSignaling } from "./CallSignaling";
+import { CallSignaling, type SignalingApi } from "./CallSignaling";
+import { createLoopbackMediaStream, createLoopbackPeer } from "./loopback";
 import {
 	AUDIO_CONSTRAINTS,
 	DEFAULT_CALL_CONFIG,
@@ -37,9 +38,12 @@ export class CallManager {
 	private pendingRecoveryError: CallError | null = null;
 
 	constructor(
-		mattermostApi: MattermostApiClient,
+		mattermostApi: SignalingApi,
 		private currentUserId: string,
 		config: Partial<CallConfig> = {},
+		private localMediaFactory?: (callType: CallType) => Promise<MediaStream>,
+		private connectOnAnswer = false,
+		private onDestroy?: () => void,
 	) {
 		this.config = { ...DEFAULT_CALL_CONFIG, ...config };
 		this.signaling = new CallSignaling(
@@ -63,8 +67,6 @@ export class CallManager {
 	async initiateCall(userId: string, callType: CallType): Promise<void> {
 		if (this.state !== "idle") throw new Error("Call already in progress");
 
-		this.setState("initiating");
-
 		try {
 			const channelId = await this.signaling.getDmChannelId(userId);
 			const sessionId = crypto.randomUUID();
@@ -77,10 +79,15 @@ export class CallManager {
 				state: "initiating",
 				startedAt: Date.now(),
 			};
+			this.setState("initiating");
 
-			await this.mediaManager.getUserMedia(
-				callType === "video" ? VIDEO_CONSTRAINTS : AUDIO_CONSTRAINTS,
-			);
+			if (this.localMediaFactory) {
+				this.mediaManager.setStream(await this.localMediaFactory(callType));
+			} else {
+				await this.mediaManager.getUserMedia(
+					callType === "video" ? VIDEO_CONSTRAINTS : AUDIO_CONSTRAINTS,
+				);
+			}
 			this.createPeerConnection();
 			this.addLocalTracks();
 
@@ -91,6 +98,11 @@ export class CallManager {
 			if (!offer?.sdp) throw new Error("Failed to create call offer");
 
 			await this.peerConnection?.setLocalDescription(offer);
+			this.setState("ringing");
+			this.answerTimeout = window.setTimeout(() => {
+				this.handleTimeout("No answer");
+			}, this.config.answerTimeout);
+
 			await this.signaling.send(
 				{
 					action: "offer",
@@ -102,11 +114,6 @@ export class CallManager {
 				},
 				channelId,
 			);
-
-			this.setState("ringing");
-			this.answerTimeout = window.setTimeout(() => {
-				this.handleTimeout("No answer");
-			}, this.config.answerTimeout);
 		} catch (error) {
 			this.handleError(toCallError(error, "Failed to initiate call"));
 		}
@@ -250,6 +257,7 @@ export class CallManager {
 	destroy(): void {
 		this.cleanup("Manager destroyed");
 		this.tabChannel.close();
+		this.onDestroy?.();
 	}
 
 	private createPeerConnection(): void {
@@ -415,7 +423,16 @@ export class CallManager {
 				window.clearTimeout(this.answerTimeout);
 				this.answerTimeout = null;
 			}
-			if (this.state !== "connected") this.setState("connecting");
+			if (this.connectOnAnswer) {
+				if (message.callType && this.localMediaFactory) {
+					this.remoteStream?.getTracks().forEach((track) => track.stop());
+					this.remoteStream = await this.localMediaFactory(message.callType);
+					this.events.onRemoteStream?.(this.remoteStream);
+				}
+				this.handleConnectionEstablished();
+			} else if (this.state !== "connected") {
+				this.setState("connecting");
+			}
 		} catch (error) {
 			this.handleError(toCallError(error, "Failed to process answer"));
 		}
@@ -642,6 +659,7 @@ export class CallManager {
 		}
 
 		this.mediaManager.cleanup();
+		this.remoteStream?.getTracks().forEach((track) => track.stop());
 		this.remoteStream = null;
 		this.pendingIceCandidates = [];
 
@@ -665,8 +683,21 @@ export function createCallManager(
 	mattermostApi: MattermostApiClient,
 	currentUserId: string,
 	config?: Partial<CallConfig>,
+	options: { devLoopback?: boolean } = {},
 ): CallManager {
-	return new CallManager(mattermostApi, currentUserId, config);
+	if (!options.devLoopback) return new CallManager(mattermostApi, currentUserId, config);
+
+	const loopbackPeer = createLoopbackPeer(currentUserId, config);
+	const callManager = new CallManager(
+		loopbackPeer.signalingApi,
+		currentUserId,
+		config,
+		createLoopbackMediaStream,
+		true,
+		() => loopbackPeer.destroy(),
+	);
+	loopbackPeer.attach(callManager);
+	return callManager;
 }
 
 function parseStats(

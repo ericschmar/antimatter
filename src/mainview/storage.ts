@@ -21,6 +21,7 @@ export const defaultSettings: AppSettings = {
 	notificationPreference: "all",
 	showProfilePictures: true,
 	useNewComposer: false,
+	devLoopback: false,
 };
 
 export function loadConfig(): MattermostConfig | null {
@@ -192,6 +193,10 @@ function normalizeSettings(value: Partial<AppSettings>): AppSettings {
 			typeof value.useNewComposer === "boolean"
 				? value.useNewComposer
 				: defaultSettings.useNewComposer,
+		devLoopback:
+			typeof value.devLoopback === "boolean"
+				? value.devLoopback
+				: defaultSettings.devLoopback,
 	};
 }
 

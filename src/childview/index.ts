@@ -42,6 +42,9 @@ const showProfilePicturesInput = document.getElementById(
 const useNewComposerInput = document.getElementById(
 	"use-new-composer",
 ) as HTMLInputElement;
+const devLoopbackInput = document.getElementById(
+	"dev-loopback",
+) as HTMLInputElement;
 const closeButton = document.getElementById(
 	"close-settings",
 ) as HTMLButtonElement;
@@ -67,6 +70,7 @@ for (const element of [
 	notificationSoundsInput,
 	showProfilePicturesInput,
 	useNewComposerInput,
+	devLoopbackInput,
 ]) {
 	element.addEventListener("input", updateSettings);
 	element.addEventListener("change", updateSettings);
@@ -117,6 +121,7 @@ function renderSettings(settings: AppSettingsPayload) {
 	notificationSoundsInput.checked = settings.notificationSounds;
 	showProfilePicturesInput.checked = settings.showProfilePictures;
 	useNewComposerInput.checked = settings.useNewComposer;
+	devLoopbackInput.checked = settings.devLoopback;
 }
 
 function readSettings(): AppSettingsPayload {
@@ -141,6 +146,7 @@ function readSettings(): AppSettingsPayload {
 		),
 		showProfilePictures: showProfilePicturesInput.checked,
 		useNewComposer: useNewComposerInput.checked,
+		devLoopback: devLoopbackInput.checked,
 	};
 }
 

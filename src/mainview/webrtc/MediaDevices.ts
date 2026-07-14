@@ -18,6 +18,12 @@ export class MediaDevicesManager {
 		}
 	}
 
+	setStream(stream: MediaStream): MediaStream {
+		this.cleanup();
+		this.stream = stream;
+		return stream;
+	}
+
 	async getDevices(): Promise<AvailableMediaDevices> {
 		const devices = await navigator.mediaDevices.enumerateDevices();
 

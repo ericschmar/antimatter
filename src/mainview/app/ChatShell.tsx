@@ -150,6 +150,11 @@ export function ChatShell({
 	const selectedDirectUsername = selectedDirectUser
 		? userLabel(selectedDirectUser, selectedDirectUserId ?? selectedDirectUser.id)
 		: (selectedDirectUserId ?? "Unknown user");
+	const callTargetUserId =
+		selectedDirectUserId &&
+		(selectedDirectUserId !== currentUser.id || settings.devLoopback)
+			? selectedDirectUserId
+			: null;
 	const callParticipantUser = session?.otherUserId
 		? users[session.otherUserId]
 		: selectedDirectUser;
@@ -388,15 +393,15 @@ export function ChatShell({
 								</div>
 							</div>
 							<div className="channel-header-actions">
-								{selectedDirectUserId && selectedDirectUserId !== currentUser.id ? (
+								{callTargetUserId ? (
 									<>
 										<CallButton
-											userId={selectedDirectUserId}
+											userId={callTargetUserId}
 											username={selectedDirectUsername}
 											variant="audio"
 										/>
 										<CallButton
-											userId={selectedDirectUserId}
+											userId={callTargetUserId}
 											username={selectedDirectUsername}
 											variant="video"
 										/>

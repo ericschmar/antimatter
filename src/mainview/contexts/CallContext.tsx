@@ -67,9 +67,13 @@ export function CallProvider({
 			setLocalStream(callManager.getLocalStream());
 			setRemoteStream(callManager.getRemoteStream());
 		});
-		callManager.on("onRemoteStream", setRemoteStream);
+		callManager.on("onRemoteStream", (stream) => {
+			setRemoteStream(stream);
+		});
 		callManager.on("onStatsUpdate", setStats);
-		callManager.on("onError", setError);
+		callManager.on("onError", (nextError) => {
+			setError(nextError);
+		});
 		callManager.on("onCallEnded", () => {
 			setSession(null);
 			setLocalStream(null);

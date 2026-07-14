@@ -30,6 +30,8 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 		[stats?.duration],
 	);
 	const isVideoCall = session?.callType === "video";
+	const isConnecting =
+		state === "initiating" || state === "ringing" || state === "connecting";
 
 	useEffect(() => {
 		if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
@@ -38,7 +40,10 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 	useEffect(() => {
 		const stream = remoteStream;
 		if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
-		if (remoteAudioRef.current) remoteAudioRef.current.srcObject = stream;
+		if (remoteAudioRef.current) {
+			remoteAudioRef.current.srcObject = stream;
+			if (stream) void remoteAudioRef.current.play().catch(() => undefined);
+		}
 	}, [remoteStream]);
 
 	const toggleMute = useCallback(() => {
@@ -61,7 +66,34 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 		void hangup();
 	}, [hangup]);
 
-	if (state !== "connected" || !session) return null;
+	if (!session) return null;
+
+	if (isConnecting) {
+		return (
+			<div className="active-call-panel">
+				<div className="call-panel-header">
+					<div className="call-indicator">
+						<span className="call-indicator-dot" />
+						<span className="call-with">Calling {callerName}</span>
+					</div>
+					<div className="call-duration">Connecting…</div>
+				</div>
+				<div className="call-controls">
+					<button
+						aria-label="Hang up"
+						className="call-control-button call-hangup-button"
+						title="Hang up"
+						type="button"
+						onClick={handleHangup}
+					>
+						<PhoneOff size={16} />
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	if (state !== "connected") return null;
 
 	return (
 		<div className="active-call-panel">
@@ -91,8 +123,8 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 
 			<div className="call-panel-header">
 				<div className="call-indicator">
-					<span className="call-indicator-dot" />
-					<span className="call-with">Call with {callerName}</span>
+						<span className="call-indicator-dot" />
+						<span className="call-with">Call with {callerName}</span>
 				</div>
 				<div className="call-duration">{duration}</div>
 			</div>

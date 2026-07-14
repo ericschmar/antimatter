@@ -152,6 +152,7 @@ export type AppSettingsPayload = {
 	notificationPreference: "all" | "mentions" | "none";
 	showProfilePictures: boolean;
 	useNewComposer: boolean;
+	devLoopback: boolean;
 };
 
 export type ChannelContextMenuRequest = {

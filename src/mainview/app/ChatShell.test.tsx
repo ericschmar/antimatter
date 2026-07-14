@@ -101,6 +101,7 @@ function renderChatShell(selectedChannelId: string | null) {
 					showProfilePictures: true,
 					theme: "default",
 					useNewComposer: false,
+					devLoopback: false,
 				}}
 				sidebarWidth={280}
 				teams={[selectedTeam]}
