@@ -48,7 +48,10 @@ export function channelLabel(
 ) {
 	if (channel.type === "D" && users && currentUserId) {
 		const otherUserId = directChannelOtherUserId(channel, currentUserId);
-		if (otherUserId) return userLabel(users[otherUserId], otherUserId);
+		if (otherUserId) {
+			const label = userLabel(users[otherUserId], otherUserId);
+			return otherUserId === currentUserId ? `${label} (You)` : label;
+		}
 	}
 	return channel.display_name || channel.name;
 }
@@ -75,5 +78,5 @@ export function directChannelOtherUserId(
 ) {
 	if (channel.type !== "D") return null;
 	const userIds = channel.name.split("__").filter(Boolean);
-	return userIds.find((userId) => userId !== currentUserId) ?? null;
+	return userIds.find((userId) => userId !== currentUserId) ?? userIds[0] ?? null;
 }

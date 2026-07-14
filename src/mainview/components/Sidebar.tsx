@@ -40,7 +40,7 @@ import type {
 	WebSocketStatus,
 } from "../types";
 import { sortChannelsForSection } from "../utils/channelNavigation";
-import { channelLabel, initials } from "../utils/format";
+import { channelLabel, directChannelOtherUserId, initials } from "../utils/format";
 import { showTeamUnreadDot } from "../utils/teamUnread";
 import { EmojiPickerPanel } from "./EmojiPickerPopover";
 import { UserMenu } from "./UserMenu";
@@ -488,10 +488,7 @@ function SortableChannelRow({
 	const icon =
 		channelEmoji || (channel.type === "D" || channel.type === "G" ? null : "#");
 	const showUnreadDot = notification?.unread && icon === "#";
-	const otherUserId =
-		channel.type === "D"
-			? channel.name.split("__").find((id) => id !== currentUserId)
-			: null;
+	const otherUserId = directChannelOtherUserId(channel, currentUserId);
 	const otherUser = otherUserId ? users[otherUserId] : undefined;
 	const status = otherUserId ? userStatuses[otherUserId]?.status : undefined;
 
