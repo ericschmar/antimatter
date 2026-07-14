@@ -1,6 +1,10 @@
 import type { MattermostApiClient } from "../mattermostApi";
-import { AUDIO_CONSTRAINTS, DEFAULT_CALL_CONFIG, VIDEO_CONSTRAINTS } from "./config";
 import { CallSignaling } from "./CallSignaling";
+import {
+	AUDIO_CONSTRAINTS,
+	DEFAULT_CALL_CONFIG,
+	VIDEO_CONSTRAINTS,
+} from "./config";
 import { MediaDevicesManager } from "./MediaDevices";
 import type {
 	CallConfig,
@@ -237,7 +241,10 @@ export class CallManager {
 	}
 
 	async switchCamera(deviceId: string): Promise<void> {
-		await this.mediaManager.switchCamera(deviceId, this.peerConnection ?? undefined);
+		await this.mediaManager.switchCamera(
+			deviceId,
+			this.peerConnection ?? undefined,
+		);
 	}
 
 	destroy(): void {
@@ -307,7 +314,10 @@ export class CallManager {
 		}
 	}
 
-	private handleSignalingMessage = (message: SignalingMessage, channelId: string) => {
+	private handleSignalingMessage = (
+		message: SignalingMessage,
+		channelId: string,
+	) => {
 		void this.handleSignalingMessageAsync(message, channelId);
 	};
 
@@ -386,7 +396,10 @@ export class CallManager {
 	}
 
 	private async handleAnswer(message: SignalingMessage): Promise<void> {
-		if (!this.currentSession || message.sessionId !== this.currentSession.sessionId) {
+		if (
+			!this.currentSession ||
+			message.sessionId !== this.currentSession.sessionId
+		) {
 			return;
 		}
 		if (!message.sdp) return;
@@ -441,19 +454,23 @@ export class CallManager {
 	private hasExpectedRemoteTracks(stream: MediaStream): boolean {
 		if (!this.currentSession) return false;
 		if (stream.getAudioTracks().length === 0) return false;
-		return this.currentSession.callType === "audio" || stream.getVideoTracks().length > 0;
+		return (
+			this.currentSession.callType === "audio" ||
+			stream.getVideoTracks().length > 0
+		);
 	}
 
 	private async handleIceCandidate(message: SignalingMessage): Promise<void> {
-		if (!this.currentSession || message.sessionId !== this.currentSession.sessionId) {
+		if (
+			!this.currentSession ||
+			message.sessionId !== this.currentSession.sessionId
+		) {
 			return;
 		}
-		if (!this.peerConnection) return;
+		const candidates =
+			message.candidates ?? (message.candidate ? [message.candidate] : []);
 
-		const candidates = message.candidates ??
-			(message.candidate ? [message.candidate] : []);
-
-		if (!this.peerConnection.remoteDescription) {
+		if (!this.peerConnection?.remoteDescription) {
 			this.pendingIceCandidates.push(...candidates);
 			return;
 		}
@@ -467,11 +484,17 @@ export class CallManager {
 		await this.addIceCandidates(candidates);
 	}
 
-	private async addIceCandidates(candidates: RTCIceCandidateInit[]): Promise<void> {
+	private async addIceCandidates(
+		candidates: RTCIceCandidateInit[],
+	): Promise<void> {
 		for (const candidate of candidates) {
 			try {
-				await this.peerConnection?.addIceCandidate(new RTCIceCandidate(candidate));
-			} catch {
+				await this.peerConnection?.addIceCandidate(
+					new RTCIceCandidate(candidate),
+				);
+			} catch (error) {
+				// Spurious during ICE restarts; surface for debugging without failing the call.
+				console.warn("[webrtc] addIceCandidate failed", error);
 			}
 		}
 	}
@@ -541,7 +564,10 @@ export class CallManager {
 
 	private handleTabMessage = (event: MessageEvent<TabCoordinationMessage>) => {
 		const message = event.data;
-		if (!this.currentSession || message.sessionId !== this.currentSession.sessionId) {
+		if (
+			!this.currentSession ||
+			message.sessionId !== this.currentSession.sessionId
+		) {
 			return;
 		}
 
@@ -559,15 +585,21 @@ export class CallManager {
 	};
 
 	private checkForOrphanedSession(): void {
-		const savedSession = localStorage.getItem(ACTIVE_CALL_STORAGE_KEY);
-		if (!savedSession) return;
+		const saved = localStorage.getItem(ACTIVE_CALL_STORAGE_KEY);
+		if (!saved) return;
 
 		try {
-			const session = JSON.parse(savedSession) as CallSession;
-			if (Date.now() - session.startedAt < 5 * 60 * 1000) {
+			const { startedAt } = JSON.parse(saved) as {
+				sessionId: string;
+				startedAt: number;
+			};
+			if (Date.now() - startedAt < 5 * 60 * 1000) {
+				// Real session recovery is not implemented; this marker only indicates a
+				// call may have been interrupted. Surfaced as non-fatal so it does not
+				// render as a generic error toast.
 				this.pendingRecoveryError = {
 					code: "unknown",
-					message: `You have an active call with ${session.otherUserId}.`,
+					message: "A call may have been interrupted. It has been ended.",
 					fatal: false,
 				};
 			}
@@ -578,9 +610,14 @@ export class CallManager {
 
 	private saveSessionToStorage(): void {
 		if (this.currentSession && this.state === "connected") {
+			// Persist only the marker needed to detect an interrupted call; do not store
+			// the other participant (self-attested and privacy-sensitive).
 			localStorage.setItem(
 				ACTIVE_CALL_STORAGE_KEY,
-				JSON.stringify(this.currentSession),
+				JSON.stringify({
+					sessionId: this.currentSession.sessionId,
+					startedAt: this.currentSession.startedAt,
+				}),
 			);
 		}
 	}
@@ -676,7 +713,8 @@ function toCallError(error: unknown, fallbackMessage: string): CallError {
 
 	return {
 		code:
-			error instanceof Error && error.message.toLowerCase().includes("permission")
+			error instanceof Error &&
+			error.message.toLowerCase().includes("permission")
 				? "permission-denied"
 				: "unknown",
 		message: error instanceof Error ? error.message : fallbackMessage,

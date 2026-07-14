@@ -1,7 +1,20 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import type { CallManager } from "../webrtc/CallManager";
-import type { CallError, CallSession, CallState, CallStats, CallType } from "../webrtc/types";
+import type {
+	CallError,
+	CallSession,
+	CallState,
+	CallStats,
+	CallType,
+} from "../webrtc/types";
 
 type CallContextValue = {
 	callManager: CallManager;
@@ -9,9 +22,12 @@ type CallContextValue = {
 	session: CallSession | null;
 	localStream: MediaStream | null;
 	remoteStream: MediaStream | null;
-	stats: CallStats | null;
 	error: CallError | null;
-	initiateCall: (userId: string, username: string, callType: CallType) => Promise<void>;
+	initiateCall: (
+		userId: string,
+		username: string,
+		callType: CallType,
+	) => Promise<void>;
 	acceptCall: () => Promise<void>;
 	declineCall: (reason?: "busy" | "declined") => Promise<void>;
 	hangup: () => Promise<void>;
@@ -22,6 +38,7 @@ type CallContextValue = {
 };
 
 const CallContext = createContext<CallContextValue | null>(null);
+const CallStatsContext = createContext<CallStats | null>(null);
 
 export function CallProvider({
 	children,
@@ -31,9 +48,15 @@ export function CallProvider({
 	callManager: CallManager;
 }) {
 	const [state, setState] = useState<CallState>(callManager.getState());
-	const [session, setSession] = useState<CallSession | null>(callManager.getSession());
-	const [localStream, setLocalStream] = useState<MediaStream | null>(callManager.getLocalStream());
-	const [remoteStream, setRemoteStream] = useState<MediaStream | null>(callManager.getRemoteStream());
+	const [session, setSession] = useState<CallSession | null>(
+		callManager.getSession(),
+	);
+	const [localStream, setLocalStream] = useState<MediaStream | null>(
+		callManager.getLocalStream(),
+	);
+	const [remoteStream, setRemoteStream] = useState<MediaStream | null>(
+		callManager.getRemoteStream(),
+	);
 	const [stats, setStats] = useState<CallStats | null>(null);
 	const [error, setError] = useState<CallError | null>(null);
 
@@ -54,6 +77,20 @@ export function CallProvider({
 			setStats(null);
 			setError(null);
 		});
+	}, [callManager]);
+
+	useEffect(() => {
+		// pagehide fires only once navigation/page-close is actually happening (unlike
+		// beforeunload, which runs before the user confirms leaving). destroy()
+		// synchronously closes the peer connection and notifies other tabs via the
+		// BroadcastChannel; hangup()'s async signaling fetch is unreliable on unload.
+		const handleUnload = () => {
+			callManager.destroy();
+		};
+		window.addEventListener("pagehide", handleUnload);
+		return () => {
+			window.removeEventListener("pagehide", handleUnload);
+		};
 	}, [callManager]);
 
 	const initiateCall = useCallback(
@@ -115,7 +152,6 @@ export function CallProvider({
 			session,
 			localStream,
 			remoteStream,
-			stats,
 			error,
 			initiateCall,
 			acceptCall,
@@ -132,7 +168,6 @@ export function CallProvider({
 			session,
 			localStream,
 			remoteStream,
-			stats,
 			error,
 			initiateCall,
 			acceptCall,
@@ -145,11 +180,21 @@ export function CallProvider({
 		],
 	);
 
-	return <CallContext.Provider value={value}>{children}</CallContext.Provider>;
+	return (
+		<CallContext.Provider value={value}>
+			<CallStatsContext.Provider value={stats}>
+				{children}
+			</CallStatsContext.Provider>
+		</CallContext.Provider>
+	);
 }
 
 export function useCall() {
 	const context = useContext(CallContext);
 	if (!context) throw new Error("useCall must be used within CallProvider");
 	return context;
+}
+
+export function useCallStats() {
+	return useContext(CallStatsContext);
 }

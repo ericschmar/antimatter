@@ -5,7 +5,8 @@ import type { CallError } from "../webrtc/types";
 import "./WebRTCCallUI.css";
 
 const errorMessages: Record<CallError["code"], string> = {
-	"permission-denied": "Microphone or camera access was denied. Check your permissions and try again.",
+	"permission-denied":
+		"Microphone or camera access was denied. Check your permissions and try again.",
 	"network-error": "Network error. Check your connection and try again.",
 	"peer-error": "Call connection failed. Try again.",
 	timeout: "Call timed out.",
@@ -14,7 +15,7 @@ const errorMessages: Record<CallError["code"], string> = {
 
 export const CallErrorToast = memo(function CallErrorToast() {
 	const { error } = useCall();
-	if (!error) return null;
+	if (!error?.fatal) return null;
 
 	return (
 		<div className="call-error-toast" role="alert">

@@ -1,6 +1,6 @@
 import { Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
-import { useCall } from "../contexts/CallContext";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCall, useCallStats } from "../contexts/CallContext";
 import "./WebRTCCallUI.css";
 
 type ActiveCallPanelProps = {
@@ -10,10 +10,36 @@ type ActiveCallPanelProps = {
 export const ActiveCallPanel = memo(function ActiveCallPanel({
 	callerName,
 }: ActiveCallPanelProps) {
-	const { state, session, stats, hangup, setAudioMuted, setVideoEnabled } = useCall();
+	const {
+		state,
+		session,
+		localStream,
+		remoteStream,
+		hangup,
+		setAudioMuted,
+		setVideoEnabled,
+	} = useCall();
+	const stats = useCallStats();
 	const [muted, setMuted] = useState(false);
 	const [videoOff, setVideoOff] = useState(false);
-	const duration = useMemo(() => formatDuration(stats?.duration ?? 0), [stats?.duration]);
+	const localVideoRef = useRef<HTMLVideoElement | null>(null);
+	const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+	const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+	const duration = useMemo(
+		() => formatDuration(stats?.duration ?? 0),
+		[stats?.duration],
+	);
+	const isVideoCall = session?.callType === "video";
+
+	useEffect(() => {
+		if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
+	}, [localStream]);
+
+	useEffect(() => {
+		const stream = remoteStream;
+		if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream;
+		if (remoteAudioRef.current) remoteAudioRef.current.srcObject = stream;
+	}, [remoteStream]);
 
 	const toggleMute = useCallback(() => {
 		setMuted((current) => {
@@ -39,6 +65,30 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 
 	return (
 		<div className="active-call-panel">
+			{isVideoCall ? (
+				<div className="call-video-stage">
+					<video
+						ref={remoteVideoRef}
+						autoPlay
+						muted
+						playsInline
+						className="call-video call-video-remote"
+					/>
+					<video
+						ref={localVideoRef}
+						autoPlay
+						muted
+						playsInline
+						className="call-video call-video-local"
+					/>
+				</div>
+			) : null}
+			{/* Remote audio always plays, including audio-only calls. Local audio is
+			    intentionally not attached to avoid hearing yourself. Live WebRTC media
+			    has no captions track. */}
+			{/* biome-ignore lint/a11y/useMediaCaption: live WebRTC media has no captions track */}
+			<audio ref={remoteAudioRef} autoPlay />
+
 			<div className="call-panel-header">
 				<div className="call-indicator">
 					<span className="call-indicator-dot" />
@@ -58,7 +108,7 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 					{muted ? <MicOff size={16} /> : <Mic size={16} />}
 				</button>
 
-				{session.callType === "video" ? (
+				{isVideoCall ? (
 					<button
 						aria-pressed={videoOff}
 						className={`call-control-button${videoOff ? " active" : ""}`}
@@ -84,7 +134,9 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 				<div className="call-stats">
 					<div className="call-stat">
 						<span className="call-stat-label">Latency</span>
-						<span className="call-stat-value">{Math.round(stats.roundTripTime)}ms</span>
+						<span className="call-stat-value">
+							{Math.round(stats.roundTripTime)}ms
+						</span>
 					</div>
 					<div className="call-stat">
 						<span className="call-stat-label">Packet loss</span>

@@ -33,7 +33,10 @@ export class CallSignaling {
 			senderId: this.currentUserId,
 		};
 
-		if (messageWithSender.action === "ice-candidate" && messageWithSender.candidate) {
+		if (
+			messageWithSender.action === "ice-candidate" &&
+			messageWithSender.candidate
+		) {
 			this.batchIceCandidate(messageWithSender, channelId);
 			return;
 		}
@@ -46,10 +49,16 @@ export class CallSignaling {
 
 		const message = post.props;
 		if (!isValidSignalingMessage(message)) return false;
-		if (expectedUserId && message.senderId !== expectedUserId) return false;
+		if (
+			expectedUserId &&
+			message.action !== "offer" &&
+			message.senderId !== expectedUserId
+		)
+			return false;
 
 		if (message.action === "offer" || message.action === "answer") {
-			if (Date.now() - message.timestamp > OFFER_ANSWER_MAX_AGE_MS) return false;
+			if (Date.now() - message.timestamp > OFFER_ANSWER_MAX_AGE_MS)
+				return false;
 		}
 
 		this.onMessage(message, post.channel_id);
@@ -66,12 +75,21 @@ export class CallSignaling {
 		}
 	}
 
-	async getDmChannelId(userId: string, myUserId = this.currentUserId): Promise<string> {
-		const channel = await this.mattermostApi.createDirectChannel([myUserId, userId]);
+	async getDmChannelId(
+		userId: string,
+		myUserId = this.currentUserId,
+	): Promise<string> {
+		const channel = await this.mattermostApi.createDirectChannel([
+			myUserId,
+			userId,
+		]);
 		return channel.id;
 	}
 
-	private batchIceCandidate(message: SignalingMessage, channelId: string): void {
+	private batchIceCandidate(
+		message: SignalingMessage,
+		channelId: string,
+	): void {
 		const key = `${message.sessionId}-${channelId}`;
 		const candidates = this.iceCandidateBuffer.get(key) ?? [];
 		if (message.candidate) candidates.push(message.candidate);
@@ -124,7 +142,9 @@ export class CallSignaling {
 	}
 }
 
-function isValidSignalingMessage(message: unknown): message is SignalingMessage {
+function isValidSignalingMessage(
+	message: unknown,
+): message is SignalingMessage {
 	if (!message || typeof message !== "object") return false;
 
 	const candidate = message as Partial<SignalingMessage>;
@@ -136,11 +156,14 @@ function isValidSignalingMessage(message: unknown): message is SignalingMessage 
 	switch (candidate.action) {
 		case "offer":
 		case "answer":
-			return typeof candidate.sdp === "string" && isCallType(candidate.callType);
+			return (
+				typeof candidate.sdp === "string" && isCallType(candidate.callType)
+			);
 		case "ice-candidate":
 			return Boolean(
 				candidate.candidate ||
-					(Array.isArray(candidate.candidates) && candidate.candidates.length > 0),
+					(Array.isArray(candidate.candidates) &&
+						candidate.candidates.length > 0),
 			);
 		case "hangup":
 		case "decline":
@@ -169,6 +192,10 @@ function getHumanReadableMessage(message: SignalingMessage): string {
 	}
 }
 
-export function isWebRtcCallPost(post: MattermostPost): post is MattermostPost & CallPost {
-	return post.type === SIGNALING_POST_TYPE && isValidSignalingMessage(post.props);
+export function isWebRtcCallPost(
+	post: MattermostPost,
+): post is MattermostPost & CallPost {
+	return (
+		post.type === SIGNALING_POST_TYPE && isValidSignalingMessage(post.props)
+	);
 }

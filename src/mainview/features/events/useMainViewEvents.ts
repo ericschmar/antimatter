@@ -8,7 +8,6 @@ import type {
 import { electrobun, rendererLog } from "../../app/rpc";
 import type { MattermostApiClient } from "../../mattermostApi";
 import type { AppStatus } from "../../state/uiStore";
-import type { CallManager } from "../../webrtc/CallManager";
 import type {
 	AppSettings,
 	ChannelHistoryData,
@@ -35,6 +34,8 @@ import {
 	updateChannelLastPostAt,
 	updatePost,
 } from "../../utils/state";
+import type { CallManager } from "../../webrtc/CallManager";
+import { isWebRtcCallPost } from "../../webrtc/CallSignaling";
 
 export function useMainViewEvents({
 	api,
@@ -94,7 +95,7 @@ export function useMainViewEvents({
 				event as CustomEvent<{ post: MattermostPost; teamId?: string }>
 			).detail;
 			const post = detail.post;
-			if (post.type === "custom_webrtc_call") {
+			if (isWebRtcCallPost(post)) {
 				callManager?.handleIncomingPost(post);
 				return;
 			}
