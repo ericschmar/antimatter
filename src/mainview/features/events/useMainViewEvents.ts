@@ -8,6 +8,7 @@ import type {
 import { electrobun, rendererLog } from "../../app/rpc";
 import type { MattermostApiClient } from "../../mattermostApi";
 import type { AppStatus } from "../../state/uiStore";
+import type { CallManager } from "../../webrtc/CallManager";
 import type {
 	AppSettings,
 	ChannelHistoryData,
@@ -37,6 +38,7 @@ import {
 
 export function useMainViewEvents({
 	api,
+	callManager,
 	connect,
 	currentUser,
 	loadPostReactions,
@@ -92,6 +94,10 @@ export function useMainViewEvents({
 				event as CustomEvent<{ post: MattermostPost; teamId?: string }>
 			).detail;
 			const post = detail.post;
+			if (post.type === "custom_webrtc_call") {
+				callManager?.handleIncomingPost(post);
+				return;
+			}
 			const { teamId } = detail;
 			const postUsersPromise =
 				api && currentUser ? getPostUsers(api, [post], currentUser.id) : null;
@@ -324,6 +330,7 @@ export function useMainViewEvents({
 		};
 	}, [
 		api,
+		callManager,
 		connect,
 		currentUser,
 		loadPostReactions,
@@ -457,6 +464,7 @@ export function useMainViewEvents({
 
 type UseMainViewEventsArgs = {
 	api: MattermostApiClient | null;
+	callManager: CallManager | null;
 	connect: (config: MattermostConfig) => Promise<void>;
 	currentUser: MattermostUser | null;
 	loadPostReactions: (

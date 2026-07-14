@@ -21,12 +21,13 @@
 	opacity: 0.5;
 }
 
-.incoming-call-toast,
-.active-call-panel {
+.incoming-call-toast {
 	position: fixed;
+	top: 72px;
 	right: 20px;
 	z-index: 60;
 	width: 320px;
+	padding: 16px;
 	border: 1px solid var(--border-subtle);
 	border-radius: 18px;
 	background: var(--panel-bg);
@@ -34,9 +35,15 @@
 	color: var(--text-primary);
 }
 
-.incoming-call-toast {
-	top: 72px;
-	padding: 16px;
+.active-call-panel {
+	width: calc(100% - 20px);
+	margin: 0 10px 10px;
+	padding: 14px;
+	border: 1px solid var(--border-subtle);
+	border-radius: 18px;
+	background: var(--panel-bg);
+	box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+	color: var(--text-primary);
 }
 
 .call-toast-header,
@@ -132,11 +139,6 @@
 .call-decline-button:hover,
 .call-hangup-button:hover {
 	border-color: var(--danger-border);
-}
-
-.active-call-panel {
-	bottom: 20px;
-	padding: 14px;
 }
 
 .call-indicator {

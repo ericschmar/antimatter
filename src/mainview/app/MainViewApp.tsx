@@ -9,6 +9,7 @@ import type {
 import { AttachmentPreviewDialog } from "../components/AttachmentPreviewDialog";
 import { AuthScreen } from "../components/AuthScreen";
 import type { MessageComposerHandle } from "../components/MessageComposer";
+import { CallProvider } from "../contexts/CallContext";
 import {
 	MAX_COMPOSER_HEIGHT,
 	MAX_SIDEBAR_WIDTH,
@@ -59,6 +60,7 @@ import {
 	updateChannelLastPostAt,
 	updatePost as updatePostInState,
 } from "../utils/state";
+import { createCallManager } from "../webrtc/CallManager";
 import { ChatShell } from "./ChatShell";
 import { electrobun } from "./rpc";
 
@@ -769,13 +771,26 @@ export function MainViewApp() {
 		};
 	}, [archivedChannelSet, channels, favoriteChannelSet]);
 	const posts = useMemo(
-		() => state.postOrder.map((id) => state.posts[id]).filter(Boolean),
+		() =>
+			state.postOrder
+				.map((id) => state.posts[id])
+				.filter((post): post is MattermostPost =>
+					Boolean(post) && post.type !== "custom_webrtc_call",
+				),
 		[state.postOrder, state.posts],
 	);
 	const selectedTeam = selectedTeamId ? state.teams[selectedTeamId] : undefined;
 	const selectedChannel = selectedChannelId
 		? state.channels[selectedChannelId]
 		: undefined;
+	const callManager = useMemo(
+		() => (api && currentUser ? createCallManager(api, currentUser.id) : null),
+		[api, currentUser],
+	);
+
+	useEffect(() => {
+		return () => callManager?.destroy();
+	}, [callManager]);
 
 	async function selectTeam(team: MattermostTeam) {
 		if (!api || !currentUser || !config) return;
@@ -1247,6 +1262,7 @@ export function MainViewApp() {
 
 	useMainViewEvents({
 		api,
+		callManager,
 		connect,
 		currentUser,
 		loadPostReactions,
@@ -1291,8 +1307,10 @@ export function MainViewApp() {
 		);
 	}
 
+	if (!callManager) return null;
+
 	return (
-		<>
+		<CallProvider callManager={callManager}>
 			<ChatShell
 				api={api}
 				channelEmojis={channelEmojis}
@@ -1360,6 +1378,6 @@ export function MainViewApp() {
 				onClose={() => setPreviewAttachment(null)}
 				onOpenExternal={openAttachmentExternally}
 			/>
-		</>
+		</CallProvider>
 	);
 }
