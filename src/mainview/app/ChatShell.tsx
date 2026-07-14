@@ -9,6 +9,7 @@ import type {
 	AppUpdateState,
 } from "../../shared/electrobunRpc";
 import { CallButton } from "../components/CallButton";
+import { CallErrorToast } from "../components/CallErrorToast";
 import { CommandMenu } from "../components/CommandMenu";
 import { CreateChannelDialog } from "../components/CreateChannelDialog";
 import { MarkdownMessage } from "../components/MarkdownMessage";
@@ -582,6 +583,7 @@ export function ChatShell({
 					callerAvatar={callParticipantAvatar}
 					callerName={callParticipantName}
 				/>
+				<CallErrorToast />
 				<UserPickerDialog
 					api={api}
 					open={ui.addUserOpen}

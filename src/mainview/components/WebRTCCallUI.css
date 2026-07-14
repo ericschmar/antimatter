@@ -21,18 +21,32 @@
 	opacity: 0.5;
 }
 
-.incoming-call-toast {
+.incoming-call-toast,
+.call-error-toast {
 	position: fixed;
-	top: 72px;
 	right: 20px;
 	z-index: 60;
 	width: 320px;
-	padding: 16px;
 	border: 1px solid var(--border-subtle);
 	border-radius: 18px;
 	background: var(--panel-bg);
 	box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
 	color: var(--text-primary);
+}
+
+.incoming-call-toast {
+	top: 72px;
+	padding: 16px;
+}
+
+.call-error-toast {
+	top: 72px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 14px;
+	border-color: var(--danger-border);
+	color: var(--danger-text);
 }
 
 .active-call-panel {

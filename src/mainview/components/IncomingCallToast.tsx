@@ -1,6 +1,7 @@
 import { Phone, Video } from "lucide-react";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useCall } from "../contexts/CallContext";
+import { electrobun } from "../app/rpc";
 import "./WebRTCCallUI.css";
 
 type IncomingCallToastProps = {
@@ -14,8 +15,23 @@ export const IncomingCallToast = memo(function IncomingCallToast({
 }: IncomingCallToastProps) {
 	const { state, session, acceptCall, declineCall } = useCall();
 	const [countdown, setCountdown] = useState(45);
+	const notifiedSessionIdRef = useRef<string | null>(null);
 	const isIncoming = state === "incoming" && Boolean(session);
 	const Icon = session?.callType === "video" ? Video : Phone;
+
+	useEffect(() => {
+		if (!isIncoming || !session) return;
+		if (notifiedSessionIdRef.current === session.sessionId) return;
+
+		notifiedSessionIdRef.current = session.sessionId;
+		void electrobun.rpc?.request.showCallNotification({
+			type: "incoming-call",
+			fromUserId: session.otherUserId,
+			fromUsername: callerName,
+			callType: session.callType,
+			sessionId: session.sessionId,
+		});
+	}, [callerName, isIncoming, session]);
 
 	useEffect(() => {
 		if (!isIncoming) {

@@ -266,6 +266,10 @@ export type MattermostClientRPC = {
 				params: DesktopNotification;
 				response: { success: boolean };
 			};
+			showCallNotification: {
+				params: CallNotificationPayload;
+				response: { success: boolean };
+			};
 			showChannelContextMenu: {
 				params: ChannelContextMenuRequest;
 				response: { success: boolean };
