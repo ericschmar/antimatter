@@ -91,6 +91,11 @@ TDD sequence that works here: write the failing storage test first (default + a 
 - **lucide-react icon check:** before importing an icon name, confirm it exists — the pinned `^1.16.0` ships fewer aliases than current releases. `node -e "const l=require('./node_modules/lucide-react/dist/cjs/lucide-react.js'); ['Bold','Italic','Strikethrough','Code','Code2','Link','Heading','Quote','List','ListOrdered','Eye','EyeOff','CaseSensitive'].forEach(n=>console.log(n, typeof l[n]))"`.
 - **Color tokens:** green/accent greens come from `@radix-ui/colors/grass-dark.css` (imported in index.css, with local overrides). `--grass-9` (#278747, overridden) backs the `--accent-*` aliases; `--grass-11` (#71d083, lighter) reads well for an outlined green affordance. Outline a `border:0` toggle with `box-shadow: inset 0 0 0 1px <color>` rather than flipping `border`, to avoid a 1px layout shift.
 
+## Mattermost channel labels
+
+- Direct-message channel labels are formatted in `src/mainview/utils/format.ts`. Mattermost self-DMs can have a raw direct channel name shaped `userId__userId`; `directChannelOtherUserId(channel, currentUserId)` should return the current user id in that case so `channelLabel` resolves the display name instead of showing the raw channel name.
+- Add formatter regressions in an adjacent `src/mainview/utils/*.test.ts` file using Bun's `import { describe, expect, test } from "bun:test"` style.
+
 ## Verification commands
 
 - For Bun/server-rendered app component tests that import `ChatShell`, mock `./rpc` before dynamic import to avoid ElectroBun browser API (`window`) access. If rendering touches app-update banner state, mock `../storage` helpers too so tests don't require `localStorage`.
