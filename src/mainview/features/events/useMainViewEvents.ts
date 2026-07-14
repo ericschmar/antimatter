@@ -34,9 +34,12 @@ import {
 	updateChannelLastPostAt,
 	updatePost,
 } from "../../utils/state";
+import type { CallManager } from "../../webrtc/CallManager";
+import { isWebRtcCallPost } from "../../webrtc/CallSignaling";
 
 export function useMainViewEvents({
 	api,
+	callManager,
 	connect,
 	currentUser,
 	loadPostReactions,
@@ -92,6 +95,10 @@ export function useMainViewEvents({
 				event as CustomEvent<{ post: MattermostPost; teamId?: string }>
 			).detail;
 			const post = detail.post;
+			if (isWebRtcCallPost(post)) {
+				callManager?.handleIncomingPost(post);
+				return;
+			}
 			const { teamId } = detail;
 			const postUsersPromise =
 				api && currentUser ? getPostUsers(api, [post], currentUser.id) : null;
@@ -324,6 +331,7 @@ export function useMainViewEvents({
 		};
 	}, [
 		api,
+		callManager,
 		connect,
 		currentUser,
 		loadPostReactions,
@@ -457,6 +465,7 @@ export function useMainViewEvents({
 
 type UseMainViewEventsArgs = {
 	api: MattermostApiClient | null;
+	callManager: CallManager | null;
 	connect: (config: MattermostConfig) => Promise<void>;
 	currentUser: MattermostUser | null;
 	loadPostReactions: (

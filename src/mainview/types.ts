@@ -61,6 +61,7 @@ export type MattermostPost = {
 	channel_id: string;
 	root_id?: string;
 	message: string;
+	type?: string;
 	props?: Record<string, unknown>;
 	metadata?: {
 		reactions?: MattermostReaction[];

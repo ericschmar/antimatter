@@ -8,6 +8,8 @@ import type {
 	ApplicationMenuAction,
 	AppUpdateState,
 } from "../../shared/electrobunRpc";
+import { CallButton } from "../components/CallButton";
+import { CallErrorToast } from "../components/CallErrorToast";
 import { CommandMenu } from "../components/CommandMenu";
 import { CreateChannelDialog } from "../components/CreateChannelDialog";
 import { MarkdownMessage } from "../components/MarkdownMessage";
@@ -16,12 +18,14 @@ import {
 	type MessageComposerHandle,
 	type MessageComposerProps,
 } from "../components/MessageComposer";
+import { IncomingCallToast } from "../components/IncomingCallToast";
 import { MessageTimeline } from "../components/MessageTimeline";
 import { NewMessageComposer } from "../components/NewMessageComposer";
 import { Sidebar } from "../components/Sidebar";
 import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
 import type { MattermostApiClient } from "../mattermostApi";
+import { useCall } from "../contexts/CallContext";
 import { uiActions, uiStore } from "../state/uiStore";
 import {
 	loadDismissedAppUpdateBannerKey,
@@ -44,7 +48,13 @@ import {
 	findAdjacentVisibleChannel,
 	findSectionStartChannel,
 } from "../utils/channelNavigation";
-import { channelLabel, initials, isTeamChannel } from "../utils/format";
+import {
+	directChannelOtherUserId,
+	channelLabel,
+	initials,
+	isTeamChannel,
+	userLabel,
+} from "../utils/format";
 import { readShortcutAction } from "../utils/shortcuts";
 import { electrobun } from "./rpc";
 
@@ -110,6 +120,7 @@ export function ChatShell({
 	onUnarchiveChannel,
 }: ChatShellProps) {
 	const ui = useSnapshot(uiStore);
+	const { session } = useCall();
 	const [dismissedAppUpdateBannerKey, setDismissedAppUpdateBannerKey] =
 		useState(() => loadDismissedAppUpdateBannerKey() ?? "");
 	const appUpdateBannerKey = getAppUpdateBannerKey(appUpdate);
@@ -131,6 +142,25 @@ export function ChatShell({
 	const selectedChannelPurpose = selectedChannel?.purpose?.trim();
 	const selectedChannelDescription =
 		selectedChannelHeader || selectedChannelPurpose;
+	const selectedDirectUserId =
+		selectedChannel && selectedChannel.type === "D"
+			? directChannelOtherUserId(selectedChannel, currentUser.id)
+			: null;
+	const selectedDirectUser = selectedDirectUserId ? users[selectedDirectUserId] : undefined;
+	const selectedDirectUsername = selectedDirectUser
+		? userLabel(selectedDirectUser, selectedDirectUserId ?? selectedDirectUser.id)
+		: (selectedDirectUserId ?? "Unknown user");
+	const callParticipantUser = session?.otherUserId
+		? users[session.otherUserId]
+		: selectedDirectUser;
+	const callParticipantName = callParticipantUser
+		? userLabel(callParticipantUser, session?.otherUserId ?? selectedDirectUserId ?? callParticipantUser.id)
+		: (session?.otherUserId ?? selectedDirectUsername);
+	const callParticipantAvatar = session?.otherUserId
+		? userImages[session.otherUserId]
+		: selectedDirectUserId
+			? userImages[selectedDirectUserId]
+			: undefined;
 	const effectiveMaxComposerHeight = Math.max(
 		minComposerHeight,
 		Math.min(
@@ -303,6 +333,7 @@ export function ChatShell({
 					>
 						<div className="resizable-sidebar" style={{ width: sidebarWidth }}>
 							<Sidebar
+								activeCallParticipantName={callParticipantName}
 								channelEmojis={channelEmojis}
 								channelOrder={channelOrder}
 								collapsedSections={collapsedSections}
@@ -357,6 +388,20 @@ export function ChatShell({
 								</div>
 							</div>
 							<div className="channel-header-actions">
+								{selectedDirectUserId ? (
+									<>
+										<CallButton
+											userId={selectedDirectUserId}
+											username={selectedDirectUsername}
+											variant="audio"
+										/>
+										<CallButton
+											userId={selectedDirectUserId}
+											username={selectedDirectUsername}
+											variant="video"
+										/>
+									</>
+								) : null}
 								<Tooltip.Root>
 									<Tooltip.Trigger asChild>
 										<div className="member-stack" title="Channel members">
@@ -534,6 +579,11 @@ export function ChatShell({
 					onClose={() => uiActions.setCreateDmOpen(false)}
 					onSubmit={(userIds) => void onCreateDm(userIds)}
 				/>
+				<IncomingCallToast
+					callerAvatar={callParticipantAvatar}
+					callerName={callParticipantName}
+				/>
+				<CallErrorToast />
 				<UserPickerDialog
 					api={api}
 					open={ui.addUserOpen}

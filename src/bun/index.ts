@@ -15,6 +15,7 @@ import type {
 	AppSettingsPayload,
 	AppUpdateState,
 	AppUpdateStatus,
+	CallNotificationPayload,
 	ChannelContextMenuAction,
 	MattermostClientRPC,
 	MattermostSsoLoginRequest,
@@ -177,6 +178,10 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 				Utils.showNotification(notification);
 				return { success: true };
 			},
+			showCallNotification: (notification) => {
+				Utils.showNotification(callNotificationToDesktopNotification(notification));
+				return { success: true };
+			},
 			showChannelContextMenu: (request) => {
 				showChannelContextMenu(
 					request.channelId,
@@ -222,6 +227,20 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 		},
 	},
 });
+
+function callNotificationToDesktopNotification(notification: CallNotificationPayload) {
+	if (notification.type === "incoming-call") {
+		return {
+			title: `Incoming ${notification.callType} call`,
+			body: `${notification.fromUsername} is calling...`,
+		};
+	}
+
+	return {
+		title: notification.type === "call-missed" ? "Missed call" : "Call ended",
+		body: notification.fromUsername,
+	};
+}
 
 const settingsRpc = BrowserView.defineRPC<SettingsWindowRPC>({
 	maxRequestTime: 30000,

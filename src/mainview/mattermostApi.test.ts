@@ -169,6 +169,43 @@ describe("MattermostApiClient", () => {
 		);
 	});
 
+	test("creates custom posts for typed Mattermost messages", async () => {
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ id: "post-id" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+
+		await client.createCustomPost({
+			channelId: "channel-id",
+			message: "📞 Voice call",
+			type: "custom_webrtc_call",
+			props: { action: "offer", sessionId: "session-id" },
+		});
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/posts",
+			expect.objectContaining({
+				body: JSON.stringify({
+					channel_id: "channel-id",
+					message: "📞 Voice call",
+					type: "custom_webrtc_call",
+					props: { action: "offer", sessionId: "session-id" },
+				}),
+				method: "POST",
+			}),
+		);
+	});
+
 	test("searches team posts with Mattermost search payload shape", async () => {
 		const fetchMock = mock(() =>
 			Promise.resolve(

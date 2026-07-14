@@ -30,6 +30,7 @@ import {
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChannelContextMenuAction } from "../../shared/electrobunRpc";
+import { ActiveCallPanel } from "./ActiveCallPanel";
 import type {
 	ChannelNotificationState,
 	ChannelSectionKey,
@@ -63,6 +64,7 @@ export function Sidebar({
 	userImages,
 	userStatuses,
 	users,
+	activeCallParticipantName,
 	onArchiveChannel,
 	onMoveChannel,
 	onSelectChannel,
@@ -92,6 +94,7 @@ export function Sidebar({
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
 	users: Record<string, MattermostUser>;
+	activeCallParticipantName: string;
 	onArchiveChannel: (channelId: string) => void;
 	onMoveChannel: (section: ChannelSectionKey, channelIds: string[]) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
@@ -306,6 +309,7 @@ export function Sidebar({
 				</ScrollArea.Viewport>
 				<ScrollArea.Scrollbar orientation="vertical" />
 			</ScrollArea.Root>
+			<ActiveCallPanel callerName={activeCallParticipantName} />
 			{emojiPicker ? createPortal(emojiPicker, document.body) : null}
 		</aside>
 	);
