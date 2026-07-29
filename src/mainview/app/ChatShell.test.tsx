@@ -2,11 +2,18 @@ import { describe, expect, mock, test } from "bun:test";
 import type { RefObject } from "react";
 import { renderToString } from "react-dom/server";
 import type { AppUpdateState } from "../../shared/electrobunRpc";
+import type {
+	MessageComposerHandle,
+	MessageComposerProps,
+} from "../components/MessageComposer";
 import { CallProvider } from "../contexts/CallContext";
-import type { CallManager } from "../webrtc/CallManager";
-import type { MessageComposerHandle, MessageComposerProps } from "../components/MessageComposer";
-import type { MattermostChannel, MattermostTeam, MattermostUser } from "../types";
 import { uiActions } from "../state/uiStore";
+import type {
+	MattermostChannel,
+	MattermostTeam,
+	MattermostUser,
+} from "../types";
+import type { CallManager } from "../webrtc/CallManager";
 
 const composerProps: MessageComposerProps[] = [];
 
@@ -75,9 +82,16 @@ function renderChatShell(selectedChannelId: string | null) {
 				channelMembers={[]}
 				channelOrder={{}}
 				channels={selectedChannelId ? [selectedChannel] : []}
-				collapsedSections={{ archived: false, channels: false, dms: false, favorites: false }}
+				collapsedSections={{
+					archived: false,
+					channels: false,
+					dms: false,
+					favorites: false,
+				}}
 				composerHeight={140}
-				composerRef={{ current: null } as RefObject<MessageComposerHandle | null>}
+				composerRef={
+					{ current: null } as RefObject<MessageComposerHandle | null>
+				}
 				currentUser={currentUser}
 				favoriteChannelSet={new Set()}
 				maxComposerHeight={320}
@@ -86,7 +100,12 @@ function renderChatShell(selectedChannelId: string | null) {
 				minSidebarWidth={220}
 				posts={[]}
 				resolveImageSrc={async (src) => src}
-				sections={{ archived: [], channels: selectedChannelId ? [selectedChannel] : [], dms: [], favorites: [] }}
+				sections={{
+					archived: [],
+					channels: selectedChannelId ? [selectedChannel] : [],
+					dms: [],
+					favorites: [],
+				}}
 				selectedChannel={selectedChannelId ? selectedChannel : undefined}
 				selectedChannelId={selectedChannelId}
 				selectedTeam={selectedTeam}
@@ -125,6 +144,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				onSelectPost={async () => {}}
 				onSelectTeam={async () => {}}
 				onSendMessage={async () => {}}
+				onSendPoll={async () => {}}
 				onSendTyping={async () => {}}
 				onSetChannelEmoji={() => {}}
 				onSetComposerHeight={() => {}}
@@ -138,6 +158,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				onToggleFavoriteChannel={() => {}}
 				onToggleReaction={async () => {}}
 				onUnarchiveChannel={() => {}}
+				onVotePoll={async () => {}}
 			/>
 		</CallProvider>,
 	);

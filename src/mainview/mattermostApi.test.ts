@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import { MattermostApiClient, normalizeServerUrl } from "./mattermostApi";
+import {
+	MattermostApiClient,
+	normalizeServerUrl,
+	POLL_POST_TYPE,
+} from "./mattermostApi";
 
 describe("normalizeServerUrl", () => {
 	test("adds https when the protocol is omitted", () => {
@@ -202,6 +206,126 @@ describe("MattermostApiClient", () => {
 					props: { action: "offer", sessionId: "session-id" },
 				}),
 				method: "POST",
+			}),
+		);
+	});
+
+	test("creates custom replies with a root id", async () => {
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ id: "post-id" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+
+		await client.createCustomPost({
+			channelId: "channel-id",
+			message: "📞 Voice call",
+			rootId: "root-id",
+			type: "custom_webrtc_call",
+			props: { action: "offer", sessionId: "session-id" },
+		});
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/posts",
+			expect.objectContaining({
+				body: JSON.stringify({
+					channel_id: "channel-id",
+					message: "📞 Voice call",
+					root_id: "root-id",
+					type: "custom_webrtc_call",
+					props: { action: "offer", sessionId: "session-id" },
+				}),
+				method: "POST",
+			}),
+		);
+	});
+
+	test("creates poll posts with poll props", async () => {
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ id: "post-id" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+		const poll = {
+			question: "Lunch?",
+			options: [
+				{ id: "option-1", text: "Pizza" },
+				{ id: "option-2", text: "Sushi" },
+			],
+			votes: {},
+		};
+
+		await client.createPollPost("channel-id", poll);
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/posts",
+			expect.objectContaining({
+				body: JSON.stringify({
+					channel_id: "channel-id",
+					message: "📊 Poll: Lunch?",
+					type: POLL_POST_TYPE,
+					props: { poll },
+				}),
+				method: "POST",
+			}),
+		);
+	});
+
+	test("patches post props only", async () => {
+		const fetchMock = mock(() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ id: "post-id" }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+
+		await client.patchPostProps("post/id", {
+			poll: {
+				question: "Lunch?",
+				options: [{ id: "option-1", text: "Pizza" }],
+				votes: { "user-id": "option-1" },
+			},
+		});
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/posts/post%2Fid/patch",
+			expect.objectContaining({
+				body: JSON.stringify({
+					props: {
+						poll: {
+							question: "Lunch?",
+							options: [{ id: "option-1", text: "Pizza" }],
+							votes: { "user-id": "option-1" },
+						},
+					},
+				}),
+				method: "PUT",
 			}),
 		);
 	});

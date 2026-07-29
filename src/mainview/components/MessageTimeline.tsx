@@ -13,12 +13,14 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { POLL_POST_TYPE } from "../mattermostApi";
 import type {
 	MattermostFileInfo,
 	MattermostPost,
 	MattermostReaction,
 	MattermostUser,
 	MattermostUserStatus,
+	PollProps,
 } from "../types";
 import { emojiNameToGlyph, normalizeEmojiName } from "../utils/emoji";
 import { formatTime, initials, userLabel } from "../utils/format";
@@ -56,6 +58,7 @@ export function MessageTimeline({
 	onSetUserColor,
 	onReply,
 	onToggleReaction,
+	onVotePoll,
 	onLoadMore,
 }: {
 	posts: MattermostPost[];
@@ -78,6 +81,7 @@ export function MessageTimeline({
 	onSetUserColor: (userId: string, color: string) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
+	onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
 	onLoadMore?: () => void;
 }) {
 	const viewportRef = useRef<HTMLDivElement>(null);
@@ -257,6 +261,7 @@ export function MessageTimeline({
 									onSetUserColor={onSetUserColor}
 									onReply={onReply}
 									onToggleReaction={onToggleReaction}
+									onVotePoll={onVotePoll}
 								/>
 							)}
 						</div>
@@ -444,6 +449,7 @@ export const MessageRow = memo(
 		onSetUserColor,
 		onReply,
 		onToggleReaction,
+		onVotePoll,
 	}: {
 		currentUserId: string;
 		post: MattermostPost;
@@ -465,6 +471,7 @@ export const MessageRow = memo(
 			post: MattermostPost,
 			emojiName: string,
 		) => Promise<void>;
+		onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
 	}) {
 		const author = users[post.user_id];
 		const groupedReactions = useMemo(
@@ -472,6 +479,7 @@ export const MessageRow = memo(
 			[post.metadata?.reactions, currentUserId],
 		);
 		const deleted = post.delete_at > 0;
+		const poll = post.type === POLL_POST_TYPE ? post.props?.poll : undefined;
 		const canReply = !deleted && (!post.root_id || post.root_id === post.id);
 		const authorStatus = userStatuses[post.user_id]?.status;
 		const isOwnMessage =
@@ -516,14 +524,22 @@ export const MessageRow = memo(
 				<div className="message-content">
 					{deleted ? (
 						<div className="markdown-message">(deleted)</div>
+					) : poll ? (
+						<PollMessage
+							currentUserId={currentUserId}
+							poll={poll}
+							onVote={(optionId) => void onVotePoll(post, optionId)}
+						/>
 					) : (
+						<MarkdownRenderer
+							currentUsername={users[currentUserId]?.username}
+							markdown={post.message}
+							resolveImageSrc={resolveImageSrc}
+							useNewComposer={useNewComposer}
+						/>
+					)}
+					{!deleted ? (
 						<>
-							<MarkdownRenderer
-								currentUsername={users[currentUserId]?.username}
-								markdown={post.message}
-								resolveImageSrc={resolveImageSrc}
-								useNewComposer={useNewComposer}
-							/>
 							<MessageAttachments
 								files={post.metadata?.files ?? []}
 								resolveImageSrc={resolveImageSrc}
@@ -544,7 +560,7 @@ export const MessageRow = memo(
 								</div>
 							) : null}
 						</>
-					)}
+					) : null}
 					{replies.length > 0 ? (
 						<div className="message-replies">
 							{replies.map((reply) => (
@@ -604,6 +620,8 @@ export const MessageRow = memo(
 			prevProps.post.update_at === nextProps.post.update_at &&
 			prevProps.post.delete_at === nextProps.post.delete_at &&
 			prevProps.post.message === nextProps.post.message &&
+			prevProps.post.type === nextProps.post.type &&
+			prevProps.post.props?.poll === nextProps.post.props?.poll &&
 			prevProps.post.pending === nextProps.post.pending &&
 			prevProps.post.failed === nextProps.post.failed &&
 			prevProps.post.metadata?.files?.length ===
@@ -638,6 +656,52 @@ export const MessageRow = memo(
 		return postUnchanged && repliesUnchanged && visualPropsUnchanged;
 	},
 );
+
+const PollMessage = memo(function PollMessage({
+	currentUserId,
+	poll,
+	onVote,
+}: {
+	currentUserId: string;
+	poll: PollProps;
+	onVote: (optionId: string) => void;
+}) {
+	const selectedOptionId = poll.votes[currentUserId];
+	const totalVotes = Object.keys(poll.votes).length;
+
+	return (
+		<div className="poll-message">
+			<div className="poll-question">{poll.question}</div>
+			<div className="poll-options">
+				{poll.options.map((option) => {
+					const voteCount = Object.values(poll.votes).filter(
+						(optionId) => optionId === option.id,
+					).length;
+					const selected = selectedOptionId === option.id;
+					return (
+						<button
+							className={selected ? "poll-option selected" : "poll-option"}
+							key={option.id}
+							type="button"
+							onClick={() => onVote(option.id)}
+						>
+							<span>{option.text}</span>
+							<span
+								className="poll-option-votes"
+								title={`${voteCount} ${voteCount === 1 ? "vote" : "votes"}`}
+							>
+								{voteCount} {voteCount === 1 ? "vote" : "votes"}
+							</span>
+						</button>
+					);
+				})}
+			</div>
+			<div className="poll-total-votes">
+				{totalVotes} {totalVotes === 1 ? "vote" : "votes"} total
+			</div>
+		</div>
+	);
+});
 
 const ReplyMessage = memo(function ReplyMessage({
 	currentUserId,

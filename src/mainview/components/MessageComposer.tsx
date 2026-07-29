@@ -46,6 +46,7 @@ import {
 	ListOrdered,
 	Minus,
 	Paperclip,
+	PieChart,
 	Redo2,
 	Send,
 	SmilePlus,
@@ -214,6 +215,7 @@ export type MessageComposerProps = {
 	onCancelEdit: () => void;
 	onCancelReply: () => void;
 	onEdit: (post: MattermostPost, message: string) => Promise<void>;
+	onOpenPollDialog?: () => void;
 	onRequestComposerHeight: (height: number) => void;
 	onSend: (message: string, rootId?: string, files?: File[]) => Promise<void>;
 	onTyping: (rootId?: string) => Promise<void>;
@@ -249,6 +251,7 @@ export const MessageComposer = forwardRef<
 		onCancelEdit,
 		onCancelReply,
 		onEdit,
+		onOpenPollDialog,
 		onRequestComposerHeight,
 		onSend,
 		onTyping,
@@ -836,6 +839,15 @@ export const MessageComposer = forwardRef<
 				}}
 			/>
 			<div className="composer-actions">
+				<button
+					aria-label="Create poll"
+					className="composer-action-button"
+					disabled={disabled || Boolean(editTarget)}
+					type="button"
+					onClick={onOpenPollDialog}
+				>
+					<PieChart size={18} />
+				</button>
 				<button
 					aria-label="Send message"
 					className="send-button"

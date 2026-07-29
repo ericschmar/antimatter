@@ -14,6 +14,7 @@ import {
 	List,
 	ListOrdered,
 	Paperclip,
+	PieChart,
 	Quote,
 	Send,
 	SmilePlus,
@@ -89,6 +90,7 @@ export const NewMessageComposer = forwardRef<
 		onCancelEdit,
 		onCancelReply,
 		onEdit,
+		onOpenPollDialog,
 		onSend,
 		onTyping,
 	},
@@ -729,6 +731,15 @@ export const NewMessageComposer = forwardRef<
 						onClick={() => openFilePicker()}
 					>
 						<Paperclip size={14} />
+					</button>
+					<button
+						aria-label="Create poll"
+						className="composer-action-button"
+						disabled={disabled || Boolean(editTarget)}
+						type="button"
+						onClick={onOpenPollDialog}
+					>
+						<PieChart size={14} />
 					</button>
 					<EmojiPickerPopover
 						label="Insert emoji"

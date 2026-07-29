@@ -12,20 +12,21 @@ import { CallButton } from "../components/CallButton";
 import { CallErrorToast } from "../components/CallErrorToast";
 import { CommandMenu } from "../components/CommandMenu";
 import { CreateChannelDialog } from "../components/CreateChannelDialog";
+import { IncomingCallToast } from "../components/IncomingCallToast";
 import { MarkdownMessage } from "../components/MarkdownMessage";
 import {
 	MessageComposer,
 	type MessageComposerHandle,
 	type MessageComposerProps,
 } from "../components/MessageComposer";
-import { IncomingCallToast } from "../components/IncomingCallToast";
 import { MessageTimeline } from "../components/MessageTimeline";
 import { NewMessageComposer } from "../components/NewMessageComposer";
+import { PollDialog } from "../components/PollDialog";
 import { Sidebar } from "../components/Sidebar";
 import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
-import type { MattermostApiClient } from "../mattermostApi";
 import { useCall } from "../contexts/CallContext";
+import type { MattermostApiClient } from "../mattermostApi";
 import { uiActions, uiStore } from "../state/uiStore";
 import {
 	loadDismissedAppUpdateBannerKey,
@@ -41,6 +42,7 @@ import type {
 	MattermostTeam,
 	MattermostUser,
 	MattermostUserStatus,
+	PollProps,
 } from "../types";
 import {
 	findAdjacentMentionChannel,
@@ -49,8 +51,8 @@ import {
 	findSectionStartChannel,
 } from "../utils/channelNavigation";
 import {
-	directChannelOtherUserId,
 	channelLabel,
+	directChannelOtherUserId,
 	initials,
 	isTeamChannel,
 	userLabel,
@@ -105,6 +107,7 @@ export function ChatShell({
 	onSelectPost,
 	onSelectTeam,
 	onSendMessage,
+	onSendPoll,
 	onSendTyping,
 	onSetChannelEmoji,
 	onSetComposerHeight,
@@ -118,11 +121,13 @@ export function ChatShell({
 	onToggleFavoriteChannel,
 	onToggleReaction,
 	onUnarchiveChannel,
+	onVotePoll,
 }: ChatShellProps) {
 	const ui = useSnapshot(uiStore);
 	const { session } = useCall();
 	const [dismissedAppUpdateBannerKey, setDismissedAppUpdateBannerKey] =
 		useState(() => loadDismissedAppUpdateBannerKey() ?? "");
+	const [pollDialogOpen, setPollDialogOpen] = useState(false);
 	const appUpdateBannerKey = getAppUpdateBannerKey(appUpdate);
 	const showAppUpdateBanner =
 		Boolean(appUpdateBannerKey) &&
@@ -146,9 +151,14 @@ export function ChatShell({
 		selectedChannel && selectedChannel.type === "D"
 			? directChannelOtherUserId(selectedChannel, currentUser.id)
 			: null;
-	const selectedDirectUser = selectedDirectUserId ? users[selectedDirectUserId] : undefined;
+	const selectedDirectUser = selectedDirectUserId
+		? users[selectedDirectUserId]
+		: undefined;
 	const selectedDirectUsername = selectedDirectUser
-		? userLabel(selectedDirectUser, selectedDirectUserId ?? selectedDirectUser.id)
+		? userLabel(
+				selectedDirectUser,
+				selectedDirectUserId ?? selectedDirectUser.id,
+			)
 		: (selectedDirectUserId ?? "Unknown user");
 	const callTargetUserId =
 		selectedDirectUserId &&
@@ -159,7 +169,10 @@ export function ChatShell({
 		? users[session.otherUserId]
 		: selectedDirectUser;
 	const callParticipantName = callParticipantUser
-		? userLabel(callParticipantUser, session?.otherUserId ?? selectedDirectUserId ?? callParticipantUser.id)
+		? userLabel(
+				callParticipantUser,
+				session?.otherUserId ?? selectedDirectUserId ?? callParticipantUser.id,
+			)
 		: (session?.otherUserId ?? selectedDirectUsername);
 	const callParticipantAvatar = session?.otherUserId
 		? userImages[session.otherUserId]
@@ -204,6 +217,7 @@ export function ChatShell({
 		onCancelEdit,
 		onCancelReply,
 		onEdit: onEditMessage,
+		onOpenPollDialog: () => setPollDialogOpen(true),
 		onRequestComposerHeight: onSetComposerHeight,
 		onSend: onSendMessage,
 		onTyping: onSendTyping,
@@ -519,6 +533,7 @@ export function ChatShell({
 								onSetUserColor={onSetUserColor}
 								onReply={onStartReply}
 								onToggleReaction={onToggleReaction}
+								onVotePoll={onVotePoll}
 								onLoadMore={onLoadMoreMessages}
 							/>
 							<Resizable
@@ -600,6 +615,11 @@ export function ChatShell({
 						if (userId) void onAddUserToSelectedChannel(userId);
 					}}
 				/>
+				<PollDialog
+					open={pollDialogOpen}
+					onOpenChange={setPollDialogOpen}
+					onSubmit={(poll) => void onSendPoll(poll)}
+				/>
 			</div>
 		</Tooltip.Provider>
 	);
@@ -680,6 +700,7 @@ type ChatShellProps = {
 		rootId?: string,
 		files?: File[],
 	) => Promise<void>;
+	onSendPoll: (poll: PollProps) => Promise<void>;
 	onSendTyping: (rootId?: string) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
 	onSetComposerHeight: (height: number) => void;
@@ -693,4 +714,5 @@ type ChatShellProps = {
 	onToggleFavoriteChannel: (channelId: string) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 	onUnarchiveChannel: (channelId: string) => void;
+	onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
 };

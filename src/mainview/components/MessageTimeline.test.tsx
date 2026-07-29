@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { renderToString } from "react-dom/server";
+import { POLL_POST_TYPE } from "../mattermostApi";
 import type { MattermostPost, MattermostUser } from "../types";
 import { MessageRow, MessageTimeline } from "./MessageTimeline";
 
@@ -40,6 +41,7 @@ const props = {
 	onSetUserColor: () => {},
 	onShowMessageContextMenu: () => {},
 	onToggleReaction: async () => {},
+	onVotePoll: async () => {},
 };
 
 describe("MessageTimeline", () => {
@@ -172,6 +174,116 @@ describe("MessageTimeline", () => {
 		expect(html).not.toContain("reply-reaction-add");
 	});
 
+	test("renders poll posts with options", () => {
+		const pollPost: MattermostPost = {
+			...post,
+			id: "poll-1",
+			message: "📊 Poll: Lunch?",
+			type: POLL_POST_TYPE,
+			props: {
+				poll: {
+					question: "Lunch?",
+					options: [
+						{ id: "option-1", text: "Pizza" },
+						{ id: "option-2", text: "Sushi" },
+					],
+					votes: { "user-3": "option-1" },
+				},
+			},
+		};
+
+		const html = renderToString(
+			<Tooltip.Provider>
+				<MessageTimeline {...props} posts={[pollPost]} useNewComposer={false} />
+			</Tooltip.Provider>,
+		);
+
+		expect(html).toContain("Lunch?");
+		expect(html).toContain("Pizza");
+		expect(html).toContain("Sushi");
+		expect(html).toContain("1 vote");
+	});
+
+	test("renders poll posts with attachments and reactions", () => {
+		const pollPost: MattermostPost = {
+			...post,
+			id: "poll-1",
+			message: "📊 Poll: Lunch?",
+			metadata: {
+				files: [
+					{
+						id: "file-1",
+						mime_type: "application/pdf",
+						name: "menu.pdf",
+					},
+				],
+				reactions: [
+					{
+						emoji_name: "thumbsup",
+						post_id: "poll-1",
+						user_id: currentUser.id,
+					},
+				],
+			},
+			props: {
+				poll: {
+					question: "Lunch?",
+					options: [
+						{ id: "option-1", text: "Pizza" },
+						{ id: "option-2", text: "Sushi" },
+					],
+					votes: {},
+				},
+			},
+			type: POLL_POST_TYPE,
+		};
+
+		const html = renderToString(
+			<Tooltip.Provider>
+				<MessageTimeline {...props} posts={[pollPost]} useNewComposer={false} />
+			</Tooltip.Provider>,
+		);
+
+		expect(html).toContain("Lunch?");
+		expect(html).toContain("menu.pdf");
+		expect(html).toContain("👍");
+		expect(html).toContain("@sarah reacted with 👍");
+	});
+
+	test("renders deleted poll posts as deleted without options", () => {
+		const deletedPollPost: MattermostPost = {
+			...post,
+			delete_at: 123,
+			id: "poll-1",
+			message: "📊 Poll: Lunch?",
+			type: POLL_POST_TYPE,
+			props: {
+				poll: {
+					question: "Lunch?",
+					options: [
+						{ id: "option-1", text: "Pizza" },
+						{ id: "option-2", text: "Sushi" },
+					],
+					votes: {},
+				},
+			},
+		};
+
+		const html = renderToString(
+			<Tooltip.Provider>
+				<MessageTimeline
+					{...props}
+					posts={[deletedPollPost]}
+					useNewComposer={false}
+				/>
+			</Tooltip.Provider>,
+		);
+
+		expect(html).toContain("(deleted)");
+		expect(html).not.toContain("Pizza");
+		expect(html).not.toContain("Sushi");
+	});
+
 	test("rerenders when a post is deleted", () => {
 		const compare = (
 			MessageRow as unknown as {
@@ -298,6 +410,68 @@ describe("MessageTimeline", () => {
 
 		expect(
 			compare(rowProps, { ...rowProps, replies: [replyWithReaction] }),
+		).toBe(false);
+	});
+
+	test("rerenders when poll votes change", () => {
+		const pollPost: MattermostPost = {
+			...post,
+			id: "poll-1",
+			message: "📊 Poll: Lunch?",
+			type: POLL_POST_TYPE,
+			props: {
+				poll: {
+					question: "Lunch?",
+					options: [
+						{ id: "option-1", text: "Pizza" },
+						{ id: "option-2", text: "Sushi" },
+					],
+					votes: {},
+				},
+			},
+		};
+		const compare = (
+			MessageRow as unknown as {
+				compare: (
+					prevProps: Record<string, unknown>,
+					nextProps: Record<string, unknown>,
+				) => boolean;
+			}
+		).compare;
+		const rowProps = {
+			currentUserId: currentUser.id,
+			post: pollPost,
+			replies: [],
+			resolveImageSrc: props.resolveImageSrc,
+			showOwnMessageIndicators: true,
+			showProfilePictures: true,
+			useNewComposer: false,
+			userColor: undefined,
+			userColors: {},
+			userImages: {},
+			userStatuses: {},
+			users: props.users,
+			onOpenAttachment: props.onOpenAttachment,
+			onReply: props.onReply,
+			onSetUserColor: props.onSetUserColor,
+			onShowMessageContextMenu: props.onShowMessageContextMenu,
+			onToggleReaction: props.onToggleReaction,
+			onVotePoll: () => {},
+		};
+
+		expect(
+			compare(rowProps, {
+				...rowProps,
+				post: {
+					...pollPost,
+					props: {
+						poll: {
+							...pollPost.props?.poll,
+							votes: { [currentUser.id]: "option-1" },
+						},
+					},
+				},
+			}),
 		).toBe(false);
 	});
 

@@ -12,10 +12,12 @@ import type {
 	MattermostFileInfo,
 	MattermostFileUploadResponse,
 	MattermostPost,
+	MattermostPostProps,
 	MattermostReaction,
 	MattermostTeam,
 	MattermostUser,
 	MattermostUserStatus,
+	PollProps,
 	PostListResponse,
 	PostSearchResponse,
 } from "./types";
@@ -56,6 +58,8 @@ export type MattermostImageResolution = {
 	src: string | null;
 	status?: number;
 };
+
+export const POLL_POST_TYPE = "custom_antimatter_poll";
 
 export class MattermostApiError extends Error {
 	status: number;
@@ -347,18 +351,39 @@ export class MattermostApiClient {
 	createCustomPost(post: {
 		channelId: string;
 		message: string;
+		rootId?: string;
 		type: string;
-		props: Record<string, unknown>;
+		props: MattermostPostProps;
 	}) {
 		return this.request<MattermostPost>("/posts", {
 			method: "POST",
 			body: {
 				channel_id: post.channelId,
 				message: post.message,
+				...(post.rootId ? { root_id: post.rootId } : {}),
 				type: post.type,
 				props: post.props,
 			},
 		});
+	}
+
+	createPollPost(channelId: string, poll: PollProps) {
+		return this.createCustomPost({
+			channelId,
+			message: `📊 Poll: ${poll.question}`,
+			type: POLL_POST_TYPE,
+			props: { poll },
+		});
+	}
+
+	patchPostProps(postId: string, props: MattermostPostProps) {
+		return this.request<MattermostPost>(
+			`/posts/${encodeURIComponent(postId)}/patch`,
+			{
+				method: "PUT",
+				body: { props },
+			},
+		);
 	}
 
 	createPostWithFiles(

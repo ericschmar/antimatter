@@ -35,6 +35,7 @@ import type {
 	MattermostTeam,
 	MattermostUser,
 	NormalizedState,
+	PollProps,
 	TypingUsersByChannel,
 	WebSocketStatus,
 } from "../types";
@@ -774,8 +775,9 @@ export function MainViewApp() {
 		() =>
 			state.postOrder
 				.map((id) => state.posts[id])
-				.filter((post): post is MattermostPost =>
-					Boolean(post) && post.type !== "custom_webrtc_call",
+				.filter(
+					(post): post is MattermostPost =>
+						Boolean(post) && post.type !== "custom_webrtc_call",
 				),
 		[state.postOrder, state.posts],
 	);
@@ -1012,6 +1014,21 @@ export function MainViewApp() {
 		requestAnimationFrame(() => composerRef.current?.focus());
 	}
 
+	async function sendPoll(poll: PollProps) {
+		if (!api || !selectedChannelId) return;
+
+		try {
+			const created = await api.createPollPost(selectedChannelId, poll);
+			setState((current) =>
+				updateChannelLastPostAt(current, selectedChannelId, created.create_at),
+			);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not create poll.");
+			throw err;
+		}
+		requestAnimationFrame(() => composerRef.current?.focus());
+	}
+
 	async function sendTyping(rootId?: string) {
 		if (!selectedChannelId || editTarget) return;
 		await electrobun.rpc?.request.sendMattermostTyping({
@@ -1073,6 +1090,39 @@ export function MainViewApp() {
 				else await api.addReaction(currentUser.id, post.id, normalizedName);
 			} catch {
 				setState((current) => applyReaction(current, reaction, !existing));
+			}
+		},
+		[api, currentUser],
+	);
+
+	const votePoll = useCallback(
+		async (post: MattermostPost, optionId: string) => {
+			if (!api || !currentUser || post.pending || !post.props?.poll) return;
+			const previousPost = post;
+			const nextProps = {
+				...post.props,
+				poll: {
+					...post.props.poll,
+					votes: {
+						...post.props.poll.votes,
+						[currentUser.id]: optionId,
+					},
+				},
+			};
+			const optimisticPost = {
+				...post,
+				props: nextProps,
+				update_at: Date.now(),
+			};
+			setState((current) => updatePostInState(current, optimisticPost));
+			try {
+				const updated = await api.patchPostProps(post.id, nextProps);
+				setState((current) => updatePostInState(current, updated));
+			} catch (err) {
+				setState((current) => updatePostInState(current, previousPost));
+				setError(
+					err instanceof Error ? err.message : "Could not vote in poll.",
+				);
 			}
 		},
 		[api, currentUser],
@@ -1363,6 +1413,7 @@ export function MainViewApp() {
 				onSelectPost={selectSearchPost}
 				onSelectTeam={selectTeam}
 				onSendMessage={sendMessage}
+				onSendPoll={sendPoll}
 				onSendTyping={sendTyping}
 				onSetChannelEmoji={setChannelEmoji}
 				onSetComposerHeight={setComposerHeight}
@@ -1376,6 +1427,7 @@ export function MainViewApp() {
 				onToggleFavoriteChannel={toggleFavoriteChannel}
 				onToggleReaction={toggleReaction}
 				onUnarchiveChannel={unarchiveChannel}
+				onVotePoll={votePoll}
 			/>
 			<AttachmentPreviewDialog
 				api={api}

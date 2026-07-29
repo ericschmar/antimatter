@@ -30,6 +30,7 @@ Use this skill when starting or executing coding work in the Antimatter reposito
 
 ## Verification notes
 
+- Agent-local `.dirge/` skill/session/memory files can appear in the working tree during tool use. Unless the user explicitly asked to change project skills, remove unrequested `.dirge/` changes before handoff after confirming only `.dirge` paths are affected.
 - Run `bun install --frozen-lockfile` before `bun run typecheck` if dependencies are absent; otherwise Volta may report that it cannot locate `tsc`.
 - With TypeScript 7, use `--ignoreConfig` for focused file checks that pass file names directly. For TSX files, include `--jsx react-jsx`; if the files import CSS side effects, include `--noUncheckedSideEffectImports false`, for example `./node_modules/.bin/tsc --ignoreConfig --noEmit --jsx react-jsx --target ESNext --module ESNext --moduleResolution bundler --lib ESNext,DOM --strict --noUnusedLocals --noUnusedParameters --noFallthroughCasesInSwitch --noPropertyAccessFromIndexSignature --noUncheckedSideEffectImports false <files>`.
 - Project-wide `bun run typecheck` can fail on unrelated TS2882 CSS side-effect import declaration errors; report that separately from targeted WebRTC typecheck results.

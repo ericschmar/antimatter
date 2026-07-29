@@ -52,6 +52,21 @@ export type MattermostChannel = {
 	purpose?: string;
 };
 
+export type PollOption = {
+	id: string;
+	text: string;
+};
+
+export type PollProps = {
+	question: string;
+	options: PollOption[];
+	votes: Record<string, string>;
+};
+
+export type MattermostPostProps = Record<string, unknown> & {
+	poll?: PollProps;
+};
+
 export type MattermostPost = {
 	id: string;
 	create_at: number;
@@ -62,7 +77,7 @@ export type MattermostPost = {
 	root_id?: string;
 	message: string;
 	type?: string;
-	props?: Record<string, unknown>;
+	props?: MattermostPostProps;
 	metadata?: {
 		reactions?: MattermostReaction[];
 		files?: MattermostFileInfo[];
