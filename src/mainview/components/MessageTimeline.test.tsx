@@ -104,7 +104,7 @@ describe("MessageTimeline", () => {
 
 	test("renders Start DM as an enabled user menu item", () => {
 		const source = readFileSync(
-			new URL("./MessageTimeline.tsx", import.meta.url),
+			new URL("./UserDetailsTrigger.tsx", import.meta.url),
 			"utf8",
 		);
 
