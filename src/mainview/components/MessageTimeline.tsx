@@ -1,12 +1,12 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Tooltip from "@radix-ui/react-tooltip";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import MDEditor from "@uiw/react-md-editor/nohighlight";
 import "@uiw/react-markdown-preview/markdown.css";
 import { FileText, MessageCircle, Reply, SmilePlus } from "lucide-react";
 import type { ComponentProps, CSSProperties } from "react";
 import {
 	memo,
-	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -97,10 +97,28 @@ export function MessageTimeline({
 	const isAtEndRef = useRef(true);
 	const [showLoadMore, setShowLoadMore] = useState(false);
 	const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
+	const virtualizer = useVirtualizer({
+		count: timelineRows.length,
+		getScrollElement: () => viewportRef.current,
+		getItemKey: (index) => timelineRows[index].key,
+		estimateSize: (index) =>
+			timelineRows[index].type === "divider" ? 34 : 112,
+		overscan: 12,
+	});
 	const lastPost = posts.at(-1);
 	const lastPostId = lastPost?.id;
 	const firstRowKey = timelineRows[0]?.key;
 	const lastRowKey = timelineRows.at(-1)?.key;
+
+	function scrollToEnd() {
+		if (timelineRows.length > 0) {
+			virtualizer.scrollToIndex(timelineRows.length - 1, { align: "end" });
+			return;
+		}
+
+		const viewport = viewportRef.current;
+		if (viewport) scrollToTimelineEnd(viewport);
+	}
 
 	useLayoutEffect(() => {
 		const viewport = viewportRef.current;
@@ -132,8 +150,9 @@ export function MessageTimeline({
 			channelContentLoaded ||
 			(newestPostChanged && (newestPostIsMine || isAtEndRef.current));
 
-		if (shouldScrollToEnd) scrollToTimelineEnd(viewport);
+		if (shouldScrollToEnd) scrollToEnd();
 		else if (prependedHistory) {
+			virtualizer.measure();
 			const scrollHeightDelta =
 				viewport.scrollHeight - previousScrollHeightRef.current;
 			viewport.scrollTop = previousScrollTopRef.current + scrollHeightDelta;
@@ -153,6 +172,8 @@ export function MessageTimeline({
 		lastPost?.user_id,
 		lastPostId,
 		lastRowKey,
+		timelineRows.length,
+		virtualizer,
 	]);
 
 	useEffect(() => {
@@ -180,20 +201,20 @@ export function MessageTimeline({
 		if (!viewport || !list || !window.ResizeObserver) return;
 
 		const resizeObserver = new ResizeObserver(() => {
-			if (isAtEndRef.current) scrollToTimelineEnd(viewport);
+			if (isAtEndRef.current) scrollToEnd();
 			previousScrollHeightRef.current = viewport.scrollHeight;
 			previousScrollTopRef.current = viewport.scrollTop;
 		});
 		resizeObserver.observe(list);
 		return () => resizeObserver.disconnect();
-	}, []);
+	}, [timelineRows.length, virtualizer]);
 
 	useEffect(() => {
 		function handleReturnToApp() {
 			if (document.hidden) return;
 			const viewport = viewportRef.current;
 			if (!viewport || !isAtEndRef.current) return;
-			scrollToTimelineEnd(viewport);
+			scrollToEnd();
 			previousScrollHeightRef.current = viewport.scrollHeight;
 			previousScrollTopRef.current = viewport.scrollTop;
 		}
@@ -204,11 +225,7 @@ export function MessageTimeline({
 			document.removeEventListener("visibilitychange", handleReturnToApp);
 			window.removeEventListener("focus", handleReturnToApp);
 		};
-	}, []);
-
-	const loadMoreFromTop = useCallback(() => {
-		onLoadMore?.();
-	}, [onLoadMore]);
+	}, [timelineRows.length, virtualizer]);
 
 	return (
 		<div
@@ -226,7 +243,7 @@ export function MessageTimeline({
 						className="load-more-button"
 						disabled={loadingHistory}
 						type="button"
-						onClick={loadMoreFromTop}
+						onClick={onLoadMore}
 					>
 						{loadingHistory ? "Loading..." : "Load more messages"}
 					</button>
@@ -237,39 +254,54 @@ export function MessageTimeline({
 				{!loading && posts.length === 0 ? (
 					<div className="timeline-state">No messages in this channel.</div>
 				) : null}
-				{timelineRows.map((row) => {
-					return (
-						<div className="message-row" key={row.key}>
-							{row.type === "divider" ? (
-								<div className="date-divider">
-									<span>{row.label}</span>
+				{timelineRows.length > 0 ? (
+					<div
+						className="message-virtualizer"
+						style={{ height: virtualizer.getTotalSize() }}
+					>
+						{virtualizer.getVirtualItems().map((virtualRow) => {
+							const row = timelineRows[virtualRow.index];
+
+							return (
+								<div
+									className="message-row"
+									data-index={virtualRow.index}
+									key={row.key}
+									ref={virtualizer.measureElement}
+									style={{ transform: `translateY(${virtualRow.start}px)` }}
+								>
+									{row.type === "divider" ? (
+										<div className="date-divider">
+											<span>{row.label}</span>
+										</div>
+									) : (
+										<MessageRow
+											currentUserId={currentUserId}
+											post={row.post}
+											replies={row.replies}
+											userColor={userColors[row.post.user_id]}
+											userColors={userColors}
+											userImages={userImages}
+											userStatuses={userStatuses}
+											users={users}
+											resolveImageSrc={resolveImageSrc}
+											showOwnMessageIndicators={showOwnMessageIndicators}
+											showProfilePictures={showProfilePictures}
+											useNewComposer={useNewComposer}
+											onOpenAttachment={onOpenAttachment}
+											onShowMessageContextMenu={onShowMessageContextMenu}
+											onSetUserColor={onSetUserColor}
+											onStartDm={onStartDm}
+											onReply={onReply}
+											onToggleReaction={onToggleReaction}
+											onVotePoll={onVotePoll}
+										/>
+									)}
 								</div>
-							) : (
-								<MessageRow
-									currentUserId={currentUserId}
-									post={row.post}
-									replies={row.replies}
-									userColor={userColors[row.post.user_id]}
-									userColors={userColors}
-									userImages={userImages}
-									userStatuses={userStatuses}
-									users={users}
-									resolveImageSrc={resolveImageSrc}
-									showOwnMessageIndicators={showOwnMessageIndicators}
-									showProfilePictures={showProfilePictures}
-									useNewComposer={useNewComposer}
-									onOpenAttachment={onOpenAttachment}
-									onShowMessageContextMenu={onShowMessageContextMenu}
-									onSetUserColor={onSetUserColor}
-									onStartDm={onStartDm}
-									onReply={onReply}
-									onToggleReaction={onToggleReaction}
-									onVotePoll={onVotePoll}
-								/>
-							)}
-						</div>
-					);
-				})}
+							);
+						})}
+					</div>
+				) : null}
 			</div>
 			{!loading && typingUsers.length > 0 ? (
 				<TypingIndicator users={typingUsers} />

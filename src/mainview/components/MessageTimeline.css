@@ -13,6 +13,18 @@
 	padding: 0 10px;
 }
 
+.message-virtualizer {
+	position: relative;
+	width: 100%;
+}
+
+.message-virtualizer > .message-row {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+}
+
 .timeline-state {
 	position: absolute;
 	inset: 0;

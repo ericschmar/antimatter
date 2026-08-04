@@ -1,7 +1,39 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { renderToString } from "react-dom/server";
+
+mock.module("@tanstack/react-virtual", () => ({
+	useVirtualizer: ({
+		count,
+		estimateSize,
+		getItemKey,
+	}: {
+		count: number;
+		estimateSize: (index: number) => number;
+		getItemKey: (index: number) => string;
+	}) => ({
+		getTotalSize: () =>
+			Array.from({ length: count }).reduce<number>(
+				(total, _, index) => total + estimateSize(index),
+				0,
+			),
+		getVirtualItems: () =>
+			Array.from({ length: count }).map((_, index) => ({
+				index,
+				key: getItemKey(index),
+				start: Array.from({ length: index }).reduce<number>(
+					(total, _unused, previousIndex) =>
+						total + estimateSize(previousIndex),
+					0,
+				),
+			})),
+		measure: () => {},
+		measureElement: () => {},
+		scrollToIndex: () => {},
+	}),
+}));
+
 import { POLL_POST_TYPE } from "../mattermostApi";
 import type { MattermostPost, MattermostUser } from "../types";
 import { MessageRow, MessageTimeline } from "./MessageTimeline";
@@ -46,6 +78,16 @@ const props = {
 };
 
 describe("MessageTimeline", () => {
+	test("renders timeline rows inside the virtualized container", () => {
+		const html = renderToString(
+			<MessageTimeline {...props} useNewComposer={false} />,
+		);
+
+		expect(html).toContain("message-virtualizer");
+		expect(html).toContain("date-divider");
+		expect(html).toContain("hello");
+	});
+
 	test("uses the legacy markdown renderer when the new composer flag is off", () => {
 		const html = renderToString(
 			<MessageTimeline {...props} useNewComposer={false} />,
