@@ -152,10 +152,37 @@ export class MattermostApiClient {
 		return this.request<MattermostTeam[]>("/users/me/teams");
 	}
 
-	getChannelsForUserTeam(userId: string, teamId: string) {
-		return this.request<MattermostChannel[]>(
+	async getChannelsForUserTeam(userId: string, teamId: string) {
+		const perPage = 200;
+		const teamChannels = await this.getPagedChannels(
 			`/users/${encodeURIComponent(userId)}/teams/${encodeURIComponent(teamId)}/channels`,
+			perPage,
 		);
+		const userChannels = await this.getPagedChannels(
+			`/users/${encodeURIComponent(userId)}/channels`,
+			perPage,
+		);
+		const channelsById = new Map(
+			teamChannels.map((channel) => [channel.id, channel]),
+		);
+		for (const channel of userChannels) {
+			if (channel.type === "D" || channel.type === "G") {
+				channelsById.set(channel.id, channel);
+			}
+		}
+		return [...channelsById.values()];
+	}
+
+	private async getPagedChannels(path: string, perPage: number) {
+		const channels: MattermostChannel[] = [];
+		for (let page = 0; ; page += 1) {
+			const separator = path.includes("?") ? "&" : "?";
+			const pageChannels = await this.request<MattermostChannel[]>(
+				`${path}${separator}page=${page}&per_page=${perPage}`,
+			);
+			channels.push(...pageChannels);
+			if (pageChannels.length < perPage) return channels;
+		}
 	}
 
 	getChannel(channelId: string) {

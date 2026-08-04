@@ -81,6 +81,109 @@ describe("MattermostApiClient", () => {
 		);
 	});
 
+	test("loads every page of user team channels", async () => {
+		const firstPage = Array.from({ length: 200 }, (_, index) => ({
+			display_name: `Channel ${index}`,
+			id: `channel-${index}`,
+			name: `channel-${index}`,
+			team_id: "team-id",
+			type: "O",
+		}));
+		const secondPage = [
+			{
+				display_name: "Channel 200",
+				id: "channel-200",
+				name: "channel-200",
+				team_id: "team-id",
+				type: "O",
+			},
+		];
+		const fetchMock = mock((url: string) => {
+			const body = url.includes("/teams/team-id/channels")
+				? url.includes("page=0")
+					? firstPage
+					: secondPage
+				: [];
+			return Promise.resolve(
+				new Response(JSON.stringify(body), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+
+		const channels = await client.getChannelsForUserTeam("user-id", "team-id");
+
+		expect(channels).toHaveLength(201);
+		expect(channels.at(-1)?.id).toBe("channel-200");
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/users/user-id/teams/team-id/channels?page=0&per_page=200",
+			expect.anything(),
+		);
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/users/user-id/teams/team-id/channels?page=1&per_page=200",
+			expect.anything(),
+		);
+	});
+
+	test("includes DMs outside the selected team", async () => {
+		const teamChannel = {
+			display_name: "Town Square",
+			id: "team-channel",
+			name: "town-square",
+			team_id: "team-id",
+			type: "O",
+		};
+		const crossTeamDm = {
+			display_name: "",
+			id: "cross-team-dm",
+			name: "current-user__other-team-user",
+			team_id: "",
+			type: "D",
+		};
+		const otherTeamChannel = {
+			display_name: "Other Town Square",
+			id: "other-team-channel",
+			name: "other-town-square",
+			team_id: "other-team-id",
+			type: "O",
+		};
+		const fetchMock = mock((url: string) => {
+			const body = url.includes("/teams/team-id/channels")
+				? [teamChannel]
+				: [crossTeamDm, otherTeamChannel];
+			return Promise.resolve(
+				new Response(JSON.stringify(body), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+			);
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const client = new MattermostApiClient({
+			serverUrl: "https://mattermost.example.com",
+			token: "secret-token",
+		});
+
+		const channels = await client.getChannelsForUserTeam("user-id", "team-id");
+
+		expect(channels.map((channel) => channel.id)).toEqual([
+			"team-channel",
+			"cross-team-dm",
+		]);
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://mattermost.example.com/api/v4/users/user-id/channels?page=0&per_page=200",
+			expect.anything(),
+		);
+	});
+
 	test("reports viewed channel activity", async () => {
 		const fetchMock = mock(() =>
 			Promise.resolve(

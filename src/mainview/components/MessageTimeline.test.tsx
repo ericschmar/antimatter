@@ -39,6 +39,7 @@ const props = {
 	onOpenAttachment: async () => {},
 	onReply: () => {},
 	onSetUserColor: () => {},
+	onStartDm: () => {},
 	onShowMessageContextMenu: () => {},
 	onToggleReaction: async () => {},
 	onVotePoll: async () => {},
@@ -57,6 +58,18 @@ describe("MessageTimeline", () => {
 		const html = renderToString(<MessageTimeline {...props} useNewComposer />);
 		expect(html).toContain("markdown-message-new");
 		expect(html).toContain("wmde-markdown");
+	});
+
+	test("renders Start DM as an enabled user menu item", () => {
+		const source = readFileSync(
+			new URL("./MessageTimeline.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain("Start DM");
+		expect(source).not.toContain(
+			'<DropdownMenu.Item className="dropdown-item" disabled>',
+		);
 	});
 
 	test("renders reactions on reply messages", () => {

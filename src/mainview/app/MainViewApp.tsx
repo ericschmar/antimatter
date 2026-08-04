@@ -879,6 +879,7 @@ export function MainViewApp() {
 
 	async function selectChannel(channel: MattermostChannel) {
 		if (!api || !config) return;
+		unarchiveChannel(channel.id);
 
 		const key = channelHistoryKey(config.serverUrl, channel.id);
 		const cachedHistory = key
@@ -929,6 +930,7 @@ export function MainViewApp() {
 			const channel =
 				state.channels[post.channel_id] ??
 				(await api.getChannel(post.channel_id));
+			unarchiveChannel(channel.id);
 			const postList = await api.getPostThread(post.id).catch(() => ({
 				order: [post.id],
 				posts: { [post.id]: post },

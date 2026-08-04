@@ -56,6 +56,7 @@ export function MessageTimeline({
 	onOpenAttachment,
 	onShowMessageContextMenu,
 	onSetUserColor,
+	onStartDm,
 	onReply,
 	onToggleReaction,
 	onVotePoll,
@@ -79,6 +80,7 @@ export function MessageTimeline({
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onSetUserColor: (userId: string, color: string) => void;
+	onStartDm: (userId: string) => void;
 	onReply: (post: MattermostPost) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 	onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
@@ -259,6 +261,7 @@ export function MessageTimeline({
 									onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
 									onSetUserColor={onSetUserColor}
+									onStartDm={onStartDm}
 									onReply={onReply}
 									onToggleReaction={onToggleReaction}
 									onVotePoll={onVotePoll}
@@ -447,6 +450,7 @@ export const MessageRow = memo(
 		onOpenAttachment,
 		onShowMessageContextMenu,
 		onSetUserColor,
+		onStartDm,
 		onReply,
 		onToggleReaction,
 		onVotePoll,
@@ -466,6 +470,7 @@ export const MessageRow = memo(
 		onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 		onShowMessageContextMenu: (post: MattermostPost) => void;
 		onSetUserColor: (userId: string, color: string) => void;
+		onStartDm: (userId: string) => void;
 		onReply: (post: MattermostPost) => void;
 		onToggleReaction: (
 			post: MattermostPost,
@@ -514,6 +519,7 @@ export const MessageRow = memo(
 						userColor={userColor}
 						user={author}
 						onSetUserColor={onSetUserColor}
+						onStartDm={onStartDm}
 					/>
 					<time>{formatTime(post.create_at)}</time>
 					{post.pending ? <span className="message-state">sending</span> : null}
@@ -578,6 +584,7 @@ export const MessageRow = memo(
 									onOpenAttachment={onOpenAttachment}
 									onReply={onReply}
 									onSetUserColor={onSetUserColor}
+									onStartDm={onStartDm}
 									onToggleReaction={onToggleReaction}
 								/>
 							))}
@@ -614,7 +621,7 @@ export const MessageRow = memo(
 		);
 	},
 	(prevProps, nextProps) => {
-		// Only re-render if post content, reactions, replies, or visual properties change
+		// Only re-render if rendered output or handlers can change
 		const postUnchanged =
 			prevProps.post.id === nextProps.post.id &&
 			prevProps.post.update_at === nextProps.post.update_at &&
@@ -644,6 +651,13 @@ export const MessageRow = memo(
 				);
 			});
 
+		const handlerPropsUnchanged =
+			prevProps.onStartDm === nextProps.onStartDm &&
+			prevProps.onSetUserColor === nextProps.onSetUserColor &&
+			prevProps.onReply === nextProps.onReply &&
+			prevProps.onToggleReaction === nextProps.onToggleReaction &&
+			prevProps.onVotePoll === nextProps.onVotePoll;
+
 		const visualPropsUnchanged =
 			prevProps.userColor === nextProps.userColor &&
 			prevProps.showOwnMessageIndicators ===
@@ -653,7 +667,12 @@ export const MessageRow = memo(
 			prevProps.userStatuses[prevProps.post.user_id]?.status ===
 				nextProps.userStatuses[nextProps.post.user_id]?.status;
 
-		return postUnchanged && repliesUnchanged && visualPropsUnchanged;
+		return (
+			postUnchanged &&
+			repliesUnchanged &&
+			handlerPropsUnchanged &&
+			visualPropsUnchanged
+		);
 	},
 );
 
@@ -716,6 +735,7 @@ const ReplyMessage = memo(function ReplyMessage({
 	onOpenAttachment,
 	onReply,
 	onSetUserColor,
+	onStartDm,
 	onToggleReaction,
 }: {
 	currentUserId: string;
@@ -730,6 +750,7 @@ const ReplyMessage = memo(function ReplyMessage({
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onReply: (post: MattermostPost) => void;
 	onSetUserColor: (userId: string, color: string) => void;
+	onStartDm: (userId: string) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 }) {
 	const author = users[post.user_id];
@@ -753,6 +774,7 @@ const ReplyMessage = memo(function ReplyMessage({
 					userColor={userColor}
 					user={author}
 					onSetUserColor={onSetUserColor}
+					onStartDm={onStartDm}
 				/>
 				<time>{formatTime(post.create_at)}</time>
 			</div>
@@ -958,6 +980,7 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 	userColor,
 	user,
 	onSetUserColor,
+	onStartDm,
 }: {
 	currentUserId: string;
 	fallback: string;
@@ -967,6 +990,7 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 	userColor?: string;
 	user: MattermostUser | undefined;
 	onSetUserColor: (userId: string, color: string) => void;
+	onStartDm: (userId: string) => void;
 }) {
 	const label = fallback === currentUserId ? "You" : userLabel(user, fallback);
 	const selectedColor = userColor ?? USER_COLOR_PALETTE[0];
@@ -1030,7 +1054,10 @@ const UserDetailsTrigger = memo(function UserDetailsTrigger({
 						</label>
 					</div>
 					<DropdownMenu.Separator className="dropdown-separator" />
-					<DropdownMenu.Item className="dropdown-item" disabled>
+					<DropdownMenu.Item
+						className="dropdown-item"
+						onSelect={() => onStartDm(fallback)}
+					>
 						<MessageCircle size={14} />
 						Start DM
 					</DropdownMenu.Item>

@@ -138,6 +138,12 @@ export function ChatShell({
 		saveDismissedAppUpdateBannerKey(appUpdateBannerKey);
 		setDismissedAppUpdateBannerKey(appUpdateBannerKey);
 	}
+	const startDm = useCallback(
+		(userId: string) => {
+			void onCreateDm([userId]);
+		},
+		[onCreateDm],
+	);
 	const editTarget = ui.editTarget as MattermostPost | null;
 	const replyTarget = ui.replyTarget as MattermostPost | null;
 	const selectedChannelUsers = channelMembers
@@ -531,6 +537,7 @@ export function ChatShell({
 								onOpenAttachment={onOpenAttachment}
 								onShowMessageContextMenu={onShowMessageContextMenu}
 								onSetUserColor={onSetUserColor}
+								onStartDm={startDm}
 								onReply={onStartReply}
 								onToggleReaction={onToggleReaction}
 								onVotePoll={onVotePoll}

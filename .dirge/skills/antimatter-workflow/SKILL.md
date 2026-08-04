@@ -77,8 +77,20 @@ When working from `WEBRTC_IMPLEMENTATION_GUIDE.md`:
   ```
   The `.tooltip-content` style already lives in `src/mainview/index.css` — reuse it rather than adding new tooltip CSS.
 - Other Radix primitives in use: `@radix-ui/react-dropdown-menu` (popovers/menus via `* as DropdownMenu`), `react-scroll-area`, `react-tabs`, `react-dialog`, `react-slot`, plus `@radix-ui/colors`. They follow the same `asChild` + `Portal` shape.
+- In Bun `react-dom/server` component tests, Radix `DropdownMenu.Content` does not render into the SSR HTML even with `Root defaultOpen` and `Portal`/`Content forceMount`. Do not use `renderToString` HTML assertions for dropdown menu contents; prefer a DOM-capable interaction test when available, or a narrow source/CSS regression test if the repo still lacks a DOM harness.
 - Scoping CSS for the new (`@uiw`-based) composer vs. the old (MDX) one: target `.composer-new` / `.composer.composer-new` selectors so the MDX `MessageComposer` styles in `MessageComposer.css` stay untouched.
 - Attachment preview uses `@iamjariwala/react-doc-viewer`; keep app-specific overrides scoped under `.attachment-preview-body` in `src/mainview/index.css`. To remove react-doc-viewer's extra top bar, set `config.header.disableHeader: true`; `disableFileName` alone only hides the filename. For PNG/image previews, override `.rdv-image-container` and `.rdv-png-checkerboard` backgrounds because the library defaults to a white image container plus checkerboard background image.
+
+## Mattermost DM/sidebar behavior
+
+- Direct-message creation in the main view is centralized as `onCreateDm(userIds: string[])`. For user-specific entry points like message-author dropdowns or command-menu user results, thread a stable callback (`useCallback`) down to the component and call `onCreateDm([userId])` rather than adding a separate API path.
+- `MattermostApiClient.getChannelsForUserTeam` must include DMs outside the selected team. Load all pages of `/users/{userId}/teams/{teamId}/channels`, load all pages of `/users/{userId}/channels`, then merge only user-wide direct/group channels (`type === "D" || type === "G"`) into the selected-team channels and de-duplicate by channel id.
+- Locally archived channels are hidden from sidebar sections. When a channel is opened directly or from search, call `unarchiveChannel(channel.id)` before loading/selecting it so an active archived DM reappears in the DM list.
+- `CommandMenu` can reach channels that are not currently visible in the sidebar via remote channel/post/user search. If search can open a DM that the sidebar cannot show, check archived-channel filtering before assuming the channel-fetch API missed it.
+
+## Testing notes for React/Radix
+
+- Component tests commonly use `react-dom/server` `renderToString`, but Radix `DropdownMenu.Portal` content may not appear in SSR output even with `defaultOpen`/`forceMount`. For dropdown-item regressions, use a source-level assertion or a real DOM interaction test rather than expecting the menu item in SSR HTML.
 
 ## Adding an app setting
 
