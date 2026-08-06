@@ -13,7 +13,13 @@
   - Added `ChatViewState`, `ChatViewStateByChannel`, empty-state creation, and per-channel update helpers in `src/mainview/state/chatWorkspace.ts`.
   - Added focused unit coverage for independent per-channel draft/reply/edit state in `src/mainview/state/chatWorkspace.test.ts`.
 
+- [x] Render the active chat through workspace state while preserving the legacy selected-channel state.
+  - Kept the chat workspace state readable in `MainViewApp`.
+  - Derived the rendered channel ID from the active workspace tab with the legacy selected channel as fallback.
+  - Added focused source regression coverage in `src/mainview/app/MainViewApp.test.ts`.
+
 ## New findings
 
 - `LOOP_PLAN.md` was not present at the start of this iteration, so this file was created from the selected design task.
 - Phase 1's Dockview proof-of-concept requires adding a new dependency; skipped for this iteration to avoid an unapproved dependency change.
+- Dockview dependency has now been added manually by the user, so a future iteration can take the Dockview proof-of-concept task.

@@ -22,6 +22,7 @@ import { useUserPresence } from "../features/users/useUserPresence";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import {
 	createEmptyChatWorkspaceState,
+	getSelectedChannelId,
 	openChatTab,
 } from "../state/chatWorkspace";
 import type { AppStatus } from "../state/uiStore";
@@ -139,9 +140,10 @@ export function MainViewApp() {
 	const [api, setApi] = useState<MattermostApiClient | null>(null);
 	const [currentUser, setCurrentUser] = useState<MattermostUser | null>(null);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-	const [, setChatWorkspace] = useState(() =>
+	const [chatWorkspace, setChatWorkspace] = useState(() =>
 		createEmptyChatWorkspaceState(),
 	);
+	const activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);
 	const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
 		null,
 	);
@@ -789,8 +791,9 @@ export function MainViewApp() {
 		[state.postOrder, state.posts],
 	);
 	const selectedTeam = selectedTeamId ? state.teams[selectedTeamId] : undefined;
-	const selectedChannel = selectedChannelId
-		? state.channels[selectedChannelId]
+	const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;
+	const selectedChannel = renderedChannelId
+		? state.channels[renderedChannelId]
 		: undefined;
 	const callManager = useMemo(
 		() =>
@@ -1403,7 +1406,7 @@ export function MainViewApp() {
 				resolveImageSrc={resolveImageSrc}
 				sections={sections}
 				selectedChannel={selectedChannel}
-				selectedChannelId={selectedChannelId}
+				selectedChannelId={renderedChannelId}
 				selectedTeam={selectedTeam}
 				selectedTeamId={selectedTeamId}
 				settings={settings}

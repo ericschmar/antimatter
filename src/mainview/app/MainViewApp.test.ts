@@ -44,10 +44,14 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(source).toContain(
-			"const [, setChatWorkspace] = useState(() =>\n\t\tcreateEmptyChatWorkspaceState(),\n\t);",
+			"const [chatWorkspace, setChatWorkspace] = useState(() =>\n\t\tcreateEmptyChatWorkspaceState(),\n\t);\n\tconst activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);",
 		);
 		expect(source).toContain(
 			"\t\tsetChatWorkspace((workspace) =>\n\t\t\topenChatTab(workspace, {\n\t\t\t\tchannelId: channel.id,\n\t\t\t\tteamId: channel.team_id || null,\n\t\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t\t}),\n\t\t);\n\t\tsetSelectedChannelId(channel.id);",
 		);
+		expect(source).toContain(
+			"const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;\n\tconst selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
+		);
+		expect(source).toContain("selectedChannelId={renderedChannelId}");
 	});
 });
