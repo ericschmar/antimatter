@@ -33,3 +33,8 @@
   - Wired `ChatWorkspace` to notify when Dockview's active panel changes.
   - Added a `MainViewApp` active-tab handler that updates workspace state with `activateChatTab`.
   - Added focused source regression coverage and updated `ChatShell` test fixtures.
+
+- [x] Wire Dockview close events back to chat workspace state.
+  - Wired `ChatWorkspace` panel removal events through `ChatShell` to `MainViewApp`.
+  - Added a `MainViewApp` close-tab handler that updates workspace state with `closeChatTab`.
+  - Added focused source regression coverage for the close-event handoff.

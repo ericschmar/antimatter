@@ -22,6 +22,7 @@ import { useUserPresence } from "../features/users/useUserPresence";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import {
 	activateChatTab,
+	closeChatTab,
 	createEmptyChatWorkspaceState,
 	getSelectedChannelId,
 	openChatTab,
@@ -150,6 +151,9 @@ export function MainViewApp() {
 	);
 	const handleActivateChatTab = useCallback((tabId: string) => {
 		setChatWorkspace((workspace) => activateChatTab(workspace, tabId));
+	}, []);
+	const handleCloseChatTab = useCallback((tabId: string) => {
+		setChatWorkspace((workspace) => closeChatTab(workspace, tabId));
 	}, []);
 	const [state, setState] = useState<NormalizedState>(emptyState);
 	// Read the latest posts inside the channel-history sync effect without subscribing to every
@@ -1411,6 +1415,7 @@ export function MainViewApp() {
 				sections={sections}
 				chatWorkspace={chatWorkspace}
 				onActivateChatTab={handleActivateChatTab}
+				onCloseChatTab={handleCloseChatTab}
 				selectedChannel={selectedChannel}
 				selectedChannelId={renderedChannelId}
 				selectedTeam={selectedTeam}

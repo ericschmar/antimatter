@@ -13,6 +13,7 @@ type ChatWorkspaceProps = {
 	>;
 	currentUserId: string;
 	onActivateTab: (tabId: string) => void;
+	onCloseTab: (tabId: string) => void;
 };
 
 type ChatPanelParams = {
@@ -43,6 +44,7 @@ export function ChatWorkspace({
 	users,
 	currentUserId,
 	onActivateTab,
+	onCloseTab,
 }: ChatWorkspaceProps) {
 	const channelsById = useMemo(
 		() => Object.fromEntries(channels.map((channel) => [channel.id, channel])),
@@ -92,6 +94,9 @@ export function ChatWorkspace({
 						}
 						event.api.onDidActivePanelChange(({ panel }) => {
 							if (panel) onActivateTab(panel.id);
+						});
+						event.api.onDidRemovePanel((panel) => {
+							onCloseTab(panel.id);
 						});
 					}}
 				/>

@@ -129,6 +129,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				userStatuses={{}}
 				users={{ [currentUser.id]: currentUser }}
 				onActivateChatTab={() => {}}
+				onCloseChatTab={() => {}}
 				onAddUserToSelectedChannel={async () => {}}
 				onApplyAppUpdate={() => {}}
 				onArchiveChannel={() => {}}

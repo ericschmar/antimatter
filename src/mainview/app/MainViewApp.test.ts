@@ -89,4 +89,28 @@ describe("MainViewApp channel selection", () => {
 			"event.api.onDidActivePanelChange(({ panel }) => {\n\t\t\t\t\t\t\tif (panel) onActivateTab(panel.id);\n\t\t\t\t\t\t});",
 		);
 	});
+
+	test("syncs Dockview panel close events to chat workspace state", () => {
+		const mainViewSource = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatShellSource = readFileSync(
+			new URL("./ChatShell.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(mainViewSource).toContain(
+			"const handleCloseChatTab = useCallback((tabId: string) => {\n\t\tsetChatWorkspace((workspace) => closeChatTab(workspace, tabId));\n\t}, []);",
+		);
+		expect(mainViewSource).toContain("onCloseChatTab={handleCloseChatTab}");
+		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");
+		expect(chatWorkspaceSource).toContain(
+			"event.api.onDidRemovePanel((panel) => {\n\t\t\t\t\t\t\tonCloseTab(panel.id);\n\t\t\t\t\t\t});",
+		);
+	});
 });

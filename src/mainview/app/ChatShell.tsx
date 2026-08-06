@@ -84,6 +84,7 @@ export function ChatShell({
 	sections,
 	chatWorkspace,
 	onActivateChatTab,
+	onCloseChatTab,
 	selectedChannel,
 	selectedChannelId,
 	selectedTeam,
@@ -526,6 +527,7 @@ export function ChatShell({
 								channels={channels}
 								currentUserId={currentUser.id}
 								onActivateTab={onActivateChatTab}
+								onCloseTab={onCloseChatTab}
 								users={users}
 								workspace={chatWorkspace}
 							/>
@@ -688,6 +690,7 @@ type ChatShellProps = {
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
 	chatWorkspace?: ChatWorkspaceState | null;
 	onActivateChatTab: (tabId: string) => void;
+	onCloseChatTab: (tabId: string) => void;
 	selectedChannel: MattermostChannel | undefined;
 	selectedChannelId: string | null;
 	selectedTeam: MattermostTeam | undefined;
