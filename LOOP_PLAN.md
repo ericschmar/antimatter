@@ -85,3 +85,6 @@
   - Overrode each Dockview panel composer's send and edit-cancel callbacks with its panel channel ID.
   - Added focused source regression coverage for panel-channel send and edit-cancel routing.
   - Finding: `bun run typecheck` still fails on the known pre-existing TS2882 CSS side-effect import declaration issue.
+
+- [x] Ensure switching tabs preserves draft/reply/edit state.
+  - Added focused source regression coverage confirming tab activation only changes workspace active tab state while active and panel composers derive draft, reply, and edit state from the current channel.

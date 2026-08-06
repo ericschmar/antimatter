@@ -224,4 +224,44 @@ describe("MainViewApp channel selection", () => {
 			"<MessageComposer {...panelComposerProps} ref={setComposerRef} />",
 		);
 	});
+
+	test("preserves draft reply and edit state when switching chat tabs", () => {
+		const mainViewSource = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatShellSource = readFileSync(
+			new URL("./ChatShell.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(mainViewSource).toContain(
+			"const handleActivateChatTab = useCallback((tabId: string) => {\n\t\tsetChatWorkspace((workspace) => activateChatTab(workspace, tabId));\n\t}, []);",
+		);
+		expect(chatShellSource).toContain(
+			"chatViewStates[selectedChannelId]?.editTargetId",
+		);
+		expect(chatShellSource).toContain(
+			"chatViewStates[selectedChannelId]?.replyTargetId",
+		);
+		expect(chatShellSource).toContain(
+			"chatViewStates[selectedChannelId]?.draftMarkdown",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"const panelState = workspaceProps.chatViewStates[params.channelId];",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"draftMarkdown: panelState?.draftMarkdown ?? \"\"",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"editTarget: panelPosts.find((post) => post.id === editTargetId) ?? null",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"replyTarget: panelPosts.find((post) => post.id === replyTargetId) ?? null",
+		);
+	});
 });
