@@ -52,6 +52,7 @@ export function useMainViewEvents({
 	setChannelNotifications,
 	setCommandOpen,
 	setEditTarget,
+	setEditTargetId,
 	setError,
 	setSettings,
 	setStatus,
@@ -370,8 +371,10 @@ export function useMainViewEvents({
 			if (detail.action === "copy")
 				void navigator.clipboard.writeText(post.message);
 			if (detail.action === "reply") startReply(post);
-			if (detail.action === "edit" && post.user_id === currentUser?.id)
+			if (detail.action === "edit" && post.user_id === currentUser?.id) {
 				setEditTarget(post);
+				setEditTargetId(post);
+			}
 			if (
 				detail.action === "delete" &&
 				api &&
@@ -455,6 +458,7 @@ export function useMainViewEvents({
 		settings,
 		setCommandOpen,
 		setEditTarget,
+		setEditTargetId,
 		setError,
 		setSettings,
 		setState,
@@ -485,6 +489,7 @@ type UseMainViewEventsArgs = {
 	setChannelNotifications: Dispatch<SetStateAction<ChannelNotificationState>>;
 	setCommandOpen: (open: boolean) => void;
 	setEditTarget: (post: MattermostPost | null) => void;
+	setEditTargetId: (post: MattermostPost) => void;
 	setError: (error: string | null) => void;
 	setSettings: Dispatch<SetStateAction<AppSettings>>;
 	setStatus: (status: AppStatus) => void;

@@ -68,10 +68,12 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 				username: "Someone",
 			},
 	);
-	const replyTargetId =
-		workspaceProps.chatViewStates[params.channelId]?.replyTargetId ?? null;
+	const panelState = workspaceProps.chatViewStates[params.channelId];
+	const editTargetId = panelState?.editTargetId ?? null;
+	const replyTargetId = panelState?.replyTargetId ?? null;
 	const panelComposerProps = {
 		...workspaceProps.composerProps,
+		editTarget: panelPosts.find((post) => post.id === editTargetId) ?? null,
 		replyTarget: panelPosts.find((post) => post.id === replyTargetId) ?? null,
 		onCancelReply: () => workspaceProps.onCancelReply(params.channelId),
 	};

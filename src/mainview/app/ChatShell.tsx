@@ -154,7 +154,12 @@ export function ChatShell({
 		},
 		[onCreateDm],
 	);
-	const editTarget = ui.editTarget as MattermostPost | null;
+	const editTargetId = selectedChannelId
+		? (chatViewStates[selectedChannelId]?.editTargetId ?? null)
+		: null;
+	const editTarget = editTargetId
+		? (posts.find((post) => post.id === editTargetId) ?? null)
+		: null;
 	const replyTargetId = selectedChannelId
 		? (chatViewStates[selectedChannelId]?.replyTargetId ?? null)
 		: null;

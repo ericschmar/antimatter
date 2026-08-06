@@ -60,3 +60,9 @@
   - Derived the active composer reply target from the active channel's chat view state in `ChatShell`.
   - Overrode each Dockview panel composer's reply target and cancel handler from its panel channel state.
   - Added focused source regression coverage for the per-channel reply state handoff.
+
+- [x] Move edit target into per-chat state.
+  - Mirrored message-menu edit selection into per-channel `editTargetId` state.
+  - Cleared per-channel edit state when canceling, replying, or submitting an edit.
+  - Derived active and Dockview panel composer edit targets from each channel's chat view state.
+  - Added focused source regression coverage for the per-channel edit state handoff.

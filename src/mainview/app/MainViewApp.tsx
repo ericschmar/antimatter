@@ -226,7 +226,6 @@ export function MainViewApp() {
 		setTypingUsers,
 		setWsStatus,
 	} = uiActions;
-	const editTarget = ui.editTarget as MattermostPost | null;
 	const error = ui.error;
 	const loadingHistory = ui.loadingHistory;
 	const status: AppStatus = ui.status;
@@ -1062,7 +1061,12 @@ export function MainViewApp() {
 	}
 
 	async function sendTyping(rootId?: string) {
-		if (!selectedChannelId || editTarget) return;
+		if (
+			!selectedChannelId ||
+			(chatViewStates[selectedChannelId]?.editTargetId ?? null)
+		) {
+			return;
+		}
 		await electrobun.rpc?.request.sendMattermostTyping({
 			channelId: selectedChannelId,
 			parentId: rootId,
@@ -1074,6 +1078,12 @@ export function MainViewApp() {
 		const previousPost = post;
 		const optimisticPost = { ...post, message, update_at: Date.now() };
 		setEditTarget(null);
+		setChatViewStates((current) =>
+			updateChatViewState(current, post.channel_id, (state) => ({
+				...state,
+				editTargetId: null,
+			})),
+		);
 		setState((current) => updatePostInState(current, optimisticPost));
 		try {
 			const updated = await api.updatePost(post.id, message);
@@ -1287,12 +1297,24 @@ export function MainViewApp() {
 		);
 	}, [renderedChannelId]);
 
+	const cancelEdit = useCallback(() => {
+		setEditTarget(null);
+		if (!renderedChannelId) return;
+		setChatViewStates((current) =>
+			updateChatViewState(current, renderedChannelId, (state) => ({
+				...state,
+				editTargetId: null,
+			})),
+		);
+	}, [renderedChannelId]);
+
 	const startReply = useCallback((post: MattermostPost) => {
 		setEditTarget(null);
 		setReplyTarget(post);
 		setChatViewStates((current) =>
 			updateChatViewState(current, post.channel_id, (state) => ({
 				...state,
+				editTargetId: null,
 				replyTargetId: post.id,
 			})),
 		);
@@ -1394,6 +1416,14 @@ export function MainViewApp() {
 		setChannelNotifications,
 		setCommandOpen,
 		setEditTarget,
+		setEditTargetId: (post) =>
+			setChatViewStates((current) =>
+				updateChatViewState(current, post.channel_id, (state) => ({
+					...state,
+					editTargetId: post.id,
+					replyTargetId: null,
+				})),
+			),
 		setError,
 		setSettings,
 		setStatus,
@@ -1468,7 +1498,7 @@ export function MainViewApp() {
 				onAddUserToSelectedChannel={addUserToSelectedChannel}
 				onApplyAppUpdate={installAppUpdate}
 				onArchiveChannel={archiveChannel}
-				onCancelEdit={() => setEditTarget(null)}
+				onCancelEdit={cancelEdit}
 				onCancelReply={cancelReply}
 				onCancelChatReply={cancelChatReply}
 				onCreateChannel={createChannel}
