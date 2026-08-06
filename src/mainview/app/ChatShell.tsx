@@ -526,8 +526,25 @@ export function ChatShell({
 							<ChatWorkspace
 								channels={channels}
 								currentUserId={currentUser.id}
+								loading={ui.status === "loading"}
+								loadingHistory={ui.loadingHistory}
 								onActivateTab={onActivateChatTab}
 								onCloseTab={onCloseChatTab}
+								onLoadMore={onLoadMoreMessages}
+								onOpenAttachment={onOpenAttachment}
+								onReply={onStartReply}
+								onSetUserColor={onSetUserColor}
+								onShowMessageContextMenu={onShowMessageContextMenu}
+								onStartDm={startDm}
+								onToggleReaction={onToggleReaction}
+								onVotePoll={onVotePoll}
+								posts={posts}
+								resolveImageSrc={resolveImageSrc}
+								settings={settings}
+								typingUsers={ui.typingUsers}
+								userColors={userColors}
+								userImages={userImages}
+								userStatuses={userStatuses}
 								users={users}
 								workspace={chatWorkspace}
 							/>

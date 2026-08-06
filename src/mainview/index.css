@@ -522,25 +522,14 @@ textarea:disabled {
 	height: 100%;
 }
 
-.chat-workspace-placeholder-panel {
-	display: flex;
+.chat-workspace-panel {
 	height: 100%;
-	flex-direction: column;
-	justify-content: center;
-	gap: 4px;
-	padding: 18px;
+	min-height: 0;
 	background: var(--app-bg);
-	color: var(--text-secondary);
 }
 
-.chat-workspace-placeholder-panel h3 {
-	margin: 0;
-	color: var(--text-primary);
-	font-size: 1rem;
-}
-
-.chat-workspace-placeholder-panel p {
-	margin: 0;
+.chat-workspace-panel .timeline {
+	height: 100%;
 }
 
 .chat-body {

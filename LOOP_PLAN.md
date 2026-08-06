@@ -38,3 +38,9 @@
   - Wired `ChatWorkspace` panel removal events through `ChatShell` to `MainViewApp`.
   - Added a `MainViewApp` close-tab handler that updates workspace state with `closeChatTab`.
   - Added focused source regression coverage for the close-event handoff.
+
+- [x] Render one timeline per Dockview chat panel.
+  - Replaced the Dockview placeholder panel body with `MessageTimeline` rendering for each chat tab's channel.
+  - Passed timeline data, settings, typing state, user display state, and message callbacks from `ChatShell` into `ChatWorkspace`.
+  - Updated workspace panel CSS so timelines fill their Dockview panel.
+  - Finding: `MainViewApp` still only exposes the active channel's loaded posts, so inactive tab timelines remain empty until multi-channel history state is added.
