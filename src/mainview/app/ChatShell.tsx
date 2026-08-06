@@ -1,7 +1,7 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { X } from "lucide-react";
 import type { RefObject, SyntheticEvent } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Resizable, type ResizeCallbackData } from "react-resizable";
 import { useSnapshot } from "valtio";
 import type {
@@ -139,6 +139,7 @@ export function ChatShell({
 	const [dismissedAppUpdateBannerKey, setDismissedAppUpdateBannerKey] =
 		useState(() => loadDismissedAppUpdateBannerKey() ?? "");
 	const [pollDialogOpen, setPollDialogOpen] = useState(false);
+	const panelComposerRefs = useRef(new Map<string, MessageComposerHandle>());
 	const appUpdateBannerKey = getAppUpdateBannerKey(appUpdate);
 	const showAppUpdateBanner =
 		Boolean(appUpdateBannerKey) &&
@@ -154,6 +155,24 @@ export function ChatShell({
 			void onCreateDm([userId]);
 		},
 		[onCreateDm],
+	);
+	const registerPanelComposerRef = useCallback(
+		(channelId: string, handle: MessageComposerHandle | null) => {
+			if (handle) {
+				panelComposerRefs.current.set(channelId, handle);
+			} else {
+				panelComposerRefs.current.delete(channelId);
+			}
+		},
+		[],
+	);
+	const getActiveComposer = useCallback(
+		() =>
+			selectedChannelId
+				? (panelComposerRefs.current.get(selectedChannelId) ??
+					composerRef.current)
+				: composerRef.current,
+		[composerRef, selectedChannelId],
 	);
 	const editTargetId = selectedChannelId
 		? (chatViewStates[selectedChannelId]?.editTargetId ?? null)
@@ -311,23 +330,23 @@ export function ChatShell({
 			}
 			if (action.startsWith("navigate-")) return true;
 			if (action === "attach-file") {
-				composerRef.current?.attachFiles();
+				getActiveComposer()?.attachFiles();
 				return true;
 			}
 			if (action === "attach-image") {
-				composerRef.current?.attachImages();
+				getActiveComposer()?.attachImages();
 				return true;
 			}
 			if (action === "open-emoji-picker") {
-				composerRef.current?.openEmojiPicker();
+				getActiveComposer()?.openEmojiPicker();
 				return true;
 			}
 			return false;
 		},
 		[
 			channelOrder,
-			composerRef,
 			currentUser.id,
+			getActiveComposer,
 			onSelectChannel,
 			sections,
 			selectedChannelId,
@@ -561,6 +580,7 @@ export function ChatShell({
 								onOpenAttachment={onOpenAttachment}
 								onReply={onStartReply}
 								onSetDraftMarkdown={onSetDraftMarkdown}
+								onComposerRef={registerPanelComposerRef}
 								onSetUserColor={onSetUserColor}
 								onShowMessageContextMenu={onShowMessageContextMenu}
 								onStartDm={startDm}

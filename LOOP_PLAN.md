@@ -72,3 +72,9 @@
   - Stored draft text in `ChatViewStateByChannel` through `MainViewApp`.
   - Derived active and Dockview panel composer draft text from each channel's chat view state.
   - Added focused source regression coverage for the per-channel draft handoff.
+
+- [x] Make composer refs active-tab-aware.
+  - Registered each Dockview panel composer handle by channel in `ChatShell`.
+  - Routed attach-file, attach-image, and emoji-picker shortcuts through the active chat panel composer with the legacy composer ref as fallback.
+  - Added focused source regression coverage for active chat panel composer ref routing.
+  - Finding: `bun run typecheck` still fails on the known pre-existing TS2882 CSS side-effect import declaration issue.

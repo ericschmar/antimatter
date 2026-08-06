@@ -1,5 +1,5 @@
 import { DockviewReact, type IDockviewPanelProps } from "dockview-react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type {
 	ChatViewStateByChannel,
 	ChatWorkspaceState,
@@ -14,7 +14,11 @@ import type {
 	TypingUsersByChannel,
 } from "../types";
 import { channelLabel } from "../utils/format";
-import { MessageComposer, type MessageComposerProps } from "./MessageComposer";
+import {
+	MessageComposer,
+	type MessageComposerHandle,
+	type MessageComposerProps,
+} from "./MessageComposer";
 import { MessageTimeline } from "./MessageTimeline";
 import { NewMessageComposer } from "./NewMessageComposer";
 
@@ -43,6 +47,10 @@ type ChatWorkspaceProps = {
 	onReply: (post: MattermostPost) => void;
 	onCancelReply: (channelId: string) => void;
 	onSetDraftMarkdown: (channelId: string, draftMarkdown: string) => void;
+	onComposerRef: (
+		channelId: string,
+		handle: MessageComposerHandle | null,
+	) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 	onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
 	onLoadMore?: () => void;
@@ -81,6 +89,12 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 		onSetDraftMarkdown: (draftMarkdown: string) =>
 			workspaceProps.onSetDraftMarkdown(params.channelId, draftMarkdown),
 	};
+	const setComposerRef = useCallback(
+		(handle: MessageComposerHandle | null) => {
+			workspaceProps.onComposerRef(params.channelId, handle);
+		},
+		[params.channelId, workspaceProps],
+	);
 
 	return (
 		<div
@@ -119,9 +133,9 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 			/>
 			<div className="chat-workspace-panel-composer">
 				{workspaceProps.settings.useNewComposer ? (
-					<NewMessageComposer {...panelComposerProps} />
+					<NewMessageComposer {...panelComposerProps} ref={setComposerRef} />
 				) : (
-					<MessageComposer {...panelComposerProps} />
+					<MessageComposer {...panelComposerProps} ref={setComposerRef} />
 				)}
 			</div>
 		</div>
@@ -157,6 +171,7 @@ export function ChatWorkspace({
 	onReply,
 	onCancelReply,
 	onSetDraftMarkdown,
+	onComposerRef,
 	onToggleReaction,
 	onVotePoll,
 	onLoadMore,
@@ -205,6 +220,7 @@ export function ChatWorkspace({
 			onReply,
 			onCancelReply,
 			onSetDraftMarkdown,
+			onComposerRef,
 			onToggleReaction,
 			onVotePoll,
 			onLoadMore,
@@ -232,6 +248,7 @@ export function ChatWorkspace({
 			onReply,
 			onCancelReply,
 			onSetDraftMarkdown,
+			onComposerRef,
 			onToggleReaction,
 			onVotePoll,
 			onLoadMore,

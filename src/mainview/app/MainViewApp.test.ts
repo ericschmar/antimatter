@@ -135,10 +135,10 @@ describe("MainViewApp channel selection", () => {
 			'<div className="chat-workspace-panel-composer">',
 		);
 		expect(chatWorkspaceSource).toContain(
-			"<NewMessageComposer {...panelComposerProps} />",
+			"<NewMessageComposer {...panelComposerProps} ref={setComposerRef} />",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"<MessageComposer {...panelComposerProps} />",
+			"<MessageComposer {...panelComposerProps} ref={setComposerRef} />",
 		);
 	});
 
@@ -180,6 +180,38 @@ describe("MainViewApp channel selection", () => {
 		);
 		expect(chatWorkspaceSource).toContain(
 			"workspaceProps.onSetDraftMarkdown(params.channelId, draftMarkdown)",
+		);
+	});
+
+	test("routes composer shortcuts through the active chat panel ref", () => {
+		const chatShellSource = readFileSync(
+			new URL("./ChatShell.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(chatShellSource).toContain(
+			"const panelComposerRefs = useRef(new Map<string, MessageComposerHandle>());",
+		);
+		expect(chatShellSource).toContain(
+			"panelComposerRefs.current.get(selectedChannelId) ??",
+		);
+		expect(chatShellSource).toContain("composerRef.current");
+		expect(chatShellSource).toContain("getActiveComposer()?.attachFiles()");
+		expect(chatShellSource).toContain(
+			"onComposerRef={registerPanelComposerRef}",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"workspaceProps.onComposerRef(params.channelId, handle)",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"<NewMessageComposer {...panelComposerProps} ref={setComposerRef} />",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"<MessageComposer {...panelComposerProps} ref={setComposerRef} />",
 		);
 	});
 });
