@@ -2,6 +2,7 @@
 @import url("@radix-ui/colors/slate-dark.css");
 @import url("@radix-ui/colors/amber-dark.css");
 @import url("@radix-ui/colors/red-dark.css");
+@import url("dockview-react/dist/styles/dockview.css");
 
 :root {
 	color-scheme: dark;
@@ -510,6 +511,38 @@ textarea:disabled {
 	color: var(--text-primary);
 }
 
+.chat-workspace-preview {
+	grid-row: 4;
+	min-height: 160px;
+	border-bottom: 1px solid var(--border-subtle);
+	background: var(--panel-bg);
+}
+
+.chat-workspace-dockview {
+	height: 100%;
+}
+
+.chat-workspace-placeholder-panel {
+	display: flex;
+	height: 100%;
+	flex-direction: column;
+	justify-content: center;
+	gap: 4px;
+	padding: 18px;
+	background: var(--app-bg);
+	color: var(--text-secondary);
+}
+
+.chat-workspace-placeholder-panel h3 {
+	margin: 0;
+	color: var(--text-primary);
+	font-size: 1rem;
+}
+
+.chat-workspace-placeholder-panel p {
+	margin: 0;
+}
+
 .chat-body {
 	grid-row: 4;
 	display: grid;
@@ -517,6 +550,11 @@ textarea:disabled {
 	height: 100%;
 	min-height: 0;
 	overflow: hidden;
+}
+
+.main-panel:has(.chat-workspace-preview) .chat-body {
+	grid-row: auto;
+	min-height: 0;
 }
 
 .resizable-composer {

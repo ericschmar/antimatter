@@ -1405,6 +1405,7 @@ export function MainViewApp() {
 				appUpdate={appUpdate}
 				resolveImageSrc={resolveImageSrc}
 				sections={sections}
+				chatWorkspace={chatWorkspace}
 				selectedChannel={selectedChannel}
 				selectedChannelId={renderedChannelId}
 				selectedTeam={selectedTeam}

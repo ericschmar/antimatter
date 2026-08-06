@@ -54,4 +54,13 @@ describe("MainViewApp channel selection", () => {
 		);
 		expect(source).toContain("selectedChannelId={renderedChannelId}");
 	});
+
+	test("passes workspace state to the isolated chat workspace proof of concept", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain("chatWorkspace={chatWorkspace}");
+	});
 });

@@ -10,6 +10,7 @@ import type {
 } from "../../shared/electrobunRpc";
 import { CallButton } from "../components/CallButton";
 import { CallErrorToast } from "../components/CallErrorToast";
+import { ChatWorkspace } from "../components/ChatWorkspace";
 import { CommandMenu } from "../components/CommandMenu";
 import { CreateChannelDialog } from "../components/CreateChannelDialog";
 import { IncomingCallToast } from "../components/IncomingCallToast";
@@ -27,6 +28,7 @@ import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
 import { useCall } from "../contexts/CallContext";
 import type { MattermostApiClient } from "../mattermostApi";
+import type { ChatWorkspaceState } from "../state/chatWorkspace";
 import { uiActions, uiStore } from "../state/uiStore";
 import {
 	loadDismissedAppUpdateBannerKey,
@@ -80,6 +82,7 @@ export function ChatShell({
 	appUpdate,
 	resolveImageSrc,
 	sections,
+	chatWorkspace,
 	selectedChannel,
 	selectedChannelId,
 	selectedTeam,
@@ -517,6 +520,15 @@ export function ChatShell({
 							</div>
 						) : null}
 
+						{chatWorkspace ? (
+							<ChatWorkspace
+								channels={channels}
+								currentUserId={currentUser.id}
+								users={users}
+								workspace={chatWorkspace}
+							/>
+						) : null}
+
 						<section className="chat-body">
 							<MessageTimeline
 								channelId={selectedChannelId}
@@ -672,6 +684,7 @@ type ChatShellProps = {
 	appUpdate: AppUpdateState;
 	resolveImageSrc: (src: string) => Promise<string>;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
+	chatWorkspace?: ChatWorkspaceState | null;
 	selectedChannel: MattermostChannel | undefined;
 	selectedChannelId: string | null;
 	selectedTeam: MattermostTeam | undefined;
