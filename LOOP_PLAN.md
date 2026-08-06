@@ -48,3 +48,9 @@
 - [x] Activate chat workspace tab when clicking or focusing inside its panel.
   - Wired `ChatWorkspace` panel pointer and focus events to the existing active-tab callback.
   - Added source regression coverage for panel-body activation handoff.
+
+- [x] Render a composer inside each Dockview chat panel.
+  - Reused the existing `MessageComposer`/`NewMessageComposer` selection in `ChatWorkspace` so every panel has a timeline and composer region.
+  - Forwarded existing composer props from `ChatShell` and added minimal panel composer layout CSS.
+  - Added focused source regression coverage for the composer handoff.
+  - Finding: composer actions still use the legacy active-channel/global reply/edit/draft wiring; Phase 5 is still needed for true per-chat composer state.

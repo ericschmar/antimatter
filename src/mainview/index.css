@@ -523,13 +523,23 @@ textarea:disabled {
 }
 
 .chat-workspace-panel {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
 	height: 100%;
 	min-height: 0;
 	background: var(--app-bg);
+	overflow: hidden;
 }
 
 .chat-workspace-panel .timeline {
 	height: 100%;
+}
+
+.chat-workspace-panel-composer {
+	grid-row: 2;
+	min-height: 72px;
+	overflow: visible;
+	border-top: 1px solid var(--border-subtle);
 }
 
 .chat-body {

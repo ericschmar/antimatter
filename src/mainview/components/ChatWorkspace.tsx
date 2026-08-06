@@ -1,6 +1,5 @@
 import { DockviewReact, type IDockviewPanelProps } from "dockview-react";
 import { useMemo } from "react";
-import { MessageTimeline } from "./MessageTimeline";
 import type { ChatWorkspaceState } from "../state/chatWorkspace";
 import type {
 	AppSettings,
@@ -12,6 +11,9 @@ import type {
 	TypingUsersByChannel,
 } from "../types";
 import { channelLabel } from "../utils/format";
+import { MessageComposer, type MessageComposerProps } from "./MessageComposer";
+import { MessageTimeline } from "./MessageTimeline";
+import { NewMessageComposer } from "./NewMessageComposer";
 
 type ChatWorkspaceProps = {
 	workspace: ChatWorkspaceState;
@@ -26,6 +28,7 @@ type ChatWorkspaceProps = {
 	userStatuses: Record<string, MattermostUserStatus>;
 	loading: boolean;
 	loadingHistory?: boolean;
+	composerProps: MessageComposerProps;
 	resolveImageSrc: (src: string) => Promise<string>;
 	onActivateTab: (tabId: string) => void;
 	onCloseTab: (tabId: string) => void;
@@ -74,8 +77,12 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 				loadingHistory={workspaceProps.loadingHistory}
 				posts={panelPosts}
 				resolveImageSrc={workspaceProps.resolveImageSrc}
-				ownMessageIndicatorColor={workspaceProps.settings.ownMessageIndicatorColor}
-				showOwnMessageIndicators={workspaceProps.settings.showOwnMessageIndicators}
+				ownMessageIndicatorColor={
+					workspaceProps.settings.ownMessageIndicatorColor
+				}
+				showOwnMessageIndicators={
+					workspaceProps.settings.showOwnMessageIndicators
+				}
 				showProfilePictures={workspaceProps.settings.showProfilePictures}
 				useNewComposer={workspaceProps.settings.useNewComposer}
 				typingUsers={panelTypingUsers}
@@ -92,6 +99,13 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 				onVotePoll={workspaceProps.onVotePoll}
 				onLoadMore={workspaceProps.onLoadMore}
 			/>
+			<div className="chat-workspace-panel-composer">
+				{workspaceProps.settings.useNewComposer ? (
+					<NewMessageComposer {...workspaceProps.composerProps} />
+				) : (
+					<MessageComposer {...workspaceProps.composerProps} />
+				)}
+			</div>
 		</div>
 	);
 }
@@ -113,6 +127,7 @@ export function ChatWorkspace({
 	userStatuses,
 	loading,
 	loadingHistory,
+	composerProps,
 	resolveImageSrc,
 	onActivateTab,
 	onCloseTab,
@@ -157,6 +172,7 @@ export function ChatWorkspace({
 			userStatuses,
 			loading,
 			loadingHistory,
+			composerProps,
 			resolveImageSrc,
 			onActivateTab,
 			onCloseTab,
@@ -180,6 +196,7 @@ export function ChatWorkspace({
 			userStatuses,
 			loading,
 			loadingHistory,
+			composerProps,
 			resolveImageSrc,
 			onActivateTab,
 			onCloseTab,

@@ -525,6 +525,7 @@ export function ChatShell({
 						{chatWorkspace ? (
 							<ChatWorkspace
 								channels={channels}
+								composerProps={composerProps}
 								currentUserId={currentUser.id}
 								loading={ui.status === "loading"}
 								loadingHistory={ui.loadingHistory}

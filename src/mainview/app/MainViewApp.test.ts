@@ -119,4 +119,26 @@ describe("MainViewApp channel selection", () => {
 			"event.api.onDidRemovePanel((panel) => {\n\t\t\t\t\t\t\tonCloseTab(panel.id);\n\t\t\t\t\t\t});",
 		);
 	});
+
+	test("renders a composer inside each Dockview chat panel", () => {
+		const chatShellSource = readFileSync(
+			new URL("./ChatShell.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(chatShellSource).toContain("composerProps={composerProps}");
+		expect(chatWorkspaceSource).toContain(
+			'<div className="chat-workspace-panel-composer">',
+		);
+		expect(chatWorkspaceSource).toContain(
+			"<NewMessageComposer {...workspaceProps.composerProps} />",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"<MessageComposer {...workspaceProps.composerProps} />",
+		);
+	});
 });
