@@ -9,6 +9,10 @@
   - Wired `selectChannel` to call `openChatTab` before updating the selected channel.
   - Added a focused source regression test in `src/mainview/app/MainViewApp.test.ts`.
 
+- [x] Add per-chat UI state helpers for draft, reply, and edit state.
+  - Added `ChatViewState`, `ChatViewStateByChannel`, empty-state creation, and per-channel update helpers in `src/mainview/state/chatWorkspace.ts`.
+  - Added focused unit coverage for independent per-channel draft/reply/edit state in `src/mainview/state/chatWorkspace.test.ts`.
+
 ## New findings
 
 - `LOOP_PLAN.md` was not present at the start of this iteration, so this file was created from the selected design task.

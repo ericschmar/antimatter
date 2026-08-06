@@ -12,6 +12,16 @@ export type ChatWorkspaceState = {
 	layout: unknown;
 };
 
+export type ChatViewState = {
+	draftMarkdown: string;
+	replyTargetId: string | null;
+	editTargetId: string | null;
+	scrollAnchorPostId?: string;
+	composerHeight?: number;
+};
+
+export type ChatViewStateByChannel = Record<string, ChatViewState>;
+
 export type OpenChatTabInput = {
 	channelId: string;
 	teamId: string | null;
@@ -29,6 +39,27 @@ export function createEmptyChatWorkspaceState(): ChatWorkspaceState {
 
 export function getChatTabId(channelId: string): string {
 	return `channel:${channelId}`;
+}
+
+export function createEmptyChatViewState(): ChatViewState {
+	return {
+		draftMarkdown: "",
+		replyTargetId: null,
+		editTargetId: null,
+	};
+}
+
+export function updateChatViewState(
+	stateByChannel: ChatViewStateByChannel,
+	channelId: string,
+	update: (state: ChatViewState) => ChatViewState,
+): ChatViewStateByChannel {
+	return {
+		...stateByChannel,
+		[channelId]: update(
+			stateByChannel[channelId] ?? createEmptyChatViewState(),
+		),
+	};
 }
 
 export function openChatTab(

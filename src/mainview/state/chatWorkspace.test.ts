@@ -7,6 +7,7 @@ import {
 	getSelectedChannelId,
 	openChatTab,
 	removeInvalidChatTabs,
+	updateChatViewState,
 } from "./chatWorkspace";
 
 describe("chatWorkspace", () => {
@@ -122,5 +123,33 @@ describe("chatWorkspace", () => {
 		expect(Object.keys(restored.tabs)).toEqual(["channel:channel-1"]);
 		expect(restored.activeTabId).toBe("channel:channel-1");
 		expect(getSelectedChannelId(restored)).toBe("channel-1");
+	});
+
+	test("updates per-channel chat view state independently", () => {
+		const stateByChannel = updateChatViewState({}, "channel-1", (state) => ({
+			...state,
+			draftMarkdown: "draft one",
+			replyTargetId: "post-1",
+		}));
+		const updated = updateChatViewState(
+			stateByChannel,
+			"channel-2",
+			(state) => ({
+				...state,
+				draftMarkdown: "draft two",
+				editTargetId: "post-2",
+			}),
+		);
+
+		expect(updated["channel-1"]).toEqual({
+			draftMarkdown: "draft one",
+			replyTargetId: "post-1",
+			editTargetId: null,
+		});
+		expect(updated["channel-2"]).toEqual({
+			draftMarkdown: "draft two",
+			replyTargetId: null,
+			editTargetId: "post-2",
+		});
 	});
 });
