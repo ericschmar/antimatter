@@ -25,12 +25,12 @@ import {
 	MessageCircle,
 	MessageSquare,
 	Plus,
+	SquarePlus,
 	Star,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChannelContextMenuAction } from "../../shared/electrobunRpc";
-import { ActiveCallPanel } from "./ActiveCallPanel";
 import type {
 	ChannelNotificationState,
 	ChannelSectionKey,
@@ -41,8 +41,13 @@ import type {
 	WebSocketStatus,
 } from "../types";
 import { sortChannelsForSection } from "../utils/channelNavigation";
-import { channelLabel, directChannelOtherUserId, initials } from "../utils/format";
+import {
+	channelLabel,
+	directChannelOtherUserId,
+	initials,
+} from "../utils/format";
 import { showTeamUnreadDot } from "../utils/teamUnread";
+import { ActiveCallPanel } from "./ActiveCallPanel";
 import { EmojiPickerPanel } from "./EmojiPickerPopover";
 import { UserMenu } from "./UserMenu";
 import "./Sidebar.css";
@@ -71,6 +76,7 @@ export function Sidebar({
 	onSelectTeam,
 	onSetChannelEmoji,
 	onShowChannelContextMenu,
+	onOpenChatPanel,
 	onOpenCreateChannel,
 	onOpenCreateDm,
 	onSignOut,
@@ -101,6 +107,7 @@ export function Sidebar({
 	onSelectTeam: (team: MattermostTeam) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
+	onOpenChatPanel: (channelId: string) => void;
 	onOpenCreateChannel: () => void;
 	onOpenCreateDm: () => void;
 	onSignOut: () => void;
@@ -233,6 +240,7 @@ export function Sidebar({
 							userImages={userImages}
 							userStatuses={userStatuses}
 							onMoveChannel={onMoveChannel}
+							onOpenChatPanel={onOpenChatPanel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("favorites")}
@@ -256,6 +264,7 @@ export function Sidebar({
 							actionLabel="Create channel"
 							onAction={onOpenCreateChannel}
 							onMoveChannel={onMoveChannel}
+							onOpenChatPanel={onOpenChatPanel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("channels")}
@@ -279,6 +288,7 @@ export function Sidebar({
 							actionLabel="Create DM"
 							onAction={onOpenCreateDm}
 							onMoveChannel={onMoveChannel}
+							onOpenChatPanel={onOpenChatPanel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("dms")}
@@ -300,6 +310,7 @@ export function Sidebar({
 							userImages={userImages}
 							userStatuses={userStatuses}
 							onMoveChannel={onMoveChannel}
+							onOpenChatPanel={onOpenChatPanel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("archived")}
@@ -333,6 +344,7 @@ function ChannelSection({
 	actionLabel,
 	onAction,
 	onMoveChannel,
+	onOpenChatPanel,
 	onSelectChannel,
 	onShowChannelContextMenu,
 	onToggleCollapsed,
@@ -355,6 +367,7 @@ function ChannelSection({
 	actionLabel?: string;
 	onAction?: () => void;
 	onMoveChannel: (section: ChannelSectionKey, channelIds: string[]) => void;
+	onOpenChatPanel: (channelId: string) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
 	onToggleCollapsed: () => void;
@@ -420,6 +433,7 @@ function ChannelSection({
 									users={users}
 									userImages={userImages}
 									userStatuses={userStatuses}
+									onOpenChatPanel={onOpenChatPanel}
 									onSelectChannel={onSelectChannel}
 									onShowChannelContextMenu={onShowChannelContextMenu}
 									onToggleFavorite={onToggleFavorite}
@@ -457,6 +471,7 @@ function SortableChannelRow({
 	users,
 	userImages,
 	userStatuses,
+	onOpenChatPanel,
 	onSelectChannel,
 	onShowChannelContextMenu,
 	onToggleFavorite,
@@ -471,6 +486,7 @@ function SortableChannelRow({
 	users: Record<string, MattermostUser>;
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
+	onOpenChatPanel: (channelId: string) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
 	onToggleFavorite: (channelId: string) => void;
@@ -560,6 +576,27 @@ function SortableChannelRow({
 					<span className="mention-badge">!</span>
 				) : null}
 			</button>
+			<Tooltip.Root>
+				<Tooltip.Trigger asChild>
+					<button
+						aria-label={`Open ${channelLabel(channel, users, currentUserId)} in a tab`}
+						className="channel-action"
+						type="button"
+						onClick={() => onOpenChatPanel(channel.id)}
+					>
+						<SquarePlus size={14} />
+					</button>
+				</Tooltip.Trigger>
+				<Tooltip.Portal>
+					<Tooltip.Content
+						className="tooltip-content"
+						side="right"
+						sideOffset={6}
+					>
+						Open in tab
+					</Tooltip.Content>
+				</Tooltip.Portal>
+			</Tooltip.Root>
 			<Tooltip.Root>
 				<Tooltip.Trigger asChild>
 					<button

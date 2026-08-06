@@ -52,6 +52,9 @@ describe("MainViewApp channel selection", () => {
 		expect(source).toContain(
 			"const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;\n\tconst selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
 		);
+		expect(source).toContain(
+			"if (cachedHistory) setChannelMembers(cachedHistory.members);",
+		);
 		expect(source).toContain("selectedChannelId={renderedChannelId}");
 	});
 
@@ -102,8 +105,10 @@ describe("MainViewApp channel selection", () => {
 			"onActivateChatTab={handleActivateChatTab}",
 		);
 		expect(chatShellSource).toContain("onActivateTab={onActivateChatTab}");
+		expect(chatWorkspaceSource).toContain("event.api.onDidActivePanelChange");
+		expect(chatWorkspaceSource).toContain("if (panel) onActivateTab(panel.id)");
 		expect(chatWorkspaceSource).toContain(
-			"event.api.onDidActivePanelChange(({ panel }) => {\n\t\t\t\t\t\t\tif (panel) onActivateTab(panel.id);\n\t\t\t\t\t\t});",
+			"event.api.getPanel(workspace.activeTabId)?.api.setActive();",
 		);
 		expect(chatWorkspaceSource).toContain(
 			"onPointerDown={() => workspaceProps.onActivateTab(api.id)}",
@@ -132,9 +137,8 @@ describe("MainViewApp channel selection", () => {
 		);
 		expect(mainViewSource).toContain("onCloseChatTab={handleCloseChatTab}");
 		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");
-		expect(chatWorkspaceSource).toContain(
-			"event.api.onDidRemovePanel((panel) => {\n\t\t\t\t\t\t\tonCloseTab(panel.id);\n\t\t\t\t\t\t});",
-		);
+		expect(chatWorkspaceSource).toContain("event.api.onDidRemovePanel");
+		expect(chatWorkspaceSource).toContain("onCloseTab(panel.id)");
 	});
 
 	test("renders a composer inside each Dockview chat panel", () => {
@@ -149,7 +153,7 @@ describe("MainViewApp channel selection", () => {
 
 		expect(chatShellSource).toContain("composerProps={composerProps}");
 		expect(chatWorkspaceSource).toContain(
-			'<div className="chat-workspace-panel-composer">',
+			'className="chat-workspace-panel-composer resizable-composer"',
 		);
 		expect(chatWorkspaceSource).toContain(
 			"<NewMessageComposer {...panelComposerProps} ref={setComposerRef} />",
@@ -193,17 +197,19 @@ describe("MainViewApp channel selection", () => {
 		expect(chatWorkspaceSource).toContain("panelState?.editTargetId");
 		expect(chatWorkspaceSource).toContain("panelState?.draftMarkdown");
 		expect(chatWorkspaceSource).toContain(
-			"onCancelReply: () => workspaceProps.onCancelReply(params.channelId)",
+			"onCancelReply: () => workspaceProps.onCancelReply(api.id)",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"workspaceProps.onSetDraftMarkdown(params.channelId, draftMarkdown)",
+			"workspaceProps.onSetDraftMarkdown(api.id, draftMarkdown)",
 		);
-		expect(mainViewSource).toContain("async function sendMessage(\n\t\tchannelId: string,");
+		expect(mainViewSource).toContain(
+			"async function sendMessage(\n\t\tchannelId: string,",
+		);
 		expect(chatShellSource).toContain(
 			"return onSendMessage(selectedChannelId, message, rootId, files)",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"onCancelEdit: () => workspaceProps.onCancelEdit(params.channelId)",
+			"onCancelEdit: () => workspaceProps.onCancelEdit(api.id)",
 		);
 		expect(chatWorkspaceSource).toContain(
 			"workspaceProps.onSendMessage(params.channelId, message, rootId, files)",
@@ -232,7 +238,7 @@ describe("MainViewApp channel selection", () => {
 			"onComposerRef={registerPanelComposerRef}",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"workspaceProps.onComposerRef(params.channelId, handle)",
+			"workspaceProps.onComposerRef(api.id, handle)",
 		);
 		expect(chatWorkspaceSource).toContain(
 			"<NewMessageComposer {...panelComposerProps} ref={setComposerRef} />",
@@ -269,10 +275,10 @@ describe("MainViewApp channel selection", () => {
 			"chatViewStates[selectedChannelId]?.draftMarkdown",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"const panelState = workspaceProps.chatViewStates[params.channelId];",
+			"const panelState = workspaceProps.chatViewStates[api.id];",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"draftMarkdown: panelState?.draftMarkdown ?? \"\"",
+			'draftMarkdown: panelState?.draftMarkdown ?? ""',
 		);
 		expect(chatWorkspaceSource).toContain(
 			"editTarget: panelPosts.find((post) => post.id === editTargetId) ?? null",

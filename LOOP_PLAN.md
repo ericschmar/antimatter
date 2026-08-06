@@ -109,3 +109,9 @@
 - [x] Put chat workspace tabs above the channel header.
   - Moved the Dockview chat workspace preview to the first main-panel grid row and the channel header to the second row.
   - Added focused layout regression coverage in `src/mainview/app/ChatShell.test.tsx`.
+
+- [x] Fix channel selection so opening or activating a chat tab selects the matching Dockview panel.
+  - Stored the Dockview API in `ChatWorkspace` and activated the panel for `workspace.activeTabId` on readiness and active-tab changes.
+  - Added focused source regression coverage in `src/mainview/app/MainViewApp.test.ts`.
+  - Validation: `bun test src/mainview/app/ChatShell.test.tsx src/mainview/state/chatWorkspace.test.ts src/mainview/app/MainViewApp.test.ts` passed.
+  - Finding: `bun run typecheck` still fails only on the known pre-existing TS2882 CSS side-effect import declaration issue.

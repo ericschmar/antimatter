@@ -370,7 +370,8 @@ export function useMainViewEvents({
 			if (!post) return;
 			if (detail.action === "copy")
 				void navigator.clipboard.writeText(post.message);
-			if (detail.action === "reply") startReply(post);
+			if (detail.action === "reply")
+				startReply(selectedChannelRef.current ?? post.channel_id, post);
 			if (detail.action === "edit" && post.user_id === currentUser?.id) {
 				setEditTarget(post);
 				setEditTargetId(post);
@@ -484,7 +485,7 @@ type UseMainViewEventsArgs = {
 	openSettingsWindow: (settings: AppSettings) => void;
 	selectedChannelRef: MutableRefObject<string | null>;
 	settings: AppSettings;
-	startReply: (post: MattermostPost) => void;
+	startReply: (viewId: string, post: MattermostPost) => void;
 	state: NormalizedState;
 	setChannelNotifications: Dispatch<SetStateAction<ChannelNotificationState>>;
 	setCommandOpen: (open: boolean) => void;

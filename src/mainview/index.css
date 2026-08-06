@@ -523,12 +523,39 @@ textarea:disabled {
 }
 
 .chat-workspace-panel {
+	position: relative;
 	display: grid;
 	grid-template-rows: minmax(0, 1fr) auto;
 	height: 100%;
 	min-height: 0;
 	background: var(--app-bg);
 	overflow: hidden;
+}
+
+.chat-workspace-panel-actions {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	z-index: 5;
+	display: flex;
+	gap: 4px;
+}
+
+.chat-workspace-panel-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border: 1px solid var(--border-subtle);
+	border-radius: 6px;
+	background: var(--panel-raised);
+	color: var(--text-secondary);
+}
+
+.chat-workspace-panel-action:hover {
+	background: var(--panel-hover);
+	color: var(--text-primary);
 }
 
 .chat-workspace-panel .timeline {
@@ -549,11 +576,6 @@ textarea:disabled {
 	height: 100%;
 	min-height: 0;
 	overflow: hidden;
-}
-
-.main-panel:has(.chat-workspace-preview) .chat-body {
-	grid-row: auto;
-	min-height: 0;
 }
 
 .resizable-composer {

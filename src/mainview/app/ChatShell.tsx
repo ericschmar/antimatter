@@ -29,6 +29,7 @@ import { UserPickerDialog } from "../components/UserPickerDialog";
 import { useCall } from "../contexts/CallContext";
 import type { MattermostApiClient } from "../mattermostApi";
 import type {
+	ChatPanelPlacement,
 	ChatViewStateByChannel,
 	ChatWorkspaceState,
 } from "../state/chatWorkspace";
@@ -111,6 +112,7 @@ export function ChatShell({
 	onCreateDm,
 	onEditMessage,
 	onLoadMoreMessages,
+	onOpenChatPanel,
 	onMoveChannel,
 	onOpenAttachment,
 	onOpenSettings,
@@ -121,6 +123,8 @@ export function ChatShell({
 	onSendPoll,
 	onSendTyping,
 	onSetChannelEmoji,
+	onSetChatComposerHeight,
+	onSetChatWorkspaceLayout,
 	onSetComposerHeight,
 	onSetDraftMarkdown,
 	onSetUserColor,
@@ -433,6 +437,7 @@ export function ChatShell({
 								onSelectTeam={onSelectTeam}
 								onSetChannelEmoji={onSetChannelEmoji}
 								onShowChannelContextMenu={onShowChannelContextMenu}
+								onOpenChatPanel={onOpenChatPanel}
 								onOpenCreateChannel={() => uiActions.setCreateChannelOpen(true)}
 								onOpenCreateDm={() => uiActions.setCreateDmOpen(true)}
 								onSignOut={onSignOut}
@@ -578,12 +583,15 @@ export function ChatShell({
 								loading={ui.status === "loading"}
 								loadingHistory={ui.loadingHistory}
 								onActivateTab={onActivateChatTab}
+								onLayoutChange={onSetChatWorkspaceLayout}
+								onOpenTab={onOpenChatPanel}
 								onCancelEdit={onCancelChatEdit}
 								onCancelReply={onCancelChatReply}
 								onCloseTab={onCloseChatTab}
 								onLoadMore={onLoadMoreMessages}
 								onOpenAttachment={onOpenAttachment}
 								onReply={onStartReply}
+								onSetComposerHeight={onSetChatComposerHeight}
 								onSetDraftMarkdown={onSetDraftMarkdown}
 								onSendMessage={onSendMessage}
 								onComposerRef={registerPanelComposerRef}
@@ -602,55 +610,61 @@ export function ChatShell({
 								users={users}
 								workspace={chatWorkspace}
 							/>
-						) : null}
-
-						<section className="chat-body">
-							<MessageTimeline
-								channelId={selectedChannelId}
-								currentUserId={currentUser.id}
-								loading={ui.status === "loading"}
-								loadingHistory={ui.loadingHistory}
-								posts={posts}
-								resolveImageSrc={resolveImageSrc}
-								ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
-								showOwnMessageIndicators={settings.showOwnMessageIndicators}
-								showProfilePictures={settings.showProfilePictures}
-								useNewComposer={settings.useNewComposer}
-								typingUsers={typingUsers}
-								userColors={userColors}
-								userImages={userImages}
-								userStatuses={userStatuses}
-								users={users}
-								onOpenAttachment={onOpenAttachment}
-								onShowMessageContextMenu={onShowMessageContextMenu}
-								onSetUserColor={onSetUserColor}
-								onStartDm={startDm}
-								onReply={onStartReply}
-								onToggleReaction={onToggleReaction}
-								onVotePoll={onVotePoll}
-								onLoadMore={onLoadMoreMessages}
-							/>
-							<Resizable
-								axis="y"
-								height={visibleComposerHeight}
-								maxConstraints={[0, effectiveMaxComposerHeight]}
-								minConstraints={[0, minComposerHeight]}
-								resizeHandles={["n"]}
-								width={0}
-								onResize={resizeComposer}
-							>
-								<div
-									className="resizable-composer"
-									style={{ height: visibleComposerHeight }}
+						) : (
+							<section className="chat-body">
+								<MessageTimeline
+									channelId={selectedChannelId}
+									currentUserId={currentUser.id}
+									loading={ui.status === "loading"}
+									loadingHistory={ui.loadingHistory}
+									posts={posts}
+									resolveImageSrc={resolveImageSrc}
+									ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
+									showOwnMessageIndicators={settings.showOwnMessageIndicators}
+									showProfilePictures={settings.showProfilePictures}
+									useNewComposer={settings.useNewComposer}
+									typingUsers={typingUsers}
+									userColors={userColors}
+									userImages={userImages}
+									userStatuses={userStatuses}
+									users={users}
+									onOpenAttachment={onOpenAttachment}
+									onShowMessageContextMenu={onShowMessageContextMenu}
+									onSetUserColor={onSetUserColor}
+									onStartDm={startDm}
+									onReply={(post) => {
+										if (selectedChannelId)
+											onStartReply(selectedChannelId, post);
+									}}
+									onToggleReaction={onToggleReaction}
+									onVotePoll={onVotePoll}
+									onLoadMore={onLoadMoreMessages}
+								/>
+								<Resizable
+									axis="y"
+									height={visibleComposerHeight}
+									maxConstraints={[0, effectiveMaxComposerHeight]}
+									minConstraints={[0, minComposerHeight]}
+									resizeHandles={["n"]}
+									width={0}
+									onResize={resizeComposer}
 								>
-									{settings.useNewComposer ? (
-										<NewMessageComposer {...composerProps} ref={composerRef} />
-									) : (
-										<MessageComposer {...composerProps} ref={composerRef} />
-									)}
-								</div>
-							</Resizable>
-						</section>
+									<div
+										className="resizable-composer"
+										style={{ height: visibleComposerHeight }}
+									>
+										{settings.useNewComposer ? (
+											<NewMessageComposer
+												{...composerProps}
+												ref={composerRef}
+											/>
+										) : (
+											<MessageComposer {...composerProps} ref={composerRef} />
+										)}
+									</div>
+								</Resizable>
+							</section>
+						)}
 					</main>
 				</div>
 				<CommandMenu
@@ -789,6 +803,11 @@ type ChatShellProps = {
 	onCreateDm: (userIds: string[]) => Promise<void>;
 	onEditMessage: (post: MattermostPost, message: string) => Promise<void>;
 	onLoadMoreMessages: () => Promise<void>;
+	onOpenChatPanel: (
+		channelId: string,
+		placement?: ChatPanelPlacement,
+		referenceTabId?: string,
+	) => void;
 	onMoveChannel: (section: ChannelSectionKey, channelIds: string[]) => void;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onOpenSettings: (settings: AppSettings) => void;
@@ -804,14 +823,16 @@ type ChatShellProps = {
 	onSendPoll: (poll: PollProps) => Promise<void>;
 	onSendTyping: (rootId?: string) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
+	onSetChatComposerHeight: (viewId: string, height: number) => void;
+	onSetChatWorkspaceLayout: (layout: unknown) => void;
 	onSetComposerHeight: (height: number) => void;
-	onSetDraftMarkdown: (channelId: string, draftMarkdown: string) => void;
+	onSetDraftMarkdown: (viewId: string, draftMarkdown: string) => void;
 	onSetUserColor: (userId: string, color: string) => void;
 	onSetSidebarWidth: (width: number) => void;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onSignOut: () => void;
-	onStartReply: (post: MattermostPost) => void;
+	onStartReply: (viewId: string, post: MattermostPost) => void;
 	onToggleChannelSection: (section: ChannelSectionKey) => void;
 	onToggleFavoriteChannel: (channelId: string) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;

@@ -22,6 +22,7 @@ import { useUserPresence } from "../features/users/useUserPresence";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import {
 	activateChatTab,
+	type ChatPanelPlacement,
 	type ChatViewStateByChannel,
 	type ChatWorkspaceState,
 	closeChatTab,
@@ -30,6 +31,7 @@ import {
 	getSelectedChannelId,
 	openChatTab,
 	updateChatViewState,
+	updateChatWorkspaceLayout,
 } from "../state/chatWorkspace";
 import type { AppStatus } from "../state/uiStore";
 import { uiActions, uiStore } from "../state/uiStore";
@@ -180,6 +182,18 @@ export function MainViewApp() {
 	const handleCloseChatTab = useCallback(
 		(tabId: string) => {
 			const nextWorkspace = closeChatTab(chatWorkspaceRef.current, tabId);
+			chatWorkspaceRef.current = nextWorkspace;
+			setChatWorkspace(nextWorkspace);
+			persistChatWorkspaceTabs(nextWorkspace);
+		},
+		[persistChatWorkspaceTabs],
+	);
+	const handleChatWorkspaceLayoutChange = useCallback(
+		(layout: unknown) => {
+			const nextWorkspace = updateChatWorkspaceLayout(
+				chatWorkspaceRef.current,
+				layout,
+			);
 			chatWorkspaceRef.current = nextWorkspace;
 			setChatWorkspace(nextWorkspace);
 			persistChatWorkspaceTabs(nextWorkspace);
@@ -958,27 +972,37 @@ export function MainViewApp() {
 			delete next[channel.id];
 			return next;
 		});
-		setState((current) => ({
-			...current,
-			channels: {
-				...current.channels,
-				[channel.id]: channel,
-			},
-			users: cachedHistory
-				? {
-						...current.users,
-						...Object.fromEntries(
-							cachedHistory.postUsers.map((user) => [user.id, user]),
-						),
-						...Object.fromEntries(
-							cachedHistory.memberUsers.map((user) => [user.id, user]),
-						),
-					}
-				: current.users,
-			posts: cachedHistory?.posts ?? {},
-			postOrder: cachedHistory?.postOrder ?? [],
-		}));
-		setChannelMembers(cachedHistory?.members ?? []);
+		setState((current) => {
+			if (!cachedHistory) {
+				return {
+					...current,
+					channels: {
+						...current.channels,
+						[channel.id]: channel,
+					},
+				};
+			}
+
+			return {
+				...current,
+				channels: {
+					...current.channels,
+					[channel.id]: channel,
+				},
+				users: {
+					...current.users,
+					...Object.fromEntries(
+						cachedHistory.postUsers.map((user) => [user.id, user]),
+					),
+					...Object.fromEntries(
+						cachedHistory.memberUsers.map((user) => [user.id, user]),
+					),
+				},
+				posts: cachedHistory.posts,
+				postOrder: cachedHistory.postOrder,
+			};
+		});
+		if (cachedHistory) setChannelMembers(cachedHistory.members);
 		setStatus(cachedHistory ? "ready" : "loading");
 	}
 
@@ -1059,12 +1083,7 @@ export function MainViewApp() {
 					: [];
 			const created =
 				fileIds.length > 0
-					? await api.createPostWithFiles(
-							channelId,
-							message,
-							fileIds,
-							rootId,
-						)
+					? await api.createPostWithFiles(channelId, message, fileIds, rootId)
 					: await api.createPost(channelId, message, rootId);
 			setState((current) =>
 				updateChannelLastPostAt(current, channelId, created.create_at),
@@ -1272,6 +1291,26 @@ export function MainViewApp() {
 		}
 	}
 
+	function openChatPanel(
+		channelId: string,
+		placement?: ChatPanelPlacement,
+		referenceTabId?: string,
+	) {
+		const channel = stateRef.current.channels[channelId];
+		if (!channel) return;
+		const nextWorkspace = openChatTab(chatWorkspaceRef.current, {
+			channelId,
+			teamId: channel.team_id || null,
+			title: channelLabel(channel, stateRef.current.users, currentUser?.id),
+			duplicate: true,
+			position:
+				placement && referenceTabId ? { referenceTabId, placement } : undefined,
+		});
+		chatWorkspaceRef.current = nextWorkspace;
+		setChatWorkspace(nextWorkspace);
+		persistChatWorkspaceTabs(nextWorkspace);
+	}
+
 	function signOut() {
 		void electrobun.rpc?.request.disconnectMattermostWebSocket({});
 		previousWsStatusRef.current = "idle";
@@ -1344,9 +1383,9 @@ export function MainViewApp() {
 	}, [cancelChatEdit, renderedChannelId]);
 
 	const setChatDraftMarkdown = useCallback(
-		(channelId: string, draftMarkdown: string) => {
+		(viewId: string, draftMarkdown: string) => {
 			setChatViewStates((current) =>
-				updateChatViewState(current, channelId, (state) => ({
+				updateChatViewState(current, viewId, (state) => ({
 					...state,
 					draftMarkdown,
 				})),
@@ -1354,12 +1393,23 @@ export function MainViewApp() {
 		},
 		[],
 	);
+	const setChatComposerHeight = useCallback(
+		(viewId: string, height: number) => {
+			setChatViewStates((current) =>
+				updateChatViewState(current, viewId, (state) => ({
+					...state,
+					composerHeight: height,
+				})),
+			);
+		},
+		[],
+	);
 
-	const startReply = useCallback((post: MattermostPost) => {
+	const startReply = useCallback((viewId: string, post: MattermostPost) => {
 		setEditTarget(null);
 		setReplyTarget(post);
 		setChatViewStates((current) =>
-			updateChatViewState(current, post.channel_id, (state) => ({
+			updateChatViewState(current, viewId, (state) => ({
 				...state,
 				editTargetId: null,
 				replyTargetId: post.id,
@@ -1553,6 +1603,7 @@ export function MainViewApp() {
 				onCreateDm={createDm}
 				onEditMessage={editMessage}
 				onLoadMoreMessages={loadMoreMessages}
+				onOpenChatPanel={openChatPanel}
 				onMoveChannel={moveChannel}
 				onOpenAttachment={openAttachment}
 				onOpenSettings={openSettingsWindow}
@@ -1563,6 +1614,8 @@ export function MainViewApp() {
 				onSendPoll={sendPoll}
 				onSendTyping={sendTyping}
 				onSetChannelEmoji={setChannelEmoji}
+				onSetChatComposerHeight={setChatComposerHeight}
+				onSetChatWorkspaceLayout={handleChatWorkspaceLayoutChange}
 				onSetComposerHeight={setComposerHeight}
 				onSetDraftMarkdown={setChatDraftMarkdown}
 				onSetUserColor={setUserColor}

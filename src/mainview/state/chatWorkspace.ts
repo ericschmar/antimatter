@@ -1,8 +1,14 @@
+export type ChatPanelPlacement = "right" | "below";
+
 export type ChatTabState = {
 	id: string;
 	channelId: string;
 	teamId: string | null;
 	title: string;
+	position?: {
+		referenceTabId: string;
+		placement: ChatPanelPlacement;
+	};
 };
 
 export type ChatWorkspaceState = {
@@ -16,6 +22,7 @@ export type PersistedChatWorkspaceTabs = {
 	version: 1;
 	activeTabId: string | null;
 	tabs: Record<string, ChatTabState>;
+	layout?: unknown;
 };
 
 export type ChatViewState = {
@@ -32,6 +39,11 @@ export type OpenChatTabInput = {
 	channelId: string;
 	teamId: string | null;
 	title: string;
+	duplicate?: boolean;
+	position?: {
+		referenceTabId: string;
+		placement: ChatPanelPlacement;
+	};
 };
 
 export function createEmptyChatWorkspaceState(): ChatWorkspaceState {
@@ -47,8 +59,7 @@ export function createChatWorkspaceStateFromTabs(
 	persistedTabs: PersistedChatWorkspaceTabs | undefined,
 ): ChatWorkspaceState {
 	if (
-		!persistedTabs ||
-		persistedTabs.version !== 1 ||
+		persistedTabs?.version !== 1 ||
 		!persistedTabs.tabs ||
 		typeof persistedTabs.tabs !== "object" ||
 		Array.isArray(persistedTabs.tabs)
@@ -65,7 +76,7 @@ export function createChatWorkspaceStateFromTabs(
 		version: 1,
 		activeTabId,
 		tabs: persistedTabs.tabs,
-		layout: null,
+		layout: persistedTabs.layout ?? null,
 	};
 }
 
@@ -76,11 +87,16 @@ export function getPersistedChatWorkspaceTabs(
 		version: 1,
 		activeTabId: workspace.activeTabId,
 		tabs: workspace.tabs,
+		layout: workspace.layout ?? undefined,
 	};
 }
 
-export function getChatTabId(channelId: string): string {
+export function getChannelTabId(channelId: string): string {
 	return `channel:${channelId}`;
+}
+
+export function getChatTabId(channelId: string): string {
+	return getChannelTabId(channelId);
 }
 
 export function createEmptyChatViewState(): ChatViewState {
@@ -108,12 +124,17 @@ export function openChatTab(
 	workspace: ChatWorkspaceState,
 	input: OpenChatTabInput,
 ): ChatWorkspaceState {
-	const tabId = getChatTabId(input.channelId);
-	const existingTab = workspace.tabs[tabId];
+	const existingTab = input.duplicate
+		? undefined
+		: Object.values(workspace.tabs).find(
+				(tab) => tab.channelId === input.channelId,
+			);
+	const tabId = existingTab?.id ?? getNextPanelId(workspace.tabs);
 
 	return {
 		...workspace,
 		activeTabId: tabId,
+		layout: input.position ? null : workspace.layout,
 		tabs: {
 			...workspace.tabs,
 			[tabId]: existingTab ?? {
@@ -121,6 +142,7 @@ export function openChatTab(
 				channelId: input.channelId,
 				teamId: input.teamId,
 				title: input.title,
+				position: input.position,
 			},
 		},
 	};
@@ -161,6 +183,22 @@ export function closeChatTab(
 	};
 }
 
+export function updateChatWorkspaceLayout(
+	workspace: ChatWorkspaceState,
+	layout: unknown,
+): ChatWorkspaceState {
+	return {
+		...workspace,
+		layout,
+		tabs: Object.fromEntries(
+			Object.entries(workspace.tabs).map(([id, tab]) => [
+				id,
+				{ ...tab, position: undefined },
+			]),
+		),
+	};
+}
+
 export function removeInvalidChatTabs(
 	workspace: ChatWorkspaceState,
 	validChannelIds: ReadonlySet<string>,
@@ -194,4 +232,10 @@ export function getSelectedChannelId(
 	workspace: ChatWorkspaceState,
 ): string | null {
 	return getActiveChatTab(workspace)?.channelId ?? null;
+}
+
+function getNextPanelId(tabs: Record<string, ChatTabState>) {
+	let index = 1;
+	while (tabs[`chat-panel-${index}`]) index += 1;
+	return `chat-panel-${index}`;
 }
