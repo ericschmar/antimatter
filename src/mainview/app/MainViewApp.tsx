@@ -1308,6 +1308,18 @@ export function MainViewApp() {
 		);
 	}, [renderedChannelId]);
 
+	const setChatDraftMarkdown = useCallback(
+		(channelId: string, draftMarkdown: string) => {
+			setChatViewStates((current) =>
+				updateChatViewState(current, channelId, (state) => ({
+					...state,
+					draftMarkdown,
+				})),
+			);
+		},
+		[],
+	);
+
 	const startReply = useCallback((post: MattermostPost) => {
 		setEditTarget(null);
 		setReplyTarget(post);
@@ -1516,6 +1528,7 @@ export function MainViewApp() {
 				onSendTyping={sendTyping}
 				onSetChannelEmoji={setChannelEmoji}
 				onSetComposerHeight={setComposerHeight}
+				onSetDraftMarkdown={setChatDraftMarkdown}
 				onSetUserColor={setUserColor}
 				onSetSidebarWidth={setSidebarWidth}
 				onShowChannelContextMenu={showChannelContextMenu}

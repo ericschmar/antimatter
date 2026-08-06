@@ -152,6 +152,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				onSendTyping={async () => {}}
 				onSetChannelEmoji={() => {}}
 				onSetComposerHeight={() => {}}
+				onSetDraftMarkdown={() => {}}
 				onSetSidebarWidth={() => {}}
 				onSetUserColor={() => {}}
 				onShowChannelContextMenu={() => {}}

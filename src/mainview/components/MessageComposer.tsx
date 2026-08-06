@@ -203,6 +203,7 @@ export type MessageComposerHandle = {
 
 export type MessageComposerProps = {
 	disabled: boolean;
+	draftMarkdown: string;
 	replyTarget: MattermostPost | null;
 	editTarget: MattermostPost | null;
 	giphyApiKey?: string;
@@ -218,6 +219,7 @@ export type MessageComposerProps = {
 	onOpenPollDialog?: () => void;
 	onRequestComposerHeight: (height: number) => void;
 	onSend: (message: string, rootId?: string, files?: File[]) => Promise<void>;
+	onSetDraftMarkdown: (draftMarkdown: string) => void;
 	onTyping: (rootId?: string) => Promise<void>;
 };
 
@@ -247,6 +249,7 @@ export const MessageComposer = forwardRef<
 		userColors,
 		currentUserId,
 		composerHeight,
+		draftMarkdown,
 		maxComposerHeight,
 		onCancelEdit,
 		onCancelReply,
@@ -254,11 +257,12 @@ export const MessageComposer = forwardRef<
 		onOpenPollDialog,
 		onRequestComposerHeight,
 		onSend,
+		onSetDraftMarkdown,
 		onTyping,
 	},
 	ref,
 ) {
-	const [message, setMessage] = useState("");
+	const [message, setMessage] = useState(draftMarkdown);
 	const [files, setFiles] = useState<ComposerFile[]>([]);
 	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
 	const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -298,6 +302,7 @@ export const MessageComposer = forwardRef<
 		(nextMessage: string) => {
 			messageRef.current = nextMessage;
 			setMessage(nextMessage);
+			onSetDraftMarkdown(nextMessage);
 			const lineCount = nextMessage.split(/\r\n|\r|\n/).length;
 			const shouldExpandForLargePaste =
 				composerHeight < maxComposerHeight &&
@@ -330,6 +335,7 @@ export const MessageComposer = forwardRef<
 			onTyping,
 			replyTarget?.id,
 			replyTarget?.root_id,
+			onSetDraftMarkdown,
 		],
 	);
 
@@ -379,6 +385,7 @@ export const MessageComposer = forwardRef<
 				mentionMatch,
 				user.username,
 			);
+			onSetDraftMarkdown(insertion.message);
 			messageRef.current = insertion.message;
 			setMessage(insertion.message);
 			editorRef.current?.setMarkdown(insertion.message);
@@ -389,7 +396,7 @@ export const MessageComposer = forwardRef<
 				defaultSelection: "rootEnd",
 			});
 		},
-		[mentionMatch, message],
+		[mentionMatch, message, onSetDraftMarkdown],
 	);
 
 	const openFilePicker = useCallback(
@@ -512,6 +519,7 @@ export const MessageComposer = forwardRef<
 		if (editTarget) {
 			void onEdit(editTarget, normalizedMessage);
 			lastTypingUpdateRef.current = 0;
+			onSetDraftMarkdown("");
 			messageRef.current = "";
 			setMessage("");
 			editorRef.current?.setMarkdown("");
@@ -523,6 +531,7 @@ export const MessageComposer = forwardRef<
 		try {
 			await onSend(normalizedMessage, rootId, filesToSend);
 			lastTypingUpdateRef.current = 0;
+			onSetDraftMarkdown("");
 			messageRef.current = "";
 			setMessage("");
 			setFiles([]);
@@ -674,6 +683,13 @@ export const MessageComposer = forwardRef<
 	}, [activeMentionIndex, showMentionSuggestions]);
 
 	useEffect(() => {
+		if (messageRef.current === draftMarkdown) return;
+		messageRef.current = draftMarkdown;
+		setMessage(draftMarkdown);
+		editorRef.current?.setMarkdown(draftMarkdown);
+	}, [draftMarkdown]);
+
+	useEffect(() => {
 		if (!editTarget) return;
 		setFiles([]);
 		messageRef.current = editTarget.message;
@@ -736,6 +752,7 @@ export const MessageComposer = forwardRef<
 							className="composer-reply-cancel"
 							type="button"
 							onClick={() => {
+								onSetDraftMarkdown("");
 								messageRef.current = "";
 								setMessage("");
 								editorRef.current?.setMarkdown("");

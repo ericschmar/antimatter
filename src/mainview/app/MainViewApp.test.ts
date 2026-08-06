@@ -169,10 +169,17 @@ describe("MainViewApp channel selection", () => {
 		expect(chatShellSource).toContain(
 			"chatViewStates[selectedChannelId]?.editTargetId",
 		);
+		expect(chatShellSource).toContain(
+			"chatViewStates[selectedChannelId]?.draftMarkdown",
+		);
 		expect(chatWorkspaceSource).toContain("panelState?.replyTargetId");
 		expect(chatWorkspaceSource).toContain("panelState?.editTargetId");
+		expect(chatWorkspaceSource).toContain("panelState?.draftMarkdown");
 		expect(chatWorkspaceSource).toContain(
 			"onCancelReply: () => workspaceProps.onCancelReply(params.channelId)",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"workspaceProps.onSetDraftMarkdown(params.channelId, draftMarkdown)",
 		);
 	});
 });

@@ -42,6 +42,7 @@ type ChatWorkspaceProps = {
 	onStartDm: (userId: string) => void;
 	onReply: (post: MattermostPost) => void;
 	onCancelReply: (channelId: string) => void;
+	onSetDraftMarkdown: (channelId: string, draftMarkdown: string) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 	onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
 	onLoadMore?: () => void;
@@ -73,9 +74,12 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 	const replyTargetId = panelState?.replyTargetId ?? null;
 	const panelComposerProps = {
 		...workspaceProps.composerProps,
+		draftMarkdown: panelState?.draftMarkdown ?? "",
 		editTarget: panelPosts.find((post) => post.id === editTargetId) ?? null,
 		replyTarget: panelPosts.find((post) => post.id === replyTargetId) ?? null,
 		onCancelReply: () => workspaceProps.onCancelReply(params.channelId),
+		onSetDraftMarkdown: (draftMarkdown: string) =>
+			workspaceProps.onSetDraftMarkdown(params.channelId, draftMarkdown),
 	};
 
 	return (
@@ -152,6 +156,7 @@ export function ChatWorkspace({
 	onStartDm,
 	onReply,
 	onCancelReply,
+	onSetDraftMarkdown,
 	onToggleReaction,
 	onVotePoll,
 	onLoadMore,
@@ -199,6 +204,7 @@ export function ChatWorkspace({
 			onStartDm,
 			onReply,
 			onCancelReply,
+			onSetDraftMarkdown,
 			onToggleReaction,
 			onVotePoll,
 			onLoadMore,
@@ -225,6 +231,7 @@ export function ChatWorkspace({
 			onStartDm,
 			onReply,
 			onCancelReply,
+			onSetDraftMarkdown,
 			onToggleReaction,
 			onVotePoll,
 			onLoadMore,

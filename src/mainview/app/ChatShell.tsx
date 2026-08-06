@@ -121,6 +121,7 @@ export function ChatShell({
 	onSendTyping,
 	onSetChannelEmoji,
 	onSetComposerHeight,
+	onSetDraftMarkdown,
 	onSetUserColor,
 	onSetSidebarWidth,
 	onShowChannelContextMenu,
@@ -166,6 +167,9 @@ export function ChatShell({
 	const replyTarget = replyTargetId
 		? (posts.find((post) => post.id === replyTargetId) ?? null)
 		: null;
+	const draftMarkdown = selectedChannelId
+		? (chatViewStates[selectedChannelId]?.draftMarkdown ?? "")
+		: "";
 	const selectedChannelUsers = channelMembers
 		.map((member) => users[member.user_id])
 		.filter((user): user is MattermostUser => Boolean(user));
@@ -233,6 +237,7 @@ export function ChatShell({
 		composerHeight: visibleComposerHeight,
 		currentUserId: currentUser.id,
 		disabled: !selectedChannelId,
+		draftMarkdown,
 		editTarget,
 		giphyApiKey,
 		maxComposerHeight: effectiveMaxComposerHeight,
@@ -246,6 +251,10 @@ export function ChatShell({
 		onOpenPollDialog: () => setPollDialogOpen(true),
 		onRequestComposerHeight: onSetComposerHeight,
 		onSend: onSendMessage,
+		onSetDraftMarkdown: (nextDraftMarkdown) => {
+			if (!selectedChannelId) return;
+			onSetDraftMarkdown(selectedChannelId, nextDraftMarkdown);
+		},
 		onTyping: onSendTyping,
 	};
 
@@ -551,6 +560,7 @@ export function ChatShell({
 								onLoadMore={onLoadMoreMessages}
 								onOpenAttachment={onOpenAttachment}
 								onReply={onStartReply}
+								onSetDraftMarkdown={onSetDraftMarkdown}
 								onSetUserColor={onSetUserColor}
 								onShowMessageContextMenu={onShowMessageContextMenu}
 								onStartDm={startDm}
@@ -767,6 +777,7 @@ type ChatShellProps = {
 	onSendTyping: (rootId?: string) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
 	onSetComposerHeight: (height: number) => void;
+	onSetDraftMarkdown: (channelId: string, draftMarkdown: string) => void;
 	onSetUserColor: (userId: string, color: string) => void;
 	onSetSidebarWidth: (width: number) => void;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;

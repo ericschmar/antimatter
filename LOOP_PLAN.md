@@ -66,3 +66,9 @@
   - Cleared per-channel edit state when canceling, replying, or submitting an edit.
   - Derived active and Dockview panel composer edit targets from each channel's chat view state.
   - Added focused source regression coverage for the per-channel edit state handoff.
+
+- [x] Move drafts into per-chat state.
+  - Added controlled draft props to both composer implementations.
+  - Stored draft text in `ChatViewStateByChannel` through `MainViewApp`.
+  - Derived active and Dockview panel composer draft text from each channel's chat view state.
+  - Added focused source regression coverage for the per-channel draft handoff.

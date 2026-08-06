@@ -87,16 +87,18 @@ export const NewMessageComposer = forwardRef<
 		users,
 		userColors,
 		currentUserId,
+		draftMarkdown,
 		onCancelEdit,
 		onCancelReply,
 		onEdit,
 		onOpenPollDialog,
 		onSend,
+		onSetDraftMarkdown,
 		onTyping,
 	},
 	ref,
 ) {
-	const [message, setMessage] = useState("");
+	const [message, setMessage] = useState(draftMarkdown);
 	const [files, setFiles] = useState<ComposerFile[]>([]);
 	const [activeMentionIndex, setActiveMentionIndex] = useState(0);
 	const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -219,6 +221,7 @@ export const NewMessageComposer = forwardRef<
 		(nextMessage: string) => {
 			messageRef.current = nextMessage;
 			setMessage(nextMessage);
+			onSetDraftMarkdown(nextMessage);
 			if (disabled || editTarget || nextMessage.trim().length === 0) return;
 
 			const now = Date.now();
@@ -227,7 +230,14 @@ export const NewMessageComposer = forwardRef<
 			lastTypingUpdateRef.current = now;
 			void onTyping(replyTarget?.root_id || replyTarget?.id);
 		},
-		[disabled, editTarget, onTyping, replyTarget?.id, replyTarget?.root_id],
+		[
+			disabled,
+			editTarget,
+			onSetDraftMarkdown,
+			onTyping,
+			replyTarget?.id,
+			replyTarget?.root_id,
+		],
 	);
 
 	const insertAtCaret = useCallback(
@@ -240,6 +250,7 @@ export const NewMessageComposer = forwardRef<
 				text +
 				messageRef.current.slice(end);
 			const pos = start + text.length;
+			onSetDraftMarkdown(next);
 			messageRef.current = next;
 			setMessage(next);
 			requestAnimationFrame(() => {
@@ -248,7 +259,7 @@ export const NewMessageComposer = forwardRef<
 				ta?.setSelectionRange(pos, pos);
 			});
 		},
-		[getTextarea],
+		[getTextarea, onSetDraftMarkdown],
 	);
 
 	const insertEmoji = useCallback(
@@ -280,6 +291,7 @@ export const NewMessageComposer = forwardRef<
 				mentionMatch,
 				user.username,
 			);
+			onSetDraftMarkdown(insertion.message);
 			messageRef.current = insertion.message;
 			setMessage(insertion.message);
 			setActiveMentionIndex(0);
@@ -292,7 +304,7 @@ export const NewMessageComposer = forwardRef<
 				);
 			});
 		},
-		[getTextarea, mentionMatch],
+		[getTextarea, mentionMatch, onSetDraftMarkdown],
 	);
 
 	const runTransform = useCallback(
@@ -309,6 +321,7 @@ export const NewMessageComposer = forwardRef<
 				end: textarea?.selectionEnd ?? messageRef.current.length,
 			};
 			const result = transform(messageRef.current, selection);
+			onSetDraftMarkdown(result.message);
 			messageRef.current = result.message;
 			setMessage(result.message);
 			requestAnimationFrame(() => {
@@ -318,7 +331,7 @@ export const NewMessageComposer = forwardRef<
 				ta.setSelectionRange(result.selection.start, result.selection.end);
 			});
 		},
-		[disabled, getTextarea],
+		[disabled, getTextarea, onSetDraftMarkdown],
 	);
 
 	const toggleToolbar = useCallback(() => {
@@ -343,6 +356,7 @@ export const NewMessageComposer = forwardRef<
 		if (editTarget) {
 			void onEdit(editTarget, normalizedMessage);
 			lastTypingUpdateRef.current = 0;
+			onSetDraftMarkdown("");
 			messageRef.current = "";
 			setMessage("");
 			return;
@@ -353,6 +367,7 @@ export const NewMessageComposer = forwardRef<
 		try {
 			await onSend(normalizedMessage, rootId, filesToSend);
 			lastTypingUpdateRef.current = 0;
+			onSetDraftMarkdown("");
 			messageRef.current = "";
 			setMessage("");
 			setFiles([]);
@@ -509,6 +524,12 @@ export const NewMessageComposer = forwardRef<
 	}, [activeMentionIndex, showMentionSuggestions]);
 
 	useEffect(() => {
+		if (messageRef.current === draftMarkdown) return;
+		messageRef.current = draftMarkdown;
+		setMessage(draftMarkdown);
+	}, [draftMarkdown]);
+
+	useEffect(() => {
 		if (!editTarget) return;
 		setFiles([]);
 		messageRef.current = editTarget.message;
@@ -571,6 +592,7 @@ export const NewMessageComposer = forwardRef<
 							className="composer-reply-cancel"
 							type="button"
 							onClick={() => {
+								onSetDraftMarkdown("");
 								messageRef.current = "";
 								setMessage("");
 								onCancelEdit();

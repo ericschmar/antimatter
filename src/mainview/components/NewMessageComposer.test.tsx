@@ -26,6 +26,7 @@ describe("NewMessageComposer", () => {
 				composerHeight={140}
 				currentUserId="user-1"
 				disabled={false}
+				draftMarkdown=""
 				editTarget={null}
 				maxComposerHeight={320}
 				mentionUsers={[]}
@@ -37,6 +38,7 @@ describe("NewMessageComposer", () => {
 				onEdit={async () => {}}
 				onRequestComposerHeight={() => {}}
 				onSend={async () => {}}
+				onSetDraftMarkdown={() => {}}
 				onTyping={async () => {}}
 			/>,
 		);
