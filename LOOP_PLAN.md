@@ -115,3 +115,8 @@
   - Added focused source regression coverage in `src/mainview/app/MainViewApp.test.ts`.
   - Validation: `bun test src/mainview/app/ChatShell.test.tsx src/mainview/state/chatWorkspace.test.ts src/mainview/app/MainViewApp.test.ts` passed.
   - Finding: `bun run typecheck` still fails only on the known pre-existing TS2882 CSS side-effect import declaration issue.
+
+- [x] Make Dockview chat workspace tabs match the channel sidebar UI design.
+  - Added Dockview tab CSS overrides using the same sidebar background, radius, padding, hover, and active-state tokens.
+  - Added focused source regression coverage in `src/mainview/app/ChatShell.test.tsx`.
+  - Validation: `bun test src/mainview/app/ChatShell.test.tsx` passed.

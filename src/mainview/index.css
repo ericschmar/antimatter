@@ -522,6 +522,28 @@ textarea:disabled {
 	height: 100%;
 }
 
+.chat-workspace-dockview .dv-tabs-container {
+	background: color-mix(in srgb, var(--slate-2) 74%, transparent);
+	padding: 5px 6px;
+}
+
+.chat-workspace-dockview .dv-tab {
+	border-radius: 6px;
+	background: transparent;
+	color: var(--text-secondary);
+	padding: 5px 8px;
+}
+
+.chat-workspace-dockview .dv-tab.active-tab {
+	background: var(--panel-hover);
+	color: var(--text-primary);
+}
+
+.chat-workspace-dockview .dv-tab:hover {
+	background: var(--panel-hover);
+	color: var(--text-primary);
+}
+
 .chat-workspace-panel {
 	position: relative;
 	display: grid;

@@ -185,6 +185,23 @@ describe("ChatShell workspace layout", () => {
 		expect(chatWorkspace).toContain("grid-row: 1;");
 		expect(channelHeader).toContain("grid-row: 2;");
 	});
+
+	test("styles chat workspace tabs with channel sidebar tokens", () => {
+		const css = readFileSync("src/mainview/index.css", "utf8");
+
+		const dockviewTabs = css.match(/\.chat-workspace-dockview \.dv-tabs-container \{[^}]+\}/)?.[0] ?? "";
+		const dockviewTab = css.match(/\.chat-workspace-dockview \.dv-tab \{[^}]+\}/)?.[0] ?? "";
+		const activeDockviewTab = css.match(/\.chat-workspace-dockview \.dv-tab\.active-tab \{[^}]+\}/)?.[0] ?? "";
+		const dockviewTabHover = css.match(/\.chat-workspace-dockview \.dv-tab:hover \{[^}]+\}/)?.[0] ?? "";
+
+		expect(dockviewTabs).toContain("background: color-mix(in srgb, var(--slate-2) 74%, transparent);");
+		expect(dockviewTab).toContain("border-radius: 6px;");
+		expect(dockviewTab).toContain("color: var(--text-secondary);");
+		expect(dockviewTab).toContain("padding: 5px 8px;");
+		expect(activeDockviewTab).toContain("background: var(--panel-hover);");
+		expect(activeDockviewTab).toContain("color: var(--text-primary);");
+		expect(dockviewTabHover).toContain("background: var(--panel-hover);");
+	});
 });
 
 describe("ChatShell composer disabled state", () => {
