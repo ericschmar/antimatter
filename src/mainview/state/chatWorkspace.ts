@@ -12,6 +12,11 @@ export type ChatWorkspaceState = {
 	layout: unknown;
 };
 
+export type PersistedChatWorkspaceTabs = {
+	version: 1;
+	tabs: Record<string, ChatTabState>;
+};
+
 export type ChatViewState = {
 	draftMarkdown: string;
 	replyTargetId: string | null;
@@ -34,6 +39,36 @@ export function createEmptyChatWorkspaceState(): ChatWorkspaceState {
 		activeTabId: null,
 		tabs: {},
 		layout: null,
+	};
+}
+
+export function createChatWorkspaceStateFromTabs(
+	persistedTabs: PersistedChatWorkspaceTabs | undefined,
+): ChatWorkspaceState {
+	if (
+		!persistedTabs ||
+		persistedTabs.version !== 1 ||
+		!persistedTabs.tabs ||
+		typeof persistedTabs.tabs !== "object" ||
+		Array.isArray(persistedTabs.tabs)
+	) {
+		return createEmptyChatWorkspaceState();
+	}
+
+	return {
+		version: 1,
+		activeTabId: Object.keys(persistedTabs.tabs)[0] ?? null,
+		tabs: persistedTabs.tabs,
+		layout: null,
+	};
+}
+
+export function getPersistedChatWorkspaceTabs(
+	workspace: ChatWorkspaceState,
+): PersistedChatWorkspaceTabs {
+	return {
+		version: 1,
+		tabs: workspace.tabs,
 	};
 }
 

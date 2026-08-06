@@ -44,15 +44,29 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(source).toContain(
-			"const [chatWorkspace, setChatWorkspace] = useState(() =>\n\t\tcreateEmptyChatWorkspaceState(),\n\t);\n\tconst activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);",
+			"const [chatWorkspace, setChatWorkspace] = useState(() =>\n\t\tcreateChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs),\n\t);\n\tconst chatWorkspaceRef = useRef(chatWorkspace);\n\tchatWorkspaceRef.current = chatWorkspace;\n\tconst activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);",
 		);
 		expect(source).toContain(
-			"\t\tsetChatWorkspace((workspace) =>\n\t\t\topenChatTab(workspace, {\n\t\t\t\tchannelId: channel.id,\n\t\t\t\tteamId: channel.team_id || null,\n\t\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t\t}),\n\t\t);\n\t\tsetSelectedChannelId(channel.id);",
+			"\t\tconst nextWorkspace = openChatTab(chatWorkspaceRef.current, {\n\t\t\tchannelId: channel.id,\n\t\t\tteamId: channel.team_id || null,\n\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t});\n\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\tsetChatWorkspace(nextWorkspace);\n\t\tpersistChatWorkspaceTabs(nextWorkspace, nextConfig);\n\t\tsetSelectedChannelId(channel.id);",
 		);
 		expect(source).toContain(
 			"const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;\n\tconst selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
 		);
 		expect(source).toContain("selectedChannelId={renderedChannelId}");
+	});
+
+	test("persists open workspace tab metadata", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain(
+			"chatWorkspaceTabs: getPersistedChatWorkspaceTabs(nextWorkspace)",
+		);
+		expect(source).toContain(
+			"createChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs)",
+		);
 	});
 
 	test("passes workspace state to the isolated chat workspace proof of concept", () => {
@@ -111,7 +125,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleCloseChatTab = useCallback((tabId: string) => {\n\t\tsetChatWorkspace((workspace) => closeChatTab(workspace, tabId));\n\t}, []);",
+			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceRef.current, tabId);\n\t\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\t\tsetChatWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
 		);
 		expect(mainViewSource).toContain("onCloseChatTab={handleCloseChatTab}");
 		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");

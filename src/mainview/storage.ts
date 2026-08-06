@@ -41,6 +41,7 @@ export function loadConfig(): MattermostConfig | null {
 			authMethod,
 			lastTeamId: config.lastTeamId,
 			lastChannelId: config.lastChannelId,
+			chatWorkspaceTabs: config.chatWorkspaceTabs,
 		};
 	} catch {
 		return null;

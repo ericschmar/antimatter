@@ -1,9 +1,12 @@
+import type { PersistedChatWorkspaceTabs } from "./state/chatWorkspace";
+
 export type MattermostConfig = {
 	serverUrl: string;
 	token: string;
 	authMethod?: "pat" | "password" | "sso";
 	lastTeamId?: string;
 	lastChannelId?: string;
+	chatWorkspaceTabs?: PersistedChatWorkspaceTabs;
 };
 
 export type MattermostUser = {

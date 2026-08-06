@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
 	activateChatTab,
 	closeChatTab,
+	createChatWorkspaceStateFromTabs,
 	createEmptyChatWorkspaceState,
 	getChatTabId,
+	getPersistedChatWorkspaceTabs,
 	getSelectedChannelId,
 	openChatTab,
 	removeInvalidChatTabs,
@@ -123,6 +125,26 @@ describe("chatWorkspace", () => {
 		expect(Object.keys(restored.tabs)).toEqual(["channel:channel-1"]);
 		expect(restored.activeTabId).toBe("channel:channel-1");
 		expect(getSelectedChannelId(restored)).toBe("channel-1");
+	});
+
+	test("serializes and restores open tab metadata", () => {
+		const workspace = openChatTab(createEmptyChatWorkspaceState(), {
+			channelId: "channel-1",
+			teamId: "team-1",
+			title: "Town Square",
+		});
+
+		const persistedTabs = getPersistedChatWorkspaceTabs(workspace);
+		const restored = createChatWorkspaceStateFromTabs(persistedTabs);
+
+		expect(restored).toEqual({
+			...workspace,
+			layout: null,
+		});
+		expect(persistedTabs).toEqual({
+			version: 1,
+			tabs: workspace.tabs,
+		});
 	});
 
 	test("updates per-channel chat view state independently", () => {

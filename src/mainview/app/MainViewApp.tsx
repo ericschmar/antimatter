@@ -23,8 +23,10 @@ import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import {
 	activateChatTab,
 	type ChatViewStateByChannel,
+	type ChatWorkspaceState,
 	closeChatTab,
-	createEmptyChatWorkspaceState,
+	createChatWorkspaceStateFromTabs,
+	getPersistedChatWorkspaceTabs,
 	getSelectedChannelId,
 	openChatTab,
 	updateChatViewState,
@@ -145,18 +147,39 @@ export function MainViewApp() {
 	const [currentUser, setCurrentUser] = useState<MattermostUser | null>(null);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 	const [chatWorkspace, setChatWorkspace] = useState(() =>
-		createEmptyChatWorkspaceState(),
+		createChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs),
 	);
+	const chatWorkspaceRef = useRef(chatWorkspace);
+	chatWorkspaceRef.current = chatWorkspace;
 	const activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);
 	const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
 		null,
 	);
+	const persistChatWorkspaceTabs = useCallback(
+		(nextWorkspace: ChatWorkspaceState, baseConfig = config) => {
+			if (!baseConfig) return;
+
+			const nextConfig = {
+				...baseConfig,
+				chatWorkspaceTabs: getPersistedChatWorkspaceTabs(nextWorkspace),
+			};
+			saveConfig(nextConfig);
+			setConfig(nextConfig);
+		},
+		[config],
+	);
 	const handleActivateChatTab = useCallback((tabId: string) => {
 		setChatWorkspace((workspace) => activateChatTab(workspace, tabId));
 	}, []);
-	const handleCloseChatTab = useCallback((tabId: string) => {
-		setChatWorkspace((workspace) => closeChatTab(workspace, tabId));
-	}, []);
+	const handleCloseChatTab = useCallback(
+		(tabId: string) => {
+			const nextWorkspace = closeChatTab(chatWorkspaceRef.current, tabId);
+			chatWorkspaceRef.current = nextWorkspace;
+			setChatWorkspace(nextWorkspace);
+			persistChatWorkspaceTabs(nextWorkspace);
+		},
+		[persistChatWorkspaceTabs],
+	);
 	const [state, setState] = useState<NormalizedState>(emptyState);
 	// Read the latest posts inside the channel-history sync effect without subscribing to every
 	// state change (which would re-run the effect on every reaction load).
@@ -915,13 +938,14 @@ export function MainViewApp() {
 		saveConfig(nextConfig);
 		setConfig(nextConfig);
 		selectedChannelRef.current = channel.id;
-		setChatWorkspace((workspace) =>
-			openChatTab(workspace, {
-				channelId: channel.id,
-				teamId: channel.team_id || null,
-				title: channelLabel(channel, stateRef.current.users, currentUser?.id),
-			}),
-		);
+		const nextWorkspace = openChatTab(chatWorkspaceRef.current, {
+			channelId: channel.id,
+			teamId: channel.team_id || null,
+			title: channelLabel(channel, stateRef.current.users, currentUser?.id),
+		});
+		chatWorkspaceRef.current = nextWorkspace;
+		setChatWorkspace(nextWorkspace);
+		persistChatWorkspaceTabs(nextWorkspace, nextConfig);
 		setSelectedChannelId(channel.id);
 		setChannelNotifications((current) => {
 			const next = { ...current };

@@ -88,3 +88,10 @@
 
 - [x] Ensure switching tabs preserves draft/reply/edit state.
   - Added focused source regression coverage confirming tab activation only changes workspace active tab state while active and panel composers derive draft, reply, and edit state from the current channel.
+
+- [x] Persist open tab metadata.
+  - Added serializable persisted chat workspace tab metadata helpers.
+  - Restored open tab metadata from saved config when initializing `MainViewApp`.
+  - Persisted open tab metadata when channels are opened and tabs are closed without persisting active-tab state yet.
+  - Added focused unit and source regression coverage.
+  - Finding: `bun run typecheck` still fails on the known pre-existing TS2882 CSS side-effect import declaration issue.
