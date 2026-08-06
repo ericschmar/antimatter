@@ -106,6 +106,7 @@ function renderChatShell(selectedChannelId: string | null) {
 					dms: [],
 					favorites: [],
 				}}
+				chatViewStates={{}}
 				selectedChannel={selectedChannelId ? selectedChannel : undefined}
 				selectedChannelId={selectedChannelId}
 				selectedTeam={selectedTeam}
@@ -135,6 +136,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				onArchiveChannel={() => {}}
 				onCancelEdit={() => {}}
 				onCancelReply={() => {}}
+				onCancelChatReply={() => {}}
 				onCreateChannel={async () => {}}
 				onCreateDm={async () => {}}
 				onEditMessage={async () => {}}

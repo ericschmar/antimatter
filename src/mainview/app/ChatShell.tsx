@@ -28,7 +28,10 @@ import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
 import { useCall } from "../contexts/CallContext";
 import type { MattermostApiClient } from "../mattermostApi";
-import type { ChatWorkspaceState } from "../state/chatWorkspace";
+import type {
+	ChatViewStateByChannel,
+	ChatWorkspaceState,
+} from "../state/chatWorkspace";
 import { uiActions, uiStore } from "../state/uiStore";
 import {
 	loadDismissedAppUpdateBannerKey,
@@ -83,6 +86,7 @@ export function ChatShell({
 	resolveImageSrc,
 	sections,
 	chatWorkspace,
+	chatViewStates,
 	onActivateChatTab,
 	onCloseChatTab,
 	selectedChannel,
@@ -101,6 +105,7 @@ export function ChatShell({
 	onArchiveChannel,
 	onCancelEdit,
 	onCancelReply,
+	onCancelChatReply,
 	onCreateChannel,
 	onCreateDm,
 	onEditMessage,
@@ -150,7 +155,12 @@ export function ChatShell({
 		[onCreateDm],
 	);
 	const editTarget = ui.editTarget as MattermostPost | null;
-	const replyTarget = ui.replyTarget as MattermostPost | null;
+	const replyTargetId = selectedChannelId
+		? (chatViewStates[selectedChannelId]?.replyTargetId ?? null)
+		: null;
+	const replyTarget = replyTargetId
+		? (posts.find((post) => post.id === replyTargetId) ?? null)
+		: null;
 	const selectedChannelUsers = channelMembers
 		.map((member) => users[member.user_id])
 		.filter((user): user is MattermostUser => Boolean(user));
@@ -526,10 +536,12 @@ export function ChatShell({
 							<ChatWorkspace
 								channels={channels}
 								composerProps={composerProps}
+								chatViewStates={chatViewStates}
 								currentUserId={currentUser.id}
 								loading={ui.status === "loading"}
 								loadingHistory={ui.loadingHistory}
 								onActivateTab={onActivateChatTab}
+								onCancelReply={onCancelChatReply}
 								onCloseTab={onCloseChatTab}
 								onLoadMore={onLoadMoreMessages}
 								onOpenAttachment={onOpenAttachment}
@@ -707,6 +719,7 @@ type ChatShellProps = {
 	resolveImageSrc: (src: string) => Promise<string>;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
 	chatWorkspace?: ChatWorkspaceState | null;
+	chatViewStates: ChatViewStateByChannel;
 	onActivateChatTab: (tabId: string) => void;
 	onCloseChatTab: (tabId: string) => void;
 	selectedChannel: MattermostChannel | undefined;
@@ -725,6 +738,7 @@ type ChatShellProps = {
 	onArchiveChannel: (channelId: string) => void;
 	onCancelEdit: () => void;
 	onCancelReply: () => void;
+	onCancelChatReply: (channelId: string) => void;
 	onCreateChannel: (
 		displayName: string,
 		name: string,

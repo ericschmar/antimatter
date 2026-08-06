@@ -22,10 +22,12 @@ import { useUserPresence } from "../features/users/useUserPresence";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import {
 	activateChatTab,
+	type ChatViewStateByChannel,
 	closeChatTab,
 	createEmptyChatWorkspaceState,
 	getSelectedChannelId,
 	openChatTab,
+	updateChatViewState,
 } from "../state/chatWorkspace";
 import type { AppStatus } from "../state/uiStore";
 import { uiActions, uiStore } from "../state/uiStore";
@@ -201,6 +203,9 @@ export function MainViewApp() {
 	const [channelMembers, setChannelMembers] = useState<
 		MattermostChannelMember[]
 	>([]);
+	const [chatViewStates, setChatViewStates] = useState<ChatViewStateByChannel>(
+		{},
+	);
 	const [appUpdate, setAppUpdate] = useState<AppUpdateState>({
 		status: "idle",
 		updateAvailable: false,
@@ -1256,9 +1261,41 @@ export function MainViewApp() {
 		});
 	}
 
+	const cancelChatReply = useCallback(
+		(channelId: string) => {
+			setChatViewStates((current) =>
+				updateChatViewState(current, channelId, (state) => ({
+					...state,
+					replyTargetId: null,
+				})),
+			);
+			if (channelId === renderedChannelId) {
+				setReplyTarget(null);
+			}
+		},
+		[renderedChannelId],
+	);
+
+	const cancelReply = useCallback(() => {
+		setReplyTarget(null);
+		if (!renderedChannelId) return;
+		setChatViewStates((current) =>
+			updateChatViewState(current, renderedChannelId, (state) => ({
+				...state,
+				replyTargetId: null,
+			})),
+		);
+	}, [renderedChannelId]);
+
 	const startReply = useCallback((post: MattermostPost) => {
 		setEditTarget(null);
 		setReplyTarget(post);
+		setChatViewStates((current) =>
+			updateChatViewState(current, post.channel_id, (state) => ({
+				...state,
+				replyTargetId: post.id,
+			})),
+		);
 		requestAnimationFrame(() => composerRef.current?.focus());
 	}, []);
 
@@ -1414,6 +1451,7 @@ export function MainViewApp() {
 				resolveImageSrc={resolveImageSrc}
 				sections={sections}
 				chatWorkspace={chatWorkspace}
+				chatViewStates={chatViewStates}
 				onActivateChatTab={handleActivateChatTab}
 				onCloseChatTab={handleCloseChatTab}
 				selectedChannel={selectedChannel}
@@ -1431,7 +1469,8 @@ export function MainViewApp() {
 				onApplyAppUpdate={installAppUpdate}
 				onArchiveChannel={archiveChannel}
 				onCancelEdit={() => setEditTarget(null)}
-				onCancelReply={() => setReplyTarget(null)}
+				onCancelReply={cancelReply}
+				onCancelChatReply={cancelChatReply}
 				onCreateChannel={createChannel}
 				onCreateDm={createDm}
 				onEditMessage={editMessage}

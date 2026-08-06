@@ -54,3 +54,9 @@
   - Forwarded existing composer props from `ChatShell` and added minimal panel composer layout CSS.
   - Added focused source regression coverage for the composer handoff.
   - Finding: composer actions still use the legacy active-channel/global reply/edit/draft wiring; Phase 5 is still needed for true per-chat composer state.
+
+- [x] Move reply target into per-chat state.
+  - Added `ChatViewStateByChannel` state in `MainViewApp` and updated reply start/cancel handlers through `updateChatViewState`.
+  - Derived the active composer reply target from the active channel's chat view state in `ChatShell`.
+  - Overrode each Dockview panel composer's reply target and cancel handler from its panel channel state.
+  - Added focused source regression coverage for the per-channel reply state handoff.

@@ -135,10 +135,42 @@ describe("MainViewApp channel selection", () => {
 			'<div className="chat-workspace-panel-composer">',
 		);
 		expect(chatWorkspaceSource).toContain(
-			"<NewMessageComposer {...workspaceProps.composerProps} />",
+			"<NewMessageComposer {...panelComposerProps} />",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"<MessageComposer {...workspaceProps.composerProps} />",
+			"<MessageComposer {...panelComposerProps} />",
+		);
+	});
+
+	test("stores reply target state by chat channel", () => {
+		const mainViewSource = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatShellSource = readFileSync(
+			new URL("./ChatShell.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(mainViewSource).toContain(
+			"const [chatViewStates, setChatViewStates] = useState<ChatViewStateByChannel>(",
+		);
+		expect(mainViewSource).toContain(
+			"updateChatViewState(current, post.channel_id",
+		);
+		expect(mainViewSource).toContain("chatViewStates={chatViewStates}");
+		expect(chatShellSource).toContain(
+			"chatViewStates[selectedChannelId]?.replyTargetId",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"workspaceProps.chatViewStates[params.channelId]?.replyTargetId",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"onCancelReply: () => workspaceProps.onCancelReply(params.channelId)",
 		);
 	});
 });

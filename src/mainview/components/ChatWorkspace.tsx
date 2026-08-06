@@ -1,6 +1,9 @@
 import { DockviewReact, type IDockviewPanelProps } from "dockview-react";
 import { useMemo } from "react";
-import type { ChatWorkspaceState } from "../state/chatWorkspace";
+import type {
+	ChatViewStateByChannel,
+	ChatWorkspaceState,
+} from "../state/chatWorkspace";
 import type {
 	AppSettings,
 	MattermostChannel,
@@ -29,6 +32,7 @@ type ChatWorkspaceProps = {
 	loading: boolean;
 	loadingHistory?: boolean;
 	composerProps: MessageComposerProps;
+	chatViewStates: ChatViewStateByChannel;
 	resolveImageSrc: (src: string) => Promise<string>;
 	onActivateTab: (tabId: string) => void;
 	onCloseTab: (tabId: string) => void;
@@ -37,6 +41,7 @@ type ChatWorkspaceProps = {
 	onSetUserColor: (userId: string, color: string) => void;
 	onStartDm: (userId: string) => void;
 	onReply: (post: MattermostPost) => void;
+	onCancelReply: (channelId: string) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 	onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
 	onLoadMore?: () => void;
@@ -63,6 +68,13 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 				username: "Someone",
 			},
 	);
+	const replyTargetId =
+		workspaceProps.chatViewStates[params.channelId]?.replyTargetId ?? null;
+	const panelComposerProps = {
+		...workspaceProps.composerProps,
+		replyTarget: panelPosts.find((post) => post.id === replyTargetId) ?? null,
+		onCancelReply: () => workspaceProps.onCancelReply(params.channelId),
+	};
 
 	return (
 		<div
@@ -101,9 +113,9 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 			/>
 			<div className="chat-workspace-panel-composer">
 				{workspaceProps.settings.useNewComposer ? (
-					<NewMessageComposer {...workspaceProps.composerProps} />
+					<NewMessageComposer {...panelComposerProps} />
 				) : (
-					<MessageComposer {...workspaceProps.composerProps} />
+					<MessageComposer {...panelComposerProps} />
 				)}
 			</div>
 		</div>
@@ -128,6 +140,7 @@ export function ChatWorkspace({
 	loading,
 	loadingHistory,
 	composerProps,
+	chatViewStates,
 	resolveImageSrc,
 	onActivateTab,
 	onCloseTab,
@@ -136,6 +149,7 @@ export function ChatWorkspace({
 	onSetUserColor,
 	onStartDm,
 	onReply,
+	onCancelReply,
 	onToggleReaction,
 	onVotePoll,
 	onLoadMore,
@@ -173,6 +187,7 @@ export function ChatWorkspace({
 			loading,
 			loadingHistory,
 			composerProps,
+			chatViewStates,
 			resolveImageSrc,
 			onActivateTab,
 			onCloseTab,
@@ -181,6 +196,7 @@ export function ChatWorkspace({
 			onSetUserColor,
 			onStartDm,
 			onReply,
+			onCancelReply,
 			onToggleReaction,
 			onVotePoll,
 			onLoadMore,
@@ -197,6 +213,7 @@ export function ChatWorkspace({
 			loading,
 			loadingHistory,
 			composerProps,
+			chatViewStates,
 			resolveImageSrc,
 			onActivateTab,
 			onCloseTab,
@@ -205,6 +222,7 @@ export function ChatWorkspace({
 			onSetUserColor,
 			onStartDm,
 			onReply,
+			onCancelReply,
 			onToggleReaction,
 			onVotePoll,
 			onLoadMore,
