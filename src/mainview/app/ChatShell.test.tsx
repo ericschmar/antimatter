@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import type { RefObject } from "react";
 import { renderToString } from "react-dom/server";
 import type { AppUpdateState } from "../../shared/electrobunRpc";
@@ -142,6 +143,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				onCreateDm={async () => {}}
 				onEditMessage={async () => {}}
 				onLoadMoreMessages={async () => {}}
+				onOpenChatPanel={() => {}}
 				onMoveChannel={() => {}}
 				onOpenAttachment={async () => {}}
 				onOpenSettings={() => {}}
@@ -152,6 +154,8 @@ function renderChatShell(selectedChannelId: string | null) {
 				onSendPoll={async () => {}}
 				onSendTyping={async () => {}}
 				onSetChannelEmoji={() => {}}
+				onSetChatComposerHeight={() => {}}
+				onSetChatWorkspaceLayout={() => {}}
 				onSetComposerHeight={() => {}}
 				onSetDraftMarkdown={() => {}}
 				onSetSidebarWidth={() => {}}
@@ -169,6 +173,19 @@ function renderChatShell(selectedChannelId: string | null) {
 		</CallProvider>,
 	);
 }
+
+describe("ChatShell workspace layout", () => {
+	test("places chat workspace tabs above the channel header", () => {
+		const css = readFileSync("src/mainview/index.css", "utf8");
+		const mainPanel = css.match(/\.main-panel \{[^}]+\}/)?.[0] ?? "";
+		const chatWorkspace = css.match(/\.chat-workspace-preview \{[^}]+\}/)?.[0] ?? "";
+		const channelHeader = css.match(/\.channel-header \{[^}]+\}/)?.[0] ?? "";
+
+		expect(mainPanel).toContain("grid-template-rows: auto auto auto minmax(0, 1fr);");
+		expect(chatWorkspace).toContain("grid-row: 1;");
+		expect(channelHeader).toContain("grid-row: 2;");
+	});
+});
 
 describe("ChatShell composer disabled state", () => {
 	test("keeps the composer enabled during channel-history loading when a channel is selected", () => {

@@ -105,3 +105,7 @@
 - [x] Change available username colors to the requested palette.
   - Updated `USER_COLOR_PALETTE` to the 32 requested hex colors and bumped `USER_COLOR_PALETTE_VERSION` so stored assignments migrate.
   - Added focused unit coverage for the configured palette.
+
+- [x] Put chat workspace tabs above the channel header.
+  - Moved the Dockview chat workspace preview to the first main-panel grid row and the channel header to the second row.
+  - Added focused layout regression coverage in `src/mainview/app/ChatShell.test.tsx`.

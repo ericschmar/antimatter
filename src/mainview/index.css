@@ -259,7 +259,7 @@ textarea:disabled {
 }
 
 .channel-header {
-	grid-row: 1;
+	grid-row: 2;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -512,7 +512,7 @@ textarea:disabled {
 }
 
 .chat-workspace-preview {
-	grid-row: 4;
+	grid-row: 1;
 	min-height: 160px;
 	border-bottom: 1px solid var(--border-subtle);
 	background: var(--panel-bg);
