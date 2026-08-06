@@ -44,3 +44,7 @@
   - Passed timeline data, settings, typing state, user display state, and message callbacks from `ChatShell` into `ChatWorkspace`.
   - Updated workspace panel CSS so timelines fill their Dockview panel.
   - Finding: `MainViewApp` still only exposes the active channel's loaded posts, so inactive tab timelines remain empty until multi-channel history state is added.
+
+- [x] Activate chat workspace tab when clicking or focusing inside its panel.
+  - Wired `ChatWorkspace` panel pointer and focus events to the existing active-tab callback.
+  - Added source regression coverage for panel-body activation handoff.

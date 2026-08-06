@@ -46,7 +46,7 @@ type ChatPanelParams = {
 	workspaceProps: Omit<ChatWorkspaceProps, "workspace" | "channels">;
 };
 
-function ChatPanel({ params }: IDockviewPanelProps<ChatPanelParams>) {
+function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 	const { workspaceProps } = params;
 	const panelPosts = workspaceProps.posts.filter(
 		(post) => post.channel_id === params.channelId,
@@ -62,7 +62,11 @@ function ChatPanel({ params }: IDockviewPanelProps<ChatPanelParams>) {
 	);
 
 	return (
-		<div className="chat-workspace-panel">
+		<div
+			className="chat-workspace-panel"
+			onFocus={() => workspaceProps.onActivateTab(api.id)}
+			onPointerDown={() => workspaceProps.onActivateTab(api.id)}
+		>
 			<MessageTimeline
 				channelId={params.channelId}
 				currentUserId={workspaceProps.currentUserId}

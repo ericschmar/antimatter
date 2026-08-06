@@ -88,6 +88,12 @@ describe("MainViewApp channel selection", () => {
 		expect(chatWorkspaceSource).toContain(
 			"event.api.onDidActivePanelChange(({ panel }) => {\n\t\t\t\t\t\t\tif (panel) onActivateTab(panel.id);\n\t\t\t\t\t\t});",
 		);
+		expect(chatWorkspaceSource).toContain(
+			"onPointerDown={() => workspaceProps.onActivateTab(api.id)}",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"onFocus={() => workspaceProps.onActivateTab(api.id)}",
+		);
 	});
 
 	test("syncs Dockview panel close events to chat workspace state", () => {
