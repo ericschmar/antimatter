@@ -45,8 +45,15 @@ type ChatWorkspaceProps = {
 	onSetUserColor: (userId: string, color: string) => void;
 	onStartDm: (userId: string) => void;
 	onReply: (post: MattermostPost) => void;
+	onCancelEdit: (channelId: string) => void;
 	onCancelReply: (channelId: string) => void;
 	onSetDraftMarkdown: (channelId: string, draftMarkdown: string) => void;
+	onSendMessage: (
+		channelId: string,
+		message: string,
+		rootId?: string,
+		files?: File[],
+	) => Promise<void>;
 	onComposerRef: (
 		channelId: string,
 		handle: MessageComposerHandle | null,
@@ -85,7 +92,10 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 		draftMarkdown: panelState?.draftMarkdown ?? "",
 		editTarget: panelPosts.find((post) => post.id === editTargetId) ?? null,
 		replyTarget: panelPosts.find((post) => post.id === replyTargetId) ?? null,
+		onCancelEdit: () => workspaceProps.onCancelEdit(params.channelId),
 		onCancelReply: () => workspaceProps.onCancelReply(params.channelId),
+		onSend: (message: string, rootId?: string, files?: File[]) =>
+			workspaceProps.onSendMessage(params.channelId, message, rootId, files),
 		onSetDraftMarkdown: (draftMarkdown: string) =>
 			workspaceProps.onSetDraftMarkdown(params.channelId, draftMarkdown),
 	};

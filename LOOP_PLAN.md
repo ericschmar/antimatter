@@ -78,3 +78,10 @@
   - Routed attach-file, attach-image, and emoji-picker shortcuts through the active chat panel composer with the legacy composer ref as fallback.
   - Added focused source regression coverage for active chat panel composer ref routing.
   - Finding: `bun run typecheck` still fails on the known pre-existing TS2882 CSS side-effect import declaration issue.
+
+- [x] Route Dockview panel composer send and edit-cancel actions through the panel channel.
+  - Changed message sending to accept an explicit channel ID instead of using the legacy selected channel.
+  - Kept the legacy active composer behavior by wrapping send with the active selected channel in `ChatShell`.
+  - Overrode each Dockview panel composer's send and edit-cancel callbacks with its panel channel ID.
+  - Added focused source regression coverage for panel-channel send and edit-cancel routing.
+  - Finding: `bun run typecheck` still fails on the known pre-existing TS2882 CSS side-effect import declaration issue.

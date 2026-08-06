@@ -181,6 +181,16 @@ describe("MainViewApp channel selection", () => {
 		expect(chatWorkspaceSource).toContain(
 			"workspaceProps.onSetDraftMarkdown(params.channelId, draftMarkdown)",
 		);
+		expect(mainViewSource).toContain("async function sendMessage(\n\t\tchannelId: string,");
+		expect(chatShellSource).toContain(
+			"return onSendMessage(selectedChannelId, message, rootId, files)",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"onCancelEdit: () => workspaceProps.onCancelEdit(params.channelId)",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"workspaceProps.onSendMessage(params.channelId, message, rootId, files)",
+		);
 	});
 
 	test("routes composer shortcuts through the active chat panel ref", () => {

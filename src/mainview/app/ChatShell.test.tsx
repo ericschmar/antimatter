@@ -136,6 +136,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				onArchiveChannel={() => {}}
 				onCancelEdit={() => {}}
 				onCancelReply={() => {}}
+				onCancelChatEdit={() => {}}
 				onCancelChatReply={() => {}}
 				onCreateChannel={async () => {}}
 				onCreateDm={async () => {}}

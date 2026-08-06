@@ -1010,18 +1010,19 @@ export function MainViewApp() {
 	}
 
 	async function sendMessage(
+		channelId: string,
 		message: string,
 		rootId?: string,
 		files: File[] = [],
 	) {
-		if (!api || !currentUser || !selectedChannelId) return;
+		if (!api || !currentUser) return;
 
 		try {
 			const fileIds =
 				files.length > 0
 					? (
 							await api.uploadFiles(
-								selectedChannelId,
+								channelId,
 								await Promise.all(files.map(fileToUploadItem)),
 							)
 						).file_infos.map((file) => file.id)
@@ -1029,14 +1030,14 @@ export function MainViewApp() {
 			const created =
 				fileIds.length > 0
 					? await api.createPostWithFiles(
-							selectedChannelId,
+							channelId,
 							message,
 							fileIds,
 							rootId,
 						)
-					: await api.createPost(selectedChannelId, message, rootId);
+					: await api.createPost(channelId, message, rootId);
 			setState((current) =>
-				updateChannelLastPostAt(current, selectedChannelId, created.create_at),
+				updateChannelLastPostAt(current, channelId, created.create_at),
 			);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not send message.");
@@ -1297,16 +1298,20 @@ export function MainViewApp() {
 		);
 	}, [renderedChannelId]);
 
-	const cancelEdit = useCallback(() => {
-		setEditTarget(null);
-		if (!renderedChannelId) return;
+	const cancelChatEdit = useCallback((channelId: string) => {
 		setChatViewStates((current) =>
-			updateChatViewState(current, renderedChannelId, (state) => ({
+			updateChatViewState(current, channelId, (state) => ({
 				...state,
 				editTargetId: null,
 			})),
 		);
-	}, [renderedChannelId]);
+	}, []);
+
+	const cancelEdit = useCallback(() => {
+		setEditTarget(null);
+		if (!renderedChannelId) return;
+		cancelChatEdit(renderedChannelId);
+	}, [cancelChatEdit, renderedChannelId]);
 
 	const setChatDraftMarkdown = useCallback(
 		(channelId: string, draftMarkdown: string) => {
@@ -1512,6 +1517,7 @@ export function MainViewApp() {
 				onArchiveChannel={archiveChannel}
 				onCancelEdit={cancelEdit}
 				onCancelReply={cancelReply}
+				onCancelChatEdit={cancelChatEdit}
 				onCancelChatReply={cancelChatReply}
 				onCreateChannel={createChannel}
 				onCreateDm={createDm}

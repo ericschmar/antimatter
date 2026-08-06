@@ -105,6 +105,7 @@ export function ChatShell({
 	onArchiveChannel,
 	onCancelEdit,
 	onCancelReply,
+	onCancelChatEdit,
 	onCancelChatReply,
 	onCreateChannel,
 	onCreateDm,
@@ -269,7 +270,10 @@ export function ChatShell({
 		onEdit: onEditMessage,
 		onOpenPollDialog: () => setPollDialogOpen(true),
 		onRequestComposerHeight: onSetComposerHeight,
-		onSend: onSendMessage,
+		onSend: (message, rootId, files) => {
+			if (!selectedChannelId) return Promise.resolve();
+			return onSendMessage(selectedChannelId, message, rootId, files);
+		},
 		onSetDraftMarkdown: (nextDraftMarkdown) => {
 			if (!selectedChannelId) return;
 			onSetDraftMarkdown(selectedChannelId, nextDraftMarkdown);
@@ -574,12 +578,14 @@ export function ChatShell({
 								loading={ui.status === "loading"}
 								loadingHistory={ui.loadingHistory}
 								onActivateTab={onActivateChatTab}
+								onCancelEdit={onCancelChatEdit}
 								onCancelReply={onCancelChatReply}
 								onCloseTab={onCloseChatTab}
 								onLoadMore={onLoadMoreMessages}
 								onOpenAttachment={onOpenAttachment}
 								onReply={onStartReply}
 								onSetDraftMarkdown={onSetDraftMarkdown}
+								onSendMessage={onSendMessage}
 								onComposerRef={registerPanelComposerRef}
 								onSetUserColor={onSetUserColor}
 								onShowMessageContextMenu={onShowMessageContextMenu}
@@ -773,6 +779,7 @@ type ChatShellProps = {
 	onArchiveChannel: (channelId: string) => void;
 	onCancelEdit: () => void;
 	onCancelReply: () => void;
+	onCancelChatEdit: (channelId: string) => void;
 	onCancelChatReply: (channelId: string) => void;
 	onCreateChannel: (
 		displayName: string,
@@ -789,6 +796,7 @@ type ChatShellProps = {
 	onSelectPost: (post: MattermostPost) => Promise<void>;
 	onSelectTeam: (team: MattermostTeam) => Promise<void>;
 	onSendMessage: (
+		channelId: string,
 		message: string,
 		rootId?: string,
 		files?: File[],
