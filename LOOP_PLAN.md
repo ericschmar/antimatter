@@ -101,3 +101,7 @@
   - Restored the persisted active tab when valid and fell back to the first restored tab when invalid.
   - Persisted active-tab changes from Dockview panel activation.
   - Added focused unit and source regression coverage.
+
+- [x] Change available username colors to the requested palette.
+  - Updated `USER_COLOR_PALETTE` to the 32 requested hex colors and bumped `USER_COLOR_PALETTE_VERSION` so stored assignments migrate.
+  - Added focused unit coverage for the configured palette.
