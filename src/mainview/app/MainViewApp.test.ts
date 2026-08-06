@@ -63,4 +63,30 @@ describe("MainViewApp channel selection", () => {
 
 		expect(source).toContain("chatWorkspace={chatWorkspace}");
 	});
+
+	test("syncs Dockview active panel changes to the active workspace tab", () => {
+		const mainViewSource = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatShellSource = readFileSync(
+			new URL("./ChatShell.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(mainViewSource).toContain(
+			"const handleActivateChatTab = useCallback((tabId: string) => {\n\t\tsetChatWorkspace((workspace) => activateChatTab(workspace, tabId));\n\t}, []);",
+		);
+		expect(mainViewSource).toContain(
+			"onActivateChatTab={handleActivateChatTab}",
+		);
+		expect(chatShellSource).toContain("onActivateTab={onActivateChatTab}");
+		expect(chatWorkspaceSource).toContain(
+			"event.api.onDidActivePanelChange(({ panel }) => {\n\t\t\t\t\t\t\tif (panel) onActivateTab(panel.id);\n\t\t\t\t\t\t});",
+		);
+	});
 });

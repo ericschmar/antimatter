@@ -83,6 +83,7 @@ export function ChatShell({
 	resolveImageSrc,
 	sections,
 	chatWorkspace,
+	onActivateChatTab,
 	selectedChannel,
 	selectedChannelId,
 	selectedTeam,
@@ -524,6 +525,7 @@ export function ChatShell({
 							<ChatWorkspace
 								channels={channels}
 								currentUserId={currentUser.id}
+								onActivateTab={onActivateChatTab}
 								users={users}
 								workspace={chatWorkspace}
 							/>
@@ -685,6 +687,7 @@ type ChatShellProps = {
 	resolveImageSrc: (src: string) => Promise<string>;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
 	chatWorkspace?: ChatWorkspaceState | null;
+	onActivateChatTab: (tabId: string) => void;
 	selectedChannel: MattermostChannel | undefined;
 	selectedChannelId: string | null;
 	selectedTeam: MattermostTeam | undefined;

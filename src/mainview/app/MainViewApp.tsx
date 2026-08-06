@@ -21,6 +21,7 @@ import { useMainViewEvents } from "../features/events/useMainViewEvents";
 import { useUserPresence } from "../features/users/useUserPresence";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import {
+	activateChatTab,
 	createEmptyChatWorkspaceState,
 	getSelectedChannelId,
 	openChatTab,
@@ -147,6 +148,9 @@ export function MainViewApp() {
 	const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
 		null,
 	);
+	const handleActivateChatTab = useCallback((tabId: string) => {
+		setChatWorkspace((workspace) => activateChatTab(workspace, tabId));
+	}, []);
 	const [state, setState] = useState<NormalizedState>(emptyState);
 	// Read the latest posts inside the channel-history sync effect without subscribing to every
 	// state change (which would re-run the effect on every reaction load).
@@ -1406,6 +1410,7 @@ export function MainViewApp() {
 				resolveImageSrc={resolveImageSrc}
 				sections={sections}
 				chatWorkspace={chatWorkspace}
+				onActivateChatTab={handleActivateChatTab}
 				selectedChannel={selectedChannel}
 				selectedChannelId={renderedChannelId}
 				selectedTeam={selectedTeam}

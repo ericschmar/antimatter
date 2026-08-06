@@ -28,3 +28,8 @@
   - Added `src/mainview/components/ChatWorkspace.tsx` as a Dockview-backed placeholder panel renderer using open workspace tabs and channel labels.
   - Wired the proof-of-concept into `ChatShell` via `MainViewApp` without replacing the legacy single-chat body.
   - Imported Dockview CSS and added minimal placeholder workspace styles.
+
+- [x] Synchronize Dockview active panel changes to chat workspace active tab state.
+  - Wired `ChatWorkspace` to notify when Dockview's active panel changes.
+  - Added a `MainViewApp` active-tab handler that updates workspace state with `activateChatTab`.
+  - Added focused source regression coverage and updated `ChatShell` test fixtures.

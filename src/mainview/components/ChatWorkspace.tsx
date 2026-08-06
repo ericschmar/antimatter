@@ -1,5 +1,5 @@
-import { useMemo } from "react";
 import { DockviewReact, type IDockviewPanelProps } from "dockview-react";
+import { useMemo } from "react";
 import type { ChatWorkspaceState } from "../state/chatWorkspace";
 import type { MattermostChannel } from "../types";
 import { channelLabel } from "../utils/format";
@@ -7,8 +7,12 @@ import { channelLabel } from "../utils/format";
 type ChatWorkspaceProps = {
 	workspace: ChatWorkspaceState;
 	channels: MattermostChannel[];
-	users: Record<string, { id: string; username: string; first_name?: string; last_name?: string }>;
+	users: Record<
+		string,
+		{ id: string; username: string; first_name?: string; last_name?: string }
+	>;
 	currentUserId: string;
+	onActivateTab: (tabId: string) => void;
 };
 
 type ChatPanelParams = {
@@ -17,7 +21,9 @@ type ChatPanelParams = {
 	type: MattermostChannel["type"];
 };
 
-function PlaceholderChatPanel({ params }: IDockviewPanelProps<ChatPanelParams>) {
+function PlaceholderChatPanel({
+	params,
+}: IDockviewPanelProps<ChatPanelParams>) {
 	return (
 		<div className="chat-workspace-placeholder-panel">
 			<p className="eyebrow">Dockview chat pane</p>
@@ -36,6 +42,7 @@ export function ChatWorkspace({
 	channels,
 	users,
 	currentUserId,
+	onActivateTab,
 }: ChatWorkspaceProps) {
 	const channelsById = useMemo(
 		() => Object.fromEntries(channels.map((channel) => [channel.id, channel])),
@@ -63,7 +70,10 @@ export function ChatWorkspace({
 	}
 
 	return (
-		<section className="chat-workspace-preview" aria-label="Chat workspace preview">
+		<section
+			className="chat-workspace-preview"
+			aria-label="Chat workspace preview"
+		>
 			<div className="dockview-theme-dark chat-workspace-dockview">
 				<DockviewReact
 					components={dockviewComponents}
@@ -80,6 +90,9 @@ export function ChatWorkspace({
 								},
 							});
 						}
+						event.api.onDidActivePanelChange(({ panel }) => {
+							if (panel) onActivateTab(panel.id);
+						});
 					}}
 				/>
 			</div>
