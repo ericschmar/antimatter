@@ -128,11 +128,21 @@ describe("chatWorkspace", () => {
 	});
 
 	test("serializes and restores open tab metadata", () => {
-		const workspace = openChatTab(createEmptyChatWorkspaceState(), {
-			channelId: "channel-1",
-			teamId: "team-1",
-			title: "Town Square",
-		});
+		const workspace = activateChatTab(
+			openChatTab(
+				openChatTab(createEmptyChatWorkspaceState(), {
+					channelId: "channel-1",
+					teamId: "team-1",
+					title: "Town Square",
+				}),
+				{
+					channelId: "channel-2",
+					teamId: "team-1",
+					title: "Off-Topic",
+				},
+			),
+			getChatTabId("channel-1"),
+		);
 
 		const persistedTabs = getPersistedChatWorkspaceTabs(workspace);
 		const restored = createChatWorkspaceStateFromTabs(persistedTabs);
@@ -143,8 +153,27 @@ describe("chatWorkspace", () => {
 		});
 		expect(persistedTabs).toEqual({
 			version: 1,
+			activeTabId: "channel:channel-1",
 			tabs: workspace.tabs,
 		});
+	});
+
+	test("repairs invalid restored active tab metadata", () => {
+		const workspace = createChatWorkspaceStateFromTabs({
+			version: 1,
+			activeTabId: "missing-tab",
+			tabs: {
+				[getChatTabId("channel-1")]: {
+					id: getChatTabId("channel-1"),
+					channelId: "channel-1",
+					teamId: "team-1",
+					title: "Town Square",
+				},
+			},
+		});
+
+		expect(workspace.activeTabId).toBe("channel:channel-1");
+		expect(getSelectedChannelId(workspace)).toBe("channel-1");
 	});
 
 	test("updates per-channel chat view state independently", () => {

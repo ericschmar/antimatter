@@ -67,6 +67,9 @@ describe("MainViewApp channel selection", () => {
 		expect(source).toContain(
 			"createChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs)",
 		);
+		expect(source).toContain(
+			"persistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
+		);
 	});
 
 	test("passes workspace state to the isolated chat workspace proof of concept", () => {
@@ -93,7 +96,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleActivateChatTab = useCallback((tabId: string) => {\n\t\tsetChatWorkspace((workspace) => activateChatTab(workspace, tabId));\n\t}, []);",
+			"const handleActivateChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = activateChatTab(chatWorkspaceRef.current, tabId);\n\t\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\t\tsetChatWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
 		);
 		expect(mainViewSource).toContain(
 			"onActivateChatTab={handleActivateChatTab}",
@@ -254,7 +257,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleActivateChatTab = useCallback((tabId: string) => {\n\t\tsetChatWorkspace((workspace) => activateChatTab(workspace, tabId));\n\t}, []);",
+			"const handleActivateChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = activateChatTab(chatWorkspaceRef.current, tabId);\n\t\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\t\tsetChatWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
 		);
 		expect(chatShellSource).toContain(
 			"chatViewStates[selectedChannelId]?.editTargetId",

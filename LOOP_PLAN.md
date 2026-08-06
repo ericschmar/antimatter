@@ -95,3 +95,9 @@
   - Persisted open tab metadata when channels are opened and tabs are closed without persisting active-tab state yet.
   - Added focused unit and source regression coverage.
   - Finding: `bun run typecheck` still fails on the known pre-existing TS2882 CSS side-effect import declaration issue.
+
+- [x] Persist active tab metadata.
+  - Added `activeTabId` to serialized chat workspace tab metadata.
+  - Restored the persisted active tab when valid and fell back to the first restored tab when invalid.
+  - Persisted active-tab changes from Dockview panel activation.
+  - Added focused unit and source regression coverage.

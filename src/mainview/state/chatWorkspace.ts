@@ -14,6 +14,7 @@ export type ChatWorkspaceState = {
 
 export type PersistedChatWorkspaceTabs = {
 	version: 1;
+	activeTabId: string | null;
 	tabs: Record<string, ChatTabState>;
 };
 
@@ -55,9 +56,14 @@ export function createChatWorkspaceStateFromTabs(
 		return createEmptyChatWorkspaceState();
 	}
 
+	const activeTabId =
+		persistedTabs.activeTabId && persistedTabs.tabs[persistedTabs.activeTabId]
+			? persistedTabs.activeTabId
+			: (Object.keys(persistedTabs.tabs)[0] ?? null);
+
 	return {
 		version: 1,
-		activeTabId: Object.keys(persistedTabs.tabs)[0] ?? null,
+		activeTabId,
 		tabs: persistedTabs.tabs,
 		layout: null,
 	};
@@ -68,6 +74,7 @@ export function getPersistedChatWorkspaceTabs(
 ): PersistedChatWorkspaceTabs {
 	return {
 		version: 1,
+		activeTabId: workspace.activeTabId,
 		tabs: workspace.tabs,
 	};
 }

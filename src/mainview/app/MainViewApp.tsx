@@ -168,9 +168,15 @@ export function MainViewApp() {
 		},
 		[config],
 	);
-	const handleActivateChatTab = useCallback((tabId: string) => {
-		setChatWorkspace((workspace) => activateChatTab(workspace, tabId));
-	}, []);
+	const handleActivateChatTab = useCallback(
+		(tabId: string) => {
+			const nextWorkspace = activateChatTab(chatWorkspaceRef.current, tabId);
+			chatWorkspaceRef.current = nextWorkspace;
+			setChatWorkspace(nextWorkspace);
+			persistChatWorkspaceTabs(nextWorkspace);
+		},
+		[persistChatWorkspaceTabs],
+	);
 	const handleCloseChatTab = useCallback(
 		(tabId: string) => {
 			const nextWorkspace = closeChatTab(chatWorkspaceRef.current, tabId);
