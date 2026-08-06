@@ -36,4 +36,18 @@ describe("MainViewApp channel selection", () => {
 			"\t\t\tunarchiveChannel(channel.id);\n\t\t\tconst postList = await api.getPostThread(post.id)",
 		);
 	});
+
+	test("opens or activates a workspace tab when selecting a channel", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain(
+			"const [, setChatWorkspace] = useState(() =>\n\t\tcreateEmptyChatWorkspaceState(),\n\t);",
+		);
+		expect(source).toContain(
+			"\t\tsetChatWorkspace((workspace) =>\n\t\t\topenChatTab(workspace, {\n\t\t\t\tchannelId: channel.id,\n\t\t\t\tteamId: channel.team_id || null,\n\t\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t\t}),\n\t\t);\n\t\tsetSelectedChannelId(channel.id);",
+		);
+	});
 });

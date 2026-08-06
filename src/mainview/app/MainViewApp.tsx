@@ -20,6 +20,10 @@ import {
 import { useMainViewEvents } from "../features/events/useMainViewEvents";
 import { useUserPresence } from "../features/users/useUserPresence";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
+import {
+	createEmptyChatWorkspaceState,
+	openChatTab,
+} from "../state/chatWorkspace";
 import type { AppStatus } from "../state/uiStore";
 import { uiActions, uiStore } from "../state/uiStore";
 import { clearConfig, loadConfig, saveConfig } from "../storage";
@@ -135,6 +139,9 @@ export function MainViewApp() {
 	const [api, setApi] = useState<MattermostApiClient | null>(null);
 	const [currentUser, setCurrentUser] = useState<MattermostUser | null>(null);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+	const [, setChatWorkspace] = useState(() =>
+		createEmptyChatWorkspaceState(),
+	);
 	const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
 		null,
 	);
@@ -893,6 +900,13 @@ export function MainViewApp() {
 		saveConfig(nextConfig);
 		setConfig(nextConfig);
 		selectedChannelRef.current = channel.id;
+		setChatWorkspace((workspace) =>
+			openChatTab(workspace, {
+				channelId: channel.id,
+				teamId: channel.team_id || null,
+				title: channelLabel(channel, stateRef.current.users, currentUser?.id),
+			}),
+		);
 		setSelectedChannelId(channel.id);
 		setChannelNotifications((current) => {
 			const next = { ...current };
