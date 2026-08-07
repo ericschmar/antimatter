@@ -193,7 +193,8 @@ export type ApplicationMenuAction = {
 		| "navigate-next-mention"
 		| "attach-file"
 		| "attach-image"
-		| "open-emoji-picker";
+		| "open-emoji-picker"
+		| "close-active-tab";
 };
 
 export type AppUpdateStatus =

@@ -82,7 +82,12 @@ export type CallEvents = {
 };
 
 export type CallError = {
-	code: "permission-denied" | "network-error" | "peer-error" | "timeout" | "unknown";
+	code:
+		| "permission-denied"
+		| "network-error"
+		| "peer-error"
+		| "timeout"
+		| "unknown";
 	message: string;
 	fatal: boolean;
 };

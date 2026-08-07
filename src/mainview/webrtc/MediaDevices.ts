@@ -9,7 +9,9 @@ export type AvailableMediaDevices = {
 export class MediaDevicesManager {
 	private stream: MediaStream | null = null;
 
-	async getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
+	async getUserMedia(
+		constraints: MediaStreamConstraints,
+	): Promise<MediaStream> {
 		try {
 			this.stream = await navigator.mediaDevices.getUserMedia(constraints);
 			return this.stream;
@@ -104,7 +106,9 @@ export class MediaDevicesManager {
 	}
 
 	cleanup(): void {
-		this.stream?.getTracks().forEach((track) => track.stop());
+		this.stream?.getTracks().forEach((track) => {
+			track.stop();
+		});
 		this.stream = null;
 	}
 
@@ -114,14 +118,20 @@ export class MediaDevicesManager {
 
 	private toCallError(error: unknown): CallError {
 		if (error instanceof Error) {
-			if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+			if (
+				error.name === "NotAllowedError" ||
+				error.name === "PermissionDeniedError"
+			) {
 				return {
 					code: "permission-denied",
 					message: "Microphone or camera permission denied.",
 					fatal: true,
 				};
 			}
-			if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+			if (
+				error.name === "NotFoundError" ||
+				error.name === "DevicesNotFoundError"
+			) {
 				return {
 					code: "permission-denied",
 					message: "No matching media device found.",

@@ -78,5 +78,7 @@ export function directChannelOtherUserId(
 ) {
 	if (channel.type !== "D") return null;
 	const userIds = channel.name.split("__").filter(Boolean);
-	return userIds.find((userId) => userId !== currentUserId) ?? userIds[0] ?? null;
+	return (
+		userIds.find((userId) => userId !== currentUserId) ?? userIds[0] ?? null
+	);
 }

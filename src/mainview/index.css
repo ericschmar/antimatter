@@ -249,7 +249,7 @@ textarea:disabled {
 
 .main-panel {
 	display: grid;
-	grid-template-rows: auto auto auto minmax(0, 1fr);
+	grid-template-rows: auto auto minmax(0, 1fr);
 	height: 100%;
 	max-height: 100%;
 	min-width: 0;
@@ -266,6 +266,7 @@ textarea:disabled {
 	gap: 14px;
 	min-height: 54px;
 	border-bottom: 1px solid var(--border-subtle);
+	border-top: 1px solid var(--border-subtle);
 	background: var(--panel-bg);
 	padding: 9px 16px;
 }
@@ -512,30 +513,52 @@ textarea:disabled {
 }
 
 .chat-workspace-preview {
-	grid-row: 1;
-	min-height: 160px;
+	grid-row: 1 / -1;
+	min-height: 0;
 	border-bottom: 1px solid var(--border-subtle);
 	background: var(--panel-bg);
 }
 
 .chat-workspace-dockview {
 	height: 100%;
+	min-height: 0;
+}
+
+.chat-workspace-dockview .chat-workspace-dockview-theme {
+	--dv-tabs-and-actions-container-background-color: var(--app-bg);
+	--dv-group-view-background-color: var(--app-bg);
+	--dv-activegroup-visiblepanel-tab-background-color: transparent;
+	--dv-activegroup-hiddenpanel-tab-background-color: transparent;
+	--dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+	--dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+	--dv-tab-divider-color: var(--border-subtle);
+	--dv-icon-hover-background-color: var(--panel-hover);
+	--dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+	--dv-activegroup-hiddenpanel-tab-color: var(--text-secondary);
+	--dv-inactivegroup-visiblepanel-tab-color: var(--text-primary);
+	--dv-inactivegroup-hiddenpanel-tab-color: var(--text-secondary);
+}
+
+.chat-workspace-dockview .dv-tabs-and-actions-container {
+	background: var(--app-bg);
+	border-bottom: 1px solid var(--border-subtle);
 }
 
 .chat-workspace-dockview .dv-tabs-container {
-	background: color-mix(in srgb, var(--slate-2) 74%, transparent);
-	padding: 5px 6px;
+	background: var(--app-bg);
+	padding: 0 6px;
 }
 
 .chat-workspace-dockview .dv-tab {
-	border-radius: 6px;
+	border-radius: 0;
+	border-right: 1px solid var(--border-subtle);
 	background: transparent;
 	color: var(--text-secondary);
-	padding: 5px 8px;
+	padding: 6px 10px;
 }
 
-.chat-workspace-dockview .dv-tab.active-tab {
-	background: var(--panel-hover);
+.chat-workspace-dockview .dv-tab.dv-active-tab {
+	background: transparent;
 	color: var(--text-primary);
 }
 
@@ -544,10 +567,25 @@ textarea:disabled {
 	color: var(--text-primary);
 }
 
+.chat-workspace-dockview .dv-tab .dv-default-tab-action,
+.chat-workspace-dockview .dv-tab .dv-icon {
+	opacity: 0;
+	visibility: hidden;
+}
+
+.chat-workspace-dockview .dv-tab:hover .dv-default-tab-action,
+.chat-workspace-dockview .dv-tab:focus-within .dv-default-tab-action,
+.chat-workspace-dockview .dv-tab:hover .dv-icon,
+.chat-workspace-dockview .dv-tab:focus-within .dv-icon {
+	opacity: 1;
+	visibility: visible;
+}
+
 .chat-workspace-panel {
 	position: relative;
 	display: grid;
-	grid-template-rows: minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr) auto;
 	height: 100%;
 	min-height: 0;
 	background: var(--app-bg);
@@ -556,7 +594,7 @@ textarea:disabled {
 
 .chat-workspace-panel-actions {
 	position: absolute;
-	top: 8px;
+	top: 64px;
 	right: 8px;
 	z-index: 5;
 	display: flex;
@@ -580,12 +618,24 @@ textarea:disabled {
 	color: var(--text-primary);
 }
 
-.chat-workspace-panel .timeline {
+.chat-workspace-panel > .channel-header {
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.chat-workspace-panel > .message-scroll {
+	grid-column: 1;
+	grid-row: 2;
+	min-width: 0;
 	height: 100%;
 }
 
+.chat-workspace-panel > .react-resizable {
+	grid-column: 1;
+	grid-row: 3;
+}
+
 .chat-workspace-panel-composer {
-	grid-row: 2;
 	min-height: 72px;
 	overflow: visible;
 	border-top: 1px solid var(--border-subtle);

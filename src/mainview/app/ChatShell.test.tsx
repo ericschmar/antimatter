@@ -8,6 +8,7 @@ import type {
 	MessageComposerProps,
 } from "../components/MessageComposer";
 import { CallProvider } from "../contexts/CallContext";
+import type { ChatWorkspaceState } from "../state/chatWorkspace";
 import { uiActions } from "../state/uiStore";
 import type {
 	MattermostChannel,
@@ -71,10 +72,13 @@ const callManager = {
 	switchCamera: async () => {},
 } as unknown as CallManager;
 
-function renderChatShell(selectedChannelId: string | null) {
+function renderChatShell(
+	selectedChannelId: string | null,
+	chatWorkspace?: ChatWorkspaceState | null,
+) {
 	composerProps.length = 0;
 	uiActions.setStatus("loading");
-	renderToString(
+	return renderToString(
 		<CallProvider callManager={callManager}>
 			<ChatShell
 				api={null}
@@ -108,6 +112,7 @@ function renderChatShell(selectedChannelId: string | null) {
 					favorites: [],
 				}}
 				chatViewStates={{}}
+				chatWorkspace={chatWorkspace}
 				selectedChannel={selectedChannelId ? selectedChannel : undefined}
 				selectedChannelId={selectedChannelId}
 				selectedTeam={selectedTeam}
@@ -131,6 +136,7 @@ function renderChatShell(selectedChannelId: string | null) {
 				userStatuses={{}}
 				users={{ [currentUser.id]: currentUser }}
 				onActivateChatTab={() => {}}
+				onCloseActiveChatTab={() => {}}
 				onCloseChatTab={() => {}}
 				onAddUserToSelectedChannel={async () => {}}
 				onApplyAppUpdate={() => {}}
@@ -175,32 +181,103 @@ function renderChatShell(selectedChannelId: string | null) {
 }
 
 describe("ChatShell workspace layout", () => {
-	test("places chat workspace tabs above the channel header", () => {
+	test("renders the selected channel body when workspace has no renderable tabs", () => {
+		const html = renderChatShell("channel-1", {
+			version: 1,
+			activeTabId: null,
+			tabs: {},
+			layout: null,
+		});
+
+		expect(html).toContain("chat-body");
+	});
+
+	test("lets the chat workspace own the main area so each panel controls its header order", () => {
 		const css = readFileSync("src/mainview/index.css", "utf8");
 		const mainPanel = css.match(/\.main-panel \{[^}]+\}/)?.[0] ?? "";
-		const chatWorkspace = css.match(/\.chat-workspace-preview \{[^}]+\}/)?.[0] ?? "";
-		const channelHeader = css.match(/\.channel-header \{[^}]+\}/)?.[0] ?? "";
+		const chatWorkspace =
+			css.match(/\.chat-workspace-preview \{[^}]+\}/)?.[0] ?? "";
 
-		expect(mainPanel).toContain("grid-template-rows: auto auto auto minmax(0, 1fr);");
-		expect(chatWorkspace).toContain("grid-row: 1;");
-		expect(channelHeader).toContain("grid-row: 2;");
+		expect(mainPanel).toContain(
+			"grid-template-rows: auto auto minmax(0, 1fr);",
+		);
+		expect(chatWorkspace).toContain("grid-row: 1 / -1;");
+		expect(chatWorkspace).toContain("min-height: 0;");
 	});
 
 	test("styles chat workspace tabs with channel sidebar tokens", () => {
 		const css = readFileSync("src/mainview/index.css", "utf8");
 
-		const dockviewTabs = css.match(/\.chat-workspace-dockview \.dv-tabs-container \{[^}]+\}/)?.[0] ?? "";
-		const dockviewTab = css.match(/\.chat-workspace-dockview \.dv-tab \{[^}]+\}/)?.[0] ?? "";
-		const activeDockviewTab = css.match(/\.chat-workspace-dockview \.dv-tab\.active-tab \{[^}]+\}/)?.[0] ?? "";
-		const dockviewTabHover = css.match(/\.chat-workspace-dockview \.dv-tab:hover \{[^}]+\}/)?.[0] ?? "";
+		const dockview =
+			css.match(/\.chat-workspace-dockview \{[^}]+\}/)?.[0] ?? "";
+		const dockviewTheme =
+			css.match(
+				/\.chat-workspace-dockview \.chat-workspace-dockview-theme \{[^}]+\}/,
+			)?.[0] ?? "";
+		const dockviewTabsAndActions =
+			css.match(
+				/\.chat-workspace-dockview \.dv-tabs-and-actions-container \{[^}]+\}/,
+			)?.[0] ?? "";
+		const dockviewTabs =
+			css.match(
+				/\.chat-workspace-dockview \.dv-tabs-container \{[^}]+\}/,
+			)?.[0] ?? "";
+		const dockviewTab =
+			css.match(/\.chat-workspace-dockview \.dv-tab \{[^}]+\}/)?.[0] ?? "";
+		const activeDockviewTab =
+			css.match(
+				/\.chat-workspace-dockview \.dv-tab\.dv-active-tab \{[^}]+\}/,
+			)?.[0] ?? "";
+		const dockviewTabHover =
+			css.match(/\.chat-workspace-dockview \.dv-tab:hover \{[^}]+\}/)?.[0] ??
+			"";
+		const dockviewTabIcon =
+			css.match(
+				/\.chat-workspace-dockview \.dv-tab \.dv-default-tab-action,\s*\.chat-workspace-dockview \.dv-tab \.dv-icon \{[^}]+\}/,
+			)?.[0] ?? "";
+		const dockviewTabIconVisible =
+			css.match(
+				/\.chat-workspace-dockview \.dv-tab:hover \.dv-default-tab-action,\s*\.chat-workspace-dockview \.dv-tab:focus-within \.dv-default-tab-action,\s*\.chat-workspace-dockview \.dv-tab:hover \.dv-icon,\s*\.chat-workspace-dockview \.dv-tab:focus-within \.dv-icon \{[^}]+\}/,
+			)?.[0] ?? "";
 
-		expect(dockviewTabs).toContain("background: color-mix(in srgb, var(--slate-2) 74%, transparent);");
-		expect(dockviewTab).toContain("border-radius: 6px;");
+		expect(dockview).toContain("height: 100%;");
+		expect(dockviewTheme).toContain(
+			"--dv-tabs-and-actions-container-background-color: var(--app-bg);",
+		);
+		expect(dockviewTheme).toContain(
+			"--dv-group-view-background-color: var(--app-bg);",
+		);
+		expect(dockviewTheme).toContain(
+			"--dv-activegroup-visiblepanel-tab-background-color: transparent;",
+		);
+		expect(dockviewTheme).toContain(
+			"--dv-activegroup-hiddenpanel-tab-background-color: transparent;",
+		);
+		expect(dockviewTheme).toContain(
+			"--dv-activegroup-visiblepanel-tab-color: var(--text-primary);",
+		);
+		expect(dockviewTheme).toContain(
+			"--dv-activegroup-hiddenpanel-tab-color: var(--text-secondary);",
+		);
+		expect(dockviewTabsAndActions).toContain("background: var(--app-bg);");
+		expect(dockviewTabsAndActions).toContain(
+			"border-bottom: 1px solid var(--border-subtle);",
+		);
+		expect(dockviewTabs).toContain("background: var(--app-bg);");
+		expect(dockviewTabs).toContain("padding: 0 6px;");
+		expect(dockviewTab).toContain("border-radius: 0;");
+		expect(dockviewTab).toContain(
+			"border-right: 1px solid var(--border-subtle);",
+		);
 		expect(dockviewTab).toContain("color: var(--text-secondary);");
-		expect(dockviewTab).toContain("padding: 5px 8px;");
-		expect(activeDockviewTab).toContain("background: var(--panel-hover);");
+		expect(dockviewTab).toContain("padding: 6px 10px;");
+		expect(activeDockviewTab).toContain("background: transparent;");
 		expect(activeDockviewTab).toContain("color: var(--text-primary);");
 		expect(dockviewTabHover).toContain("background: var(--panel-hover);");
+		expect(dockviewTabIcon).toContain("opacity: 0;");
+		expect(dockviewTabIcon).toContain("visibility: hidden;");
+		expect(dockviewTabIconVisible).toContain("opacity: 1;");
+		expect(dockviewTabIconVisible).toContain("visibility: visible;");
 	});
 });
 

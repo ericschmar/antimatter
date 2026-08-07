@@ -124,11 +124,13 @@ export function openChatTab(
 	workspace: ChatWorkspaceState,
 	input: OpenChatTabInput,
 ): ChatWorkspaceState {
-	const existingTab = input.duplicate
-		? undefined
-		: Object.values(workspace.tabs).find(
-				(tab) => tab.channelId === input.channelId,
-			);
+	const activeTab = workspace.activeTabId
+		? workspace.tabs[workspace.activeTabId]
+		: undefined;
+	const existingTab =
+		!input.duplicate && activeTab?.channelId === input.channelId
+			? activeTab
+			: undefined;
 	const tabId = existingTab?.id ?? getNextPanelId(workspace.tabs);
 
 	return {
@@ -180,6 +182,7 @@ export function closeChatTab(
 				? (Object.keys(tabs)[0] ?? null)
 				: workspace.activeTabId,
 		tabs,
+		layout: Object.keys(tabs).length === 0 ? null : workspace.layout,
 	};
 }
 
@@ -197,6 +200,41 @@ export function updateChatWorkspaceLayout(
 			]),
 		),
 	};
+}
+
+/**
+ * A persisted dockview layout is only safe to replay via `fromJSON` when its
+ * serialized panel ids line up exactly with the tabs we are about to render.
+ * `fromJSON` clears the grid before rebuilding, so replaying a layout that is
+ * missing panels — or an empty/degenerate one such as `grid.root.data: []` —
+ * would wipe the panels we just added and leave an empty workspace.
+ */
+export function canRestoreChatWorkspaceLayout(
+	layout: unknown,
+	tabs: ReadonlyArray<Pick<ChatTabState, "id">>,
+): boolean {
+	if (!layout || typeof layout !== "object") return false;
+	const root = (
+		layout as { grid?: { root?: { type?: unknown; data?: unknown } } }
+	).grid?.root;
+	if (
+		root?.type !== "branch" ||
+		!Array.isArray(root.data) ||
+		root.data.length === 0
+	) {
+		return false;
+	}
+	const panels = (layout as { panels?: unknown }).panels;
+	if (!panels || typeof panels !== "object" || Array.isArray(panels)) {
+		return false;
+	}
+	const layoutPanelIds = new Set(
+		Object.keys(panels as Record<string, unknown>),
+	);
+	if (layoutPanelIds.size === 0 || layoutPanelIds.size !== tabs.length) {
+		return false;
+	}
+	return tabs.every((tab) => layoutPanelIds.has(tab.id));
 }
 
 export function removeInvalidChatTabs(

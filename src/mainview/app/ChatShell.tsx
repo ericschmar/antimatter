@@ -8,13 +8,12 @@ import type {
 	ApplicationMenuAction,
 	AppUpdateState,
 } from "../../shared/electrobunRpc";
-import { CallButton } from "../components/CallButton";
 import { CallErrorToast } from "../components/CallErrorToast";
+import { ChannelHeader } from "../components/ChannelHeader";
 import { ChatWorkspace } from "../components/ChatWorkspace";
 import { CommandMenu } from "../components/CommandMenu";
 import { CreateChannelDialog } from "../components/CreateChannelDialog";
 import { IncomingCallToast } from "../components/IncomingCallToast";
-import { MarkdownMessage } from "../components/MarkdownMessage";
 import {
 	MessageComposer,
 	type MessageComposerHandle,
@@ -56,13 +55,7 @@ import {
 	findAdjacentVisibleChannel,
 	findSectionStartChannel,
 } from "../utils/channelNavigation";
-import {
-	channelLabel,
-	directChannelOtherUserId,
-	initials,
-	isTeamChannel,
-	userLabel,
-} from "../utils/format";
+import { directChannelOtherUserId, userLabel } from "../utils/format";
 import { readShortcutAction } from "../utils/shortcuts";
 import { electrobun } from "./rpc";
 
@@ -89,6 +82,7 @@ export function ChatShell({
 	chatWorkspace,
 	chatViewStates,
 	onActivateChatTab,
+	onCloseActiveChatTab,
 	onCloseChatTab,
 	selectedChannel,
 	selectedChannelId,
@@ -161,6 +155,9 @@ export function ChatShell({
 		},
 		[onCreateDm],
 	);
+	const openUserPicker = useCallback(() => {
+		uiActions.setAddUserOpen(true);
+	}, []);
 	const registerPanelComposerRef = useCallback(
 		(channelId: string, handle: MessageComposerHandle | null) => {
 			if (handle) {
@@ -197,10 +194,12 @@ export function ChatShell({
 	const selectedChannelUsers = channelMembers
 		.map((member) => users[member.user_id])
 		.filter((user): user is MattermostUser => Boolean(user));
-	const selectedChannelHeader = selectedChannel?.header?.trim();
-	const selectedChannelPurpose = selectedChannel?.purpose?.trim();
-	const selectedChannelDescription =
-		selectedChannelHeader || selectedChannelPurpose;
+	const hasRenderableChatWorkspace = Boolean(
+		chatWorkspace &&
+			Object.values(chatWorkspace.tabs).some((tab) =>
+				channels.some((channel) => channel.id === tab.channelId),
+			),
+	);
 	const selectedDirectUserId =
 		selectedChannel && selectedChannel.type === "D"
 			? directChannelOtherUserId(selectedChannel, currentUser.id)
@@ -214,11 +213,6 @@ export function ChatShell({
 				selectedDirectUserId ?? selectedDirectUser.id,
 			)
 		: (selectedDirectUserId ?? "Unknown user");
-	const callTargetUserId =
-		selectedDirectUserId &&
-		(selectedDirectUserId !== currentUser.id || settings.devLoopback)
-			? selectedDirectUserId
-			: null;
 	const callParticipantUser = session?.otherUserId
 		? users[session.otherUserId]
 		: selectedDirectUser;
@@ -228,6 +222,9 @@ export function ChatShell({
 				session?.otherUserId ?? selectedDirectUserId ?? callParticipantUser.id,
 			)
 		: (session?.otherUserId ?? selectedDirectUsername);
+	const workspaceChannelMembers = selectedChannelId
+		? { [selectedChannelId]: channelMembers }
+		: {};
 	const callParticipantAvatar = session?.otherUserId
 		? userImages[session.otherUserId]
 		: selectedDirectUserId
@@ -349,12 +346,17 @@ export function ChatShell({
 				getActiveComposer()?.openEmojiPicker();
 				return true;
 			}
+			if (action === "close-active-tab") {
+				onCloseActiveChatTab();
+				return true;
+			}
 			return false;
 		},
 		[
 			channelOrder,
 			currentUser.id,
 			getActiveComposer,
+			onCloseActiveChatTab,
 			onSelectChannel,
 			sections,
 			selectedChannelId,
@@ -449,95 +451,18 @@ export function ChatShell({
 					</Resizable>
 
 					<main className="main-panel">
-						<header className="channel-header">
-							<div className="channel-header-copy">
-								<p className="eyebrow">Channel</p>
-								<div className="channel-header-title-row">
-									<h2>
-										{selectedChannel
-											? channelLabel(selectedChannel, users, currentUser.id)
-											: "Select a channel"}
-									</h2>
-									{selectedChannelDescription ? (
-										<div className="channel-header-topic">
-											{selectedChannelHeader ? (
-												<MarkdownMessage markdown={selectedChannelHeader} />
-											) : (
-												<p>{selectedChannelDescription}</p>
-											)}
-										</div>
-									) : null}
-								</div>
-							</div>
-							<div className="channel-header-actions">
-								{callTargetUserId ? (
-									<>
-										<CallButton
-											userId={callTargetUserId}
-											username={selectedDirectUsername}
-											variant="audio"
-										/>
-										<CallButton
-											userId={callTargetUserId}
-											username={selectedDirectUsername}
-											variant="video"
-										/>
-									</>
-								) : null}
-								<Tooltip.Root>
-									<Tooltip.Trigger asChild>
-										<div className="member-stack" title="Channel members">
-											{selectedChannelUsers.slice(0, 5).map((user) => (
-												<span className="member-avatar" key={user.id}>
-													{userImages[user.id] ? (
-														<img alt="" src={userImages[user.id]} />
-													) : (
-														initials(user.nickname || user.username)
-													)}
-													<span
-														className={`status-dot ${userStatuses[user.id]?.status ?? "offline"}`}
-													/>
-												</span>
-											))}
-											{channelMembers.length > 5 ? (
-												<span className="member-count">
-													+{channelMembers.length - 5}
-												</span>
-											) : null}
-										</div>
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Content
-											className="tooltip-content channel-members-tooltip"
-											side="bottom"
-											sideOffset={6}
-										>
-											<div className="channel-members-list">
-												{selectedChannelUsers.map((user) => (
-													<div key={user.id} className="channel-member-item">
-														<span
-															className={`member-status ${userStatuses[user.id]?.status ?? "offline"}`}
-														/>
-														<span className="member-name">
-															{user.nickname || user.username}
-														</span>
-													</div>
-												))}
-											</div>
-										</Tooltip.Content>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-								{selectedChannel && isTeamChannel(selectedChannel) ? (
-									<button
-										className="secondary-action"
-										type="button"
-										onClick={() => uiActions.setAddUserOpen(true)}
-									>
-										Add user
-									</button>
-								) : null}
-							</div>
-						</header>
+						{hasRenderableChatWorkspace ? null : (
+							<ChannelHeader
+								channel={selectedChannel}
+								channelMembers={channelMembers}
+								currentUserId={currentUser.id}
+								settings={settings}
+								userImages={userImages}
+								userStatuses={userStatuses}
+								users={users}
+								onOpenUserPicker={openUserPicker}
+							/>
+						)}
 
 						{ui.error ? (
 							<div className="inline-error">
@@ -574,9 +499,10 @@ export function ChatShell({
 							</div>
 						) : null}
 
-						{chatWorkspace ? (
+						{hasRenderableChatWorkspace && chatWorkspace ? (
 							<ChatWorkspace
 								channels={channels}
+								channelMembers={workspaceChannelMembers}
 								composerProps={composerProps}
 								chatViewStates={chatViewStates}
 								currentUserId={currentUser.id}
@@ -585,6 +511,7 @@ export function ChatShell({
 								onActivateTab={onActivateChatTab}
 								onLayoutChange={onSetChatWorkspaceLayout}
 								onOpenTab={onOpenChatPanel}
+								onOpenUserPicker={openUserPicker}
 								onCancelEdit={onCancelChatEdit}
 								onCancelReply={onCancelChatReply}
 								onCloseTab={onCloseChatTab}
@@ -776,6 +703,7 @@ type ChatShellProps = {
 	chatWorkspace?: ChatWorkspaceState | null;
 	chatViewStates: ChatViewStateByChannel;
 	onActivateChatTab: (tabId: string) => void;
+	onCloseActiveChatTab: () => void;
 	onCloseChatTab: (tabId: string) => void;
 	selectedChannel: MattermostChannel | undefined;
 	selectedChannelId: string | null;

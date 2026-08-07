@@ -1,11 +1,11 @@
 import type { MattermostApiClient } from "../mattermostApi";
 import { CallSignaling, type SignalingApi } from "./CallSignaling";
-import { createLoopbackMediaStream, createLoopbackPeer } from "./loopback";
 import {
 	AUDIO_CONSTRAINTS,
 	DEFAULT_CALL_CONFIG,
 	VIDEO_CONSTRAINTS,
 } from "./config";
+import { createLoopbackMediaStream, createLoopbackPeer } from "./loopback";
 import { MediaDevicesManager } from "./MediaDevices";
 import type {
 	CallConfig,
@@ -425,7 +425,9 @@ export class CallManager {
 			}
 			if (this.connectOnAnswer) {
 				if (message.callType && this.localMediaFactory) {
-					this.remoteStream?.getTracks().forEach((track) => track.stop());
+					this.remoteStream?.getTracks().forEach((track) => {
+						track.stop();
+					});
 					this.remoteStream = await this.localMediaFactory(message.callType);
 					this.events.onRemoteStream?.(this.remoteStream);
 				}
@@ -659,7 +661,9 @@ export class CallManager {
 		}
 
 		this.mediaManager.cleanup();
-		this.remoteStream?.getTracks().forEach((track) => track.stop());
+		this.remoteStream?.getTracks().forEach((track) => {
+			track.stop();
+		});
 		this.remoteStream = null;
 		this.pendingIceCandidates = [];
 
@@ -685,7 +689,8 @@ export function createCallManager(
 	config?: Partial<CallConfig>,
 	options: { devLoopback?: boolean } = {},
 ): CallManager {
-	if (!options.devLoopback) return new CallManager(mattermostApi, currentUserId, config);
+	if (!options.devLoopback)
+		return new CallManager(mattermostApi, currentUserId, config);
 
 	const loopbackPeer = createLoopbackPeer(currentUserId, config);
 	const callManager = new CallManager(

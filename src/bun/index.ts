@@ -135,6 +135,7 @@ const rendererApplicationMenuActions = new Set<ApplicationMenuAction["action"]>(
 		"attach-file",
 		"attach-image",
 		"open-emoji-picker",
+		"close-active-tab",
 	],
 );
 
@@ -180,7 +181,9 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 				return { success: true };
 			},
 			showCallNotification: (notification) => {
-				Utils.showNotification(callNotificationToDesktopNotification(notification));
+				Utils.showNotification(
+					callNotificationToDesktopNotification(notification),
+				);
 				return { success: true };
 			},
 			showChannelContextMenu: (request) => {
@@ -229,7 +232,9 @@ const rpc = BrowserView.defineRPC<MattermostClientRPC>({
 	},
 });
 
-function callNotificationToDesktopNotification(notification: CallNotificationPayload) {
+function callNotificationToDesktopNotification(
+	notification: CallNotificationPayload,
+) {
 	if (notification.type === "incoming-call") {
 		return {
 			title: `Incoming ${notification.callType} call`,
@@ -421,6 +426,11 @@ ApplicationMenu.setApplicationMenu([
 				label: "Emoji Picker",
 				action: "open-emoji-picker",
 				accelerator: "CmdOrCtrl+E",
+			},
+			{
+				label: "Close Tab",
+				action: "close-active-tab",
+				accelerator: "CmdOrCtrl+W",
 			},
 		],
 	},

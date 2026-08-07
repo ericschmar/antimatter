@@ -1,7 +1,7 @@
 import { Phone, Video } from "lucide-react";
 import { memo, useCallback } from "react";
-import type { CallType } from "../webrtc/types";
 import { useCall } from "../contexts/CallContext";
+import type { CallType } from "../webrtc/types";
 import "./WebRTCCallUI.css";
 
 type CallButtonProps = {

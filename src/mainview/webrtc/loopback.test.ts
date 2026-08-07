@@ -6,7 +6,9 @@ describe("LoopbackPeer", () => {
 	test("uses a stable loopback direct channel", async () => {
 		const peer = createLoopbackPeer("me");
 
-		await expect(peer.signalingApi.createDirectChannel(["me", "me"])).resolves.toMatchObject({
+		await expect(
+			peer.signalingApi.createDirectChannel(["me", "me"]),
+		).resolves.toMatchObject({
 			id: "loopback-channel",
 		});
 	});

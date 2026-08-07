@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	activateChatTab,
+	canRestoreChatWorkspaceLayout,
 	closeChatTab,
 	createChatWorkspaceStateFromTabs,
 	createEmptyChatWorkspaceState,
@@ -71,21 +72,33 @@ describe("chatWorkspace", () => {
 		expect(getSelectedChannelId(activated)).toBe("channel-1");
 	});
 
-	test("focuses the existing channel tab by default", () => {
-		const workspace = openChatTab(createEmptyChatWorkspaceState(), {
-			channelId: "channel-1",
-			teamId: "team-1",
-			title: "Town Square",
-		});
+	test("opens a new channel tab when the selected channel is not already active", () => {
+		const workspace = openChatTab(
+			openChatTab(createEmptyChatWorkspaceState(), {
+				channelId: "channel-1",
+				teamId: "team-1",
+				title: "Town Square",
+			}),
+			{
+				channelId: "channel-2",
+				teamId: "team-1",
+				title: "Off Topic",
+			},
+		);
 		const reopened = openChatTab(workspace, {
 			channelId: "channel-1",
 			teamId: "team-2",
 			title: "Renamed",
 		});
 
-		expect(Object.keys(reopened.tabs)).toEqual(["chat-panel-1"]);
-		expect(reopened.tabs["chat-panel-1"]?.teamId).toBe("team-1");
-		expect(reopened.tabs["chat-panel-1"]?.title).toBe("Town Square");
+		expect(Object.keys(reopened.tabs)).toEqual([
+			"chat-panel-1",
+			"chat-panel-2",
+			"chat-panel-3",
+		]);
+		expect(reopened.activeTabId).toBe("chat-panel-3");
+		expect(reopened.tabs["chat-panel-3"]?.teamId).toBe("team-2");
+		expect(reopened.tabs["chat-panel-3"]?.title).toBe("Renamed");
 	});
 
 	test("opens duplicate channel panels when requested", () => {
@@ -198,6 +211,29 @@ describe("chatWorkspace", () => {
 		expect(getSelectedChannelId(closed)).toBe("channel-1");
 	});
 
+	test("clears stale layout when closing the final tab before opening a channel", () => {
+		const workspace = updateChatWorkspaceLayout(
+			openChatTab(createEmptyChatWorkspaceState(), {
+				channelId: "channel-1",
+				teamId: "team-1",
+				title: "Town Square",
+			}),
+			layout,
+		);
+		const closed = closeChatTab(workspace, "chat-panel-1");
+		const reopened = openChatTab(closed, {
+			channelId: "channel-2",
+			teamId: "team-1",
+			title: "Off-Topic",
+		});
+
+		expect(closed.activeTabId).toBeNull();
+		expect(closed.tabs).toEqual({});
+		expect(closed.layout).toBeNull();
+		expect(reopened.activeTabId).toBe("chat-panel-1");
+		expect(reopened.layout).toBeNull();
+	});
+
 	test("removes invalid restored tabs and repairs missing active tab", () => {
 		const workspace = {
 			...openChatTab(
@@ -301,5 +337,79 @@ describe("chatWorkspace", () => {
 			editTargetId: "post-2",
 			composerHeight: 220,
 		});
+	});
+
+	test("canRestoreChatWorkspaceLayout rejects a degenerate empty branch layout", () => {
+		// Real persisted state from the empty-workspace bug: a branch root with
+		// `data: []`. Replaying it via fromJSON clears the grid and rebuilds
+		// nothing, leaving an empty workspace.
+		const degenerate = {
+			grid: {
+				root: {
+					type: "branch",
+					data: [],
+				},
+				width: 930,
+				height: 159,
+			},
+			panels: {},
+		};
+
+		expect(
+			canRestoreChatWorkspaceLayout(degenerate, [{ id: "chat-panel-1" }]),
+		).toBe(false);
+	});
+
+	test("canRestoreChatWorkspaceLayout accepts a matching branch-rooted layout", () => {
+		// A real dockview serialization: a branch root holding leaf groups, plus
+		// a `panels` map keyed by panel id that lines up with the tabs.
+		const valid = {
+			grid: {
+				root: {
+					type: "branch",
+					data: [
+						{
+							type: "leaf",
+							data: {
+								views: ["chat-panel-1"],
+								activeView: "chat-panel-1",
+							},
+							size: 1200,
+						},
+					],
+					size: 800,
+				},
+				width: 1200,
+				height: 800,
+				orientation: "HORIZONTAL",
+			},
+			panels: {
+				"chat-panel-1": {
+					id: "chat-panel-1",
+					contentComponent: "chat",
+					title: "Town Square",
+					params: {},
+				},
+			},
+		};
+
+		expect(canRestoreChatWorkspaceLayout(valid, [{ id: "chat-panel-1" }])).toBe(
+			true,
+		);
+
+		// A panel-id mismatch makes the same layout non-restorable.
+		expect(canRestoreChatWorkspaceLayout(valid, [{ id: "chat-panel-2" }])).toBe(
+			false,
+		);
+	});
+
+	test("canRestoreChatWorkspaceLayout rejects null and non-branch roots", () => {
+		expect(canRestoreChatWorkspaceLayout(null, [])).toBe(false);
+		expect(
+			canRestoreChatWorkspaceLayout(
+				{ grid: { root: { type: "leaf", data: {} } }, panels: {} },
+				[],
+			),
+		).toBe(false);
 	});
 });

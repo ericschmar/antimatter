@@ -96,7 +96,10 @@ export class LoopbackPeer {
 	private config: CallConfig;
 	private pendingIceCandidates: RTCIceCandidateInit[] = [];
 
-	constructor(private currentUserId: string, config: Partial<CallConfig> = {}) {
+	constructor(
+		private currentUserId: string,
+		config: Partial<CallConfig> = {},
+	) {
 		this.config = { ...DEFAULT_CALL_CONFIG, ...config };
 		this.signalingApi = {
 			createDirectChannel: async () => {
@@ -203,7 +206,9 @@ export class LoopbackPeer {
 		const candidates = this.pendingIceCandidates;
 		this.pendingIceCandidates = [];
 		for (const candidate of candidates) {
-			await this.peerConnection?.addIceCandidate(new RTCIceCandidate(candidate));
+			await this.peerConnection?.addIceCandidate(
+				new RTCIceCandidate(candidate),
+			);
 		}
 	}
 
@@ -240,7 +245,9 @@ export class LoopbackPeer {
 	private cleanup(): void {
 		this.peerConnection?.close();
 		this.peerConnection = null;
-		this.stream?.getTracks().forEach((track) => track.stop());
+		this.stream?.getTracks().forEach((track) => {
+			track.stop();
+		});
 		this.stream = null;
 		this.pendingIceCandidates = [];
 	}

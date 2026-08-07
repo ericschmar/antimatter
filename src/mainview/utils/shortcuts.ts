@@ -51,6 +51,8 @@ export function readShortcutAction(
 
 	if (!event.altKey && !event.shiftKey && key === "u") return "attach-file";
 	if (!event.altKey && event.shiftKey && key === "u") return "attach-image";
+	if (!event.altKey && !event.shiftKey && key === "w")
+		return "close-active-tab";
 	if (!event.altKey && !event.shiftKey && key === "e") {
 		return "open-emoji-picker";
 	}

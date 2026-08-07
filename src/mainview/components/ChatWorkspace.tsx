@@ -1,5 +1,10 @@
 import type { DockviewApi, SerializedDockview } from "dockview-core";
-import { DockviewReact, type IDockviewPanelProps } from "dockview-react";
+import {
+	DockviewReact,
+	type DockviewTheme,
+	type IDockviewPanelProps,
+	themeDark,
+} from "dockview-react";
 import { SplitSquareHorizontal, SplitSquareVertical } from "lucide-react";
 import type { SyntheticEvent } from "react";
 import {
@@ -11,14 +16,16 @@ import {
 	useRef,
 } from "react";
 import { Resizable, type ResizeCallbackData } from "react-resizable";
-import type {
-	ChatPanelPlacement,
-	ChatViewStateByChannel,
-	ChatWorkspaceState,
+import {
+	type ChatPanelPlacement,
+	type ChatViewStateByChannel,
+	type ChatWorkspaceState,
+	canRestoreChatWorkspaceLayout,
 } from "../state/chatWorkspace";
 import type {
 	AppSettings,
 	MattermostChannel,
+	MattermostChannelMember,
 	MattermostFileInfo,
 	MattermostPost,
 	MattermostUser,
@@ -26,6 +33,7 @@ import type {
 	TypingUsersByChannel,
 } from "../types";
 import { channelLabel } from "../utils/format";
+import { ChannelHeader } from "./ChannelHeader";
 import {
 	MessageComposer,
 	type MessageComposerHandle,
@@ -41,6 +49,7 @@ type ChatWorkspaceProps = {
 	currentUserId: string;
 	posts: MattermostPost[];
 	settings: AppSettings;
+	channelMembers: Record<string, MattermostChannelMember[]>;
 	typingUsers: TypingUsersByChannel;
 	userColors: Record<string, string>;
 	userImages: Record<string, string>;
@@ -67,6 +76,7 @@ type ChatWorkspaceProps = {
 	onCancelReply: (viewId: string) => void;
 	onSetDraftMarkdown: (viewId: string, draftMarkdown: string) => void;
 	onSetComposerHeight: (viewId: string, height: number) => void;
+	onOpenUserPicker: () => void;
 	onSendMessage: (
 		channelId: string,
 		message: string,
@@ -84,7 +94,7 @@ type ChatWorkspaceProps = {
 
 type ChatWorkspaceContextValue = Omit<
 	ChatWorkspaceProps,
-	"workspace" | "channels" | "onLayoutChange"
+	"workspace" | "onLayoutChange"
 >;
 
 const ChatWorkspaceContext = createContext<ChatWorkspaceContextValue | null>(
@@ -170,6 +180,18 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 			onFocus={() => workspaceProps.onActivateTab(api.id)}
 			onPointerDown={() => workspaceProps.onActivateTab(api.id)}
 		>
+			<ChannelHeader
+				channel={workspaceProps.channels.find(
+					(channel) => channel.id === params.channelId,
+				)}
+				channelMembers={workspaceProps.channelMembers[params.channelId] ?? []}
+				currentUserId={workspaceProps.currentUserId}
+				settings={workspaceProps.settings}
+				userImages={workspaceProps.userImages}
+				userStatuses={workspaceProps.userStatuses}
+				users={workspaceProps.users}
+				onOpenUserPicker={workspaceProps.onOpenUserPicker}
+			/>
 			<div className="chat-workspace-panel-actions">
 				<button
 					aria-label="Split chat right"
@@ -245,6 +267,12 @@ const dockviewComponents = {
 	chat: ChatPanel,
 };
 
+const chatWorkspaceDockviewTheme: DockviewTheme = {
+	...themeDark,
+	name: "antimatter-chat-workspace",
+	className: `${themeDark.className} chat-workspace-dockview-theme`,
+};
+
 export function ChatWorkspace({
 	workspace,
 	channels,
@@ -252,6 +280,7 @@ export function ChatWorkspace({
 	currentUserId,
 	posts,
 	settings,
+	channelMembers,
 	typingUsers,
 	userColors,
 	userImages,
@@ -274,6 +303,7 @@ export function ChatWorkspace({
 	onCancelReply,
 	onSetDraftMarkdown,
 	onSetComposerHeight,
+	onOpenUserPicker,
 	onSendMessage,
 	onComposerRef,
 	onToggleReaction,
@@ -310,10 +340,12 @@ export function ChatWorkspace({
 
 	const workspaceProps = useMemo(
 		() => ({
+			channels,
 			users,
 			currentUserId,
 			posts,
 			settings,
+			channelMembers,
 			typingUsers,
 			userColors,
 			userImages,
@@ -335,6 +367,7 @@ export function ChatWorkspace({
 			onCancelEdit,
 			onSetDraftMarkdown,
 			onSetComposerHeight,
+			onOpenUserPicker,
 			onComposerRef,
 			onToggleReaction,
 			onVotePoll,
@@ -342,10 +375,12 @@ export function ChatWorkspace({
 			onSendMessage,
 		}),
 		[
+			channels,
 			users,
 			currentUserId,
 			posts,
 			settings,
+			channelMembers,
 			typingUsers,
 			userColors,
 			userImages,
@@ -367,6 +402,7 @@ export function ChatWorkspace({
 			onCancelEdit,
 			onSetDraftMarkdown,
 			onSetComposerHeight,
+			onOpenUserPicker,
 			onComposerRef,
 			onToggleReaction,
 			onVotePoll,
@@ -384,25 +420,34 @@ export function ChatWorkspace({
 			className="chat-workspace-preview"
 			aria-label="Chat workspace preview"
 		>
-			<div className="dockview-theme-dark chat-workspace-dockview">
+			<div className="chat-workspace-dockview">
 				<ChatWorkspaceContext.Provider value={workspaceProps}>
 					<DockviewReact
 						key={Object.keys(workspace.tabs).join(":")}
 						components={dockviewComponents}
+						theme={chatWorkspaceDockviewTheme}
 						onReady={(event) => {
 							dockviewApiRef.current = event.api;
+
+							const restorableLayout = canRestoreChatWorkspaceLayout(
+								workspace.layout,
+								tabs,
+							)
+								? (workspace.layout as SerializedDockview)
+								: null;
 
 							for (const tab of tabs) {
 								event.api.addPanel({
 									id: tab.id,
 									component: "chat",
 									title: tab.title,
-									position: tab.position
-										? {
-												referencePanel: tab.position.referenceTabId,
-												direction: tab.position.placement,
-											}
-										: undefined,
+									position:
+										!restorableLayout && tab.position
+											? {
+													referencePanel: tab.position.referenceTabId,
+													direction: tab.position.placement,
+												}
+											: undefined,
 									params: {
 										channelId: tab.channelId,
 										title: tab.title,
@@ -410,9 +455,9 @@ export function ChatWorkspace({
 									},
 								});
 							}
-							if (workspace.layout && tabs.every((tab) => !tab.position)) {
-								event.api.fromJSON(workspace.layout as SerializedDockview, {
-									reuseExistingPanels: true,
+							if (restorableLayout) {
+								event.api.fromJSON(restorableLayout, {
+									reuseExistingPanels: false,
 								});
 							}
 							if (workspace.activeTabId) {

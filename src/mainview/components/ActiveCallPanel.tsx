@@ -123,8 +123,8 @@ export const ActiveCallPanel = memo(function ActiveCallPanel({
 
 			<div className="call-panel-header">
 				<div className="call-indicator">
-						<span className="call-indicator-dot" />
-						<span className="call-with">Call with {callerName}</span>
+					<span className="call-indicator-dot" />
+					<span className="call-with">Call with {callerName}</span>
 				</div>
 				<div className="call-duration">{duration}</div>
 			</div>

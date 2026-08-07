@@ -50,6 +50,12 @@ describe("readShortcutAction", () => {
 		expect(readShortcutAction({ key: "e", metaKey: true })).toBe(
 			"open-emoji-picker",
 		);
+		expect(readShortcutAction({ key: "w", metaKey: true })).toBe(
+			"close-active-tab",
+		);
+		expect(readShortcutAction({ key: "W", ctrlKey: true })).toBe(
+			"close-active-tab",
+		);
 	});
 
 	test("ignores unmodified keys", () => {

@@ -1,7 +1,7 @@
 import { Phone, Video } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { useCall } from "../contexts/CallContext";
 import { electrobun } from "../app/rpc";
+import { useCall } from "../contexts/CallContext";
 import "./WebRTCCallUI.css";
 
 type IncomingCallToastProps = {
@@ -77,10 +77,18 @@ export const IncomingCallToast = memo(function IncomingCallToast({
 			</div>
 
 			<div className="call-toast-actions">
-				<button className="call-decline-button" type="button" onClick={handleDecline}>
+				<button
+					className="call-decline-button"
+					type="button"
+					onClick={handleDecline}
+				>
 					Decline
 				</button>
-				<button className="call-accept-button" type="button" onClick={handleAccept}>
+				<button
+					className="call-accept-button"
+					type="button"
+					onClick={handleAccept}
+				>
 					Accept
 				</button>
 			</div>

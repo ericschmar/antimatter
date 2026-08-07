@@ -173,8 +173,11 @@ export function MainViewApp() {
 	const handleActivateChatTab = useCallback(
 		(tabId: string) => {
 			const nextWorkspace = activateChatTab(chatWorkspaceRef.current, tabId);
+			const channelId = getSelectedChannelId(nextWorkspace);
 			chatWorkspaceRef.current = nextWorkspace;
 			setChatWorkspace(nextWorkspace);
+			selectedChannelRef.current = channelId;
+			setSelectedChannelId(channelId);
 			persistChatWorkspaceTabs(nextWorkspace);
 		},
 		[persistChatWorkspaceTabs],
@@ -188,6 +191,11 @@ export function MainViewApp() {
 		},
 		[persistChatWorkspaceTabs],
 	);
+	const handleCloseActiveChatTab = useCallback(() => {
+		const activeTabId = chatWorkspaceRef.current.activeTabId;
+		if (!activeTabId) return;
+		handleCloseChatTab(activeTabId);
+	}, [handleCloseChatTab]);
 	const handleChatWorkspaceLayoutChange = useCallback(
 		(layout: unknown) => {
 			const nextWorkspace = updateChatWorkspaceLayout(
@@ -1298,6 +1306,7 @@ export function MainViewApp() {
 	) {
 		const channel = stateRef.current.channels[channelId];
 		if (!channel) return;
+		selectedChannelRef.current = channel.id;
 		const nextWorkspace = openChatTab(chatWorkspaceRef.current, {
 			channelId,
 			teamId: channel.team_id || null,
@@ -1309,6 +1318,7 @@ export function MainViewApp() {
 		chatWorkspaceRef.current = nextWorkspace;
 		setChatWorkspace(nextWorkspace);
 		persistChatWorkspaceTabs(nextWorkspace);
+		setSelectedChannelId(channel.id);
 	}
 
 	function signOut() {
@@ -1580,6 +1590,7 @@ export function MainViewApp() {
 				chatWorkspace={chatWorkspace}
 				chatViewStates={chatViewStates}
 				onActivateChatTab={handleActivateChatTab}
+				onCloseActiveChatTab={handleCloseActiveChatTab}
 				onCloseChatTab={handleCloseChatTab}
 				selectedChannel={selectedChannel}
 				selectedChannelId={renderedChannelId}
