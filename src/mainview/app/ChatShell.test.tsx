@@ -75,6 +75,7 @@ const callManager = {
 function renderChatShell(
 	selectedChannelId: string | null,
 	chatWorkspace?: ChatWorkspaceState | null,
+	appUpdateOverride?: AppUpdateState,
 ) {
 	composerProps.length = 0;
 	uiActions.setStatus("loading");
@@ -82,7 +83,7 @@ function renderChatShell(
 		<CallProvider callManager={callManager}>
 			<ChatShell
 				api={null}
-				appUpdate={appUpdate}
+				appUpdate={appUpdateOverride ?? appUpdate}
 				channelEmojis={{}}
 				channelMembers={[]}
 				channelOrder={{}}
@@ -181,6 +182,21 @@ function renderChatShell(
 }
 
 describe("ChatShell workspace layout", () => {
+	test("renders update notifications as a persistent toast", () => {
+		const html = renderChatShell("channel-1", null, {
+			...appUpdate,
+			status: "ready",
+			updateAvailable: true,
+			updateReady: true,
+			version: "1.2.3",
+		});
+
+		expect(html).toContain("update-toast");
+		expect(html).toContain("Antimatter 1.2.3 is ready to install.");
+		expect(html).toContain("Dismiss update notification");
+		expect(html).not.toContain("update-banner");
+	});
+
 	test("renders the selected channel body when workspace has no renderable tabs", () => {
 		const html = renderChatShell("channel-1", {
 			version: 1,

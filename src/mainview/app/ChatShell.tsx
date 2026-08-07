@@ -135,19 +135,20 @@ export function ChatShell({
 }: ChatShellProps) {
 	const ui = useSnapshot(uiStore);
 	const { session } = useCall();
-	const [dismissedAppUpdateBannerKey, setDismissedAppUpdateBannerKey] =
-		useState(() => loadDismissedAppUpdateBannerKey() ?? "");
+	const [dismissedAppUpdateToastKey, setDismissedAppUpdateToastKey] = useState(
+		() => loadDismissedAppUpdateBannerKey() ?? "",
+	);
 	const [pollDialogOpen, setPollDialogOpen] = useState(false);
 	const panelComposerRefs = useRef(new Map<string, MessageComposerHandle>());
-	const appUpdateBannerKey = getAppUpdateBannerKey(appUpdate);
-	const showAppUpdateBanner =
-		Boolean(appUpdateBannerKey) &&
-		appUpdateBannerKey !== dismissedAppUpdateBannerKey;
+	const appUpdateToastKey = getAppUpdateToastKey(appUpdate);
+	const showAppUpdateToast =
+		Boolean(appUpdateToastKey) &&
+		appUpdateToastKey !== dismissedAppUpdateToastKey;
 
-	function dismissAppUpdateBanner() {
-		if (!appUpdateBannerKey) return;
-		saveDismissedAppUpdateBannerKey(appUpdateBannerKey);
-		setDismissedAppUpdateBannerKey(appUpdateBannerKey);
+	function dismissAppUpdateToast() {
+		if (!appUpdateToastKey) return;
+		saveDismissedAppUpdateBannerKey(appUpdateToastKey);
+		setDismissedAppUpdateToastKey(appUpdateToastKey);
 	}
 	const startDm = useCallback(
 		(userId: string) => {
@@ -473,32 +474,6 @@ export function ChatShell({
 							</div>
 						) : null}
 
-						{showAppUpdateBanner ? (
-							<div className="update-banner">
-								<span>
-									{appUpdate.updateReady
-										? appUpdate.version
-											? `Antimatter ${appUpdate.version} is ready to install.`
-											: "An Antimatter update is ready to install."
-										: (appUpdate.message ?? "Downloading Antimatter update...")}
-								</span>
-								{appUpdate.updateReady ? (
-									<button type="button" onClick={onApplyAppUpdate}>
-										Restart
-									</button>
-								) : null}
-								<button
-									aria-label="Dismiss update banner"
-									className="update-banner-dismiss"
-									title="Dismiss"
-									type="button"
-									onClick={dismissAppUpdateBanner}
-								>
-									<X size={14} />
-								</button>
-							</div>
-						) : null}
-
 						{hasRenderableChatWorkspace && chatWorkspace ? (
 							<ChatWorkspace
 								channels={channels}
@@ -638,6 +613,33 @@ export function ChatShell({
 					callerAvatar={callParticipantAvatar}
 					callerName={callParticipantName}
 				/>
+				{showAppUpdateToast ? (
+					<div className="update-toast" role="status">
+						<div className="update-toast-body">
+							<span>
+								{appUpdate.updateReady
+									? appUpdate.version
+										? `Antimatter ${appUpdate.version} is ready to install.`
+										: "An Antimatter update is ready to install."
+									: (appUpdate.message ?? "Downloading Antimatter update...")}
+							</span>
+							<button
+								aria-label="Dismiss update notification"
+								className="update-toast-dismiss"
+								title="Dismiss"
+								type="button"
+								onClick={dismissAppUpdateToast}
+							>
+								<X size={14} />
+							</button>
+						</div>
+						{appUpdate.updateReady ? (
+							<button type="button" onClick={onApplyAppUpdate}>
+								Restart
+							</button>
+						) : null}
+					</div>
+				) : null}
 				<CallErrorToast />
 				<UserPickerDialog
 					api={api}
@@ -660,7 +662,7 @@ export function ChatShell({
 	);
 }
 
-function getAppUpdateBannerKey(appUpdate: AppUpdateState) {
+function getAppUpdateToastKey(appUpdate: AppUpdateState) {
 	const phase = appUpdate.updateReady
 		? "ready"
 		: appUpdate.status === "downloading"
