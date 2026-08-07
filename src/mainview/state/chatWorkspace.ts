@@ -124,13 +124,11 @@ export function openChatTab(
 	workspace: ChatWorkspaceState,
 	input: OpenChatTabInput,
 ): ChatWorkspaceState {
-	const activeTab = workspace.activeTabId
-		? workspace.tabs[workspace.activeTabId]
-		: undefined;
-	const existingTab =
-		!input.duplicate && activeTab?.channelId === input.channelId
-			? activeTab
-			: undefined;
+	const existingTab = input.duplicate
+		? undefined
+		: Object.values(workspace.tabs).find(
+				(tab) => tab.channelId === input.channelId,
+			);
 	const tabId = existingTab?.id ?? getNextPanelId(workspace.tabs);
 
 	return {

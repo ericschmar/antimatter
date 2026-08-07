@@ -120,3 +120,9 @@
   - Added Dockview tab CSS overrides using the same sidebar background, radius, padding, hover, and active-state tokens.
   - Added focused source regression coverage in `src/mainview/app/ChatShell.test.tsx`.
   - Validation: `bun test src/mainview/app/ChatShell.test.tsx` passed.
+
+- [x] Fix sidebar channel selection reusing already-open inactive chat tabs.
+  - Root cause: `openChatTab` only checked the active tab for a matching channel, so selecting a channel already open in an inactive tab allocated a new `chat-panel-N`.
+  - Updated `openChatTab` to reuse any existing matching channel tab unless an explicit duplicate is requested.
+  - Added focused unit coverage for activating an existing inactive channel tab.
+  - Validation: `bun test src/mainview/state/chatWorkspace.test.ts` passed.
