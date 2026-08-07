@@ -139,7 +139,14 @@ export function applyChannelHistory(
 	state: NormalizedState,
 	history: ChannelHistoryData,
 ): NormalizedState {
-	const posts: Record<string, MattermostPost> = {};
+	const historyChannelIds = new Set(
+		Object.values(history.posts).map((post) => post.channel_id),
+	);
+	const posts: Record<string, MattermostPost> = Object.fromEntries(
+		Object.entries(state.posts).filter(
+			([, post]) => !historyChannelIds.has(post.channel_id),
+		),
+	);
 	for (const [id, incoming] of Object.entries(history.posts)) {
 		const carriedReactions = state.posts[id]?.metadata?.reactions;
 		posts[id] =

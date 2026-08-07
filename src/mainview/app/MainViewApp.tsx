@@ -853,6 +853,13 @@ export function MainViewApp() {
 				),
 		[state.postOrder, state.posts],
 	);
+	const workspacePosts = useMemo(
+		() =>
+			Object.values(state.posts).filter(
+				(post) => post.type !== "custom_webrtc_call",
+			),
+		[state.posts],
+	);
 	const selectedTeam = selectedTeamId ? state.teams[selectedTeamId] : undefined;
 	const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;
 	const selectedChannel = renderedChannelId
@@ -1584,6 +1591,7 @@ export function MainViewApp() {
 				minComposerHeight={MIN_COMPOSER_HEIGHT}
 				minSidebarWidth={MIN_SIDEBAR_WIDTH}
 				posts={posts}
+				workspacePosts={workspacePosts}
 				appUpdate={appUpdate}
 				resolveImageSrc={resolveImageSrc}
 				sections={sections}

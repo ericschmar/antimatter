@@ -76,6 +76,7 @@ export function ChatShell({
 	minComposerHeight,
 	minSidebarWidth,
 	posts,
+	workspacePosts,
 	appUpdate,
 	resolveImageSrc,
 	sections,
@@ -502,7 +503,7 @@ export function ChatShell({
 								onStartDm={startDm}
 								onToggleReaction={onToggleReaction}
 								onVotePoll={onVotePoll}
-								posts={posts}
+								posts={workspacePosts}
 								resolveImageSrc={resolveImageSrc}
 								settings={settings}
 								typingUsers={ui.typingUsers}
@@ -699,6 +700,7 @@ type ChatShellProps = {
 	minComposerHeight: number;
 	minSidebarWidth: number;
 	posts: MattermostPost[];
+	workspacePosts: MattermostPost[];
 	appUpdate: AppUpdateState;
 	resolveImageSrc: (src: string) => Promise<string>;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;

@@ -12,12 +12,14 @@ import type { ChatWorkspaceState } from "../state/chatWorkspace";
 import { uiActions } from "../state/uiStore";
 import type {
 	MattermostChannel,
+	MattermostPost,
 	MattermostTeam,
 	MattermostUser,
 } from "../types";
 import type { CallManager } from "../webrtc/CallManager";
 
 const composerProps: MessageComposerProps[] = [];
+const chatWorkspaceProps: { posts: MattermostPost[] }[] = [];
 
 mock.module("./rpc", () => ({
 	electrobun: {},
@@ -35,6 +37,13 @@ mock.module("../components/MessageComposer", () => ({
 	},
 }));
 
+mock.module("../components/ChatWorkspace", () => ({
+	ChatWorkspace: (props: { posts: MattermostPost[] }) => {
+		chatWorkspaceProps.push(props);
+		return <div className="chat-workspace-preview" />;
+	},
+}));
+
 const { ChatShell } = await import("./ChatShell");
 
 const currentUser: MattermostUser = { id: "user-1", username: "sarah" };
@@ -49,6 +58,31 @@ const selectedChannel: MattermostChannel = {
 	name: "town-square",
 	team_id: selectedTeam.id,
 	type: "O",
+};
+const otherChannel: MattermostChannel = {
+	display_name: "Off Topic",
+	id: "channel-2",
+	name: "off-topic",
+	team_id: selectedTeam.id,
+	type: "O",
+};
+const selectedChannelPost: MattermostPost = {
+	channel_id: selectedChannel.id,
+	create_at: 1,
+	delete_at: 0,
+	id: "post-1",
+	message: "Selected channel post",
+	update_at: 1,
+	user_id: currentUser.id,
+};
+const otherChannelPost: MattermostPost = {
+	channel_id: otherChannel.id,
+	create_at: 2,
+	delete_at: 0,
+	id: "post-2",
+	message: "Other channel post",
+	update_at: 2,
+	user_id: currentUser.id,
 };
 const appUpdate: AppUpdateState = {
 	status: "idle",
@@ -76,8 +110,14 @@ function renderChatShell(
 	selectedChannelId: string | null,
 	chatWorkspace?: ChatWorkspaceState | null,
 	appUpdateOverride?: AppUpdateState,
+	options: {
+		channels?: MattermostChannel[];
+		posts?: MattermostPost[];
+		workspacePosts?: MattermostPost[];
+	} = {},
 ) {
 	composerProps.length = 0;
+	chatWorkspaceProps.length = 0;
 	uiActions.setStatus("loading");
 	return renderToString(
 		<CallProvider callManager={callManager}>
@@ -87,7 +127,9 @@ function renderChatShell(
 				channelEmojis={{}}
 				channelMembers={[]}
 				channelOrder={{}}
-				channels={selectedChannelId ? [selectedChannel] : []}
+				channels={
+					options.channels ?? (selectedChannelId ? [selectedChannel] : [])
+				}
 				collapsedSections={{
 					archived: false,
 					channels: false,
@@ -104,7 +146,8 @@ function renderChatShell(
 				maxSidebarWidth={480}
 				minComposerHeight={80}
 				minSidebarWidth={220}
-				posts={[]}
+				posts={options.posts ?? []}
+				workspacePosts={options.workspacePosts ?? options.posts ?? []}
 				resolveImageSrc={async (src) => src}
 				sections={{
 					archived: [],
@@ -206,6 +249,43 @@ describe("ChatShell workspace layout", () => {
 		});
 
 		expect(html).toContain("chat-body");
+	});
+
+	test("passes all loaded workspace channel posts to split chat panels", () => {
+		renderChatShell(
+			selectedChannel.id,
+			{
+				version: 1,
+				activeTabId: "channel:channel-1",
+				tabs: {
+					"channel:channel-1": {
+						channelId: selectedChannel.id,
+						id: "channel:channel-1",
+						teamId: selectedTeam.id,
+						title: selectedChannel.display_name,
+					},
+					"channel:channel-2": {
+						channelId: otherChannel.id,
+						id: "channel:channel-2",
+						teamId: selectedTeam.id,
+						title: otherChannel.display_name,
+					},
+				},
+				layout: null,
+			},
+			undefined,
+			{
+				channels: [selectedChannel, otherChannel],
+				posts: [selectedChannelPost],
+				workspacePosts: [selectedChannelPost, otherChannelPost],
+			},
+		);
+
+		expect(chatWorkspaceProps).toHaveLength(1);
+		expect(chatWorkspaceProps[0]?.posts.map((post) => post.id)).toEqual([
+			selectedChannelPost.id,
+			otherChannelPost.id,
+		]);
 	});
 
 	test("lets the chat workspace own the main area so each panel controls its header order", () => {

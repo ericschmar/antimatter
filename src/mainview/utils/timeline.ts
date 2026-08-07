@@ -31,6 +31,11 @@ export function buildTimelineRows(posts: MattermostPost[]): TimelineRow[] {
 		topLevelPosts.push(post);
 	}
 
+	topLevelPosts.sort((a, b) => a.create_at - b.create_at);
+	for (const replies of repliesByRootId.values()) {
+		replies.sort((a, b) => a.create_at - b.create_at);
+	}
+
 	for (const post of topLevelPosts) {
 		const currentDayKey = dayKey(post.create_at);
 		if (currentDayKey !== previousDayKey) {

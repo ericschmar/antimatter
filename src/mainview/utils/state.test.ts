@@ -159,6 +159,33 @@ describe("applyChannelHistory", () => {
 		expect(merged.posts["post-2"]?.metadata?.reactions).toBeUndefined();
 	});
 
+	test("preserves posts from other channels when history re-syncs", () => {
+		const otherChannelPost: MattermostPost = {
+			...basePost,
+			channel_id: "channel-2",
+			id: "post-3",
+		};
+		const state: NormalizedState = {
+			...stateWithPost(otherChannelPost),
+			postOrder: ["post-3", "post-1"],
+			posts: {
+				"post-1": basePost,
+				"post-3": otherChannelPost,
+			},
+		};
+		const updatedPost: MattermostPost = {
+			...basePost,
+			message: "updated selected channel history",
+		};
+		const history = historyWith({ "post-1": updatedPost }, ["post-1"]);
+
+		const merged = applyChannelHistory(state, history);
+
+		expect(merged.posts["post-1"]).toEqual(updatedPost);
+		expect(merged.posts["post-3"]).toEqual(otherChannelPost);
+		expect(merged.postOrder).toEqual(["post-1"]);
+	});
+
 	test("does not overwrite reactions carried from server-provided history", () => {
 		const serverReaction: MattermostReaction = {
 			...reaction,
