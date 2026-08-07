@@ -126,3 +126,10 @@
   - Updated `openChatTab` to reuse any existing matching channel tab unless an explicit duplicate is requested.
   - Added focused unit coverage for activating an existing inactive channel tab.
   - Validation: `bun test src/mainview/state/chatWorkspace.test.ts` passed.
+
+- [x] Fix upward scrolling jitter in the virtualized message timeline.
+  - Root cause: dynamic row re-measurements during backward scroll can replace cached sizes while the visible content is moving upward, producing TanStack Virtual scroll jumps.
+  - Added a custom `measureElement` callback that reuses cached measurements while scrolling backward and still measures normally when scrolling forward or without a cached size.
+  - Added focused source regression coverage for the custom measurement callback.
+  - Validation: `bun test src/mainview/components/MessageTimeline.test.tsx` passed.
+  - Validation: `bun run typecheck` still fails only on the known pre-existing TS2882 CSS side-effect import declaration issue.

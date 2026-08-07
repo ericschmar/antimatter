@@ -22,6 +22,28 @@ import "./MessageTimeline.css";
 export { MessageRow } from "./MessageRow";
 
 const SCROLL_END_THRESHOLD = 96;
+type MessageVirtualizerInstance = {
+	scrollDirection: "forward" | "backward" | null;
+	measurementsCache: Array<{ size: number }>;
+};
+
+function measureMessageTimelineElement(
+	element: HTMLElement,
+	_entry: ResizeObserverEntry | undefined,
+	instance: MessageVirtualizerInstance,
+) {
+	const index = Number(element.dataset["index"]);
+
+	const cachedSize = Number.isFinite(index)
+		? instance.measurementsCache[index]?.size
+		: undefined;
+
+	if (instance.scrollDirection === "backward" && cachedSize) {
+		return cachedSize;
+	}
+
+	return element.getBoundingClientRect().height;
+}
 
 export function MessageTimeline({
 	posts,
@@ -89,6 +111,7 @@ export function MessageTimeline({
 		getItemKey: (index) => timelineRows[index].key,
 		estimateSize: (index) =>
 			timelineRows[index].type === "divider" ? 34 : 112,
+		measureElement: measureMessageTimelineElement,
 		overscan: 12,
 	});
 	const lastPost = posts.at(-1);

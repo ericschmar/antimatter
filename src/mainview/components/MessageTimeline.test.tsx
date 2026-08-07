@@ -88,6 +88,17 @@ describe("MessageTimeline", () => {
 		expect(html).toContain("hello");
 	});
 
+	test("keeps cached row measurements while scrolling upward", () => {
+		const source = readFileSync(
+			new URL("./MessageTimeline.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain("measureElement: measureMessageTimelineElement");
+		expect(source).toContain(
+			'if (instance.scrollDirection === "backward" && cachedSize) {\n\t\treturn cachedSize;\n\t}',
+		);
+	});
 	test("uses the legacy markdown renderer when the new composer flag is off", () => {
 		const html = renderToString(
 			<MessageTimeline {...props} useNewComposer={false} />,
