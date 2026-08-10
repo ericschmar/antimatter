@@ -15,6 +15,7 @@ import type {
 	MattermostPost,
 	MattermostTeam,
 	MattermostUser,
+	WebSocketStatus,
 } from "../types";
 import type { CallManager } from "../webrtc/CallManager";
 
@@ -114,11 +115,13 @@ function renderChatShell(
 		channels?: MattermostChannel[];
 		posts?: MattermostPost[];
 		workspacePosts?: MattermostPost[];
+		wsStatus?: WebSocketStatus;
 	} = {},
 ) {
 	composerProps.length = 0;
 	chatWorkspaceProps.length = 0;
 	uiActions.setStatus("loading");
+	uiActions.setWsStatus(options.wsStatus ?? "idle");
 	return renderToString(
 		<CallProvider callManager={callManager}>
 			<ChatShell
@@ -238,6 +241,16 @@ describe("ChatShell workspace layout", () => {
 		expect(html).toContain("Antimatter 1.2.3 is ready to install.");
 		expect(html).toContain("Dismiss update notification");
 		expect(html).not.toContain("update-banner");
+	});
+
+	test("renders network outage notifications as a persistent toast", () => {
+		const html = renderChatShell("channel-1", null, undefined, {
+			wsStatus: "disconnected",
+		});
+
+		expect(html).toContain("update-toast network-outage-toast");
+		expect(html).toContain("Network connection lost. Reconnecting…");
+		expect(html).not.toContain("network-outage-banner");
 	});
 
 	test("renders the selected channel body when workspace has no renderable tabs", () => {

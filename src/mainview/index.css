@@ -486,6 +486,10 @@ textarea:disabled {
 	font-size: 0.84rem;
 }
 
+.update-toast.stacked {
+	bottom: 118px;
+}
+
 .update-toast-body {
 	display: flex;
 	align-items: flex-start;

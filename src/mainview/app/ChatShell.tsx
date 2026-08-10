@@ -145,6 +145,8 @@ export function ChatShell({
 	const showAppUpdateToast =
 		Boolean(appUpdateToastKey) &&
 		appUpdateToastKey !== dismissedAppUpdateToastKey;
+	const showNetworkOutageToast =
+		ui.wsStatus === "disconnected" || ui.wsStatus === "error";
 
 	function dismissAppUpdateToast() {
 		if (!appUpdateToastKey) return;
@@ -639,6 +641,16 @@ export function ChatShell({
 								Restart
 							</button>
 						) : null}
+					</div>
+				) : null}
+				{showNetworkOutageToast ? (
+					<div
+						className={`update-toast network-outage-toast${showAppUpdateToast ? " stacked" : ""}`}
+						role="status"
+					>
+						<div className="update-toast-body">
+							<span>Network connection lost. Reconnecting…</span>
+						</div>
 					</div>
 				) : null}
 				<CallErrorToast />
