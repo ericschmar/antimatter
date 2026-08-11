@@ -57,7 +57,7 @@ describe("MainViewApp channel selection", () => {
 			"const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;\n\tconst selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
 		);
 		expect(source).toContain(
-			"if (cachedHistory) setChannelMembers(cachedHistory.members);",
+			"if (fetchedHistory) setChannelMembers(fetchedHistory.members);",
 		);
 		expect(source).toContain("selectedChannelId={renderedChannelId}");
 	});
@@ -76,6 +76,40 @@ describe("MainViewApp channel selection", () => {
 			"selectedChannelRef.current = channel.id;",
 		);
 		expect(openChatPanelBody).toContain("setSelectedChannelId(channel.id);");
+	});
+
+	test("loads channel history on a cache miss when opening a chat tab", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const selectChannelBody = source.slice(
+			source.indexOf(
+				"async function selectChannel(channel: MattermostChannel)",
+			),
+			source.indexOf("\n\tasync function selectSearchPost"),
+		);
+
+		// Without a cached SWR history, selectChannel must fetch the channel
+		// history itself. The standalone SWR fetch is keyed on standaloneChannelId,
+		// which is null while a workspace tab is active, so opening a chat tab
+		// would otherwise never load prior messages (DMs and new channels alike).
+		expect(selectChannelBody).toContain(
+			"const fetchedHistory = cachedHistory\n\t\t\t? cachedHistory\n\t\t\t: await loadChannelHistory(api, channel.id, currentUser?.id);",
+		);
+		expect(selectChannelBody).toContain(
+			"void mutateSWR(\n\t\t\tchannelHistoryKey(config.serverUrl, channel.id),\n\t\t\tfetchedHistory,\n\t\t\t{ revalidate: false },\n\t\t);",
+		);
+		expect(selectChannelBody).toContain("applyChannelHistory(");
+		expect(selectChannelBody).toContain(
+			"if (fetchedHistory) setChannelMembers(fetchedHistory.members);",
+		);
+		expect(selectChannelBody).toContain(
+			'setStatus(fetchedHistory ? "ready" : "loading");',
+		);
+		expect(selectChannelBody).toContain(
+			"void loadPostReactions(api, Object.values(fetchedHistory.posts));",
+		);
 	});
 
 	test("persists open workspace tab metadata", () => {

@@ -1042,38 +1042,30 @@ export function MainViewApp() {
 			delete next[channel.id];
 			return next;
 		});
-		setState((current) => {
-			if (!cachedHistory) {
-				return {
+		const fetchedHistory = cachedHistory
+			? cachedHistory
+			: await loadChannelHistory(api, channel.id, currentUser?.id);
+		void mutateSWR(
+			channelHistoryKey(config.serverUrl, channel.id),
+			fetchedHistory,
+			{ revalidate: false },
+		);
+		setState((current) =>
+			applyChannelHistory(
+				{
 					...current,
 					channels: {
 						...current.channels,
 						[channel.id]: channel,
 					},
-				};
-			}
-
-			return {
-				...current,
-				channels: {
-					...current.channels,
-					[channel.id]: channel,
 				},
-				users: {
-					...current.users,
-					...Object.fromEntries(
-						cachedHistory.postUsers.map((user) => [user.id, user]),
-					),
-					...Object.fromEntries(
-						cachedHistory.memberUsers.map((user) => [user.id, user]),
-					),
-				},
-				posts: cachedHistory.posts,
-				postOrder: cachedHistory.postOrder,
-			};
-		});
-		if (cachedHistory) setChannelMembers(cachedHistory.members);
-		setStatus(cachedHistory ? "ready" : "loading");
+				fetchedHistory,
+			),
+		);
+		if (fetchedHistory) setChannelMembers(fetchedHistory.members);
+		setStatus(fetchedHistory ? "ready" : "loading");
+		if (fetchedHistory)
+			void loadPostReactions(api, Object.values(fetchedHistory.posts));
 	}
 
 	async function selectSearchPost(post: MattermostPost) {

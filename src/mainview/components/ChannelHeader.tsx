@@ -7,7 +7,12 @@ import type {
 	MattermostUser,
 	MattermostUserStatus,
 } from "../types";
-import { directChannelOtherUserId, initials, userLabel } from "../utils/format";
+import {
+	channelLabel,
+	directChannelOtherUserId,
+	initials,
+	userLabel,
+} from "../utils/format";
 import { CallButton } from "./CallButton";
 
 type ChannelHeaderProps = {
@@ -61,7 +66,7 @@ export const ChannelHeader = memo(function ChannelHeader({
 				<div className="channel-header-title-row">
 					<h2>
 						{channel
-							? channel.display_name || channel.name
+							? channelLabel(channel, users, currentUserId)
 							: "Select a channel"}
 					</h2>
 					{channelDescription ? (
