@@ -15,6 +15,7 @@ import type {
 	PollProps,
 } from "../../types";
 import { userLabel } from "../../utils/format";
+import { traceSync } from "../../utils/perfTrace";
 import { buildTimelineRows } from "../../utils/timeline";
 import type { MuiTimelineContextValue } from "./MuiTimelineContext";
 
@@ -77,60 +78,129 @@ export function buildMuiConversation(
 	};
 }
 
+type CachedMuiMessage = {
+	post: MattermostPost;
+	replies: MattermostPost[];
+	user: MattermostUser | undefined;
+	image: string | undefined;
+	status: MattermostUserStatus | undefined;
+	color: string | undefined;
+	channelId: string | null;
+	currentUserId: string;
+	message: ChatMessage;
+};
+
+// The timeline rebuilds its message list whenever posts, users, avatars, or
+// presence change. Without per-message identity, every rebuild allocates fresh
+// ChatMessage objects, which defeats `MuiMessageItem`'s `memo` and re-renders
+// every visible row. This cache reuses a message object as long as the inputs
+// that produced it are referentially equal. Replies are compared by content
+// (refs + length) so the cache stays effective during a post burst, where the
+// posts array is reallocated but unchanged threads hold the same reply objects.
+// See Phase 1c.
+const muiMessageCache = new Map<string, CachedMuiMessage>();
+let muiMessageCacheChannel: string | null = null;
+const MUI_MESSAGE_CACHE_MAX = 1000;
+
+export function __resetMuiMessageCache(): void {
+	muiMessageCache.clear();
+	muiMessageCacheChannel = null;
+}
+
+function repliesEqual(a: MattermostPost[], b: MattermostPost[]): boolean {
+	if (a === b) return true;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i += 1) {
+		if (a[i] !== b[i]) return false;
+	}
+	return true;
+}
+
 export function buildMuiTimelineMessages(
 	posts: MattermostPost[],
 	context: MuiTimelineContextValue,
 ): ChatMessage[] {
-	return buildTimelineRows(posts)
-		.filter((row) => row.type === "message")
-		.map((row) => {
-			const author = context.users[row.post.user_id];
-			const userColor = context.userColors[row.post.user_id];
-			const files = row.post.metadata?.files ?? [];
-			const reactions = row.post.metadata?.reactions ?? [];
-			const poll =
-				row.post.type === POLL_POST_TYPE ? row.post.props?.poll : undefined;
-			return {
-				id: row.post.id,
-				conversationId: context.channelId ?? "timeline",
-				role: row.post.user_id === context.currentUserId ? "user" : "assistant",
-				parts: buildMuiMessageParts(row.post, row.replies),
-				createdAt: new Date(row.post.create_at).toISOString(),
-				updatedAt: new Date(row.post.update_at).toISOString(),
-				editedAt:
-					row.post.update_at > row.post.create_at && row.post.delete_at === 0
-						? new Date(row.post.update_at).toISOString()
-						: undefined,
-				status: row.post.failed
-					? "error"
-					: row.post.pending
-						? "sending"
-						: "sent",
-				author: {
-					id: row.post.user_id,
-					displayName: userLabel(author, row.post.user_id),
-					avatarUrl: context.userImages[row.post.user_id],
-					isOnline: context.userStatuses[row.post.user_id]?.status === "online",
-					role:
-						row.post.user_id === context.currentUserId ? "user" : "assistant",
-					metadata: {
-						mattermostUser: author,
-						status: context.userStatuses[row.post.user_id],
+	return traceSync("buildMuiTimelineMessages", () => {
+		if (context.channelId !== muiMessageCacheChannel) {
+			muiMessageCache.clear();
+			muiMessageCacheChannel = context.channelId;
+		}
+		return buildTimelineRows(posts)
+			.filter((row) => row.type === "message")
+			.map((row) => {
+				const post = row.post;
+				const user = context.users[post.user_id];
+				const image = context.userImages[post.user_id];
+				const status = context.userStatuses[post.user_id];
+				const color = context.userColors[post.user_id];
+				const cached = muiMessageCache.get(post.id);
+				if (
+					cached &&
+					cached.post === post &&
+					repliesEqual(cached.replies, row.replies) &&
+					cached.user === user &&
+					cached.image === image &&
+					cached.status === status &&
+					cached.color === color &&
+					cached.channelId === context.channelId &&
+					cached.currentUserId === context.currentUserId
+				) {
+					return cached.message;
+				}
+				const files = post.metadata?.files ?? [];
+				const reactions = post.metadata?.reactions ?? [];
+				const poll =
+					post.type === POLL_POST_TYPE ? post.props?.poll : undefined;
+				const message: ChatMessage = {
+					id: post.id,
+					conversationId: context.channelId ?? "timeline",
+					role: post.user_id === context.currentUserId ? "user" : "assistant",
+					parts: buildMuiMessageParts(post, row.replies),
+					createdAt: new Date(post.create_at).toISOString(),
+					updatedAt: new Date(post.update_at).toISOString(),
+					editedAt:
+						post.update_at > post.create_at && post.delete_at === 0
+							? new Date(post.update_at).toISOString()
+							: undefined,
+					status: post.failed ? "error" : post.pending ? "sending" : "sent",
+					author: {
+						id: post.user_id,
+						displayName: userLabel(user, post.user_id),
+						avatarUrl: image,
+						isOnline: status?.status === "online",
+						role: post.user_id === context.currentUserId ? "user" : "assistant",
+						metadata: { mattermostUser: user, status },
 					},
-				},
-				metadata: {
-					post: row.post,
+					metadata: {
+						post,
+						replies: row.replies,
+						files,
+						reactions,
+						poll,
+						deleted: post.delete_at > 0,
+						pending: Boolean(post.pending),
+						failed: Boolean(post.failed),
+						userColor: color,
+					} satisfies MattermostMessageMetadata,
+				};
+				if (muiMessageCache.size >= MUI_MESSAGE_CACHE_MAX) {
+					const oldestKey = muiMessageCache.keys().next().value;
+					if (oldestKey !== undefined) muiMessageCache.delete(oldestKey);
+				}
+				muiMessageCache.set(post.id, {
+					post,
 					replies: row.replies,
-					files,
-					reactions,
-					poll,
-					deleted: row.post.delete_at > 0,
-					pending: Boolean(row.post.pending),
-					failed: Boolean(row.post.failed),
-					userColor,
-				} satisfies MattermostMessageMetadata,
-			};
-		});
+					user,
+					image,
+					status,
+					color,
+					channelId: context.channelId,
+					currentUserId: context.currentUserId,
+					message,
+				});
+				return message;
+			});
+	});
 }
 
 export function buildMuiMessageParts(

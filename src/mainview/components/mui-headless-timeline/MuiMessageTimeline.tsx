@@ -16,6 +16,11 @@ import { Reply, SmilePlus } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeEmojiName } from "../../utils/emoji";
 import { formatDateDivider, formatTime, initials } from "../../utils/format";
+import {
+	__flushPerfRenderCounts,
+	isPerfEnabled,
+	markRender,
+} from "../../utils/perfTrace";
 import { EmojiPickerPopover } from "../EmojiPickerPopover";
 import { UserDetailsTrigger } from "../UserDetailsTrigger";
 import { mattermostPartRenderers } from "./MattermostPartRenderers";
@@ -185,6 +190,15 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 		return () => cancelAnimationFrame(frameId);
 	}, [context.channelId, lastMessageId]);
 
+	useEffect(() => {
+		if (!isPerfEnabled()) return;
+		const flushId = setInterval(__flushPerfRenderCounts, 1500);
+		return () => {
+			clearInterval(flushId);
+			__flushPerfRenderCounts();
+		};
+	}, []);
+
 	return (
 		<div
 			className="mui-message-timeline"
@@ -279,6 +293,7 @@ const MuiMessageItem = memo(function MuiMessageItem({
 	messageIds: string[];
 	previousMessage: ChatMessage | undefined;
 }) {
+	markRender("MuiMessageItem");
 	const context = useMuiTimelineContext();
 	const metadata = message.metadata as MattermostMessageMetadata;
 	const post = metadata.post;

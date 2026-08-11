@@ -10,7 +10,26 @@ export type TimelineRow =
 			replies: MattermostPost[];
 	  };
 
+// Memoized by the posts array reference: avatars and presence stream in
+// without changing the posts array, so the same reference is passed on every
+// rebuild. Returning the same rows (and reply arrays) keeps downstream
+// per-message memoization stable. See Phase 1c.
+let cachedPosts: MattermostPost[] | null = null;
+let cachedRows: TimelineRow[] = [];
+
+export function __resetTimelineRowsCache(): void {
+	cachedPosts = null;
+	cachedRows = [];
+}
+
 export function buildTimelineRows(posts: MattermostPost[]): TimelineRow[] {
+	if (posts === cachedPosts) return cachedRows;
+	cachedRows = computeTimelineRows(posts);
+	cachedPosts = posts;
+	return cachedRows;
+}
+
+function computeTimelineRows(posts: MattermostPost[]): TimelineRow[] {
 	const rows: TimelineRow[] = [];
 	let previousDayKey: string | null = null;
 	const postsById = new Map(posts.map((post) => [post.id, post]));

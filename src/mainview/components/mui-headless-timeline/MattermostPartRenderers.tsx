@@ -1,5 +1,6 @@
 import type { ChatPartRendererMap } from "@mui/x-chat/headless";
 import { memo, useMemo } from "react";
+import { markRender } from "../../utils/perfTrace";
 import { MessageAttachments } from "../MessageAttachments";
 import { MarkdownRenderer } from "../MessageMarkdown";
 import { groupReactions, ReactionPill } from "../MessageReactions";
@@ -43,6 +44,7 @@ const MattermostTextPart = memo(function MattermostTextPart({
 }: {
 	part: Extract<MattermostMessagePart, { type: "text" }>;
 }) {
+	markRender("MattermostTextPart");
 	const context = useMuiTimelineContext();
 	return (
 		<MarkdownRenderer

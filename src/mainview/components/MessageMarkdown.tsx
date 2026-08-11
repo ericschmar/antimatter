@@ -1,6 +1,8 @@
 import MDEditor from "@uiw/react-md-editor/nohighlight";
 import "@uiw/react-markdown-preview/markdown.css";
 import type { ComponentProps } from "react";
+import { memo } from "react";
+import { markRender } from "../utils/perfTrace";
 import {
 	highlightMentionsInMarkdown,
 	MarkdownMessage,
@@ -9,17 +11,37 @@ import {
 	useResolvedImageSrc,
 } from "./MarkdownMessage";
 
-export function MarkdownRenderer({
-	currentUsername,
-	markdown,
-	resolveImageSrc,
-	useNewComposer,
-}: {
+export type MarkdownRendererProps = {
 	currentUsername?: string;
 	markdown: string;
 	resolveImageSrc: (src: string) => Promise<string>;
 	useNewComposer: boolean;
-}) {
+};
+
+// Markdown parsing is the dominant per-render cost (Phase 0 measured ~1080 fresh
+// parses for ~60 unique messages during startup). The timeline rebuilds its
+// message list on every avatar/presence/post change, producing fresh `part`
+// objects that cascade to this component even when the markdown string is
+// identical. Comparing by value here lets React bail out and skip the parse.
+export function markdownPropsEqual(
+	prev: MarkdownRendererProps,
+	next: MarkdownRendererProps,
+): boolean {
+	return (
+		prev.markdown === next.markdown &&
+		prev.currentUsername === next.currentUsername &&
+		prev.useNewComposer === next.useNewComposer &&
+		prev.resolveImageSrc === next.resolveImageSrc
+	);
+}
+
+export const MarkdownRenderer = memo(function MarkdownRenderer({
+	currentUsername,
+	markdown,
+	resolveImageSrc,
+	useNewComposer,
+}: MarkdownRendererProps) {
+	markRender("MarkdownRenderer");
 	if (useNewComposer) {
 		return (
 			<MDEditor.Markdown
@@ -46,7 +68,7 @@ export function MarkdownRenderer({
 			resolveImageSrc={resolveImageSrc}
 		/>
 	);
-}
+}, markdownPropsEqual);
 
 function TimelineMarkdownImage({
 	resolveImageSrc,

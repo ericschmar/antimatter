@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type { MattermostPost } from "../types";
-import { buildTimelineRows } from "./timeline";
+import { __resetTimelineRowsCache, buildTimelineRows } from "./timeline";
 
 const rootPost: MattermostPost = {
 	id: "root-1",
@@ -23,6 +23,8 @@ function post(overrides: Partial<MattermostPost>): MattermostPost {
 }
 
 describe("buildTimelineRows", () => {
+	beforeEach(__resetTimelineRowsCache);
+
 	test("groups loaded replies under their root message", () => {
 		const reply = post({ id: "reply-1", root_id: rootPost.id });
 		const rows = buildTimelineRows([rootPost, reply]);
@@ -74,5 +76,30 @@ describe("buildTimelineRows", () => {
 		expect(messageRows).toHaveLength(1);
 		expect(messageRows[0]?.post).toBe(selfRooted);
 		expect(messageRows[0]?.replies).toEqual([]);
+	});
+
+	test("returns the same row array reference when given the same posts reference", () => {
+		const posts = [
+			rootPost,
+			post({ id: "p2", create_at: rootPost.create_at + 1 }),
+		];
+		const first = buildTimelineRows(posts);
+		const second = buildTimelineRows(posts);
+		expect(second).toBe(first);
+	});
+
+	test("returns stable reply array references when given the same posts reference", () => {
+		const reply = post({ id: "reply-1", root_id: rootPost.id });
+		const posts = [rootPost, reply];
+		const firstRow = buildTimelineRows(posts).find(
+			(row) => row.type === "message",
+		);
+		const secondRow = buildTimelineRows(posts).find(
+			(row) => row.type === "message",
+		);
+		if (firstRow?.type !== "message" || secondRow?.type !== "message") {
+			throw new Error("expected message rows");
+		}
+		expect(secondRow.replies).toBe(firstRow.replies);
 	});
 });
