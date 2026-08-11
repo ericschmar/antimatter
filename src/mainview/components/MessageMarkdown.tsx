@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import {
 	highlightMentionsInMarkdown,
 	MarkdownMessage,
+	MentionStrong,
 	useImageLoadInfo,
 	useResolvedImageSrc,
 } from "./MarkdownMessage";
@@ -24,6 +25,9 @@ export function MarkdownRenderer({
 			<MDEditor.Markdown
 				className="markdown-message markdown-message-new"
 				components={{
+					strong: (props: ComponentProps<"strong">) => (
+						<MentionStrong {...props} />
+					),
 					img: (props: ComponentProps<"img">) => (
 						<TimelineMarkdownImage
 							{...props}

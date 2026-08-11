@@ -47,6 +47,10 @@ describe("MainViewApp channel selection", () => {
 			"const [chatWorkspace, setChatWorkspace] = useState(() =>\n\t\tcreateChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs),\n\t);\n\tconst chatWorkspaceRef = useRef(chatWorkspace);\n\tchatWorkspaceRef.current = chatWorkspace;\n\tconst activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);",
 		);
 		expect(source).toContain(
+			"const standaloneChannelId = activeWorkspaceChannelId",
+		);
+		expect(source).toContain("? null\n\t\t: selectedChannelId;");
+		expect(source).toContain(
 			"\t\tconst nextWorkspace = openChatTab(chatWorkspaceRef.current, {\n\t\t\tchannelId: channel.id,\n\t\t\tteamId: channel.team_id || null,\n\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t});\n\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\tsetChatWorkspace(nextWorkspace);\n\t\tpersistChatWorkspaceTabs(nextWorkspace, nextConfig);\n\t\tsetSelectedChannelId(channel.id);",
 		);
 		expect(source).toContain(
@@ -100,6 +104,21 @@ describe("MainViewApp channel selection", () => {
 		expect(source).toContain("chatWorkspace={chatWorkspace}");
 	});
 
+	test("loads every restored workspace panel channel during startup", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain("const restoredWorkspaceChannelIds = new Set(");
+		expect(source).toContain("Object.values(chatWorkspaceRef.current.tabs)");
+		expect(source).toContain(
+			"restoredWorkspaceChannelIds.add(selectedChannel.id);",
+		);
+		expect(source).toContain("const channelHistories = await Promise.all(");
+		expect(source).toContain("posts = Object.assign(");
+	});
+
 	test("syncs Dockview active panel changes to the active workspace tab", () => {
 		const mainViewSource = readFileSync(
 			new URL("./MainViewApp.tsx", import.meta.url),
@@ -115,7 +134,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleActivateChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = activateChatTab(chatWorkspaceRef.current, tabId);\n\t\t\tconst channelId = getSelectedChannelId(nextWorkspace);\n\t\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\t\tsetChatWorkspace(nextWorkspace);\n\t\t\tselectedChannelRef.current = channelId;\n\t\t\tsetSelectedChannelId(channelId);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
+			"const currentWorkspace = chatWorkspaceRef.current;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
 		);
 		expect(mainViewSource).toContain(
 			"onActivateChatTab={handleActivateChatTab}",
@@ -155,6 +174,24 @@ describe("MainViewApp channel selection", () => {
 		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");
 		expect(chatWorkspaceSource).toContain("event.api.onDidRemovePanel");
 		expect(chatWorkspaceSource).toContain("onCloseTab(panel.id)");
+	});
+
+	test("moves split actions from panel buttons to the Dockview tab context menu", () => {
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(chatWorkspaceSource).toContain(
+			"getTabContextMenuItems={({ panel }) => [",
+		);
+		expect(chatWorkspaceSource).toContain('label: "Split right"');
+		expect(chatWorkspaceSource).toContain('label: "Split down"');
+		expect(chatWorkspaceSource).toContain('"right",');
+		expect(chatWorkspaceSource).toContain('"below",');
+		expect(chatWorkspaceSource).not.toContain("chat-workspace-panel-actions");
+		expect(chatWorkspaceSource).not.toContain('aria-label="Split chat right"');
+		expect(chatWorkspaceSource).not.toContain('aria-label="Split chat down"');
 	});
 
 	test("renders a composer inside each Dockview chat panel", () => {
@@ -232,6 +269,35 @@ describe("MainViewApp channel selection", () => {
 		);
 	});
 
+	test("routes workspace load more through the panel channel", () => {
+		const mainViewSource = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatShellSource = readFileSync(
+			new URL("./ChatShell.tsx", import.meta.url),
+			"utf8",
+		);
+		const chatWorkspaceSource = readFileSync(
+			new URL("../components/ChatWorkspace.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(mainViewSource).toContain("async function loadMoreMessages(");
+		expect(mainViewSource).toContain(
+			"channelId = selectedChannelRef.current ?? undefined",
+		);
+		expect(mainViewSource).toContain(
+			"const selectedChannelHistoryKey = channelHistoryKey(\n\t\tconfig?.serverUrl,\n\t\tstandaloneChannelId,\n\t);",
+		);
+		expect(chatShellSource).toContain(
+			"onLoadMore={(channelId) => void onLoadMoreMessages(channelId)}",
+		);
+		expect(chatWorkspaceSource).toContain(
+			"workspaceProps.onLoadMore?.(params.channelId)",
+		);
+	});
+
 	test("routes composer shortcuts through the active chat panel ref", () => {
 		const chatShellSource = readFileSync(
 			new URL("./ChatShell.tsx", import.meta.url),
@@ -279,7 +345,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleActivateChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = activateChatTab(chatWorkspaceRef.current, tabId);\n\t\t\tconst channelId = getSelectedChannelId(nextWorkspace);\n\t\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\t\tsetChatWorkspace(nextWorkspace);\n\t\t\tselectedChannelRef.current = channelId;\n\t\t\tsetSelectedChannelId(channelId);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
+			"const currentWorkspace = chatWorkspaceRef.current;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
 		);
 		expect(chatShellSource).toContain(
 			"chatViewStates[selectedChannelId]?.editTargetId",

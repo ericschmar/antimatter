@@ -5,7 +5,6 @@ import {
 	type IDockviewPanelProps,
 	themeDark,
 } from "dockview-react";
-import { SplitSquareHorizontal, SplitSquareVertical } from "lucide-react";
 import type { SyntheticEvent } from "react";
 import {
 	createContext,
@@ -35,11 +34,15 @@ import type {
 import { channelLabel } from "../utils/format";
 import { ChannelHeader } from "./ChannelHeader";
 import {
+	getStablePanelPosts,
+	type PanelPostsCache,
+} from "./chatWorkspacePanelPosts";
+import {
 	MessageComposer,
 	type MessageComposerHandle,
 	type MessageComposerProps,
 } from "./MessageComposer";
-import { MessageTimeline } from "./MessageTimeline";
+import { MuiMessageTimeline } from "./mui-headless-timeline/MuiMessageTimeline";
 import { NewMessageComposer } from "./NewMessageComposer";
 
 type ChatWorkspaceProps = {
@@ -89,7 +92,7 @@ type ChatWorkspaceProps = {
 	) => void;
 	onToggleReaction: (post: MattermostPost, emojiName: string) => Promise<void>;
 	onVotePoll: (post: MattermostPost, optionId: string) => Promise<void>;
-	onLoadMore?: () => void;
+	onLoadMore?: (channelId: string) => void;
 };
 
 type ChatWorkspaceContextValue = Omit<
@@ -111,17 +114,33 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 	const workspaceProps = useContext(ChatWorkspaceContext);
 	if (!workspaceProps) return null;
 
-	const panelPosts = workspaceProps.posts.filter(
-		(post) => post.channel_id === params.channelId,
+	const panelChannel = workspaceProps.channels.find(
+		(channel) => channel.id === params.channelId,
 	);
-	const panelTypingUsers = Object.keys(
-		workspaceProps.typingUsers[params.channelId] ?? {},
-	).map(
-		(userId) =>
-			workspaceProps.users[userId] ?? {
-				id: userId,
-				username: "Someone",
-			},
+	const currentUser = workspaceProps.users[workspaceProps.currentUserId] ?? {
+		id: workspaceProps.currentUserId,
+		username: workspaceProps.currentUserId,
+	};
+	const panelPostsRef = useRef<PanelPostsCache>(null);
+	const panelPosts = useMemo(() => {
+		const result = getStablePanelPosts(
+			workspaceProps.posts,
+			params.channelId,
+			panelPostsRef.current,
+		);
+		panelPostsRef.current = result.cache;
+		return result.posts;
+	}, [params.channelId, workspaceProps.posts]);
+	const panelTypingUsers = useMemo(
+		() =>
+			Object.keys(workspaceProps.typingUsers[params.channelId] ?? {}).map(
+				(userId) =>
+					workspaceProps.users[userId] ?? {
+						id: userId,
+						username: "Someone",
+					},
+			),
+		[params.channelId, workspaceProps.typingUsers, workspaceProps.users],
 	);
 	const panelState = workspaceProps.chatViewStates[api.id];
 	const editTargetId = panelState?.editTargetId ?? null;
@@ -167,13 +186,9 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 			workspaceProps.onSetComposerHeight,
 		],
 	);
-	const splitRight = useCallback(() => {
-		workspaceProps.onOpenTab(params.channelId, "right", api.id);
-	}, [api.id, params.channelId, workspaceProps.onOpenTab]);
-	const splitDown = useCallback(() => {
-		workspaceProps.onOpenTab(params.channelId, "below", api.id);
-	}, [api.id, params.channelId, workspaceProps.onOpenTab]);
-
+	const loadMorePanelMessages = useCallback(() => {
+		workspaceProps.onLoadMore?.(params.channelId);
+	}, [params.channelId, workspaceProps.onLoadMore]);
 	return (
 		<div
 			className="chat-workspace-panel"
@@ -181,9 +196,7 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 			onPointerDown={() => workspaceProps.onActivateTab(api.id)}
 		>
 			<ChannelHeader
-				channel={workspaceProps.channels.find(
-					(channel) => channel.id === params.channelId,
-				)}
+				channel={panelChannel}
 				channelMembers={workspaceProps.channelMembers[params.channelId] ?? []}
 				currentUserId={workspaceProps.currentUserId}
 				settings={workspaceProps.settings}
@@ -192,26 +205,10 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 				users={workspaceProps.users}
 				onOpenUserPicker={workspaceProps.onOpenUserPicker}
 			/>
-			<div className="chat-workspace-panel-actions">
-				<button
-					aria-label="Split chat right"
-					className="chat-workspace-panel-action"
-					type="button"
-					onClick={splitRight}
-				>
-					<SplitSquareHorizontal size={14} />
-				</button>
-				<button
-					aria-label="Split chat down"
-					className="chat-workspace-panel-action"
-					type="button"
-					onClick={splitDown}
-				>
-					<SplitSquareVertical size={14} />
-				</button>
-			</div>
-			<MessageTimeline
+			<MuiMessageTimeline
+				channel={panelChannel}
 				channelId={params.channelId}
+				currentUser={currentUser}
 				currentUserId={workspaceProps.currentUserId}
 				loading={workspaceProps.loading}
 				loadingHistory={workspaceProps.loadingHistory}
@@ -237,7 +234,7 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 				onReply={(post) => workspaceProps.onReply(api.id, post)}
 				onToggleReaction={workspaceProps.onToggleReaction}
 				onVotePoll={workspaceProps.onVotePoll}
-				onLoadMore={workspaceProps.onLoadMore}
+				onLoadMore={loadMorePanelMessages}
 			/>
 			<Resizable
 				axis="y"
@@ -425,6 +422,31 @@ export function ChatWorkspace({
 					<DockviewReact
 						key={Object.keys(workspace.tabs).join(":")}
 						components={dockviewComponents}
+						getTabContextMenuItems={({ panel }) => [
+							{
+								label: "Split right",
+								action: () => {
+									onOpenTab(
+										(panel.params as ChatPanelParams).channelId,
+										"right",
+										panel.id,
+									);
+								},
+							},
+							{
+								label: "Split down",
+								action: () => {
+									onOpenTab(
+										(panel.params as ChatPanelParams).channelId,
+										"below",
+										panel.id,
+									);
+								},
+							},
+							"separator",
+							"close",
+							"closeOthers",
+						]}
 						theme={chatWorkspaceDockviewTheme}
 						onReady={(event) => {
 							dockviewApiRef.current = event.api;

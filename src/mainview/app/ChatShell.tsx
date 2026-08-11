@@ -19,7 +19,7 @@ import {
 	type MessageComposerHandle,
 	type MessageComposerProps,
 } from "../components/MessageComposer";
-import { MessageTimeline } from "../components/MessageTimeline";
+import { MuiMessageTimeline } from "../components/mui-headless-timeline/MuiMessageTimeline";
 import { NewMessageComposer } from "../components/NewMessageComposer";
 import { PollDialog } from "../components/PollDialog";
 import { Sidebar } from "../components/Sidebar";
@@ -493,7 +493,7 @@ export function ChatShell({
 								onCancelEdit={onCancelChatEdit}
 								onCancelReply={onCancelChatReply}
 								onCloseTab={onCloseChatTab}
-								onLoadMore={onLoadMoreMessages}
+								onLoadMore={(channelId) => void onLoadMoreMessages(channelId)}
 								onOpenAttachment={onOpenAttachment}
 								onReply={onStartReply}
 								onSetComposerHeight={onSetChatComposerHeight}
@@ -517,8 +517,10 @@ export function ChatShell({
 							/>
 						) : (
 							<section className="chat-body">
-								<MessageTimeline
+								<MuiMessageTimeline
+									channel={selectedChannel}
 									channelId={selectedChannelId}
+									currentUser={currentUser}
 									currentUserId={currentUser.id}
 									loading={ui.status === "loading"}
 									loadingHistory={ui.loadingHistory}
@@ -746,7 +748,7 @@ type ChatShellProps = {
 	) => Promise<void>;
 	onCreateDm: (userIds: string[]) => Promise<void>;
 	onEditMessage: (post: MattermostPost, message: string) => Promise<void>;
-	onLoadMoreMessages: () => Promise<void>;
+	onLoadMoreMessages: (channelId?: string) => Promise<void>;
 	onOpenChatPanel: (
 		channelId: string,
 		placement?: ChatPanelPlacement,

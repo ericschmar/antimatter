@@ -157,6 +157,9 @@ export function MainViewApp() {
 	const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
 		null,
 	);
+	const standaloneChannelId = activeWorkspaceChannelId
+		? null
+		: selectedChannelId;
 	const persistChatWorkspaceTabs = useCallback(
 		(nextWorkspace: ChatWorkspaceState, baseConfig = config) => {
 			if (!baseConfig) return;
@@ -172,7 +175,9 @@ export function MainViewApp() {
 	);
 	const handleActivateChatTab = useCallback(
 		(tabId: string) => {
-			const nextWorkspace = activateChatTab(chatWorkspaceRef.current, tabId);
+			const currentWorkspace = chatWorkspaceRef.current;
+			const nextWorkspace = activateChatTab(currentWorkspace, tabId);
+			if (nextWorkspace === currentWorkspace) return;
 			const channelId = getSelectedChannelId(nextWorkspace);
 			chatWorkspaceRef.current = nextWorkspace;
 			setChatWorkspace(nextWorkspace);
@@ -285,8 +290,8 @@ export function MainViewApp() {
 
 	useEffect(() => {
 		selectedChannelRef.current = selectedChannelId;
-		uiActions.resetForChannelChange();
-	}, [selectedChannelId]);
+		if (!activeWorkspaceChannelId) uiActions.resetForChannelChange();
+	}, [activeWorkspaceChannelId, selectedChannelId]);
 
 	useEffect(() => {
 		const timer = window.setInterval(() => {
@@ -297,10 +302,10 @@ export function MainViewApp() {
 	}, []);
 
 	useEffect(() => {
-		if (!selectedChannelId || status !== "ready") return;
+		if (!standaloneChannelId || status !== "ready") return;
 		const frame = requestAnimationFrame(() => composerRef.current?.focus());
 		return () => cancelAnimationFrame(frame);
-	}, [selectedChannelId, status]);
+	}, [standaloneChannelId, status]);
 
 	const reportUserActivity = useCallback(
 		(force = false) => {
@@ -392,7 +397,7 @@ export function MainViewApp() {
 
 	const selectedChannelHistoryKey = channelHistoryKey(
 		config?.serverUrl,
-		selectedChannelId,
+		standaloneChannelId,
 	);
 	const selectedChannelHistoryApi = api;
 	const selectedChannelHistoryRequest =
@@ -412,17 +417,30 @@ export function MainViewApp() {
 		},
 	);
 
+	const mutateChannelHistory = useCallback(
+		(
+			channelId: string,
+			updater: (
+				current: ChannelHistoryData | undefined,
+			) => ChannelHistoryData | undefined,
+		) => {
+			const key = channelHistoryKey(config?.serverUrl, channelId);
+			if (!key) return;
+			void mutateSWR(key, updater, { revalidate: false });
+		},
+		[config?.serverUrl, mutateSWR],
+	);
 	const mutateSelectedChannelHistory = useCallback(
 		(
 			updater: (
 				current: ChannelHistoryData | undefined,
 			) => ChannelHistoryData | undefined,
 		) => {
-			const key = channelHistoryKey(config?.serverUrl, selectedChannelId);
-			if (!key) return;
-			void mutateSWR(key, updater, { revalidate: false });
+			const channelId = selectedChannelRef.current;
+			if (!channelId) return;
+			mutateChannelHistory(channelId, updater);
 		},
-		[config?.serverUrl, mutateSWR, selectedChannelId],
+		[mutateChannelHistory],
 	);
 
 	const loadPostReactions = useCallback(
@@ -547,7 +565,7 @@ export function MainViewApp() {
 	}, [api, config, currentUser, mutateSWR, selectedTeamId, state.channels]);
 
 	useEffect(() => {
-		if (!api || !selectedChannelId || !selectedChannelHistory) return;
+		if (!api || !standaloneChannelId || !selectedChannelHistory) return;
 		setState((current) => applyChannelHistory(current, selectedChannelHistory));
 		setChannelMembers(selectedChannelHistory.members);
 		setStatus("ready");
@@ -566,22 +584,34 @@ export function MainViewApp() {
 		);
 		if (postsNeedingReactions.length > 0)
 			void loadPostReactions(api, postsNeedingReactions);
-	}, [api, loadPostReactions, selectedChannelHistory, selectedChannelId]);
+	}, [api, loadPostReactions, selectedChannelHistory, standaloneChannelId]);
 
 	useEffect(() => {
-		if (!selectedChannelHistoryError) return;
+		if (!standaloneChannelId || !selectedChannelHistoryError) return;
 		if (!selectedChannelHistory) setStatus("error");
 		setError(
 			selectedChannelHistoryError instanceof Error
 				? selectedChannelHistoryError.message
 				: "Could not load channel.",
 		);
-	}, [selectedChannelHistory, selectedChannelHistoryError]);
+	}, [
+		standaloneChannelId,
+		selectedChannelHistory,
+		selectedChannelHistoryError,
+	]);
 
 	useEffect(() => {
-		if (selectedChannelHistoryLoading && !selectedChannelHistory)
+		if (
+			standaloneChannelId &&
+			selectedChannelHistoryLoading &&
+			!selectedChannelHistory
+		)
 			setStatus("loading");
-	}, [selectedChannelHistory, selectedChannelHistoryLoading]);
+	}, [
+		standaloneChannelId,
+		selectedChannelHistory,
+		selectedChannelHistoryLoading,
+	]);
 
 	useEffect(() => {
 		const previousStatus = previousWsStatusRef.current;
@@ -648,20 +678,45 @@ export function MainViewApp() {
 					user.id,
 				);
 				if (selectedChannel) {
-					const history = await loadChannelHistory(
-						nextApi,
-						selectedChannel.id,
-						user.id,
+					const restoredWorkspaceChannelIds = new Set(
+						Object.values(chatWorkspaceRef.current.tabs)
+							.map((tab) => tab.channelId)
+							.filter((channelId) =>
+								channels.some((channel) => channel.id === channelId),
+							),
 					);
-					posts = history.posts;
-					postOrder = history.postOrder;
-					postUsers = history.postUsers;
-					members = history.members;
-					memberUsers = history.memberUsers;
-					void mutateSWR(
-						channelHistoryKey(normalizedConfig.serverUrl, selectedChannel.id),
-						history,
-						{ revalidate: false },
+					restoredWorkspaceChannelIds.add(selectedChannel.id);
+					const channelHistories = await Promise.all(
+						[...restoredWorkspaceChannelIds].map(async (channelId) => {
+							const history = await loadChannelHistory(
+								nextApi,
+								channelId,
+								user.id,
+							);
+							void mutateSWR(
+								channelHistoryKey(normalizedConfig.serverUrl, channelId),
+								history,
+								{ revalidate: false },
+							);
+							return history;
+						}),
+					);
+					const selectedChannelHistory =
+						channelHistories.find((history) =>
+							Object.values(history.posts).some(
+								(post) => post.channel_id === selectedChannel.id,
+							),
+						) ?? channelHistories[0];
+
+					posts = Object.assign(
+						{},
+						...channelHistories.map((history) => history.posts),
+					);
+					postOrder = selectedChannelHistory?.postOrder ?? [];
+					postUsers = channelHistories.flatMap((history) => history.postUsers);
+					members = selectedChannelHistory?.members ?? [];
+					memberUsers = channelHistories.flatMap(
+						(history) => history.memberUsers,
 					);
 				}
 
@@ -1235,23 +1290,25 @@ export function MainViewApp() {
 		[api, currentUser],
 	);
 
-	async function loadMoreMessages() {
-		if (
-			!api ||
-			!selectedChannelId ||
-			loadingHistory ||
-			state.postOrder.length === 0
-		)
-			return;
+	async function loadMoreMessages(
+		channelId = selectedChannelRef.current ?? undefined,
+	) {
+		if (!api || !channelId || loadingHistory) return;
+
+		const isStandaloneChannel = channelId === standaloneChannelId;
+		const channelPostIds = isStandaloneChannel
+			? state.postOrder
+			: Object.values(state.posts)
+					.filter((post) => post.channel_id === channelId)
+					.sort((left, right) => left.create_at - right.create_at)
+					.map((post) => post.id);
+		const oldestPostId = channelPostIds[0];
+		if (!oldestPostId) return;
 
 		setLoadingHistory(true);
 		try {
-			// Get the oldest post ID from the current postOrder (first item since it's reversed)
-			const oldestPostId = state.postOrder[0];
-			if (!oldestPostId) return;
-
 			const postList = await api.getPostsForChannelBefore(
-				selectedChannelId,
+				channelId,
 				oldestPostId,
 			);
 			const postUsers = await getPostUsers(
@@ -1261,7 +1318,7 @@ export function MainViewApp() {
 			);
 
 			const olderPostOrder = [...postList.order].reverse();
-			mutateSelectedChannelHistory((current) =>
+			mutateChannelHistory(channelId, (current) =>
 				current
 					? {
 							...current,
@@ -1293,7 +1350,9 @@ export function MainViewApp() {
 					...current.posts,
 					...postList.posts,
 				},
-				postOrder: olderPostOrder.concat(current.postOrder),
+				postOrder: isStandaloneChannel
+					? olderPostOrder.concat(current.postOrder)
+					: current.postOrder,
 			}));
 
 			void loadPostReactions(api, Object.values(postList.posts));

@@ -348,6 +348,8 @@ describe("ChatShell workspace layout", () => {
 			css.match(
 				/\.chat-workspace-dockview \.dv-tab:hover \.dv-default-tab-action,\s*\.chat-workspace-dockview \.dv-tab:focus-within \.dv-default-tab-action,\s*\.chat-workspace-dockview \.dv-tab:hover \.dv-icon,\s*\.chat-workspace-dockview \.dv-tab:focus-within \.dv-icon \{[^}]+\}/,
 			)?.[0] ?? "";
+		const dockviewContextMenu =
+			css.match(/\.dv-context-menu \{[^}]+\}/)?.[0] ?? "";
 
 		expect(dockview).toContain("height: 100%;");
 		expect(dockviewTheme).toContain(
@@ -361,6 +363,12 @@ describe("ChatShell workspace layout", () => {
 		);
 		expect(dockviewTheme).toContain(
 			"--dv-activegroup-hiddenpanel-tab-background-color: transparent;",
+		);
+		expect(dockviewTheme).toContain(
+			"--dv-context-menu-background-color: var(--panel-raised);",
+		);
+		expect(dockviewTheme).toContain(
+			"--dv-context-menu-color: var(--text-primary);",
 		);
 		expect(dockviewTheme).toContain(
 			"--dv-activegroup-visiblepanel-tab-color: var(--text-primary);",
@@ -379,14 +387,19 @@ describe("ChatShell workspace layout", () => {
 			"border-right: 1px solid var(--border-subtle);",
 		);
 		expect(dockviewTab).toContain("color: var(--text-secondary);");
-		expect(dockviewTab).toContain("padding: 6px 10px;");
+		expect(dockviewTab).toContain("font-size: 0.76rem;");
+		expect(dockviewTab).toContain("padding: 5px 8px;");
 		expect(activeDockviewTab).toContain("background: transparent;");
 		expect(activeDockviewTab).toContain("color: var(--text-primary);");
 		expect(dockviewTabHover).toContain("background: var(--panel-hover);");
+		expect(dockviewTabIcon).toContain("width: 14px;");
+		expect(dockviewTabIcon).toContain("height: 14px;");
 		expect(dockviewTabIcon).toContain("opacity: 0;");
 		expect(dockviewTabIcon).toContain("visibility: hidden;");
 		expect(dockviewTabIconVisible).toContain("opacity: 1;");
 		expect(dockviewTabIconVisible).toContain("visibility: visible;");
+		expect(dockviewContextMenu).toContain("background: var(--panel-raised);");
+		expect(dockviewContextMenu).toContain("color: var(--text-primary);");
 	});
 });
 

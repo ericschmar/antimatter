@@ -3,6 +3,7 @@
 @import url("@radix-ui/colors/amber-dark.css");
 @import url("@radix-ui/colors/red-dark.css");
 @import url("dockview-react/dist/styles/dockview.css");
+@import url("./components/mui-headless-timeline/MuiMessageTimeline.css");
 
 :root {
 	color-scheme: dark;
@@ -549,6 +550,9 @@ textarea:disabled {
 	--dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
 	--dv-tab-divider-color: var(--border-subtle);
 	--dv-icon-hover-background-color: var(--panel-hover);
+	--dv-context-menu-background-color: var(--panel-raised);
+	--dv-context-menu-color: var(--text-primary);
+	--dv-floating-box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42);
 	--dv-activegroup-visiblepanel-tab-color: var(--text-primary);
 	--dv-activegroup-hiddenpanel-tab-color: var(--text-secondary);
 	--dv-inactivegroup-visiblepanel-tab-color: var(--text-primary);
@@ -570,7 +574,8 @@ textarea:disabled {
 	border-right: 1px solid var(--border-subtle);
 	background: transparent;
 	color: var(--text-secondary);
-	padding: 6px 10px;
+	font-size: 0.76rem;
+	padding: 5px 8px;
 }
 
 .chat-workspace-dockview .dv-tab.dv-active-tab {
@@ -585,8 +590,16 @@ textarea:disabled {
 
 .chat-workspace-dockview .dv-tab .dv-default-tab-action,
 .chat-workspace-dockview .dv-tab .dv-icon {
+	width: 14px;
+	height: 14px;
 	opacity: 0;
 	visibility: hidden;
+}
+
+.chat-workspace-dockview .dv-tab .dv-default-tab-action svg,
+.chat-workspace-dockview .dv-tab .dv-icon svg {
+	width: 11px;
+	height: 11px;
 }
 
 .chat-workspace-dockview .dv-tab:hover .dv-default-tab-action,
@@ -595,6 +608,15 @@ textarea:disabled {
 .chat-workspace-dockview .dv-tab:focus-within .dv-icon {
 	opacity: 1;
 	visibility: visible;
+}
+
+.dv-context-menu {
+	background: var(--panel-raised);
+	color: var(--text-primary);
+}
+
+.dv-context-menu-item:hover {
+	background: var(--panel-hover);
 }
 
 .chat-workspace-panel {
@@ -606,32 +628,6 @@ textarea:disabled {
 	min-height: 0;
 	background: var(--app-bg);
 	overflow: hidden;
-}
-
-.chat-workspace-panel-actions {
-	position: absolute;
-	top: 64px;
-	right: 8px;
-	z-index: 5;
-	display: flex;
-	gap: 4px;
-}
-
-.chat-workspace-panel-action {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 26px;
-	height: 26px;
-	border: 1px solid var(--border-subtle);
-	border-radius: 6px;
-	background: var(--panel-raised);
-	color: var(--text-secondary);
-}
-
-.chat-workspace-panel-action:hover {
-	background: var(--panel-hover);
-	color: var(--text-primary);
 }
 
 .chat-workspace-panel > .channel-header {

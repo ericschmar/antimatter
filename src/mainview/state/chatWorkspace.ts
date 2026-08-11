@@ -152,7 +152,7 @@ export function activateChatTab(
 	workspace: ChatWorkspaceState,
 	tabId: string,
 ): ChatWorkspaceState {
-	if (!workspace.tabs[tabId]) {
+	if (!workspace.tabs[tabId] || workspace.activeTabId === tabId) {
 		return workspace;
 	}
 

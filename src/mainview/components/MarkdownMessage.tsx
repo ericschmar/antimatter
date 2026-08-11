@@ -1,4 +1,4 @@
-import type { ComponentProps, CSSProperties } from "react";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -26,6 +26,9 @@ export function MarkdownMessage({
 		<div className="markdown-message">
 			<ReactMarkdown
 				components={{
+					strong: (props: ComponentProps<"strong">) => (
+						<MentionStrong {...props} />
+					),
 					img: (props: ComponentProps<"img">) => (
 						<MarkdownImage {...props} resolveImageSrc={resolveImageSrc} />
 					),
@@ -42,16 +45,47 @@ export function highlightMentionsInMarkdown(
 	markdown: string,
 	currentUsername?: string,
 ) {
-	if (!currentUsername) return markdown;
-	const escapedUsername = currentUsername.replace(
-		/[.*+?^${}()|[\]\\]/g,
-		"\\$&",
+	const mentionPattern = /@([a-z0-9._-]+|channel|here)(?=\b|\s|$)/gi;
+	if (!currentUsername) return markdown.replace(mentionPattern, "**$&**");
+	const currentMentionPattern = new RegExp(
+		`@(${currentUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|channel|here)(?=\\b|\\s|$)`,
+		"i",
 	);
-	const pattern = new RegExp(
-		`@(${escapedUsername}|channel|here)(?=\\b|\\s|$)`,
-		"gi",
+	return markdown.replace(mentionPattern, (mention) =>
+		currentMentionPattern.test(mention)
+			? `**==${mention}==**`
+			: `**${mention}**`,
 	);
-	return markdown.replace(pattern, "**$&**");
+}
+
+export function MentionStrong({ children }: { children?: ReactNode }) {
+	const value = String(children ?? "");
+	if (value.startsWith("==@") && value.endsWith("==")) {
+		const mention = value.slice(2, -2);
+		return (
+			<strong
+				className={
+					mention.toLowerCase() === "@here"
+						? "mention-highlight mention-here"
+						: "mention-highlight"
+				}
+			>
+				{mention}
+			</strong>
+		);
+	}
+	if (value.startsWith("@")) {
+		return (
+			<strong
+				className={
+					value.toLowerCase() === "@here" ? "mention mention-here" : "mention"
+				}
+			>
+				{children}
+			</strong>
+		);
+	}
+	return <strong>{children}</strong>;
 }
 
 function MarkdownImage({

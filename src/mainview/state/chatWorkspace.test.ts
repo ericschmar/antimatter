@@ -72,6 +72,18 @@ describe("chatWorkspace", () => {
 		expect(getSelectedChannelId(activated)).toBe("channel-1");
 	});
 
+	test("returns the same workspace when activating the already active tab", () => {
+		const workspace = openChatTab(createEmptyChatWorkspaceState(), {
+			channelId: "channel-1",
+			teamId: "team-1",
+			title: "Town Square",
+		});
+
+		expect(activateChatTab(workspace, workspace.activeTabId ?? "")).toBe(
+			workspace,
+		);
+	});
+
 	test("activates an existing channel tab even when it is not already active", () => {
 		const workspace = openChatTab(
 			openChatTab(createEmptyChatWorkspaceState(), {
@@ -91,7 +103,10 @@ describe("chatWorkspace", () => {
 			title: "Renamed",
 		});
 
-		expect(Object.keys(reopened.tabs)).toEqual(["chat-panel-1", "chat-panel-2"]);
+		expect(Object.keys(reopened.tabs)).toEqual([
+			"chat-panel-1",
+			"chat-panel-2",
+		]);
 		expect(reopened.activeTabId).toBe("chat-panel-1");
 		expect(reopened.tabs["chat-panel-1"]?.teamId).toBe("team-1");
 		expect(reopened.tabs["chat-panel-1"]?.title).toBe("Town Square");
