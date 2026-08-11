@@ -27,7 +27,7 @@ Use this skill when asked to fix Biome errors or warnings in this repository.
 
 ## Verification
 
-- `bunx @biomejs/biome check . --max-diagnostics=200` should pass cleanly.
+- `bunx @biomejs/biome check . --max-diagnostics=200` should pass. If it reports only a schema-version info for `biome.json` (for example schema 2.5.3 with CLI 2.5.8), treat that as informational unless the task is to update Biome config.
 - `bun test` should pass.
 - `bun run build` should pass.
-- `bun run typecheck` currently fails on the known TS2882 CSS side-effect import declaration issue. Treat that as a pre-existing project config blocker if no non-CSS diagnostics remain.
+- `bun run typecheck` should pass. CSS side-effect imports are covered by `src/css.d.ts` with `declare module "*.css";`; if TS2882 CSS import errors return, check that this declaration file is present and included by `tsconfig.json`.
