@@ -51,7 +51,7 @@ const MattermostTextPart = memo(function MattermostTextPart({
 			currentUsername={context.users[context.currentUserId]?.username}
 			markdown={part.text}
 			resolveImageSrc={context.resolveImageSrc}
-			useNewComposer={context.useNewComposer}
+			useNewComposer={context.settings.useNewComposer}
 		/>
 	);
 });

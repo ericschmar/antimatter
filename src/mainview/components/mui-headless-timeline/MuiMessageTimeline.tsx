@@ -14,6 +14,8 @@ import {
 } from "@mui/x-chat/headless";
 import { Reply, SmilePlus } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSnapshot } from "valtio";
+import { chatDataStore } from "../../state/chatDataStore";
 import { normalizeEmojiName } from "../../utils/emoji";
 import { formatDateDivider, formatTime, initials } from "../../utils/format";
 import {
@@ -26,6 +28,7 @@ import { UserDetailsTrigger } from "../UserDetailsTrigger";
 import { mattermostPartRenderers } from "./MattermostPartRenderers";
 import {
 	type MuiMessageTimelineProps,
+	type MuiTimelineContextValue,
 	MuiTimelineProvider,
 	useMuiTimelineContext,
 } from "./MuiTimelineContext";
@@ -77,8 +80,24 @@ export function isGroupedMessage(
 }
 
 export function MuiMessageTimeline(props: MuiMessageTimelineProps) {
+	const data = useSnapshot(chatDataStore);
+	const currentUser = data.currentUser ?? {
+		id: data.currentUserId,
+		username: data.currentUserId,
+	};
+	const value: MuiTimelineContextValue = {
+		...props,
+		currentUser,
+		currentUserId: data.currentUserId,
+		users: data.users,
+		userColors: data.userColors,
+		userImages: data.userImages,
+		userStatuses: data.userStatuses,
+		settings: data.settings,
+		resolveImageSrc: data.resolveImageSrc,
+	};
 	return (
-		<MuiTimelineProvider value={props}>
+		<MuiTimelineProvider value={value}>
 			<MuiMessageTimelineInner />
 		</MuiTimelineProvider>
 	);
@@ -204,7 +223,8 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 			className="mui-message-timeline"
 			style={
 				{
-					"--own-message-indicator-color": context.ownMessageIndicatorColor,
+					"--own-message-indicator-color":
+						context.settings.ownMessageIndicatorColor,
 				} as React.CSSProperties
 			}
 		>
@@ -218,7 +238,7 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 				messages={messages}
 				partRenderers={mattermostPartRenderers}
 				slotProps={muiChatRootSlotProps}
-				variant={context.showProfilePictures ? "default" : "compact"}
+				variant={context.settings.showProfilePictures ? "default" : "compact"}
 			>
 				<MuiHistoryStateBridge />
 				<Conversation.Root
@@ -300,7 +320,7 @@ const MuiMessageItem = memo(function MuiMessageItem({
 	const author = context.users[post.user_id];
 	const deleted = metadata.deleted;
 	const grouped = isGroupedMessage(message, previousMessage, groupKey);
-	const metaClassName = context.showProfilePictures
+	const metaClassName = context.settings.showProfilePictures
 		? "mui-message-meta has-avatar"
 		: "mui-message-meta";
 	const canReply = !deleted && (!post.root_id || post.root_id === post.id);
@@ -332,7 +352,7 @@ const MuiMessageItem = memo(function MuiMessageItem({
 						aria-hidden={grouped ? true : undefined}
 						className={grouped ? `${metaClassName} is-grouped` : metaClassName}
 					>
-						{!grouped && context.showProfilePictures ? (
+						{!grouped && context.settings.showProfilePictures ? (
 							<div className="mui-message-meta-avatar">
 								{context.userImages[post.user_id] ? (
 									<img alt="" src={context.userImages[post.user_id]} />

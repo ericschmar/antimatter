@@ -41,7 +41,8 @@ const MuiTimelineReply = memo(function MuiTimelineReply({
 	);
 	const deleted = reply.delete_at > 0;
 	const isOwnMessage =
-		context.showOwnMessageIndicators && reply.user_id === context.currentUserId;
+		context.settings.showOwnMessageIndicators &&
+		reply.user_id === context.currentUserId;
 	return (
 		<div
 			className={isOwnMessage ? "reply-message own" : "reply-message"}
@@ -73,7 +74,7 @@ const MuiTimelineReply = memo(function MuiTimelineReply({
 							currentUsername={context.users[context.currentUserId]?.username}
 							markdown={reply.message}
 							resolveImageSrc={context.resolveImageSrc}
-							useNewComposer={context.useNewComposer}
+							useNewComposer={context.settings.useNewComposer}
 						/>
 						<MessageAttachments
 							files={reply.metadata?.files ?? []}

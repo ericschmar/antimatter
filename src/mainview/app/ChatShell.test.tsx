@@ -151,7 +151,6 @@ function renderChatShell(
 				minSidebarWidth={220}
 				posts={options.posts ?? []}
 				workspacePosts={options.workspacePosts ?? options.posts ?? []}
-				resolveImageSrc={async (src) => src}
 				sections={{
 					archived: [],
 					channels: selectedChannelId ? [selectedChannel] : [],

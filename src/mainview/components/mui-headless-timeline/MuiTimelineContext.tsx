@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import type {
+	AppSettings,
 	MattermostChannel,
 	MattermostFileInfo,
 	MattermostPost,
@@ -7,23 +8,18 @@ import type {
 	MattermostUserStatus,
 } from "../../types";
 
+/**
+ * Props that are scoped to a single timeline instance: the channel being
+ * rendered, its posts, loading state, and the per-instance callbacks. These
+ * still vary per render site (e.g. a workspace split panel vs. the standalone
+ * view) and are passed explicitly to `MuiMessageTimeline`.
+ */
 export type MuiMessageTimelineProps = {
 	posts: MattermostPost[];
 	channel: MattermostChannel | undefined;
 	channelId: string | null;
-	currentUser: MattermostUser;
-	currentUserId: string;
-	users: Record<string, MattermostUser>;
-	userColors: Record<string, string>;
-	userImages: Record<string, string>;
-	userStatuses: Record<string, MattermostUserStatus>;
 	loading: boolean;
 	loadingHistory?: boolean;
-	resolveImageSrc: (src: string) => Promise<string>;
-	ownMessageIndicatorColor: string;
-	showOwnMessageIndicators: boolean;
-	showProfilePictures: boolean;
-	useNewComposer: boolean;
 	typingUsers: MattermostUser[];
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
@@ -35,7 +31,22 @@ export type MuiMessageTimelineProps = {
 	onLoadMore?: () => void;
 };
 
-export type MuiTimelineContextValue = MuiMessageTimelineProps;
+/**
+ * The full value consumed inside the timeline subtree. The lookup data half
+ * (users, colors, images, statuses, current user, settings, image resolver) is
+ * sourced from `chatDataStore` by `MuiMessageTimeline` rather than drilled in
+ * as props; the instance half comes from `MuiMessageTimelineProps`.
+ */
+export type MuiTimelineContextValue = MuiMessageTimelineProps & {
+	currentUser: MattermostUser;
+	currentUserId: string;
+	users: Record<string, MattermostUser>;
+	userColors: Record<string, string>;
+	userImages: Record<string, string>;
+	userStatuses: Record<string, MattermostUserStatus>;
+	settings: AppSettings;
+	resolveImageSrc: (src: string) => Promise<string>;
+};
 
 const MuiTimelineContext = createContext<MuiTimelineContextValue | null>(null);
 

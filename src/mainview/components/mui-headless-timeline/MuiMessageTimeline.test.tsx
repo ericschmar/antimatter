@@ -1,9 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { renderToString } from "react-dom/server";
 import { POLL_POST_TYPE } from "../../mattermostApi";
+import { chatDataActions } from "../../state/chatDataStore";
 import type {
+	AppSettings,
 	MattermostChannel,
 	MattermostPost,
 	MattermostUser,
@@ -14,6 +16,7 @@ import {
 	MuiMessageTimeline,
 	type MuiMessageTimelineProps,
 } from "./MuiMessageTimeline";
+import type { MuiTimelineContextValue } from "./MuiTimelineContext";
 import {
 	buildMuiConversation,
 	buildMuiTimelineMessages,
@@ -44,26 +47,47 @@ function post(overrides: Partial<MattermostPost>): MattermostPost {
 	};
 }
 
-function props(
+const users: Record<string, MattermostUser> = {
+	[currentUser.id]: currentUser,
+	[otherUser.id]: otherUser,
+};
+const testSettings: AppSettings = {
+	fontFamily: "system",
+	fontSize: 14,
+	theme: "default",
+	showOwnMessageIndicators: true,
+	ownMessageIndicatorColor: "#00aa00",
+	notificationSounds: true,
+	notificationPreference: "all",
+	showProfilePictures: true,
+	useNewComposer: false,
+	devLoopback: false,
+};
+
+function seedChatData() {
+	chatDataActions.setCurrentUser(currentUser);
+	chatDataActions.setUsers(users);
+	chatDataActions.setSettings(testSettings);
+	chatDataActions.setUserColors({});
+	chatDataActions.setUserImages({});
+	chatDataActions.setUserStatuses({});
+	chatDataActions.setResolveImageSrc(async (src) => src);
+}
+
+beforeEach(() => {
+	chatDataActions.resetForSignOut();
+	seedChatData();
+});
+
+function timelineProps(
 	overrides: Partial<MuiMessageTimelineProps> = {},
 ): MuiMessageTimelineProps {
 	return {
 		posts: [post({})],
 		channel,
 		channelId: "channel-1",
-		currentUser,
-		currentUserId: currentUser.id,
-		users: { [currentUser.id]: currentUser, [otherUser.id]: otherUser },
-		userColors: {},
-		userImages: {},
-		userStatuses: {},
 		loading: false,
 		loadingHistory: false,
-		resolveImageSrc: async (src) => src,
-		ownMessageIndicatorColor: "#00aa00",
-		showOwnMessageIndicators: true,
-		showProfilePictures: true,
-		useNewComposer: false,
 		typingUsers: [],
 		onOpenAttachment: async () => {},
 		onShowMessageContextMenu: () => {},
@@ -73,6 +97,23 @@ function props(
 		onToggleReaction: async () => {},
 		onVotePoll: async () => {},
 		onLoadMore: undefined,
+		...overrides,
+	};
+}
+
+function contextValue(
+	overrides: Partial<MuiTimelineContextValue> = {},
+): MuiTimelineContextValue {
+	return {
+		...timelineProps(),
+		currentUser,
+		currentUserId: currentUser.id,
+		users,
+		userColors: {},
+		userImages: {},
+		userStatuses: {},
+		settings: testSettings,
+		resolveImageSrc: async (src) => src,
 		...overrides,
 	};
 }
@@ -89,17 +130,17 @@ describe("MuiMessageTimeline", () => {
 	});
 
 	test("maps channel and current user objects into MUI models", () => {
-		const timelineProps = props();
+		const value = contextValue();
 		const members = buildMuiUsers(
-			timelineProps.users,
-			timelineProps.userStatuses,
-			timelineProps.userImages,
-			timelineProps.currentUser.id,
+			value.users,
+			value.userStatuses,
+			value.userImages,
+			value.currentUser.id,
 		);
 		const conversation = buildMuiConversation(
-			timelineProps.channelId,
+			value.channelId,
 			members,
-			timelineProps.channel,
+			value.channel,
 		);
 
 		expect(conversation.title).toBe("Town Square");
@@ -135,7 +176,7 @@ describe("MuiMessageTimeline", () => {
 					failed: true,
 				}),
 			],
-			props(),
+			contextValue(),
 		);
 
 		expect(message.metadata).toMatchObject({
@@ -161,12 +202,12 @@ describe("MuiMessageTimeline", () => {
 	test("keeps MUI list item ids stable when message objects rebuild with the same ids", () => {
 		const firstMessages = buildMuiTimelineMessages(
 			[post({ id: "post-1" }), post({ id: "post-2", create_at: baseTime + 1 })],
-			props(),
+			contextValue(),
 		);
 		const firstIds = getStableMessageIds(firstMessages, null);
 		const rebuiltMessages = buildMuiTimelineMessages(
 			[post({ id: "post-1" }), post({ id: "post-2", create_at: baseTime + 1 })],
-			props(),
+			contextValue(),
 		);
 		const rebuiltIds = getStableMessageIds(rebuiltMessages, firstIds);
 
@@ -195,7 +236,7 @@ describe("MuiMessageTimeline", () => {
 	test("renders top-level message meta before message content", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MuiMessageTimeline {...props()} />
+				<MuiMessageTimeline {...timelineProps()} />
 			</Tooltip.Provider>,
 		);
 		const metaIndex = html.indexOf("mui-message-meta has-avatar");
@@ -215,7 +256,7 @@ describe("MuiMessageTimeline", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
 				<MuiMessageTimeline
-					{...props({
+					{...timelineProps({
 						posts: [
 							post({ id: "post-1", message: "first" }),
 							post({
@@ -243,7 +284,7 @@ describe("MuiMessageTimeline", () => {
 	test("maps a Mattermost post to a MUI message with markdown text", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MuiMessageTimeline {...props()} />
+				<MuiMessageTimeline {...timelineProps()} />
 			</Tooltip.Provider>,
 		);
 
@@ -256,7 +297,7 @@ describe("MuiMessageTimeline", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
 				<MuiMessageTimeline
-					{...props({
+					{...timelineProps({
 						posts: [post({ message: "hi @alex and @sarah and @here" })],
 					})}
 				/>
@@ -274,7 +315,7 @@ describe("MuiMessageTimeline", () => {
 	test("renders typing users as the legacy floating typing indicator", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MuiMessageTimeline {...props({ typingUsers: [otherUser] })} />
+				<MuiMessageTimeline {...timelineProps({ typingUsers: [otherUser] })} />
 			</Tooltip.Provider>,
 		);
 
@@ -302,7 +343,7 @@ describe("MuiMessageTimeline", () => {
 			create_at: baseTime + 1,
 			update_at: baseTime + 1,
 		});
-		const messages = buildMuiTimelineMessages([reply, parent], props());
+		const messages = buildMuiTimelineMessages([reply, parent], contextValue());
 
 		expect(messages).toHaveLength(1);
 		expect(messages[0].parts.some((part) => part.type === "data-replies")).toBe(
@@ -311,7 +352,7 @@ describe("MuiMessageTimeline", () => {
 
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MuiMessageTimeline {...props({ posts: [reply, parent] })} />
+				<MuiMessageTimeline {...timelineProps({ posts: [reply, parent] })} />
 			</Tooltip.Provider>,
 		);
 		expect(html).toContain("parent body");
@@ -327,7 +368,7 @@ describe("MuiMessageTimeline", () => {
 		});
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MuiMessageTimeline {...props({ posts: [deleted] })} />
+				<MuiMessageTimeline {...timelineProps({ posts: [deleted] })} />
 			</Tooltip.Provider>,
 		);
 
@@ -339,7 +380,7 @@ describe("MuiMessageTimeline", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
 				<MuiMessageTimeline
-					{...props({
+					{...timelineProps({
 						posts: [
 							post({
 								metadata: {
@@ -366,7 +407,7 @@ describe("MuiMessageTimeline", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
 				<MuiMessageTimeline
-					{...props({
+					{...timelineProps({
 						posts: [
 							post({
 								metadata: {
@@ -392,7 +433,7 @@ describe("MuiMessageTimeline", () => {
 	test("uses MUI reach-top loading without rendering a separate load-more button", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
-				<MuiMessageTimeline {...props({ onLoadMore: () => {} })} />
+				<MuiMessageTimeline {...timelineProps({ onLoadMore: () => {} })} />
 			</Tooltip.Provider>,
 		);
 
@@ -403,7 +444,7 @@ describe("MuiMessageTimeline", () => {
 		const html = renderToString(
 			<Tooltip.Provider>
 				<MuiMessageTimeline
-					{...props({
+					{...timelineProps({
 						posts: [
 							post({
 								type: POLL_POST_TYPE,

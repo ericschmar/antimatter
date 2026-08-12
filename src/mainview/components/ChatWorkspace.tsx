@@ -15,6 +15,8 @@ import {
 	useRef,
 } from "react";
 import { Resizable, type ResizeCallbackData } from "react-resizable";
+import { useSnapshot } from "valtio";
+import { chatDataStore } from "../state/chatDataStore";
 import {
 	type ChatPanelPlacement,
 	type ChatViewStateByChannel,
@@ -22,13 +24,10 @@ import {
 	canRestoreChatWorkspaceLayout,
 } from "../state/chatWorkspace";
 import type {
-	AppSettings,
 	MattermostChannel,
 	MattermostChannelMember,
 	MattermostFileInfo,
 	MattermostPost,
-	MattermostUser,
-	MattermostUserStatus,
 	TypingUsersByChannel,
 } from "../types";
 import { channelLabel } from "../utils/format";
@@ -47,21 +46,13 @@ import { NewMessageComposer } from "./NewMessageComposer";
 
 type ChatWorkspaceProps = {
 	workspace: ChatWorkspaceState;
-	channels: MattermostChannel[];
-	users: Record<string, MattermostUser>;
-	currentUserId: string;
 	posts: MattermostPost[];
-	settings: AppSettings;
 	channelMembers: Record<string, MattermostChannelMember[]>;
 	typingUsers: TypingUsersByChannel;
-	userColors: Record<string, string>;
-	userImages: Record<string, string>;
-	userStatuses: Record<string, MattermostUserStatus>;
 	loading: boolean;
 	loadingHistory?: boolean;
 	composerProps: MessageComposerProps;
 	chatViewStates: ChatViewStateByChannel;
-	resolveImageSrc: (src: string) => Promise<string>;
 	onActivateTab: (tabId: string) => void;
 	onCloseTab: (tabId: string) => void;
 	onOpenTab: (
@@ -112,15 +103,10 @@ type ChatPanelParams = {
 
 function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 	const workspaceProps = useContext(ChatWorkspaceContext);
+	const data = useSnapshot(chatDataStore);
 	if (!workspaceProps) return null;
 
-	const panelChannel = workspaceProps.channels.find(
-		(channel) => channel.id === params.channelId,
-	);
-	const currentUser = workspaceProps.users[workspaceProps.currentUserId] ?? {
-		id: workspaceProps.currentUserId,
-		username: workspaceProps.currentUserId,
-	};
+	const panelChannel = data.channelsById[params.channelId];
 	const panelPostsRef = useRef<PanelPostsCache>(null);
 	const panelPosts = useMemo(() => {
 		const result = getStablePanelPosts(
@@ -135,12 +121,12 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 		() =>
 			Object.keys(workspaceProps.typingUsers[params.channelId] ?? {}).map(
 				(userId) =>
-					workspaceProps.users[userId] ?? {
+					data.users[userId] ?? {
 						id: userId,
 						username: "Someone",
 					},
 			),
-		[params.channelId, workspaceProps.typingUsers, workspaceProps.users],
+		[params.channelId, workspaceProps.typingUsers, data.users],
 	);
 	const panelState = workspaceProps.chatViewStates[api.id];
 	const editTargetId = panelState?.editTargetId ?? null;
@@ -171,11 +157,11 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 		[api.id, workspaceProps.onComposerRef],
 	);
 	const resizeComposer = useCallback(
-		(_: SyntheticEvent, data: ResizeCallbackData) => {
+		(_: SyntheticEvent, info: ResizeCallbackData) => {
 			workspaceProps.onSetComposerHeight(
 				api.id,
 				Math.min(
-					data.size.height,
+					info.size.height,
 					workspaceProps.composerProps.maxComposerHeight,
 				),
 			);
@@ -198,35 +184,20 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 			<ChannelHeader
 				channel={panelChannel}
 				channelMembers={workspaceProps.channelMembers[params.channelId] ?? []}
-				currentUserId={workspaceProps.currentUserId}
-				settings={workspaceProps.settings}
-				userImages={workspaceProps.userImages}
-				userStatuses={workspaceProps.userStatuses}
-				users={workspaceProps.users}
+				currentUserId={data.currentUserId}
+				settings={data.settings}
+				userImages={data.userImages}
+				userStatuses={data.userStatuses}
+				users={data.users}
 				onOpenUserPicker={workspaceProps.onOpenUserPicker}
 			/>
 			<MuiMessageTimeline
 				channel={panelChannel}
 				channelId={params.channelId}
-				currentUser={currentUser}
-				currentUserId={workspaceProps.currentUserId}
 				loading={workspaceProps.loading}
 				loadingHistory={workspaceProps.loadingHistory}
 				posts={panelPosts}
-				resolveImageSrc={workspaceProps.resolveImageSrc}
-				ownMessageIndicatorColor={
-					workspaceProps.settings.ownMessageIndicatorColor
-				}
-				showOwnMessageIndicators={
-					workspaceProps.settings.showOwnMessageIndicators
-				}
-				showProfilePictures={workspaceProps.settings.showProfilePictures}
-				useNewComposer={workspaceProps.settings.useNewComposer}
 				typingUsers={panelTypingUsers}
-				userColors={workspaceProps.userColors}
-				userImages={workspaceProps.userImages}
-				userStatuses={workspaceProps.userStatuses}
-				users={workspaceProps.users}
 				onOpenAttachment={workspaceProps.onOpenAttachment}
 				onShowMessageContextMenu={workspaceProps.onShowMessageContextMenu}
 				onSetUserColor={workspaceProps.onSetUserColor}
@@ -249,7 +220,7 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 					className="chat-workspace-panel-composer resizable-composer"
 					style={{ height: composerHeight }}
 				>
-					{workspaceProps.settings.useNewComposer ? (
+					{data.settings.useNewComposer ? (
 						<NewMessageComposer {...panelComposerProps} ref={setComposerRef} />
 					) : (
 						<MessageComposer {...panelComposerProps} ref={setComposerRef} />
@@ -272,21 +243,13 @@ const chatWorkspaceDockviewTheme: DockviewTheme = {
 
 export function ChatWorkspace({
 	workspace,
-	channels,
-	users,
-	currentUserId,
 	posts,
-	settings,
 	channelMembers,
 	typingUsers,
-	userColors,
-	userImages,
-	userStatuses,
 	loading,
 	loadingHistory,
 	composerProps,
 	chatViewStates,
-	resolveImageSrc,
 	onActivateTab,
 	onCloseTab,
 	onOpenTab,
@@ -307,26 +270,23 @@ export function ChatWorkspace({
 	onVotePoll,
 	onLoadMore,
 }: ChatWorkspaceProps) {
-	const channelsById = useMemo(
-		() => Object.fromEntries(channels.map((channel) => [channel.id, channel])),
-		[channels],
-	);
+	const data = useSnapshot(chatDataStore);
 	const tabs = useMemo(
 		() =>
 			Object.values(workspace.tabs).flatMap((tab) => {
-				const channel = channelsById[tab.channelId];
+				const channel = data.channelsById[tab.channelId];
 				if (!channel) return [];
 				return [
 					{
 						id: tab.id,
 						channelId: tab.channelId,
-						title: channelLabel(channel, users, currentUserId),
+						title: channelLabel(channel, data.users, data.currentUserId),
 						type: channel.type,
 						position: tab.position,
 					},
 				];
 			}),
-		[channelsById, currentUserId, users, workspace.tabs],
+		[data.channelsById, data.currentUserId, data.users, workspace.tabs],
 	);
 	const dockviewApiRef = useRef<DockviewApi | null>(null);
 
@@ -337,21 +297,13 @@ export function ChatWorkspace({
 
 	const workspaceProps = useMemo(
 		() => ({
-			channels,
-			users,
-			currentUserId,
 			posts,
-			settings,
 			channelMembers,
 			typingUsers,
-			userColors,
-			userImages,
-			userStatuses,
 			loading,
 			loadingHistory,
 			composerProps,
 			chatViewStates,
-			resolveImageSrc,
 			onActivateTab,
 			onCloseTab,
 			onOpenTab,
@@ -372,21 +324,13 @@ export function ChatWorkspace({
 			onSendMessage,
 		}),
 		[
-			channels,
-			users,
-			currentUserId,
 			posts,
-			settings,
 			channelMembers,
 			typingUsers,
-			userColors,
-			userImages,
-			userStatuses,
 			loading,
 			loadingHistory,
 			composerProps,
 			chatViewStates,
-			resolveImageSrc,
 			onActivateTab,
 			onCloseTab,
 			onOpenTab,

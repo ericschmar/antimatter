@@ -78,7 +78,6 @@ export function ChatShell({
 	posts,
 	workspacePosts,
 	appUpdate,
-	resolveImageSrc,
 	sections,
 	chatWorkspace,
 	chatViewStates,
@@ -479,11 +478,9 @@ export function ChatShell({
 
 						{hasRenderableChatWorkspace && chatWorkspace ? (
 							<ChatWorkspace
-								channels={channels}
 								channelMembers={workspaceChannelMembers}
 								composerProps={composerProps}
 								chatViewStates={chatViewStates}
-								currentUserId={currentUser.id}
 								loading={ui.status === "loading"}
 								loadingHistory={ui.loadingHistory}
 								onActivateTab={onActivateChatTab}
@@ -506,13 +503,7 @@ export function ChatShell({
 								onToggleReaction={onToggleReaction}
 								onVotePoll={onVotePoll}
 								posts={workspacePosts}
-								resolveImageSrc={resolveImageSrc}
-								settings={settings}
 								typingUsers={ui.typingUsers}
-								userColors={userColors}
-								userImages={userImages}
-								userStatuses={userStatuses}
-								users={users}
 								workspace={chatWorkspace}
 							/>
 						) : (
@@ -520,21 +511,10 @@ export function ChatShell({
 								<MuiMessageTimeline
 									channel={selectedChannel}
 									channelId={selectedChannelId}
-									currentUser={currentUser}
-									currentUserId={currentUser.id}
 									loading={ui.status === "loading"}
 									loadingHistory={ui.loadingHistory}
 									posts={posts}
-									resolveImageSrc={resolveImageSrc}
-									ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
-									showOwnMessageIndicators={settings.showOwnMessageIndicators}
-									showProfilePictures={settings.showProfilePictures}
-									useNewComposer={settings.useNewComposer}
 									typingUsers={typingUsers}
-									userColors={userColors}
-									userImages={userImages}
-									userStatuses={userStatuses}
-									users={users}
 									onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
 									onSetUserColor={onSetUserColor}
@@ -716,7 +696,6 @@ type ChatShellProps = {
 	posts: MattermostPost[];
 	workspacePosts: MattermostPost[];
 	appUpdate: AppUpdateState;
-	resolveImageSrc: (src: string) => Promise<string>;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
 	chatWorkspace?: ChatWorkspaceState | null;
 	chatViewStates: ChatViewStateByChannel;

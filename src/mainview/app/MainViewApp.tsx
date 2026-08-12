@@ -20,6 +20,7 @@ import {
 import { useMainViewEvents } from "../features/events/useMainViewEvents";
 import { useUserPresence } from "../features/users/useUserPresence";
 import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
+import { chatDataActions } from "../state/chatDataStore";
 import {
 	activateChatTab,
 	type ChatPanelPlacement,
@@ -1398,6 +1399,7 @@ export function MainViewApp() {
 		setTeamUnread({});
 		setChannelMembers([]);
 		resetUserPresence();
+		chatDataActions.resetForSignOut();
 	}
 
 	function showChannelContextMenu(channel: MattermostChannel) {
@@ -1608,6 +1610,37 @@ export function MainViewApp() {
 		[api],
 	);
 
+	// Mirror read-mostly lookup data into the shared chatDataStore so the chat
+	// workspace and MUI timeline can consume it via useSnapshot instead of
+	// receiving it as drilled props. The React state above remains the producer.
+	useEffect(() => {
+		chatDataActions.setApi(api);
+	}, [api]);
+	useEffect(() => {
+		chatDataActions.setCurrentUser(currentUser);
+	}, [currentUser]);
+	useEffect(() => {
+		chatDataActions.setUsers(state.users);
+	}, [state.users]);
+	useEffect(() => {
+		chatDataActions.setChannelsById(state.channels);
+	}, [state.channels]);
+	useEffect(() => {
+		chatDataActions.setSettings(settings);
+	}, [settings]);
+	useEffect(() => {
+		chatDataActions.setUserColors(userColors);
+	}, [userColors]);
+	useEffect(() => {
+		chatDataActions.setUserImages(userImages);
+	}, [userImages]);
+	useEffect(() => {
+		chatDataActions.setUserStatuses(userStatuses);
+	}, [userStatuses]);
+	useEffect(() => {
+		chatDataActions.setResolveImageSrc(resolveImageSrc);
+	}, [resolveImageSrc]);
+
 	if (!config || !currentUser || status === "idle") {
 		return (
 			<AuthScreen
@@ -1644,7 +1677,6 @@ export function MainViewApp() {
 				posts={posts}
 				workspacePosts={workspacePosts}
 				appUpdate={appUpdate}
-				resolveImageSrc={resolveImageSrc}
 				sections={sections}
 				chatWorkspace={chatWorkspace}
 				chatViewStates={chatViewStates}
