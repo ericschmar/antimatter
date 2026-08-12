@@ -19,10 +19,10 @@ import { useSnapshot } from "valtio";
 import { chatDataStore } from "../state/chatDataStore";
 import {
 	type ChatPanelPlacement,
-	type ChatViewStateByChannel,
 	type ChatWorkspaceState,
 	canRestoreChatWorkspaceLayout,
 } from "../state/chatWorkspace";
+import { chatWorkspaceStore } from "../state/chatWorkspaceStore";
 import type {
 	MattermostChannel,
 	MattermostChannelMember,
@@ -45,14 +45,12 @@ import { MuiMessageTimeline } from "./mui-headless-timeline/MuiMessageTimeline";
 import { NewMessageComposer } from "./NewMessageComposer";
 
 type ChatWorkspaceProps = {
-	workspace: ChatWorkspaceState;
 	posts: MattermostPost[];
 	channelMembers: Record<string, MattermostChannelMember[]>;
 	typingUsers: TypingUsersByChannel;
 	loading: boolean;
 	loadingHistory?: boolean;
 	composerProps: MessageComposerProps;
-	chatViewStates: ChatViewStateByChannel;
 	onActivateTab: (tabId: string) => void;
 	onCloseTab: (tabId: string) => void;
 	onOpenTab: (
@@ -86,10 +84,7 @@ type ChatWorkspaceProps = {
 	onLoadMore?: (channelId: string) => void;
 };
 
-type ChatWorkspaceContextValue = Omit<
-	ChatWorkspaceProps,
-	"workspace" | "onLayoutChange"
->;
+type ChatWorkspaceContextValue = Omit<ChatWorkspaceProps, "onLayoutChange">;
 
 const ChatWorkspaceContext = createContext<ChatWorkspaceContextValue | null>(
 	null,
@@ -104,6 +99,7 @@ type ChatPanelParams = {
 function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 	const workspaceProps = useContext(ChatWorkspaceContext);
 	const data = useSnapshot(chatDataStore);
+	const chatViewStates = useSnapshot(chatWorkspaceStore).chatViewStates;
 	if (!workspaceProps) return null;
 
 	const panelChannel = data.channelsById[params.channelId];
@@ -128,7 +124,7 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 			),
 		[params.channelId, workspaceProps.typingUsers, data.users],
 	);
-	const panelState = workspaceProps.chatViewStates[api.id];
+	const panelState = chatViewStates[api.id];
 	const editTargetId = panelState?.editTargetId ?? null;
 	const replyTargetId = panelState?.replyTargetId ?? null;
 	const composerHeight = Math.min(
@@ -242,14 +238,12 @@ const chatWorkspaceDockviewTheme: DockviewTheme = {
 };
 
 export function ChatWorkspace({
-	workspace,
 	posts,
 	channelMembers,
 	typingUsers,
 	loading,
 	loadingHistory,
 	composerProps,
-	chatViewStates,
 	onActivateTab,
 	onCloseTab,
 	onOpenTab,
@@ -271,6 +265,8 @@ export function ChatWorkspace({
 	onLoadMore,
 }: ChatWorkspaceProps) {
 	const data = useSnapshot(chatDataStore);
+	const workspace = useSnapshot(chatWorkspaceStore)
+		.workspace as ChatWorkspaceState;
 	const tabs = useMemo(
 		() =>
 			Object.values(workspace.tabs).flatMap((tab) => {
@@ -303,7 +299,6 @@ export function ChatWorkspace({
 			loading,
 			loadingHistory,
 			composerProps,
-			chatViewStates,
 			onActivateTab,
 			onCloseTab,
 			onOpenTab,
@@ -330,7 +325,6 @@ export function ChatWorkspace({
 			loading,
 			loadingHistory,
 			composerProps,
-			chatViewStates,
 			onActivateTab,
 			onCloseTab,
 			onOpenTab,

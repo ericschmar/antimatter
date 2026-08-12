@@ -9,6 +9,7 @@ import type {
 } from "../components/MessageComposer";
 import { CallProvider } from "../contexts/CallContext";
 import type { ChatWorkspaceState } from "../state/chatWorkspace";
+import { chatWorkspaceActions } from "../state/chatWorkspaceStore";
 import { uiActions } from "../state/uiStore";
 import type {
 	MattermostChannel,
@@ -120,6 +121,8 @@ function renderChatShell(
 ) {
 	composerProps.length = 0;
 	chatWorkspaceProps.length = 0;
+	chatWorkspaceActions.reset();
+	if (chatWorkspace) chatWorkspaceActions.replaceWorkspace(chatWorkspace);
 	uiActions.setStatus("loading");
 	uiActions.setWsStatus(options.wsStatus ?? "idle");
 	return renderToString(
@@ -157,8 +160,6 @@ function renderChatShell(
 					dms: [],
 					favorites: [],
 				}}
-				chatViewStates={{}}
-				chatWorkspace={chatWorkspace}
 				selectedChannel={selectedChannelId ? selectedChannel : undefined}
 				selectedChannelId={selectedChannelId}
 				selectedTeam={selectedTeam}

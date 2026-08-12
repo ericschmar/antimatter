@@ -79,7 +79,11 @@ export const chatWorkspaceActions = {
 		applyViewUpdate(viewId, (state) => ({ ...state, draftMarkdown }));
 	},
 	setEditTarget(viewId: string, postId: string) {
-		applyViewUpdate(viewId, (state) => ({ ...state, editTargetId: postId }));
+		applyViewUpdate(viewId, (state) => ({
+			...state,
+			editTargetId: postId,
+			replyTargetId: null,
+		}));
 	},
 	setLayout(layout: unknown) {
 		chatWorkspaceStore.workspace = updateChatWorkspaceLayout(
@@ -88,7 +92,11 @@ export const chatWorkspaceActions = {
 		);
 	},
 	setReplyTarget(viewId: string, postId: string) {
-		applyViewUpdate(viewId, (state) => ({ ...state, replyTargetId: postId }));
+		applyViewUpdate(viewId, (state) => ({
+			...state,
+			editTargetId: null,
+			replyTargetId: postId,
+		}));
 	},
 	setScrollAnchor(viewId: string, postId: string) {
 		applyViewUpdate(viewId, (state) => ({

@@ -24,16 +24,18 @@ import { chatDataActions } from "../state/chatDataStore";
 import {
 	activateChatTab,
 	type ChatPanelPlacement,
-	type ChatViewStateByChannel,
 	type ChatWorkspaceState,
 	closeChatTab,
 	createChatWorkspaceStateFromTabs,
 	getPersistedChatWorkspaceTabs,
 	getSelectedChannelId,
 	openChatTab,
-	updateChatViewState,
 	updateChatWorkspaceLayout,
 } from "../state/chatWorkspace";
+import {
+	chatWorkspaceActions,
+	chatWorkspaceStore,
+} from "../state/chatWorkspaceStore";
 import type { AppStatus } from "../state/uiStore";
 import { uiActions, uiStore } from "../state/uiStore";
 import { clearConfig, loadConfig, saveConfig } from "../storage";
@@ -149,11 +151,7 @@ export function MainViewApp() {
 	const [api, setApi] = useState<MattermostApiClient | null>(null);
 	const [currentUser, setCurrentUser] = useState<MattermostUser | null>(null);
 	const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-	const [chatWorkspace, setChatWorkspace] = useState(() =>
-		createChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs),
-	);
-	const chatWorkspaceRef = useRef(chatWorkspace);
-	chatWorkspaceRef.current = chatWorkspace;
+	const chatWorkspace = useSnapshot(chatWorkspaceStore).workspace;
 	const activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);
 	const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
 		null,
@@ -161,6 +159,15 @@ export function MainViewApp() {
 	const standaloneChannelId = activeWorkspaceChannelId
 		? null
 		: selectedChannelId;
+	// Hydrate the workspace store once from persisted config, matching the
+	// previous lazy useState initializer (synchronous on first render).
+	const workspaceHydratedRef = useRef(false);
+	if (!workspaceHydratedRef.current) {
+		workspaceHydratedRef.current = true;
+		chatWorkspaceActions.replaceWorkspace(
+			createChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs),
+		);
+	}
 	const persistChatWorkspaceTabs = useCallback(
 		(nextWorkspace: ChatWorkspaceState, baseConfig = config) => {
 			if (!baseConfig) return;
@@ -176,12 +183,11 @@ export function MainViewApp() {
 	);
 	const handleActivateChatTab = useCallback(
 		(tabId: string) => {
-			const currentWorkspace = chatWorkspaceRef.current;
+			const currentWorkspace = chatWorkspaceStore.workspace;
 			const nextWorkspace = activateChatTab(currentWorkspace, tabId);
 			if (nextWorkspace === currentWorkspace) return;
 			const channelId = getSelectedChannelId(nextWorkspace);
-			chatWorkspaceRef.current = nextWorkspace;
-			setChatWorkspace(nextWorkspace);
+			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 			selectedChannelRef.current = channelId;
 			setSelectedChannelId(channelId);
 			persistChatWorkspaceTabs(nextWorkspace);
@@ -190,26 +196,24 @@ export function MainViewApp() {
 	);
 	const handleCloseChatTab = useCallback(
 		(tabId: string) => {
-			const nextWorkspace = closeChatTab(chatWorkspaceRef.current, tabId);
-			chatWorkspaceRef.current = nextWorkspace;
-			setChatWorkspace(nextWorkspace);
+			const nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);
+			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 			persistChatWorkspaceTabs(nextWorkspace);
 		},
 		[persistChatWorkspaceTabs],
 	);
 	const handleCloseActiveChatTab = useCallback(() => {
-		const activeTabId = chatWorkspaceRef.current.activeTabId;
+		const activeTabId = chatWorkspaceStore.workspace.activeTabId;
 		if (!activeTabId) return;
 		handleCloseChatTab(activeTabId);
 	}, [handleCloseChatTab]);
 	const handleChatWorkspaceLayoutChange = useCallback(
 		(layout: unknown) => {
 			const nextWorkspace = updateChatWorkspaceLayout(
-				chatWorkspaceRef.current,
+				chatWorkspaceStore.workspace,
 				layout,
 			);
-			chatWorkspaceRef.current = nextWorkspace;
-			setChatWorkspace(nextWorkspace);
+			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 			persistChatWorkspaceTabs(nextWorkspace);
 		},
 		[persistChatWorkspaceTabs],
@@ -260,9 +264,6 @@ export function MainViewApp() {
 	const [channelMembers, setChannelMembers] = useState<
 		MattermostChannelMember[]
 	>([]);
-	const [chatViewStates, setChatViewStates] = useState<ChatViewStateByChannel>(
-		{},
-	);
 	const [appUpdate, setAppUpdate] = useState<AppUpdateState>({
 		status: "idle",
 		updateAvailable: false,
@@ -680,7 +681,7 @@ export function MainViewApp() {
 				);
 				if (selectedChannel) {
 					const restoredWorkspaceChannelIds = new Set(
-						Object.values(chatWorkspaceRef.current.tabs)
+						Object.values(chatWorkspaceStore.workspace.tabs)
 							.map((tab) => tab.channelId)
 							.filter((channelId) =>
 								channels.some((channel) => channel.id === channelId),
@@ -1029,13 +1030,12 @@ export function MainViewApp() {
 		saveConfig(nextConfig);
 		setConfig(nextConfig);
 		selectedChannelRef.current = channel.id;
-		const nextWorkspace = openChatTab(chatWorkspaceRef.current, {
+		const nextWorkspace = openChatTab(chatWorkspaceStore.workspace, {
 			channelId: channel.id,
 			teamId: channel.team_id || null,
 			title: channelLabel(channel, stateRef.current.users, currentUser?.id),
 		});
-		chatWorkspaceRef.current = nextWorkspace;
-		setChatWorkspace(nextWorkspace);
+		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 		persistChatWorkspaceTabs(nextWorkspace, nextConfig);
 		setSelectedChannelId(channel.id);
 		setChannelNotifications((current) => {
@@ -1176,7 +1176,8 @@ export function MainViewApp() {
 	async function sendTyping(rootId?: string) {
 		if (
 			!selectedChannelId ||
-			(chatViewStates[selectedChannelId]?.editTargetId ?? null)
+			(chatWorkspaceStore.chatViewStates[selectedChannelId]?.editTargetId ??
+				null)
 		) {
 			return;
 		}
@@ -1191,12 +1192,7 @@ export function MainViewApp() {
 		const previousPost = post;
 		const optimisticPost = { ...post, message, update_at: Date.now() };
 		setEditTarget(null);
-		setChatViewStates((current) =>
-			updateChatViewState(current, post.channel_id, (state) => ({
-				...state,
-				editTargetId: null,
-			})),
-		);
+		chatWorkspaceActions.clearEdit(post.channel_id);
 		setState((current) => updatePostInState(current, optimisticPost));
 		try {
 			const updated = await api.updatePost(post.id, message);
@@ -1366,7 +1362,7 @@ export function MainViewApp() {
 		const channel = stateRef.current.channels[channelId];
 		if (!channel) return;
 		selectedChannelRef.current = channel.id;
-		const nextWorkspace = openChatTab(chatWorkspaceRef.current, {
+		const nextWorkspace = openChatTab(chatWorkspaceStore.workspace, {
 			channelId,
 			teamId: channel.team_id || null,
 			title: channelLabel(channel, stateRef.current.users, currentUser?.id),
@@ -1374,8 +1370,7 @@ export function MainViewApp() {
 			position:
 				placement && referenceTabId ? { referenceTabId, placement } : undefined,
 		});
-		chatWorkspaceRef.current = nextWorkspace;
-		setChatWorkspace(nextWorkspace);
+		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 		persistChatWorkspaceTabs(nextWorkspace);
 		setSelectedChannelId(channel.id);
 	}
@@ -1400,6 +1395,7 @@ export function MainViewApp() {
 		setChannelMembers([]);
 		resetUserPresence();
 		chatDataActions.resetForSignOut();
+		chatWorkspaceActions.reset();
 	}
 
 	function showChannelContextMenu(channel: MattermostChannel) {
@@ -1413,12 +1409,7 @@ export function MainViewApp() {
 
 	const cancelChatReply = useCallback(
 		(channelId: string) => {
-			setChatViewStates((current) =>
-				updateChatViewState(current, channelId, (state) => ({
-					...state,
-					replyTargetId: null,
-				})),
-			);
+			chatWorkspaceActions.clearReply(channelId);
 			if (channelId === renderedChannelId) {
 				setReplyTarget(null);
 			}
@@ -1429,21 +1420,11 @@ export function MainViewApp() {
 	const cancelReply = useCallback(() => {
 		setReplyTarget(null);
 		if (!renderedChannelId) return;
-		setChatViewStates((current) =>
-			updateChatViewState(current, renderedChannelId, (state) => ({
-				...state,
-				replyTargetId: null,
-			})),
-		);
+		chatWorkspaceActions.clearReply(renderedChannelId);
 	}, [renderedChannelId]);
 
 	const cancelChatEdit = useCallback((channelId: string) => {
-		setChatViewStates((current) =>
-			updateChatViewState(current, channelId, (state) => ({
-				...state,
-				editTargetId: null,
-			})),
-		);
+		chatWorkspaceActions.clearEdit(channelId);
 	}, []);
 
 	const cancelEdit = useCallback(() => {
@@ -1454,23 +1435,13 @@ export function MainViewApp() {
 
 	const setChatDraftMarkdown = useCallback(
 		(viewId: string, draftMarkdown: string) => {
-			setChatViewStates((current) =>
-				updateChatViewState(current, viewId, (state) => ({
-					...state,
-					draftMarkdown,
-				})),
-			);
+			chatWorkspaceActions.setDraft(viewId, draftMarkdown);
 		},
 		[],
 	);
 	const setChatComposerHeight = useCallback(
 		(viewId: string, height: number) => {
-			setChatViewStates((current) =>
-				updateChatViewState(current, viewId, (state) => ({
-					...state,
-					composerHeight: height,
-				})),
-			);
+			chatWorkspaceActions.setComposerHeight(viewId, height);
 		},
 		[],
 	);
@@ -1478,13 +1449,7 @@ export function MainViewApp() {
 	const startReply = useCallback((viewId: string, post: MattermostPost) => {
 		setEditTarget(null);
 		setReplyTarget(post);
-		setChatViewStates((current) =>
-			updateChatViewState(current, viewId, (state) => ({
-				...state,
-				editTargetId: null,
-				replyTargetId: post.id,
-			})),
-		);
+		chatWorkspaceActions.setReplyTarget(viewId, post.id);
 		requestAnimationFrame(() => composerRef.current?.focus());
 	}, []);
 
@@ -1584,13 +1549,7 @@ export function MainViewApp() {
 		setCommandOpen,
 		setEditTarget,
 		setEditTargetId: (post) =>
-			setChatViewStates((current) =>
-				updateChatViewState(current, post.channel_id, (state) => ({
-					...state,
-					editTargetId: post.id,
-					replyTargetId: null,
-				})),
-			),
+			chatWorkspaceActions.setEditTarget(post.channel_id, post.id),
 		setError,
 		setSettings,
 		setStatus,
@@ -1678,8 +1637,6 @@ export function MainViewApp() {
 				workspacePosts={workspacePosts}
 				appUpdate={appUpdate}
 				sections={sections}
-				chatWorkspace={chatWorkspace}
-				chatViewStates={chatViewStates}
 				onActivateChatTab={handleActivateChatTab}
 				onCloseActiveChatTab={handleCloseActiveChatTab}
 				onCloseChatTab={handleCloseChatTab}

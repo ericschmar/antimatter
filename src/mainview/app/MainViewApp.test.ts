@@ -44,14 +44,14 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(source).toContain(
-			"const [chatWorkspace, setChatWorkspace] = useState(() =>\n\t\tcreateChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs),\n\t);\n\tconst chatWorkspaceRef = useRef(chatWorkspace);\n\tchatWorkspaceRef.current = chatWorkspace;\n\tconst activeWorkspaceChannelId = getSelectedChannelId(chatWorkspace);",
+			"const chatWorkspace = useSnapshot(chatWorkspaceStore).workspace;",
 		);
 		expect(source).toContain(
 			"const standaloneChannelId = activeWorkspaceChannelId",
 		);
 		expect(source).toContain("? null\n\t\t: selectedChannelId;");
 		expect(source).toContain(
-			"\t\tconst nextWorkspace = openChatTab(chatWorkspaceRef.current, {\n\t\t\tchannelId: channel.id,\n\t\t\tteamId: channel.team_id || null,\n\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t});\n\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\tsetChatWorkspace(nextWorkspace);\n\t\tpersistChatWorkspaceTabs(nextWorkspace, nextConfig);\n\t\tsetSelectedChannelId(channel.id);",
+			"\t\tconst nextWorkspace = openChatTab(chatWorkspaceStore.workspace, {\n\t\t\tchannelId: channel.id,\n\t\t\tteamId: channel.team_id || null,\n\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t});\n\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\tpersistChatWorkspaceTabs(nextWorkspace, nextConfig);\n\t\tsetSelectedChannelId(channel.id);",
 		);
 		expect(source).toContain(
 			"const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;\n\tconst selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
@@ -129,13 +129,30 @@ describe("MainViewApp channel selection", () => {
 		);
 	});
 
-	test("passes workspace state to the isolated chat workspace proof of concept", () => {
+	test("hydrates the workspace store from persisted config on mount", () => {
 		const source = readFileSync(
 			new URL("./MainViewApp.tsx", import.meta.url),
 			"utf8",
 		);
 
-		expect(source).toContain("chatWorkspace={chatWorkspace}");
+		expect(source).toContain(
+			"chatWorkspaceActions.replaceWorkspace(\n\t\t\tcreateChatWorkspaceStateFromTabs(config?.chatWorkspaceTabs),\n\t\t);",
+		);
+	});
+
+	test("reads workspace state from the shared store, not from props", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		// The workspace store (hydrated on mount) owns workspace + view state;
+		// MainViewApp no longer drills chatWorkspace/chatViewStates into ChatShell.
+		expect(source).toContain(
+			"const chatWorkspace = useSnapshot(chatWorkspaceStore).workspace;",
+		);
+		expect(source).not.toContain("chatWorkspace={chatWorkspace}");
+		expect(source).not.toContain("chatViewStates={chatViewStates}");
 	});
 
 	test("loads every restored workspace panel channel during startup", () => {
@@ -145,7 +162,9 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(source).toContain("const restoredWorkspaceChannelIds = new Set(");
-		expect(source).toContain("Object.values(chatWorkspaceRef.current.tabs)");
+		expect(source).toContain(
+			"Object.values(chatWorkspaceStore.workspace.tabs)",
+		);
 		expect(source).toContain(
 			"restoredWorkspaceChannelIds.add(selectedChannel.id);",
 		);
@@ -168,7 +187,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const currentWorkspace = chatWorkspaceRef.current;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
+			"const currentWorkspace = chatWorkspaceStore.workspace;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
 		);
 		expect(mainViewSource).toContain(
 			"onActivateChatTab={handleActivateChatTab}",
@@ -202,7 +221,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceRef.current, tabId);\n\t\t\tchatWorkspaceRef.current = nextWorkspace;\n\t\t\tsetChatWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
+			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);\n\t\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
 		);
 		expect(mainViewSource).toContain("onCloseChatTab={handleCloseChatTab}");
 		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");
@@ -265,12 +284,11 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const [chatViewStates, setChatViewStates] = useState<ChatViewStateByChannel>(",
+			"chatWorkspaceActions.setEditTarget(post.channel_id, post.id)",
 		);
 		expect(mainViewSource).toContain(
-			"updateChatViewState(current, post.channel_id",
+			"chatWorkspaceActions.setReplyTarget(viewId, post.id)",
 		);
-		expect(mainViewSource).toContain("chatViewStates={chatViewStates}");
 		expect(chatShellSource).toContain(
 			"chatViewStates[selectedChannelId]?.replyTargetId",
 		);
@@ -379,7 +397,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const currentWorkspace = chatWorkspaceRef.current;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
+			"const currentWorkspace = chatWorkspaceStore.workspace;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
 		);
 		expect(chatShellSource).toContain(
 			"chatViewStates[selectedChannelId]?.editTargetId",
@@ -391,7 +409,7 @@ describe("MainViewApp channel selection", () => {
 			"chatViewStates[selectedChannelId]?.draftMarkdown",
 		);
 		expect(chatWorkspaceSource).toContain(
-			"const panelState = workspaceProps.chatViewStates[api.id];",
+			"const panelState = chatViewStates[api.id];",
 		);
 		expect(chatWorkspaceSource).toContain(
 			'draftMarkdown: panelState?.draftMarkdown ?? ""',

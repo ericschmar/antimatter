@@ -27,11 +27,8 @@ import { Titlebar } from "../components/Titlebar";
 import { UserPickerDialog } from "../components/UserPickerDialog";
 import { useCall } from "../contexts/CallContext";
 import type { MattermostApiClient } from "../mattermostApi";
-import type {
-	ChatPanelPlacement,
-	ChatViewStateByChannel,
-	ChatWorkspaceState,
-} from "../state/chatWorkspace";
+import type { ChatPanelPlacement } from "../state/chatWorkspace";
+import { chatWorkspaceStore } from "../state/chatWorkspaceStore";
 import { uiActions, uiStore } from "../state/uiStore";
 import {
 	loadDismissedAppUpdateBannerKey,
@@ -79,8 +76,6 @@ export function ChatShell({
 	workspacePosts,
 	appUpdate,
 	sections,
-	chatWorkspace,
-	chatViewStates,
 	onActivateChatTab,
 	onCloseActiveChatTab,
 	onCloseChatTab,
@@ -134,6 +129,8 @@ export function ChatShell({
 	onVotePoll,
 }: ChatShellProps) {
 	const ui = useSnapshot(uiStore);
+	const { workspace: chatWorkspace, chatViewStates } =
+		useSnapshot(chatWorkspaceStore);
 	const { session } = useCall();
 	const [dismissedAppUpdateToastKey, setDismissedAppUpdateToastKey] = useState(
 		() => loadDismissedAppUpdateBannerKey() ?? "",
@@ -480,7 +477,6 @@ export function ChatShell({
 							<ChatWorkspace
 								channelMembers={workspaceChannelMembers}
 								composerProps={composerProps}
-								chatViewStates={chatViewStates}
 								loading={ui.status === "loading"}
 								loadingHistory={ui.loadingHistory}
 								onActivateTab={onActivateChatTab}
@@ -504,7 +500,6 @@ export function ChatShell({
 								onVotePoll={onVotePoll}
 								posts={workspacePosts}
 								typingUsers={ui.typingUsers}
-								workspace={chatWorkspace}
 							/>
 						) : (
 							<section className="chat-body">
@@ -697,8 +692,6 @@ type ChatShellProps = {
 	workspacePosts: MattermostPost[];
 	appUpdate: AppUpdateState;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
-	chatWorkspace?: ChatWorkspaceState | null;
-	chatViewStates: ChatViewStateByChannel;
 	onActivateChatTab: (tabId: string) => void;
 	onCloseActiveChatTab: () => void;
 	onCloseChatTab: (tabId: string) => void;
