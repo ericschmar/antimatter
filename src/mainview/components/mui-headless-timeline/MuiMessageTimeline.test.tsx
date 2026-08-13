@@ -233,6 +233,18 @@ describe("MuiMessageTimeline", () => {
 		);
 	});
 
+	test("gates reach-top loading on the per-channel end-of-history signal", () => {
+		const source = readFileSync(
+			"src/mainview/components/mui-headless-timeline/MuiMessageTimeline.tsx",
+			"utf8",
+		);
+
+		expect(source).toContain(
+			'hasMoreHistoryByChannel[context.channelId ?? ""]',
+		);
+		expect(source).toContain("hasMoreHistory && Boolean(context.onLoadMore)");
+	});
+
 	test("renders top-level message meta before message content", () => {
 		const html = renderToString(
 			<Tooltip.Provider>

@@ -184,6 +184,31 @@ export function closeChatTab(
 	};
 }
 
+export function areChatWorkspaceLayoutsEqual(
+	left: unknown,
+	right: unknown,
+): boolean {
+	return (
+		JSON.stringify(stripTransientLayoutState(left)) ===
+		JSON.stringify(stripTransientLayoutState(right))
+	);
+}
+
+function stripTransientLayoutState(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(stripTransientLayoutState);
+	if (!value || typeof value !== "object") return value;
+
+	return Object.fromEntries(
+		Object.entries(value).flatMap(([key, child]) =>
+			key === "activeGroup" ||
+			key === "activePanel" ||
+			key === "activeView"
+				? []
+				: [[key, stripTransientLayoutState(child)]],
+		),
+	);
+}
+
 export function updateChatWorkspaceLayout(
 	workspace: ChatWorkspaceState,
 	layout: unknown,

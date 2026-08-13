@@ -23,6 +23,7 @@ import { MattermostApiClient, normalizeServerUrl } from "../mattermostApi";
 import { chatDataActions } from "../state/chatDataStore";
 import {
 	activateChatTab,
+	areChatWorkspaceLayoutsEqual,
 	type ChatPanelPlacement,
 	type ChatWorkspaceState,
 	closeChatTab,
@@ -106,6 +107,10 @@ async function loadChannelHistory(
 	currentUserId?: string,
 ): Promise<ChannelHistoryData> {
 	const postList = await api.getPostsForChannel(channelId);
+	chatDataActions.setChannelHasMoreHistory(
+		channelId,
+		Boolean(postList.prev_post_id),
+	);
 	const posts = postList.posts;
 	const postOrder = [...postList.order].reverse();
 	const postUsers = await getPostUsers(
@@ -181,16 +186,14 @@ export function MainViewApp() {
 		},
 		[config],
 	);
-	const handleActivateChatTab = useCallback(
-		(tabId: string) => {
-			const currentWorkspace = chatWorkspaceStore.workspace;
-			const nextWorkspace = activateChatTab(currentWorkspace, tabId);
-			if (nextWorkspace === currentWorkspace) return;
-			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
-			persistChatWorkspaceTabs(nextWorkspace);
-		},
-		[persistChatWorkspaceTabs],
-	);
+	const handleActivateChatTab = useCallback((tabId: string) => {
+		const currentWorkspace = chatWorkspaceStore.workspace;
+		const nextWorkspace = activateChatTab(currentWorkspace, tabId);
+		if (nextWorkspace === currentWorkspace) return;
+		// Panel focus is purely local UI state. Persisting it replaces `config`,
+		// recreating the Dockview workspace and remounting every timeline.
+		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
+	}, []);
 	const handleCloseChatTab = useCallback(
 		(tabId: string) => {
 			const nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);
@@ -206,10 +209,11 @@ export function MainViewApp() {
 	}, [handleCloseChatTab]);
 	const handleChatWorkspaceLayoutChange = useCallback(
 		(layout: unknown) => {
-			const nextWorkspace = updateChatWorkspaceLayout(
-				chatWorkspaceStore.workspace,
-				layout,
-			);
+			const currentWorkspace = chatWorkspaceStore.workspace;
+			// Dockview treats a focused panel as a layout change. Its serialized
+			// active-panel fields must not cause a config write and workspace rebuild.
+			if (areChatWorkspaceLayoutsEqual(currentWorkspace.layout, layout)) return;
+			const nextWorkspace = updateChatWorkspaceLayout(currentWorkspace, layout);
 			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 			persistChatWorkspaceTabs(nextWorkspace);
 		},
@@ -1297,6 +1301,10 @@ export function MainViewApp() {
 				channelId,
 				oldestPostId,
 			);
+			chatDataActions.setChannelHasMoreHistory(
+				channelId,
+				Boolean(postList.prev_post_id),
+			);
 			const postUsers = await getPostUsers(
 				api,
 				Object.values(postList.posts),
@@ -1369,7 +1377,11 @@ export function MainViewApp() {
 		});
 		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 		persistChatWorkspaceTabs(nextWorkspace);
-		setSelectedChannelId(channel.id);
+		// The workspace panel already owns this chat. Updating standalone
+		// selection here starts a separate history load and remounts its timeline.
+		if (!getSelectedChannelId(chatWorkspaceStore.workspace)) {
+			setSelectedChannelId(channel.id);
+		}
 	}
 
 	function signOut() {

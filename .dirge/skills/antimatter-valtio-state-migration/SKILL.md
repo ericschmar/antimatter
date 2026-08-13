@@ -33,6 +33,9 @@ A store module is imported transitively by component tests. Those tests `mock.mo
 ## Mutual exclusion of edit/reply targets
 At the action layer edit and reply targets are mutually exclusive: `setEditTarget(viewId, postId)` also nulls `replyTargetId`, and `setReplyTarget(viewId, postId)` also nulls `editTargetId`. Mirror this when adding new per-view target fields so `startReply`/`setEditTargetId` don't fight each other.
 
+## CRITICAL pitfall: collection (`Record<string, X>`) actions must replace, not mutate
+When adding a keyed-collection field to a store, the action must REPLACE the whole record object (`store.field = { ...store.field, [key]: value }`), never mutate a nested key (`store.field[key] = value`). Reason: `store = proxy<XState>({ ...initialState })` is a shallow spread, so the proxy's nested collections share plain-object references with `initialState`. Mutating through the proxy dirties `initialState` too, so `resetForSignOut()` (which does `Object.assign(store, initialState)`) reassigns the same already-dirtied object and cannot clear it — a reset assertion fails. This is why every existing record action (`setUsers`, `setChannelsById`, …) goes through `resolveUpdater` (full replacement) rather than in-place mutation. Follow that pattern for any new `Record<…>` field (e.g. `setChannelHasMoreHistory` / `hasMoreHistoryByChannel`).
+
 ## Component changes when adopting a store
 - Drop the now-drilled lookup/workspace props from the component's Props type and all call sites.
 - Read store data with `useSnapshot(store)` inside the component; build the context/provider value from the remaining props + snapshot.

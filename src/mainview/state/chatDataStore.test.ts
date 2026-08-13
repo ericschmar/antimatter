@@ -63,6 +63,17 @@ describe("chatDataStore", () => {
 		expect(chatDataStore.userStatuses["user1"]?.status).toBe("online");
 	});
 
+	test("tracks per-channel end-of-history signal", () => {
+		chatDataActions.setChannelHasMoreHistory("c1", false);
+		expect(chatDataStore.hasMoreHistoryByChannel["c1"]).toBe(false);
+
+		chatDataActions.setChannelHasMoreHistory("c1", true);
+		expect(chatDataStore.hasMoreHistoryByChannel["c1"]).toBe(true);
+
+		chatDataActions.resetForSignOut();
+		expect(chatDataStore.hasMoreHistoryByChannel).toEqual({});
+	});
+
 	test("resetForSignOut restores the initial state", () => {
 		chatDataActions.setUsers({ user1: { id: "user1", username: "alice" } });
 		chatDataActions.setUserColors({ user1: "#f00" });

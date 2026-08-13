@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	activateChatTab,
+	areChatWorkspaceLayoutsEqual,
 	canRestoreChatWorkspaceLayout,
 	closeChatTab,
 	createChatWorkspaceStateFromTabs,
@@ -36,6 +37,34 @@ const layout = {
 };
 
 describe("chatWorkspace", () => {
+	test("ignores Dockview focus state when comparing layouts", () => {
+		const focusedLayout = {
+			...layout,
+			activeGroup: "group-2",
+			grid: {
+				...layout.grid,
+				root: {
+					...layout.grid.root,
+					data: { ...layout.grid.root.data, activeView: "chat-panel-2" },
+				},
+			},
+		};
+
+		expect(areChatWorkspaceLayoutsEqual(layout, focusedLayout)).toBe(true);
+	});
+
+	test("detects structural Dockview layout changes", () => {
+		const splitLayout = {
+			...layout,
+			grid: {
+				...layout.grid,
+				root: { type: "branch", data: [] },
+			},
+		};
+
+		expect(areChatWorkspaceLayoutsEqual(layout, splitLayout)).toBe(false);
+	});
+
 	test("opens a new tab instance and derives the selected channel", () => {
 		const workspace = openChatTab(createEmptyChatWorkspaceState(), {
 			channelId: "channel-1",

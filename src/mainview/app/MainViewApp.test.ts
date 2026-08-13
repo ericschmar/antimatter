@@ -75,7 +75,9 @@ describe("MainViewApp channel selection", () => {
 		expect(openChatPanelBody).toContain(
 			"selectedChannelRef.current = channel.id;",
 		);
-		expect(openChatPanelBody).toContain("setSelectedChannelId(channel.id);");
+		expect(openChatPanelBody).toContain(
+			"if (!getSelectedChannelId(chatWorkspaceStore.workspace)) {\n\t\t\tsetSelectedChannelId(channel.id);\n\t\t}",
+		);
 	});
 
 	test("loads channel history on a cache miss when opening a chat tab", () => {
@@ -187,10 +189,13 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const currentWorkspace = chatWorkspaceStore.workspace;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
+			"const handleActivateChatTab = useCallback((tabId: string) => {\n\t\tconst currentWorkspace = chatWorkspaceStore.workspace;\n\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\tif (nextWorkspace === currentWorkspace) return;",
 		);
 		expect(mainViewSource).not.toContain(
-			"setSelectedChannelId(channelId);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);",
+			"persistChatWorkspaceTabs(nextWorkspace);\n\t}, []);",
+		);
+		expect(mainViewSource).toContain(
+			"if (areChatWorkspaceLayoutsEqual(currentWorkspace.layout, layout)) return;",
 		);
 		expect(mainViewSource).toContain(
 			"onActivateChatTab={handleActivateChatTab}",
@@ -396,7 +401,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const currentWorkspace = chatWorkspaceStore.workspace;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
+			"const currentWorkspace = chatWorkspaceStore.workspace;\n\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\tif (nextWorkspace === currentWorkspace) return;",
 		);
 		expect(chatShellSource).toContain(
 			"chatViewStates[selectedChannelId]?.editTargetId",

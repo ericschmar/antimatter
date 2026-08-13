@@ -105,6 +105,7 @@ export function MuiMessageTimeline(props: MuiMessageTimelineProps) {
 
 const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 	const context = useMuiTimelineContext();
+	const data = useSnapshot(chatDataStore);
 	const messages = useMemo(
 		() => buildMuiTimelineMessages(context.posts, context),
 		[
@@ -165,9 +166,12 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 		string | null | undefined
 	>(undefined);
 	const lastMessageId = messageIds.at(-1);
+	const hasMoreHistory =
+		data.hasMoreHistoryByChannel[context.channelId ?? ""] ?? true;
 	const canLoadMore =
 		context.onLoadMore &&
 		!context.loadingHistory &&
+		hasMoreHistory &&
 		loadMoreReadyChannelId === context.channelId;
 	const renderMessageItem = useCallback(
 		({ id, index }: { id: string; index: number }) => {
@@ -295,14 +299,23 @@ function typingLabel(users: { username: string }[]) {
 
 function MuiHistoryStateBridge() {
 	const context = useMuiTimelineContext();
+	const chatData = useSnapshot(chatDataStore);
 	const store = useChatStore();
 	useEffect(() => {
+		const hasMoreHistory =
+			chatData.hasMoreHistoryByChannel[context.channelId ?? ""] ?? true;
 		store.setHistoryState({
 			cursor: undefined,
-			hasMore: Boolean(context.onLoadMore),
+			hasMore: hasMoreHistory && Boolean(context.onLoadMore),
 		});
 		store.setHistoryLoading(Boolean(context.loadingHistory));
-	}, [store, context.onLoadMore, context.loadingHistory]);
+	}, [
+		store,
+		chatData.hasMoreHistoryByChannel,
+		context.onLoadMore,
+		context.loadingHistory,
+		context.channelId,
+	]);
 	return null;
 }
 

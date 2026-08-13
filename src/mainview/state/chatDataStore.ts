@@ -37,6 +37,7 @@ export type ChatDataState = {
 	userColors: Record<string, string>;
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
+	hasMoreHistoryByChannel: Record<string, boolean>;
 	settings: AppSettings;
 	resolveImageSrc: (src: string) => Promise<string>;
 };
@@ -50,6 +51,7 @@ export const initialChatDataState: ChatDataState = {
 	userColors: {},
 	userImages: {},
 	userStatuses: {},
+	hasMoreHistoryByChannel: {},
 	settings: { ...placeholderSettings },
 	resolveImageSrc: noopResolveImageSrc,
 };
@@ -71,6 +73,12 @@ export const chatDataActions = {
 			next,
 			chatDataStore.channelsById,
 		);
+	},
+	setChannelHasMoreHistory(channelId: string, hasMore: boolean) {
+		chatDataStore.hasMoreHistoryByChannel = {
+			...chatDataStore.hasMoreHistoryByChannel,
+			[channelId]: hasMore,
+		};
 	},
 	setCurrentUser(user: MattermostUser | null) {
 		chatDataStore.currentUser = user;
