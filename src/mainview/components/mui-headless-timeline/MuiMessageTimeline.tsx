@@ -223,8 +223,14 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 			className="mui-message-timeline"
 			style={
 				{
-					"--own-message-indicator-color":
-						context.settings.ownMessageIndicatorColor,
+					// When the "Indicate my messages" toggle is off, drive the
+					// indicator variable transparent so the own-message accent
+					// bar disappears live (the main bubble applies `.own` from
+					// message role, which doesn't otherwise react to the setting).
+					"--own-message-indicator-color": context.settings
+						.showOwnMessageIndicators
+						? context.settings.ownMessageIndicatorColor
+						: "transparent",
 				} as React.CSSProperties
 			}
 		>

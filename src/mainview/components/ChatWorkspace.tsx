@@ -172,11 +172,7 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 		workspaceProps.onLoadMore?.(params.channelId);
 	}, [params.channelId, workspaceProps.onLoadMore]);
 	return (
-		<div
-			className="chat-workspace-panel"
-			onFocus={() => workspaceProps.onActivateTab(api.id)}
-			onPointerDown={() => workspaceProps.onActivateTab(api.id)}
-		>
+		<div className="chat-workspace-panel">
 			<ChannelHeader
 				channel={panelChannel}
 				channelMembers={workspaceProps.channelMembers[params.channelId] ?? []}

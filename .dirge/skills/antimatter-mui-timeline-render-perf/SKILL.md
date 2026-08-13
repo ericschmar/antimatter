@@ -13,13 +13,19 @@ description: Diagnose and fix rendering jank in Antimatter's MUI X Chat headless
 ## The renderer data flow (read this first)
 The MUI timeline is the **canonical** one (branch `replace-timeline-mui-chat`); legacy `components/MessageTimeline.tsx` is being retired — don't invest in it.
 
-Renderer data is **prop-drilled from `useState`, not in a store**:
-- `NormalizedState` (flat `posts` Record, `postOrder`, `users`, `channels`) — `useState` in `app/MainViewApp.tsx` (~line 216).
-- `userImages`, `userStatuses`, `userColors`, `settings` — `useState` in `features/users/useUserPresence.ts`.
-- `typingUsers` is the exception: already in Valtio `state/uiStore.ts`.
-- `MuiMessageTimeline` mounts at **two sites**: `app/ChatShell.tsx` (~520) and `components/ChatWorkspace.tsx` (~208), both fed from `MainViewApp`.
+Renderer data **originates in `useState`** but the MUI timeline now consumes the lookup half from Valtio:
+- Origins: `NormalizedState` (flat `posts` Record, `postOrder`, `users`, `channels`) — `useState` in `app/MainViewApp.tsx` (~line 216). `userImages`, `userStatuses`, `userColors`, `settings` — `useState` in `features/users/useUserPresence.ts`. `typingUsers` in Valtio `state/uiStore.ts`.
+- MainViewApp mirrors the lookup data into `state/chatDataStore.ts` via `chatDataActions.setSettings/setUsers/setUserColors/setUserImages/setUserStatuses/setCurrentUser/setApi/setChannelsById/setResolveImageSrc` effects (~lines 1575-1601). `chatDataStore` does NOT hold `posts`/`postOrder`.
+- `MuiMessageTimeline` reads `useSnapshot(chatDataStore)` and builds the `MuiTimelineContextValue` from `data.settings/users/userColors/userImages/userStatuses/currentUserId/currentUser/resolveImageSrc`. Per-instance data (`posts`, `channel`, `channelId`, handlers) is still passed as explicit `MuiMessageTimelineProps`.
+- The "selective Valtio migration" Phase 2 below has **landed at the store level** (whole-snapshot `useSnapshot`, not narrow per-row selectors); the per-row-selector optimization is still pending.
+- Mounts at **two sites**: `app/ChatShell.tsx` (~520) and `components/ChatWorkspace.tsx` (~208).
 
 Amplifier: `MuiTimelineProvider` (`MuiTimelineContext.tsx`) builds a **fresh value object every render**, so every `useMuiTimelineContext()` consumer re-renders regardless of `React.memo`. This is the dominant re-render-scope cause.
+
+## Rendering correctness: settings-driven visuals
+Not every setting reaches the MUI DOM through React props/state — some flow through CSS variables or MUI `ownerState`, which can mask a setting that "doesn't update live":
+- **Own-message indicator** (`AppSettings.showOwnMessageIndicators`, UI "Indicate my messages", checkbox id `show-own-message-indicators`): MAIN message bubbles get the `.own` class from MUI's role-based `ownerState.isOwnMessage` (`MuiTimelineSlots.ts`), which ignores the setting. The accent bar itself is the `--own-message-indicator-color` CSS var (consumed by `.mui-message-root.own::before` and `.mui-message-bubble.own` in MuiMessageTimeline.css). So the toggle only takes effect live if `MuiMessageTimeline`'s root `style` gates that var to `transparent` when the setting is off. REPLY rows (`MuiTimelineReplies.tsx`) compute `isOwnMessage = context.settings.showOwnMessageIndicators && reply.user_id === context.currentUserId` directly, so they honor the toggle without this.
+- General lesson: when a settings toggle "doesn't take effect" in this timeline, first check whether the visual is driven by a CSS variable or an MUI `ownerState` (both bypass React re-renders from the store) rather than a prop/`useSnapshot` read.
 
 ## How to measure: perfTrace
 `src/mainview/utils/perfTrace.ts` (off by default, stays in-tree through the migration):
@@ -45,4 +51,4 @@ Write a test asserting object reference equality (`expect(second[0]).toBe(first[
 - **Phase 2 — selective Valtio migration**: planned `state/dataStore.ts` holding `postsByChannel`/`users`/`userImages`/`userStatuses`/`typingUsers` with narrow per-row selectors, mirroring `uiStore`/`useChannelPreferences`. Conditional on re-measurement showing re-render scope persists after Phase 1. Full plan + measured baseline in `docs/design/2026-08-11-rendering-smoothness-and-selective-valtio-migration-design.md`.
 
 ## Verification
-- `bun test` (full suite), `bunx @biomejs/biome check <files>`, and `bunx tsc --noEmit -p tsconfig.json` grepped for changed-file names (whole-project typecheck has known pre-existing CSS-import errors — ignore those).
+- `bun test` (full suite), `bunx @biomejs/biome check <files>`, and `bun run typecheck` (whole-project `tsc --noEmit`). As of late 2026 this passes cleanly with 0 errors — the old pre-existing TS2882 CSS-import errors are gone, so treat any new `error TS` as real and fix it; don't dismiss typecheck failures as pre-existing.

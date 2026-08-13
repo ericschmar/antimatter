@@ -293,6 +293,26 @@ describe("MuiMessageTimeline", () => {
 		expect(html).toContain("markdown-message");
 	});
 
+	test("drives the own-message indicator color from the Indicate my messages setting", () => {
+		const onHtml = renderToString(
+			<Tooltip.Provider>
+				<MuiMessageTimeline {...timelineProps()} />
+			</Tooltip.Provider>,
+		);
+		expect(onHtml).toContain("--own-message-indicator-color:#00aa00");
+
+		chatDataActions.setSettings({
+			...testSettings,
+			showOwnMessageIndicators: false,
+		});
+		const offHtml = renderToString(
+			<Tooltip.Provider>
+				<MuiMessageTimeline {...timelineProps()} />
+			</Tooltip.Provider>,
+		);
+		expect(offHtml).toContain("--own-message-indicator-color:transparent");
+	});
+
 	test("styles mentions and current-user mentions in markdown text", () => {
 		const html = renderToString(
 			<Tooltip.Provider>

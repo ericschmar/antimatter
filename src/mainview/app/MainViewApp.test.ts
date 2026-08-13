@@ -189,6 +189,9 @@ describe("MainViewApp channel selection", () => {
 		expect(mainViewSource).toContain(
 			"const currentWorkspace = chatWorkspaceStore.workspace;\n\t\t\tconst nextWorkspace = activateChatTab(currentWorkspace, tabId);\n\t\t\tif (nextWorkspace === currentWorkspace) return;",
 		);
+		expect(mainViewSource).not.toContain(
+			"setSelectedChannelId(channelId);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);",
+		);
 		expect(mainViewSource).toContain(
 			"onActivateChatTab={handleActivateChatTab}",
 		);
@@ -198,12 +201,8 @@ describe("MainViewApp channel selection", () => {
 		expect(chatWorkspaceSource).toContain(
 			"event.api.getPanel(workspace.activeTabId)?.api.setActive();",
 		);
-		expect(chatWorkspaceSource).toContain(
-			"onPointerDown={() => workspaceProps.onActivateTab(api.id)}",
-		);
-		expect(chatWorkspaceSource).toContain(
-			"onFocus={() => workspaceProps.onActivateTab(api.id)}",
-		);
+		expect(chatWorkspaceSource).not.toContain("onPointerDown=");
+		expect(chatWorkspaceSource).not.toContain("onFocus=");
 	});
 
 	test("syncs Dockview panel close events to chat workspace state", () => {

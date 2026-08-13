@@ -186,10 +186,7 @@ export function MainViewApp() {
 			const currentWorkspace = chatWorkspaceStore.workspace;
 			const nextWorkspace = activateChatTab(currentWorkspace, tabId);
 			if (nextWorkspace === currentWorkspace) return;
-			const channelId = getSelectedChannelId(nextWorkspace);
 			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
-			selectedChannelRef.current = channelId;
-			setSelectedChannelId(channelId);
 			persistChatWorkspaceTabs(nextWorkspace);
 		},
 		[persistChatWorkspaceTabs],
