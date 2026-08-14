@@ -55,6 +55,29 @@ export function updatePost(
 	};
 }
 
+// Applies a websocket post. The selected channel's post joins postOrder (it
+// orders the standalone timeline); posts for other channels join state.posts
+// only when that channel is already loaded, so workspace tabs rendering from
+// state.posts stay current without ever touching the standalone ordering.
+export function applyIncomingPost(
+	state: NormalizedState,
+	post: MattermostPost,
+	selectedChannelId: string | null,
+): NormalizedState {
+	const isSelectedChannel = post.channel_id === selectedChannelId;
+	if (
+		!isSelectedChannel &&
+		!Object.values(state.posts).some(
+			(loaded) => loaded.channel_id === post.channel_id,
+		)
+	) {
+		return state;
+	}
+	if (state.posts[post.id]) return updatePost(state, post);
+	if (isSelectedChannel) return addPost(state, post);
+	return { ...state, posts: { ...state.posts, [post.id]: post } };
+}
+
 export function mergeUsers(
 	state: NormalizedState,
 	users: MattermostUser[],
@@ -138,6 +161,7 @@ export function applyReaction(
 export function applyChannelHistory(
 	state: NormalizedState,
 	history: ChannelHistoryData,
+	replacePostOrder = true,
 ): NormalizedState {
 	const historyChannelIds = new Set(
 		Object.values(history.posts).map((post) => post.channel_id),
@@ -165,6 +189,6 @@ export function applyChannelHistory(
 			...Object.fromEntries(history.memberUsers.map((user) => [user.id, user])),
 		},
 		posts,
-		postOrder: history.postOrder,
+		postOrder: replacePostOrder ? history.postOrder : state.postOrder,
 	};
 }

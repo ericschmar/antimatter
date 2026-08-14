@@ -9,6 +9,7 @@ import type {
 import {
 	addPost,
 	applyChannelHistory,
+	applyIncomingPost,
 	applyReaction,
 	replacePost,
 	setPostReactions,
@@ -124,6 +125,123 @@ describe("message state helpers", () => {
 
 		const newer = updateChannelLastPostAt(state, "channel-1", 150);
 		expect(newer.channels["channel-1"]?.last_post_at).toBe(150);
+	});
+});
+
+describe("applyIncomingPost", () => {
+	const selectedChannelPost: MattermostPost = {
+		...basePost,
+		channel_id: "channel-a",
+		id: "post-a1",
+	};
+	const state: NormalizedState = {
+		channels: {},
+		postOrder: ["post-a1"],
+		posts: { "post-a1": selectedChannelPost },
+		teams: {},
+		users: {},
+	};
+
+	test("appends posts for the selected channel to postOrder", () => {
+		const next = applyIncomingPost(
+			state,
+			{ ...basePost, channel_id: "channel-a", id: "post-a2" },
+			"channel-a",
+		);
+
+		expect(next.posts["post-a2"]?.message).toBe("hello");
+		expect(next.postOrder).toEqual(["post-a1", "post-a2"]);
+	});
+
+	test("stores posts for loaded background channels without touching postOrder", () => {
+		// postOrder orders the standalone timeline of the selected channel
+		// only, so a background channel's post must not join it.
+		const loaded: NormalizedState = {
+			...state,
+			posts: {
+				...state.posts,
+				"post-b0": { ...basePost, channel_id: "channel-b", id: "post-b0" },
+			},
+		};
+		const next = applyIncomingPost(
+			loaded,
+			{ ...basePost, channel_id: "channel-b", id: "post-b1" },
+			"channel-a",
+		);
+
+		expect(next.posts["post-b1"]?.message).toBe("hello");
+		expect(next.postOrder).toEqual(["post-a1"]);
+	});
+
+	test("ignores posts for channels that were never loaded", () => {
+		const next = applyIncomingPost(
+			state,
+			{ ...basePost, channel_id: "channel-c", id: "post-c1" },
+			"channel-a",
+		);
+
+		expect(next).toBe(state);
+	});
+
+	test("updates an existing background-channel post in place", () => {
+		const loaded: NormalizedState = {
+			...state,
+			posts: {
+				...state.posts,
+				"post-b1": { ...basePost, channel_id: "channel-b", id: "post-b1" },
+			},
+		};
+		const edited = {
+			...basePost,
+			channel_id: "channel-b",
+			id: "post-b1",
+			message: "edited",
+			update_at: 2,
+		};
+
+		const next = applyIncomingPost(loaded, edited, "channel-a");
+
+		expect(next.posts["post-b1"]?.message).toBe("edited");
+		expect(next.postOrder).toEqual(["post-a1"]);
+	});
+});
+
+describe("applyChannelHistory postOrder", () => {
+	const standalonePost: MattermostPost = {
+		...basePost,
+		channel_id: "channel-a",
+		id: "post-a1",
+	};
+	const state: NormalizedState = {
+		channels: {},
+		postOrder: ["post-a1"],
+		posts: { "post-a1": standalonePost },
+		teams: {},
+		users: {},
+	};
+	const history = {
+		memberUsers: [],
+		members: [],
+		postOrder: ["post-b1"],
+		posts: {
+			"post-b1": {
+				...basePost,
+				channel_id: "channel-b",
+				id: "post-b1",
+			} as MattermostPost,
+		},
+		postUsers: [],
+	} satisfies ChannelHistoryData;
+
+	test("can replace a background channel's posts without replacing postOrder", () => {
+		const merged = applyChannelHistory(state, history, false);
+
+		expect(Object.keys(merged.posts)).toEqual(["post-a1", "post-b1"]);
+		expect(merged.postOrder).toEqual(["post-a1"]);
+	});
+
+	test("replaces postOrder by default", () => {
+		expect(applyChannelHistory(state, history).postOrder).toEqual(["post-b1"]);
 	});
 });
 

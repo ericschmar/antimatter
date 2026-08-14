@@ -56,9 +56,7 @@ describe("MainViewApp channel selection", () => {
 		expect(source).toContain(
 			"const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;\n\tconst selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
 		);
-		expect(source).toContain(
-			"if (fetchedHistory) setChannelMembers(fetchedHistory.members);",
-		);
+		expect(source).toContain("setChannelMembers(history.members);");
 		expect(source).toContain("selectedChannelId={renderedChannelId}");
 	});
 
@@ -97,20 +95,68 @@ describe("MainViewApp channel selection", () => {
 		// which is null while a workspace tab is active, so opening a chat tab
 		// would otherwise never load prior messages (DMs and new channels alike).
 		expect(selectChannelBody).toContain(
-			"const fetchedHistory = cachedHistory\n\t\t\t? cachedHistory\n\t\t\t: await loadChannelHistory(api, channel.id, currentUser?.id);",
+			"if (!cachedHistory) {\n\t\t\tapplyFetchedHistory(\n\t\t\t\tawait loadChannelHistory(api, channel.id, currentUser?.id),\n\t\t\t);\n\t\t\treturn;\n\t\t}",
 		);
 		expect(selectChannelBody).toContain(
-			"void mutateSWR(\n\t\t\tchannelHistoryKey(config.serverUrl, channel.id),\n\t\t\tfetchedHistory,\n\t\t\t{ revalidate: false },\n\t\t);",
+			"void mutateSWR(channelHistoryKey(config.serverUrl, channel.id), history, {\n\t\t\t\trevalidate: false,\n\t\t\t});",
 		);
 		expect(selectChannelBody).toContain("applyChannelHistory(");
+		expect(selectChannelBody).toContain("setChannelMembers(history.members);");
+		expect(selectChannelBody).toContain('setStatus("ready");');
 		expect(selectChannelBody).toContain(
-			"if (fetchedHistory) setChannelMembers(fetchedHistory.members);",
+			"void loadPostReactions(api, postsNeedingReactions);",
 		);
-		expect(selectChannelBody).toContain(
-			'setStatus(fetchedHistory ? "ready" : "loading");',
+	});
+
+	test("refreshes a cached channel history in the background when opening a chat tab", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
 		);
+		const selectChannelBody = source.slice(
+			source.indexOf(
+				"async function selectChannel(channel: MattermostChannel)",
+			),
+			source.indexOf("\n\tasync function selectSearchPost"),
+		);
+
+		// Cached histories only receive posts that arrived while the channel
+		// was selected (see useMainViewEvents), so serving the cache alone
+		// would leave a tabbed channel without messages that arrived while
+		// another channel was selected. The cache renders instantly; the
+		// background fetch catches the channel up.
+		expect(selectChannelBody).toContain("applyFetchedHistory(cachedHistory);");
 		expect(selectChannelBody).toContain(
-			"void loadPostReactions(api, Object.values(fetchedHistory.posts));",
+			"void loadChannelHistory(api, channel.id, currentUser?.id)\n\t\t\t.then(applyFetchedHistory)\n\t\t\t.catch(() => undefined);",
+		);
+		// Only posts without reactions (in history or already in state) are
+		// fetched, so the background refresh must not refetch every reaction.
+		expect(selectChannelBody).toContain(
+			"const postsNeedingReactions = Object.values(history.posts).filter(",
+		);
+	});
+
+	test("refreshes every open chat tab's history after a websocket reconnect", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const refreshBody = source.slice(
+			source.indexOf("const refreshAfterReconnect = useCallback("),
+			source.indexOf("useEffect(() => {\n\t\tif (!api || standaloneChannelId"),
+		);
+
+		// While a workspace tab is active nothing reads the mutated history
+		// cache, so a reconnect refresh must apply the history to state itself
+		// and must cover the open tabs' channels, not just the selected one.
+		expect(refreshBody).toContain(
+			"setState((current) => applyChannelHistory(current, history));",
+		);
+		expect(refreshBody).toContain(
+			"Object.values(chatWorkspaceStore.workspace.tabs)",
+		);
+		expect(refreshBody).toContain(
+			"applyChannelHistory(current, history, false)",
 		);
 	});
 

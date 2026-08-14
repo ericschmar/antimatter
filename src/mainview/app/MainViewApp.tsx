@@ -433,19 +433,6 @@ export function MainViewApp() {
 		},
 		[config?.serverUrl, mutateSWR],
 	);
-	const mutateSelectedChannelHistory = useCallback(
-		(
-			updater: (
-				current: ChannelHistoryData | undefined,
-			) => ChannelHistoryData | undefined,
-		) => {
-			const channelId = selectedChannelRef.current;
-			if (!channelId) return;
-			mutateChannelHistory(channelId, updater);
-		},
-		[mutateChannelHistory],
-	);
-
 	const loadPostReactions = useCallback(
 		async (nextApi: MattermostApiClient, posts: MattermostPost[]) => {
 			await Promise.all(
@@ -520,7 +507,40 @@ export function MainViewApp() {
 					history,
 					{ revalidate: false },
 				);
+				// The standalone timeline re-reads the mutated cache itself, but
+				// while a workspace tab is active nothing reads it, so the
+				// refreshed history must be applied to state directly.
+				setState((current) => applyChannelHistory(current, history));
 			}
+
+			const workspaceChannelIds = new Set(
+				Object.values(chatWorkspaceStore.workspace.tabs).map(
+					(tab) => tab.channelId,
+				),
+			);
+			workspaceChannelIds.delete(selectedChannelId ?? "");
+			await Promise.all(
+				[...workspaceChannelIds].map(async (channelId) => {
+					try {
+						const history = await loadChannelHistory(
+							api,
+							channelId,
+							currentUser.id,
+						);
+						void mutateSWR(
+							channelHistoryKey(config.serverUrl, channelId),
+							history,
+							{ revalidate: false },
+						);
+						// postOrder orders the standalone timeline of the
+						// selected channel, so background channels must not
+						// replace it.
+						setState((current) => applyChannelHistory(current, history, false));
+					} catch {
+						// One unreachable channel must not block the others.
+					}
+				}),
+			);
 
 			if (changedChannels.length > 0) {
 				const mentionByChannelId = Object.fromEntries(
@@ -1044,30 +1064,46 @@ export function MainViewApp() {
 			delete next[channel.id];
 			return next;
 		});
-		const fetchedHistory = cachedHistory
-			? cachedHistory
-			: await loadChannelHistory(api, channel.id, currentUser?.id);
-		void mutateSWR(
-			channelHistoryKey(config.serverUrl, channel.id),
-			fetchedHistory,
-			{ revalidate: false },
-		);
-		setState((current) =>
-			applyChannelHistory(
-				{
-					...current,
-					channels: {
-						...current.channels,
-						[channel.id]: channel,
+		const applyFetchedHistory = (history: ChannelHistoryData) => {
+			void mutateSWR(channelHistoryKey(config.serverUrl, channel.id), history, {
+				revalidate: false,
+			});
+			setState((current) =>
+				applyChannelHistory(
+					{
+						...current,
+						channels: {
+							...current.channels,
+							[channel.id]: channel,
+						},
 					},
-				},
-				fetchedHistory,
-			),
-		);
-		if (fetchedHistory) setChannelMembers(fetchedHistory.members);
-		setStatus(fetchedHistory ? "ready" : "loading");
-		if (fetchedHistory)
-			void loadPostReactions(api, Object.values(fetchedHistory.posts));
+					history,
+				),
+			);
+			setChannelMembers(history.members);
+			setStatus("ready");
+			const postsNeedingReactions = Object.values(history.posts).filter(
+				(post) =>
+					!post.metadata?.reactions &&
+					!stateRef.current.posts[post.id]?.metadata?.reactions,
+			);
+			if (postsNeedingReactions.length > 0)
+				void loadPostReactions(api, postsNeedingReactions);
+		};
+
+		if (!cachedHistory) {
+			applyFetchedHistory(
+				await loadChannelHistory(api, channel.id, currentUser?.id),
+			);
+			return;
+		}
+		// Cached histories only receive posts that arrived while the channel
+		// was selected, so a channel opened into a tab can lag behind the
+		// server. Render the cache immediately, then catch up in the background.
+		applyFetchedHistory(cachedHistory);
+		void loadChannelHistory(api, channel.id, currentUser?.id)
+			.then(applyFetchedHistory)
+			.catch(() => undefined);
 	}
 
 	async function selectSearchPost(post: MattermostPost) {
@@ -1548,7 +1584,7 @@ export function MainViewApp() {
 		connect,
 		currentUser,
 		loadPostReactions,
-		mutateSelectedChannelHistory,
+		mutateChannelHistory,
 		openSettingsWindow,
 		selectedChannelRef,
 		settings,

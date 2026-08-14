@@ -31,11 +31,14 @@ Root cause:
 - The standalone `useSWR` history fetch in `MainViewApp` is keyed on `standaloneChannelId`, so it never fires while a tab is active.
 - `selectChannel` previously only applied a cached history from the SWR cache and fetched nothing on a miss, so an uncached channel loaded empty.
 
-Fix in `selectChannel` (on a cache miss):
-- `const fetchedHistory = cachedHistory ? cachedHistory : await loadChannelHistory(api, channel.id, currentUser?.id);`
-- seed the SWR cache: `mutateSWR(channelHistoryKey(config.serverUrl, channel.id), fetchedHistory, { revalidate: false })`
-- apply it via `applyChannelHistory`, then `setChannelMembers(fetchedHistory.members)`, `setStatus("ready")`, and `void loadPostReactions(api, Object.values(fetchedHistory.posts))`.
+Fix in `selectChannel` (both paths, via a shared `applyFetchedHistory(history)` helper that seeds the SWR cache with `revalidate: false`, applies `applyChannelHistory`, `setChannelMembers`, `setStatus("ready")`, and fetches reactions only for posts lacking them):
+- Cache miss: fetch (`await loadChannelHistory(api, channel.id, currentUser?.id)`) and apply.
+- Cache hit: apply the cached history immediately for an instant render, then a background `loadChannelHistory(...).then(applyFetchedHistory).catch(() => undefined)` catch-up. Cached histories only receive posts that arrived while the channel was selected, so serving the cache alone left tabbed channels without newer messages (the workaround was closing all tabs so the channel rendered standalone, whose useSWR revalidates).
 - `openChatPanel` (the split action) intentionally needs NO fetch — it only splits an already-loaded channel.
+
+Related background-channel plumbing (same bug family):
+- Websocket `posted` events for NON-selected channels must not be dropped: `mutateChannelHistory(post.channel_id, ...)` keeps that channel's history cache fresh (a no-op when the channel has no cached history — do NOT seed an empty cache, it would turn `selectChannel` into a stale cache hit), and `applyIncomingPost` (`utils/state.ts`) stores the post in `state.posts` WITHOUT appending to `postOrder` (postOrder orders the standalone timeline of the selected channel only). `applyIncomingPost` ignores channels with no loaded posts.
+- `refreshAfterReconnect` must apply the selected channel's refreshed history to state (nothing reads the mutated SWR cache while a workspace tab is active) and refresh every `chatWorkspaceStore.workspace.tabs` channel, applying each with `applyChannelHistory(current, history, false)` — the third param keeps postOrder intact so a background channel cannot clobber the standalone ordering.
 
 ## 3. DM channel header shows user UUID instead of name
 

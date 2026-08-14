@@ -28,7 +28,7 @@ import {
 	getPostUsers,
 } from "../../utils/mattermostLoaders";
 import {
-	addPost,
+	applyIncomingPost,
 	applyReaction,
 	mergeUsers,
 	updateChannelLastPostAt,
@@ -43,7 +43,7 @@ export function useMainViewEvents({
 	connect,
 	currentUser,
 	loadPostReactions,
-	mutateSelectedChannelHistory,
+	mutateChannelHistory,
 	openSettingsWindow,
 	selectedChannelRef,
 	settings,
@@ -137,24 +137,20 @@ export function useMainViewEvents({
 					})
 					.catch(() => undefined);
 			}
-			if (post.channel_id === selectedChannelRef.current) {
-				mutateSelectedChannelHistory((current) =>
-					addPostToHistory(current, post),
-				);
-				setState((current) =>
-					updateChannelLastPostAt(
-						current.posts[post.id]
-							? updatePost(current, post)
-							: addPost(current, post),
-						post.channel_id,
-						post.create_at,
-					),
-				);
-			} else {
-				setState((current) =>
-					updateChannelLastPostAt(current, post.channel_id, post.create_at),
-				);
-			}
+			// The history cache must also track background channels:
+			// selectChannel serves this cache without revalidating, so a channel
+			// reopened as a chat tab would otherwise miss every post that arrived
+			// while another channel was selected.
+			mutateChannelHistory(post.channel_id, (current) =>
+				addPostToHistory(current, post),
+			);
+			setState((current) =>
+				updateChannelLastPostAt(
+					applyIncomingPost(current, post, selectedChannelRef.current),
+					post.channel_id,
+					post.create_at,
+				),
+			);
 			if (api && postUsersPromise) {
 				void postUsersPromise.then((users) => {
 					if (users.length > 0)
@@ -336,7 +332,7 @@ export function useMainViewEvents({
 		connect,
 		currentUser,
 		loadPostReactions,
-		mutateSelectedChannelHistory,
+		mutateChannelHistory,
 		selectedChannelRef,
 		settings.notificationPreference,
 		settings.notificationSounds,
@@ -477,7 +473,8 @@ type UseMainViewEventsArgs = {
 		api: MattermostApiClient,
 		posts: MattermostPost[],
 	) => Promise<void>;
-	mutateSelectedChannelHistory: (
+	mutateChannelHistory: (
+		channelId: string,
 		updater: (
 			current: ChannelHistoryData | undefined,
 		) => ChannelHistoryData | undefined,
