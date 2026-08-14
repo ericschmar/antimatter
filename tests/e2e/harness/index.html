@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Antimatter timeline e2e harness</title>
+		<link rel="stylesheet" href="/harness.css" />
+		<style>
+			#harness-root {
+				position: fixed;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				box-sizing: border-box;
+				padding: 10px;
+				background: var(--app-bg, #111214);
+			}
+
+			.harness-shell {
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+			}
+
+			.harness-idle {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: #8a8f98;
+				font:
+					14px system-ui,
+					-apple-system,
+					sans-serif;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="harness-root"></div>
+		<script type="module" src="/harness.js"></script>
+	</body>
+</html>
