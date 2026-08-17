@@ -307,7 +307,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst closedTab = chatWorkspaceStore.workspace.tabs[tabId];\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);\n\t\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t\t// Closing the final tab hands the chat back to the standalone view;\n\t\t\t// sync its selection so the header keeps titling the chat that remains.\n\t\t\tif (closedTab && !nextWorkspace.activeTabId) {\n\t\t\t\tsetSelectedChannelId(closedTab.channelId);\n\t\t\t}\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
+			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst closedTab = chatWorkspaceStore.workspace.tabs[tabId];\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);\n\t\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t\t// Closing the final tab leaves nothing selected; the standalone view\n\t\t\t// shows the empty select-a-conversation screen until the user picks\n\t\t\t// a channel.\n\t\t\tif (closedTab && !nextWorkspace.activeTabId) {\n\t\t\t\tsetSelectedChannelId(null);\n\t\t\t}\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
 		);
 		expect(mainViewSource).toContain("onCloseChatTab={handleCloseChatTab}");
 		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");

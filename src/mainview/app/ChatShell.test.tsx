@@ -411,10 +411,19 @@ describe("ChatShell composer disabled state", () => {
 		expect(composerProps[0].disabled).toBe(false);
 	});
 
-	test("disables the composer when no channel is selected", () => {
-		renderChatShell(null);
+	test("renders an empty select-a-conversation screen when no channel is selected", () => {
+		const html = renderChatShell(null, {
+			version: 1,
+			activeTabId: null,
+			tabs: {},
+			layout: null,
+		});
 
-		expect(composerProps).toHaveLength(1);
-		expect(composerProps[0].disabled).toBe(true);
+		expect(html).toContain("chat-empty");
+		expect(html).toContain("chat-empty-image");
+		expect(html).toContain("Select a conversation");
+		expect(html).not.toContain("chat-body");
+		expect(html).not.toContain("channel-header");
+		expect(composerProps).toHaveLength(0);
 	});
 });

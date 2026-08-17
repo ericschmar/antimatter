@@ -210,10 +210,11 @@ export function MainViewApp() {
 			const nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);
 			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 			persistChatWorkspaceTabs(nextWorkspace);
-			// Closing the final tab hands the chat back to the standalone view;
-			// sync its selection so the header keeps titling the chat that remains.
+			// Closing the final tab leaves nothing selected; the standalone view
+			// shows the empty select-a-conversation screen until the user picks
+			// a channel.
 			if (closedTab && !nextWorkspace.activeTabId) {
-				setSelectedChannelId(closedTab.channelId);
+				setSelectedChannelId(null);
 			}
 		},
 		[persistChatWorkspaceTabs],

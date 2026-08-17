@@ -1,5 +1,5 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { X } from "lucide-react";
+import { Image as ImageIcon, X } from "lucide-react";
 import type { RefObject, SyntheticEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Resizable, type ResizeCallbackData } from "react-resizable";
@@ -451,7 +451,7 @@ export function ChatShell({
 					</Resizable>
 
 					<main className="main-panel">
-						{hasRenderableChatWorkspace ? null : (
+						{hasRenderableChatWorkspace || !selectedChannelId ? null : (
 							<ChannelHeader
 								channel={selectedChannel}
 								channelMembers={channelMembers}
@@ -501,7 +501,7 @@ export function ChatShell({
 								posts={workspacePosts}
 								typingUsers={ui.typingUsers}
 							/>
-						) : (
+						) : selectedChannelId ? (
 							<section className="chat-body">
 								<MuiMessageTimeline
 									channel={selectedChannel}
@@ -545,6 +545,14 @@ export function ChatShell({
 										)}
 									</div>
 								</Resizable>
+							</section>
+						) : (
+							<section className="chat-empty">
+								<div aria-hidden="true" className="chat-empty-image">
+									<ImageIcon size={30} strokeWidth={1.5} />
+								</div>
+								<h2>Select a conversation</h2>
+								<p>Pick a channel or direct message from the sidebar.</p>
 							</section>
 						)}
 					</main>

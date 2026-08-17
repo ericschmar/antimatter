@@ -662,6 +662,42 @@ textarea:disabled {
 	overflow: hidden;
 }
 
+.chat-empty {
+	grid-row: 1 / -1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-height: 0;
+	padding: 24px;
+	background: var(--app-bg);
+	text-align: center;
+}
+
+.chat-empty-image {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 88px;
+	height: 88px;
+	margin-bottom: 12px;
+	border: 1px dashed var(--border-strong);
+	border-radius: 20px;
+	background: var(--panel-bg);
+	color: var(--text-secondary);
+}
+
+.chat-empty h2 {
+	margin: 0;
+}
+
+.chat-empty p {
+	margin: 0;
+	color: var(--text-secondary);
+	font-size: 0.85rem;
+}
+
 .resizable-composer {
 	grid-row: 2;
 	position: relative;
