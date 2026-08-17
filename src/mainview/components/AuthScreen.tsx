@@ -6,9 +6,16 @@ import type { MattermostConfig } from "../types";
 import { Titlebar } from "./Titlebar";
 import "./AuthScreen.css";
 
+const AUTH_METHOD_LABELS = {
+	pat: "personal access token",
+	password: "password",
+	sso: "SSO",
+} as const;
+
 export function AuthScreen({
 	busy,
 	defaultConfig,
+	defaultConfigSource = "saved",
 	error,
 	onConnect,
 	onPasswordLogin,
@@ -16,6 +23,7 @@ export function AuthScreen({
 }: {
 	busy: boolean;
 	defaultConfig: MattermostConfig | null;
+	defaultConfigSource: "env" | "saved";
 	error: string | null;
 	onConnect: (config: MattermostConfig) => Promise<void>;
 	onPasswordLogin: (
@@ -31,7 +39,7 @@ export function AuthScreen({
 	const [serverUrl, setServerUrl] = useState(defaultConfig?.serverUrl ?? "");
 	const [token, setToken] = useState(defaultConfig?.token ?? "");
 	const [authMethod, setAuthMethod] = useState<"pat" | "password" | "sso">(
-		"pat",
+		defaultConfig?.authMethod ?? "pat",
 	);
 	const [loginId, setLoginId] = useState("");
 	const [password, setPassword] = useState("");
@@ -40,6 +48,7 @@ export function AuthScreen({
 		if (!defaultConfig) return;
 		setServerUrl(defaultConfig.serverUrl);
 		setToken(defaultConfig.token);
+		setAuthMethod(defaultConfig.authMethod ?? "pat");
 	}, [defaultConfig]);
 
 	return (
@@ -61,9 +70,16 @@ export function AuthScreen({
 					}}
 				>
 					{defaultConfig ? (
-						<p className="auth-note">
-							Loaded local Mattermost credentials from .env.
-						</p>
+						defaultConfigSource === "env" ? (
+							<p className="auth-note">
+								Loaded local Mattermost credentials from .env.
+							</p>
+						) : (
+							<p className="auth-note">
+								Saved connection: {defaultConfig.serverUrl} (
+								{AUTH_METHOD_LABELS[defaultConfig.authMethod ?? "pat"]})
+							</p>
+						)
 					) : null}
 					<div
 						className="auth-methods"

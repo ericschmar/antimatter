@@ -196,9 +196,15 @@ export function MainViewApp() {
 	}, []);
 	const handleCloseChatTab = useCallback(
 		(tabId: string) => {
+			const closedTab = chatWorkspaceStore.workspace.tabs[tabId];
 			const nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);
 			chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 			persistChatWorkspaceTabs(nextWorkspace);
+			// Closing the final tab hands the chat back to the standalone view;
+			// sync its selection so the header keeps titling the chat that remains.
+			if (closedTab && !nextWorkspace.activeTabId) {
+				setSelectedChannelId(closedTab.channelId);
+			}
 		},
 		[persistChatWorkspaceTabs],
 	);
@@ -1649,7 +1655,8 @@ export function MainViewApp() {
 		return (
 			<AuthScreen
 				busy={status === "loading"}
-				defaultConfig={envConfig}
+				defaultConfig={envConfig ?? config}
+				defaultConfigSource={envConfig ? "env" : "saved"}
 				error={error}
 				onConnect={connect}
 				onPasswordLogin={passwordLogin}

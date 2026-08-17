@@ -3,6 +3,7 @@ import {
 	loadArchivedChannelIds,
 	loadChannelEmojis,
 	loadChannelOrder,
+	loadConfig,
 	loadDismissedAppUpdateBannerKey,
 	loadSettings,
 	loadUserColorPaletteVersion,
@@ -10,6 +11,7 @@ import {
 	saveArchivedChannelIds,
 	saveChannelEmojis,
 	saveChannelOrder,
+	saveConfig,
 	saveDismissedAppUpdateBannerKey,
 	saveSettings,
 	saveUserColorPaletteVersion,
@@ -46,6 +48,29 @@ describe("storage helpers", () => {
 			configurable: true,
 			value: originalLocalStorage,
 		});
+	});
+
+	test("round-trips config auth methods for saved connections", () => {
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			value: new MemoryStorage(),
+		});
+
+		for (const authMethod of ["pat", "password", "sso"] as const) {
+			saveConfig({
+				serverUrl: "https://chat.example.com",
+				token: "token-value",
+				authMethod,
+			});
+			expect(loadConfig()).toMatchObject({
+				serverUrl: "https://chat.example.com",
+				token: "token-value",
+				authMethod,
+			});
+		}
+
+		saveConfig({ serverUrl: "https://chat.example.com", token: "t" });
+		expect(loadConfig()?.authMethod).toBe("pat");
 	});
 
 	test("round-trips channel emoji overrides", () => {

@@ -271,7 +271,7 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);\n\t\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
+			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst closedTab = chatWorkspaceStore.workspace.tabs[tabId];\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);\n\t\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t\t// Closing the final tab hands the chat back to the standalone view;\n\t\t\t// sync its selection so the header keeps titling the chat that remains.\n\t\t\tif (closedTab && !nextWorkspace.activeTabId) {\n\t\t\t\tsetSelectedChannelId(closedTab.channelId);\n\t\t\t}\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
 		);
 		expect(mainViewSource).toContain("onCloseChatTab={handleCloseChatTab}");
 		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");
@@ -469,6 +469,19 @@ describe("MainViewApp channel selection", () => {
 		);
 		expect(chatWorkspaceSource).toContain(
 			"replyTarget: panelPosts.find((post) => post.id === replyTargetId) ?? null",
+		);
+	});
+});
+
+describe("MainViewApp auth screen saved connection", () => {
+	test("passes the saved config to the auth screen when env config is absent", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(source).toContain(
+			'\t\t\t\tdefaultConfig={envConfig ?? config}\n\t\t\t\tdefaultConfigSource={envConfig ? "env" : "saved"}',
 		);
 	});
 });
