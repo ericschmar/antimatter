@@ -109,15 +109,71 @@ test("scenario 1 (pin stability): stays at the bottom after images settle", asyn
 	const trace = await harness<Trace>(page, "getTrace()");
 	expect(trace.samples.length).toBeGreaterThan(30);
 
-	const worst = Math.max(
-		...trace.samples.map(
-			(sample) => sample.scrollHeight - sample.clientHeight - sample.scrollTop,
-		),
+	// A content commit that grows the list necessarily outruns the pin by one
+	// frame (ResizeObserver -> scrollToBottom happens on the next frame), so
+	// the assertion is on *sustained* departures, not single-frame transients:
+	// no streak above the buffer may outlast 150ms, and the idle tail must end
+	// parked at the bottom.
+	const distances = trace.samples.map(
+		(sample) => sample.scrollHeight - sample.clientHeight - sample.scrollTop,
 	);
+	let streakStart = -1;
+	let worstStreakMs = 0;
+	for (let i = 0; i < distances.length; i++) {
+		if (distances[i] > AT_BOTTOM_BUFFER && streakStart < 0) {
+			streakStart = i;
+		}
+		if (distances[i] <= AT_BOTTOM_BUFFER && streakStart >= 0) {
+			worstStreakMs = Math.max(
+				worstStreakMs,
+				trace.samples[i].t - trace.samples[streakStart].t,
+			);
+			streakStart = -1;
+		}
+	}
+	if (streakStart >= 0) {
+		worstStreakMs =
+			trace.samples[trace.samples.length - 1].t - trace.samples[streakStart].t;
+	}
+	const finalDistance = distances[distances.length - 1];
 	console.log(
-		`[scenario 1] samples=${trace.samples.length} worstDistanceFromBottom=${worst.toFixed(1)}px`,
+		`[scenario 1] samples=${trace.samples.length} worstStreakAboveBuffer=${worstStreakMs.toFixed(0)}ms finalDistance=${finalDistance.toFixed(1)}px`,
 	);
-	expect(worst).toBeLessThanOrEqual(AT_BOTTOM_BUFFER);
+	expect(worstStreakMs).toBeLessThanOrEqual(150);
+	expect(finalDistance).toBeLessThanOrEqual(AT_BOTTOM_BUFFER);
+});
+
+test("scenario 1b (no coercion): does not scroll a user who is reading history", async ({
+	page,
+}) => {
+	await harness(
+		page,
+		"openChannel({ postCount: 120, imageFraction: 0.3, imageDelayMs: 7000 })",
+	);
+	await harness(page, "scrollToBottom()");
+	await page.waitForTimeout(50);
+	// Jump into history, let the settle window expire, then resolve images.
+	// `scrollTop` itself may move: native scroll anchoring compensates for
+	// content growth above the viewport, which preserves the reading
+	// position. Coercion would change WHAT the user is looking at — so the
+	// assertion is on the visible row, not the scroll offset.
+	const scroller = page.locator(".mui-message-list-scroller");
+	await scroller.evaluate((element) => {
+		element.scrollTop = Math.round(element.scrollHeight / 2);
+	});
+	const before = await harness<Anchor>(page, "getAnchor()");
+	expect(before?.id).toBeTruthy();
+	await page.waitForTimeout(2500);
+	await harness(page, "settleImages()");
+	await page.waitForTimeout(1000);
+	const after = await harness<Anchor>(page, "getAnchor()");
+	console.log(
+		`[scenario 1b] beforeRow=${before?.id} beforeTop=${before?.viewportTop.toFixed(1)} afterRow=${after?.id} afterTop=${after?.viewportTop.toFixed(1)}`,
+	);
+	expect(after?.id).toBe(before?.id);
+	expect(
+		Math.abs((after?.viewportTop ?? 0) - (before?.viewportTop ?? 0)),
+	).toBeLessThanOrEqual(AT_BOTTOM_BUFFER);
 });
 
 test("scenario 2 (open-at-bottom): last message in view within 1s and stays through settle", async ({

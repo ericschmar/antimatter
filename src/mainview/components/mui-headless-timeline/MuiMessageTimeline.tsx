@@ -39,6 +39,7 @@ import {
 	buildMuiUsers,
 	type MattermostMessageMetadata,
 } from "./muiChatModels";
+import { TimelineScrollKeeper } from "./TimelineScrollKeeper";
 
 const timelineAdapter: ChatAdapter = {
 	sendMessage: async () => new ReadableStream(),
@@ -205,12 +206,11 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 		if (channelChanged) setLoadMoreReadyChannelId(undefined);
 		if (!lastMessageId || (!channelChanged && !channelContentLoaded)) return;
 
+		// The initial pin only; late height changes (images, avatars) are
+		// corrected by TimelineScrollKeeper's settle window, so no rAF
+		// re-scroll is needed here.
 		messageListRef.current?.scrollToBottom({ behavior: "auto" });
-		const frameId = requestAnimationFrame(() => {
-			messageListRef.current?.scrollToBottom({ behavior: "auto" });
-			setLoadMoreReadyChannelId(context.channelId);
-		});
-		return () => cancelAnimationFrame(frameId);
+		setLoadMoreReadyChannelId(context.channelId);
 	}, [context.channelId, lastMessageId]);
 
 	useEffect(() => {
@@ -266,6 +266,12 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 						autoScroll={muiMessageListAutoScroll}
 						estimatedItemSize={112}
 						items={messageIds}
+						overlay={
+							<TimelineScrollKeeper
+								buffer={muiMessageListAutoScroll.buffer}
+								channelId={context.channelId}
+							/>
+						}
 						slotProps={muiTimelineSlotProps.messageList}
 						onReachTop={canLoadMore ? context.onLoadMore : undefined}
 						renderItem={renderMessageItem}

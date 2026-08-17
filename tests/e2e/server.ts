@@ -5,17 +5,18 @@ const projectRoot = join(import.meta.dir, "..", "..");
 const outDir = join(projectRoot, "build", "e2e");
 const port = Number(process.env.E2E_PORT ?? 4511);
 
+const buildArgs = [
+	"bun",
+	"build",
+	"tests/e2e/harness/harness.tsx",
+	"--outdir",
+	"build/e2e",
+	"--target=browser",
+	"--format=esm",
+];
+if (!process.env.E2E_NO_MINIFY) buildArgs.push("--minify");
 const build = Bun.spawnSync({
-	cmd: [
-		"bun",
-		"build",
-		"tests/e2e/harness/harness.tsx",
-		"--outdir",
-		"build/e2e",
-		"--target=browser",
-		"--format=esm",
-		"--minify",
-	],
+	cmd: buildArgs,
 	cwd: projectRoot,
 	stderr: "pipe",
 	stdout: "pipe",

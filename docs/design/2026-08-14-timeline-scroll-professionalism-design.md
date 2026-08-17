@@ -87,6 +87,8 @@ Scenarios 1 and 2 are red on both webkit and chromium with identical numbers —
 
 ### 5a. Stick-to-bottom controller (symptom 1; most of 2)
 
+**STATUS (2026-08-14): implemented** as `TimelineScrollKeeper.tsx`, rendered via `MessageList.Root`'s `overlay` slot. Reads `{ isAtBottom, scrollToBottom }` from `useMessageListContext()`; observes `.mui-message-list-content` with a ResizeObserver and re-pins on content-height changes. The channel-switch effect in `MuiMessageTimeline.tsx` was simplified to the single initial pin (the rAF double-scroll is gone; the keeper owns late corrections).
+
 New `TimelineScrollKeeper` component rendered via `MessageList.Root`'s `overlay` slot (the only app-reachable spot inside `MessageListContextProvider`):
 
 - Reads `{ isAtBottom, scrollToBottom }` from the exported `useMessageListContext()`.
@@ -108,6 +110,16 @@ New `TimelineScrollKeeper` component rendered via `MessageList.Root`'s `overlay`
 - The harness prepend scenario measures drift before/after on the webkit project. This is expected to be strictly better or neutral; if it regresses, it is dropped and the measurement recorded here as to why. Baseline "before" numbers: §4.1.
 
 ### 5d. Settled open (symptom 2)
+
+**STATUS (2026-08-14): implemented** inside the keeper: settle starts on channel switch/open (detected in the RO callback), re-pins on every content-height change, ends when the height is stable for 200ms (bounded at 2s). `loadMoreReadyChannelId` gating is preserved.
+
+**Engine findings recorded during implementation (input for 5c):**
+
+- **Native scroll anchoring is active in the scroller and is load-bearing for readers.** When a user is parked mid-history and images load above them, the engine shifts `scrollTop` to preserve the reading position (scenario 1b: same visible row before/after, 0.2px shift). `scrollTop` itself moving is correct behavior, not coercion — scenario 1b therefore asserts on the visible row, not the scroll offset.
+- **Anchoring-induced scroll events fire *before* ResizeObserver callbacks in the same frame, and engines differ in whether the adjustment is visible to the RO callback.** A "was at bottom" verdict computed from post-layout geometry is unreliable in both directions (webkit: stale position causes false pins on parked readers; chromium: compensated position defeats legitimate pins). The keeper therefore tracks at-bottom in its own scroll listener and skips events whose `scrollHeight` no longer matches the last observed content height — those are anchoring artifacts, not user intent.
+- **A pin necessarily trails its commit by one frame** (commit → RO → scrollToBottom ≈ 16–20ms). Scenario 1 therefore asserts no *sustained* departure (streak above the 96px buffer ≤ 150ms) plus final position at bottom, not a max over all samples.
+
+**Measured after 5a+5d (webkit / chromium, both green):** scenario 1 worst streak 19–20ms / 5ms, final distance 0px; scenario 2 last message fully in view, distance 0px; scenario 1b visible row unchanged; scenario 3 unchanged (drift 0.0px). Baseline "before" numbers: §4.1.
 
 Replace the fire-twice `scrollToBottom` in the channel-switch effect with a settle protocol, implemented inside `TimelineScrollKeeper` (one owner of pin semantics instead of three):
 
