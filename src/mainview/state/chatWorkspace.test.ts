@@ -8,6 +8,7 @@ import {
 	createEmptyChatWorkspaceState,
 	getChannelTabId,
 	getPersistedChatWorkspaceTabs,
+	getRenderedChannelId,
 	getSelectedChannelId,
 	openChatTab,
 	removeInvalidChatTabs,
@@ -451,5 +452,26 @@ describe("chatWorkspace", () => {
 				[],
 			),
 		).toBe(false);
+	});
+});
+
+describe("getRenderedChannelId", () => {
+	test("prefers the active workspace tab over the standalone selection", () => {
+		const workspace = openChatTab(createEmptyChatWorkspaceState(), {
+			channelId: "channel-1",
+			teamId: "team-1",
+			title: "Town Square",
+		});
+
+		expect(getRenderedChannelId(workspace, "channel-2")).toBe("channel-1");
+	});
+
+	test("falls back to the standalone selection without workspace tabs", () => {
+		expect(getRenderedChannelId(createEmptyChatWorkspaceState(), null)).toBe(
+			null,
+		);
+		expect(
+			getRenderedChannelId(createEmptyChatWorkspaceState(), "channel-2"),
+		).toBe("channel-2");
 	});
 });

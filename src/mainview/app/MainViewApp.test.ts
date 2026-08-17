@@ -54,7 +54,7 @@ describe("MainViewApp channel selection", () => {
 			"\t\tconst nextWorkspace = openChatTab(chatWorkspaceStore.workspace, {\n\t\t\tchannelId: channel.id,\n\t\t\tteamId: channel.team_id || null,\n\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t});\n\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\tpersistChatWorkspaceTabs(nextWorkspace, nextConfig);\n\t\tsetSelectedChannelId(channel.id);",
 		);
 		expect(source).toContain(
-			"const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;\n\tconst selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
+			"const selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",
 		);
 		expect(source).toContain("setChannelMembers(history.members);");
 		expect(source).toContain("selectedChannelId={renderedChannelId}");
@@ -254,6 +254,42 @@ describe("MainViewApp channel selection", () => {
 		);
 		expect(chatWorkspaceSource).not.toContain("onPointerDown=");
 		expect(chatWorkspaceSource).not.toContain("onFocus=");
+	});
+
+	test("clears the channel's unread flag when its chat tab is activated", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		// Posts that arrived while another tab was focused leave an unread
+		// flag; focusing the tab shows the channel, so the badge is stale.
+		expect(source).toContain(
+			"const activatedChannelId = nextWorkspace.tabs[tabId]?.channelId;\n\t\tif (activatedChannelId)\n\t\t\tuiActions.clearChannelNotification(activatedChannelId);",
+		);
+	});
+
+	test("does not re-flag the rendered channel unread after a reconnect", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const refreshBody = source.slice(
+			source.indexOf("const refreshAfterReconnect = useCallback("),
+			source.indexOf("useEffect(() => {\n\t\tif (!api || standaloneChannelId"),
+		);
+
+		// The reconnect unread filter must exclude the workspace's active tab
+		// channel, not just the (possibly stale) standalone selection.
+		expect(refreshBody).toContain(
+			"const renderedChannelId = getRenderedChannelId(\n\t\t\t\tchatWorkspaceStore.workspace,\n\t\t\t\tselectedChannelId,\n\t\t\t);",
+		);
+		expect(refreshBody).toContain(
+			"if (channel.id === renderedChannelId) return false;",
+		);
+		expect(refreshBody).not.toContain(
+			"if (channel.id === selectedChannelId) return false;",
+		);
 	});
 
 	test("syncs Dockview panel close events to chat workspace state", () => {

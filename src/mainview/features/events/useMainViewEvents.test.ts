@@ -23,4 +23,28 @@ describe("websocket post handling", () => {
 			"applyIncomingPost(current, post, selectedChannelRef.current)",
 		);
 	});
+
+	test("does not flag the rendered channel unread when a chat tab is active", () => {
+		const source = readFileSync(
+			new URL("./useMainViewEvents.ts", import.meta.url),
+			"utf8",
+		);
+		const handlePostBody = source.slice(
+			source.indexOf("function handlePost(event: Event)"),
+			source.indexOf("function handleReaction(event: Event)"),
+		);
+
+		// selectedChannelRef alone is the standalone selection; once a chat
+		// workspace tab renders, its channel is the visible one and must not
+		// get an unread badge (issue: active channel flagged unread until clicked).
+		expect(handlePostBody).toContain(
+			"const renderedChannelId = getRenderedChannelId(\n\t\t\t\tchatWorkspaceStore.workspace,\n\t\t\t\tselectedChannelRef.current,\n\t\t\t);",
+		);
+		expect(handlePostBody).toContain(
+			"if (post.channel_id !== renderedChannelId) {",
+		);
+		expect(handlePostBody).not.toContain(
+			"if (post.channel_id !== selectedChannelRef.current) {",
+		);
+	});
 });

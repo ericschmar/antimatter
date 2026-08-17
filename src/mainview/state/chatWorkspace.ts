@@ -200,9 +200,7 @@ function stripTransientLayoutState(value: unknown): unknown {
 
 	return Object.fromEntries(
 		Object.entries(value).flatMap(([key, child]) =>
-			key === "activeGroup" ||
-			key === "activePanel" ||
-			key === "activeView"
+			key === "activeGroup" || key === "activePanel" || key === "activeView"
 				? []
 				: [[key, stripTransientLayoutState(child)]],
 		),
@@ -293,6 +291,13 @@ export function getSelectedChannelId(
 	workspace: ChatWorkspaceState,
 ): string | null {
 	return getActiveChatTab(workspace)?.channelId ?? null;
+}
+
+export function getRenderedChannelId(
+	workspace: ChatWorkspaceState,
+	standaloneChannelId: string | null,
+): string | null {
+	return getSelectedChannelId(workspace) ?? standaloneChannelId;
 }
 
 function getNextPanelId(tabs: Record<string, ChatTabState>) {

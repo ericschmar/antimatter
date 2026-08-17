@@ -7,6 +7,8 @@ import type {
 } from "../../../shared/electrobunRpc";
 import { electrobun, rendererLog } from "../../app/rpc";
 import type { MattermostApiClient } from "../../mattermostApi";
+import { getRenderedChannelId } from "../../state/chatWorkspace";
+import { chatWorkspaceStore } from "../../state/chatWorkspaceStore";
 import type { AppStatus } from "../../state/uiStore";
 import type {
 	AppSettings,
@@ -106,6 +108,13 @@ export function useMainViewEvents({
 			setTypingUsers((current) =>
 				removeTypingUser(current, post.channel_id, post.user_id),
 			);
+			// The unread check must consider the workspace's active tab too:
+			// selectedChannelRef alone goes stale once a chat tab is rendered,
+			// which left the sidebar flagging the visible channel as unread.
+			const renderedChannelId = getRenderedChannelId(
+				chatWorkspaceStore.workspace,
+				selectedChannelRef.current,
+			);
 			if (api && currentUser && !state.channels[post.channel_id]) {
 				void api
 					.getChannel(post.channel_id)
@@ -162,9 +171,10 @@ export function useMainViewEvents({
 				postId: post.id,
 				postChannelId: post.channel_id,
 				selectedChannelId: selectedChannelRef.current,
-				isSelectedChannel: post.channel_id === selectedChannelRef.current,
+				renderedChannelId,
+				isSelectedChannel: post.channel_id === renderedChannelId,
 			});
-			if (post.channel_id !== selectedChannelRef.current) {
+			if (post.channel_id !== renderedChannelId) {
 				const mention = Boolean(
 					currentUser && includesMention(post.message, currentUser.username),
 				);

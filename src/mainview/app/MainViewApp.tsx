@@ -29,6 +29,7 @@ import {
 	closeChatTab,
 	createChatWorkspaceStateFromTabs,
 	getPersistedChatWorkspaceTabs,
+	getRenderedChannelId,
 	getSelectedChannelId,
 	openChatTab,
 	updateChatWorkspaceLayout,
@@ -164,6 +165,10 @@ export function MainViewApp() {
 	const standaloneChannelId = activeWorkspaceChannelId
 		? null
 		: selectedChannelId;
+	const renderedChannelId = getRenderedChannelId(
+		chatWorkspace,
+		standaloneChannelId,
+	);
 	// Hydrate the workspace store once from persisted config, matching the
 	// previous lazy useState initializer (synchronous on first render).
 	const workspaceHydratedRef = useRef(false);
@@ -193,6 +198,11 @@ export function MainViewApp() {
 		// Panel focus is purely local UI state. Persisting it replaces `config`,
 		// recreating the Dockview workspace and remounting every timeline.
 		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
+		// The newly focused panel shows its channel, so any unread flag left on
+		// it (e.g. from posts that arrived while another tab was focused) is stale.
+		const activatedChannelId = nextWorkspace.tabs[tabId]?.channelId;
+		if (activatedChannelId)
+			uiActions.clearChannelNotification(activatedChannelId);
 	}, []);
 	const handleCloseChatTab = useCallback(
 		(tabId: string) => {
@@ -480,8 +490,15 @@ export function MainViewApp() {
 				currentUser.id,
 			);
 			const selectedChannelId = selectedChannelRef.current;
+			// The rendered channel is the active workspace tab (or the
+			// standalone selection); it must not be re-flagged unread after a
+			// reconnect just because the standalone selection went stale.
+			const renderedChannelId = getRenderedChannelId(
+				chatWorkspaceStore.workspace,
+				selectedChannelId,
+			);
 			const changedChannels = channelsForTeam.filter((channel) => {
-				if (channel.id === selectedChannelId) return false;
+				if (channel.id === renderedChannelId) return false;
 				const previousLastPostAt =
 					previousChannels[channel.id]?.last_post_at ?? 0;
 				const nextLastPostAt = channel.last_post_at ?? 0;
@@ -945,7 +962,6 @@ export function MainViewApp() {
 		[state.posts],
 	);
 	const selectedTeam = selectedTeamId ? state.teams[selectedTeamId] : undefined;
-	const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;
 	const selectedChannel = renderedChannelId
 		? state.channels[renderedChannelId]
 		: undefined;
@@ -1419,6 +1435,10 @@ export function MainViewApp() {
 		});
 		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 		persistChatWorkspaceTabs(nextWorkspace);
+		// The new panel shows this channel immediately, so a stale unread
+		// flag (activation short-circuits when the tab is already active)
+		// must not survive the open.
+		uiActions.clearChannelNotification(channelId);
 		// The workspace panel already owns this chat. Updating standalone
 		// selection here starts a separate history load and remounts its timeline.
 		if (!getSelectedChannelId(chatWorkspaceStore.workspace)) {
