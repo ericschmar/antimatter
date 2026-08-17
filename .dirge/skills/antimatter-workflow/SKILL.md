@@ -16,6 +16,7 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   - `bd update <id> --claim` to claim work.
   - `bd close <id>` to complete work.
 - Do not create markdown TODO files for project task tracking.
+- Beads IDs look like `antimatter-4q5`; the built-in issue/todo board tool uses separate `drg-*` IDs — `bd update drg-...` fails with "no issue found". Find Beads IDs via `bd list --json` (or `bd list | grep <term>`). `bd create <title> --priority P1 -d <desc> --acceptance <criteria>`; there is no `--tag` flag.
 
 ## Code-change process
 
@@ -27,6 +28,10 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   - Implement the minimum code required to pass.
   - Rerun the focused test, then relevant lint/type/build checks.
   - Re-read changes for scope creep and unrelated edits.
+
+## Source-slice test convention
+
+`MainViewApp.test.ts` and `src/mainview/features/events/useMainViewEvents.test.ts` assert exact code snippets read from the source file (`readFileSync` + `expect(body).toContain("...")`, function bodies sliced between `indexOf` markers) rather than runtime behavior. When adding or repairing such tests: run `bunx @biomejs/biome check --write` on the source file FIRST, then copy the post-format snippet into the expectation — Biome reflows call shapes (e.g. collapses multi-line `mutateSWR(...)` into one line plus options object) and breaks string matches if formatting happens after the test is written.
 
 ## Verification notes
 
@@ -54,7 +59,7 @@ The approved plan is at `docs/design/2026-08-11-rendering-smoothness-and-selecti
 - Agent-local `.dirge/` skill/session/memory files can appear in the working tree during tool use. Unless the user explicitly asked to change project skills, remove unrequested `.dirge/` changes before handoff after confirming only `.dirge` paths are affected.
 - Run `bun install --frozen-lockfile` before `bun run typecheck` if dependencies are absent; otherwise Volta may report that it cannot locate `tsc`.
 - With TypeScript 7, use `--ignoreConfig` for focused file checks that pass file names directly. For TSX files, include `--jsx react-jsx`; if the files import CSS side effects, include `--noUncheckedSideEffectImports false`, for example `./node_modules/.bin/tsc --ignoreConfig --noEmit --jsx react-jsx --target ESNext --module ESNext --moduleResolution bundler --lib ESNext,DOM --strict --noUnusedLocals --noUnusedParameters --noFallthroughCasesInSwitch --noPropertyAccessFromIndexSignature --noUncheckedSideEffectImports false <files>`.
-- Project-wide `bun run typecheck` can fail on unrelated TS2882 CSS side-effect import declaration errors; report that separately from targeted WebRTC typecheck results.
+- `bun run typecheck` now passes cleanly project-wide (the former TS2882 CSS side-effect import errors are gone); treat any new `error TS` as real rather than pre-existing.
 
 ## WebRTC implementation guide workflow
 
