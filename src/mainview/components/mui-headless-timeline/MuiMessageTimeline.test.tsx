@@ -245,6 +245,16 @@ describe("MuiMessageTimeline", () => {
 		expect(source).toContain("hasMoreHistory && Boolean(context.onLoadMore)");
 	});
 
+	test("disables native scroll anchoring on the MUI scroller", () => {
+		const source = readFileSync(
+			"src/mainview/components/mui-headless-timeline/MuiMessageTimeline.css",
+			"utf8",
+		);
+
+		expect(source).toContain(".mui-message-list-scroller");
+		expect(source).toContain("overflow-anchor: none;");
+	});
+
 	test("renders top-level message meta before message content", () => {
 		const html = renderToString(
 			<Tooltip.Provider>

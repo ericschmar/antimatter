@@ -106,8 +106,12 @@ New `TimelineScrollKeeper` component rendered via `MessageList.Root`'s `overlay`
 
 ### 5c. Single anchoring authority (symptom 3 contributor; general jank)
 
-- Add `overflow-anchor: none` to `.mui-message-list-scroller` in `MuiMessageTimeline.css` so WebKit's native anchoring stops racing the library's `restoreAnchor`.
-- The harness prepend scenario measures drift before/after on the webkit project. This is expected to be strictly better or neutral; if it regresses, it is dropped and the measurement recorded here as to why. Baseline "before" numbers: §4.1.
+**STATUS (2026-08-17): kept.** Added `overflow-anchor: none` to `.mui-message-list-scroller` in `MuiMessageTimeline.css` so WebKit's native anchoring stops racing the library's `restoreAnchor`. Measured with `bun run test:e2e -- --grep "scenario 3"` before and after the CSS change:
+
+- Before 5c after 5b: `anchorDrift=0.0px`, `maxFrameGap=19ms`, `scrollEvents=0`.
+- After 5c: `anchorDrift=0.0px`, `maxFrameGap=17ms`, `scrollEvents=0`.
+
+Decision: keep. The Playwright WebKit prepend scenario remains neutral/slightly better, with no anchor drift, blank flash, frame stall, or eager second load. Baseline "before" numbers: §4.1.
 
 ### 5d. Settled open (symptom 2)
 
