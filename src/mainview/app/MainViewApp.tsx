@@ -708,10 +708,15 @@ export function MainViewApp() {
 						user.id,
 						selectedTeam.id,
 					);
-					selectedChannel =
-						channels.find(
-							(channel) => channel.id === normalizedConfig.lastChannelId,
-						) ?? preferredFirstChannel(channels);
+					// Selection is owned by the restored workspace tabs; launching
+					// with no tabs starts on the empty select-a-conversation screen
+					// instead of resurrecting the last viewed channel.
+					const restoredChannelId = getSelectedChannelId(
+						chatWorkspaceStore.workspace,
+					);
+					selectedChannel = restoredChannelId
+						? channels.find((channel) => channel.id === restoredChannelId)
+						: undefined;
 				}
 
 				let posts: Record<string, MattermostPost> = {};

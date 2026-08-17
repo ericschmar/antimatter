@@ -220,6 +220,33 @@ describe("MainViewApp channel selection", () => {
 		expect(source).toContain("posts = Object.assign(");
 	});
 
+	test("launches to the empty screen instead of the previous channel when no tabs were restored", () => {
+		const source = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+		const connectBody = source.slice(
+			source.indexOf("async (nextConfig: MattermostConfig)"),
+			source.indexOf("const passwordLogin = useCallback("),
+		);
+
+		// The empty select-a-conversation screen is the default whenever
+		// nothing is selected: connect must derive the standalone selection
+		// from the restored workspace tabs only. Falling back to the persisted
+		// lastChannelId (or the first channel) resurrects the chat the user
+		// closed before quitting.
+		expect(connectBody).toContain(
+			"const restoredChannelId = getSelectedChannelId(\n\t\t\t\t\t\tchatWorkspaceStore.workspace,\n\t\t\t\t\t);",
+		);
+		expect(connectBody).toContain(
+			"selectedChannel = restoredChannelId\n\t\t\t\t\t\t? channels.find((channel) => channel.id === restoredChannelId)\n\t\t\t\t\t\t: undefined;",
+		);
+		expect(connectBody).not.toContain(
+			"channel.id === normalizedConfig.lastChannelId",
+		);
+		expect(connectBody).not.toContain("?? preferredFirstChannel(channels)");
+	});
+
 	test("syncs Dockview active panel changes to the active workspace tab", () => {
 		const mainViewSource = readFileSync(
 			new URL("./MainViewApp.tsx", import.meta.url),
