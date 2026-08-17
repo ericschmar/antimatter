@@ -1,6 +1,6 @@
 import MDEditor from "@uiw/react-md-editor/nohighlight";
 import "@uiw/react-markdown-preview/markdown.css";
-import type { ComponentProps } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 import { memo } from "react";
 import { markRender } from "../utils/perfTrace";
 import {
@@ -80,10 +80,13 @@ function TimelineMarkdownImage({
 }) {
 	const resolvedSrc = useResolvedImageSrc(src, resolveImageSrc);
 	const loadInfo = useImageLoadInfo(resolvedSrc);
+	const frameStyle = markdownImageFrameStyle(loadInfo);
 	if (!src) return null;
 	if (!resolvedSrc) {
 		return (
-			<span className="markdown-image-frame loading">Loading image...</span>
+			<span className="markdown-image-frame loading" style={frameStyle}>
+				Loading image...
+			</span>
 		);
 	}
 	if (loadInfo.state === "failed") {
@@ -100,18 +103,24 @@ function TimelineMarkdownImage({
 	}
 	if (loadInfo.state !== "loaded") {
 		return (
-			<span className="markdown-image-frame loading">Loading image...</span>
+			<span className="markdown-image-frame loading" style={frameStyle}>
+				Loading image...
+			</span>
 		);
 	}
 	return (
-		<span
-			className="markdown-image-frame loaded"
-			style={{
-				aspectRatio: loadInfo.width / loadInfo.height,
-				width: Math.min(loadInfo.width, 520),
-			}}
-		>
+		<span className="markdown-image-frame loaded" style={frameStyle}>
 			<img {...props} alt={alt ?? ""} loading="lazy" src={resolvedSrc ?? src} />
 		</span>
 	);
+}
+
+function markdownImageFrameStyle(
+	loadInfo: ReturnType<typeof useImageLoadInfo>,
+): CSSProperties {
+	if (loadInfo.state !== "loaded") return { height: 240 };
+	return {
+		aspectRatio: loadInfo.width / loadInfo.height,
+		width: Math.min(loadInfo.width, 520),
+	};
 }

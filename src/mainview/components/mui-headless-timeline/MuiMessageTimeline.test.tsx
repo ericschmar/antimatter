@@ -435,6 +435,38 @@ describe("MuiMessageTimeline", () => {
 		expect(html).toContain("notes.pdf");
 	});
 
+	test("reserves image attachment space from file metadata before load", () => {
+		const html = renderToString(
+			<Tooltip.Provider>
+				<MuiMessageTimeline
+					{...timelineProps({
+						posts: [
+							post({
+								metadata: {
+									files: [
+										{
+											extension: "png",
+											height: 600,
+											id: "file-1",
+											mime_type: "image/png",
+											name: "screenshot.png",
+											width: 800,
+										},
+									],
+								},
+							}),
+						],
+					})}
+				/>
+			</Tooltip.Provider>,
+		);
+
+		expect(html).toContain("inline-image-frame");
+		expect(html).toContain("aspect-ratio:1.3333333333333333");
+		expect(html).toContain("width:520px");
+		expect(html).toContain("screenshot.png");
+	});
+
 	test("reactions are grouped with ReactionPill output", () => {
 		const html = renderToString(
 			<Tooltip.Provider>

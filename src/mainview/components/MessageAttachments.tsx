@@ -1,5 +1,5 @@
 import { FileText } from "lucide-react";
-import { memo, useState } from "react";
+import { type CSSProperties, memo, useState } from "react";
 import type { MattermostFileInfo } from "../types";
 import { useImageLoadInfo, useResolvedImageSrc } from "./MarkdownMessage";
 
@@ -64,6 +64,7 @@ const InlineImageAttachment = memo(function InlineImageAttachment({
 		resolveImageSrc,
 	);
 	const loadInfo = useImageLoadInfo(src);
+	const frameStyle = imageFrameStyle(file, loadInfo);
 	return (
 		<button
 			aria-label={`Open ${file.name ?? "attached image"}`}
@@ -73,13 +74,7 @@ const InlineImageAttachment = memo(function InlineImageAttachment({
 			onClick={onOpen}
 		>
 			{src && loadInfo.state === "loaded" ? (
-				<span
-					className="inline-image-frame loaded"
-					style={{
-						aspectRatio: loadInfo.width / loadInfo.height,
-						width: Math.min(loadInfo.width, 520),
-					}}
-				>
+				<span className="inline-image-frame loaded" style={frameStyle}>
 					<img
 						alt={file.name ?? "Attached image"}
 						className="inline-image"
@@ -90,6 +85,10 @@ const InlineImageAttachment = memo(function InlineImageAttachment({
 			) : src && loadInfo.state === "failed" ? (
 				<span className="inline-image-loading">
 					{opening ? "Opening..." : (file.name ?? "Open image")}
+				</span>
+			) : frameStyle ? (
+				<span className="inline-image-frame loading" style={frameStyle}>
+					{opening ? "Opening..." : (file.name ?? "Loading image...")}
 				</span>
 			) : (
 				<span className="inline-image-loading">
@@ -121,6 +120,31 @@ const FileAttachment = memo(function FileAttachment({
 		</button>
 	);
 });
+
+function imageFrameStyle(
+	file: MattermostFileInfo,
+	loadInfo: ReturnType<typeof useImageLoadInfo>,
+): CSSProperties | undefined {
+	const width = positiveDimension(file.width);
+	const height = positiveDimension(file.height);
+	const frameWidth =
+		width ?? (loadInfo.state === "loaded" ? loadInfo.width : undefined);
+	if (width && height) {
+		return { aspectRatio: width / height, width: Math.min(width, 520) };
+	}
+	if (loadInfo.state === "loaded") {
+		return {
+			aspectRatio: loadInfo.width / loadInfo.height,
+			width: Math.min(loadInfo.width, 520),
+		};
+	}
+	if (frameWidth) return { width: Math.min(frameWidth, 520) };
+	return undefined;
+}
+
+function positiveDimension(value: number | undefined) {
+	return Number.isFinite(value) && value && value > 0 ? value : undefined;
+}
 
 function isImageFile(file: MattermostFileInfo) {
 	const mimeType = file.mime_type?.toLowerCase() ?? "";

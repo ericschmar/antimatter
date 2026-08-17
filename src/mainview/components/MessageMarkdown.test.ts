@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { markdownPropsEqual } from "./MessageMarkdown";
+import { createElement } from "react";
+import { renderToString } from "react-dom/server";
+import { MarkdownRenderer, markdownPropsEqual } from "./MessageMarkdown";
 
 const stableResolveImageSrc = (src: string) => Promise.resolve(src);
 
@@ -48,5 +50,20 @@ describe("markdownPropsEqual", () => {
 				props({ resolveImageSrc: () => Promise.resolve("y") }),
 			),
 		).toBe(false);
+	});
+});
+
+describe("MarkdownRenderer", () => {
+	it("reserves bounded space for markdown images before load", () => {
+		const html = renderToString(
+			createElement(
+				MarkdownRenderer,
+				props({ markdown: "![diagram](/files/image.png)" }),
+			),
+		);
+
+		expect(html).toContain("markdown-image-frame loading");
+		expect(html).toContain("height:240px");
+		expect(html).toContain("Loading image...");
 	});
 });

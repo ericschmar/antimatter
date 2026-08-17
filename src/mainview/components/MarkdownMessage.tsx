@@ -102,7 +102,9 @@ function MarkdownImage({
 	if (!src) return null;
 	if (resolveImageSrc && !resolvedSrc) {
 		return (
-			<span className="markdown-image-frame loading">Loading image...</span>
+			<span className="markdown-image-frame loading" style={frameStyle}>
+				Loading image...
+			</span>
 		);
 	}
 	if (loadInfo.state === "failed") {
@@ -232,9 +234,8 @@ function imageFrameStyle(
 				: undefined;
 	const intrinsicWidth =
 		explicitWidth ?? (loadInfo.state === "loaded" ? loadInfo.width : undefined);
-	if (!aspectRatio && !intrinsicWidth) return undefined;
 	return {
-		...(aspectRatio ? { aspectRatio } : {}),
+		...(aspectRatio ? { aspectRatio } : { height: 240 }),
 		...(intrinsicWidth ? { width: Math.min(intrinsicWidth, 520) } : {}),
 	};
 }

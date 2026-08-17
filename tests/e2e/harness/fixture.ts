@@ -99,12 +99,16 @@ restoreAnchor(anchor);
 }
 
 function imageFile(runId: string, index: number): MattermostFileInfo {
+	const [width, height] =
+		IMAGE_DIMENSIONS[Math.abs(index) % IMAGE_DIMENSIONS.length];
 	return {
 		extension: "png",
 		has_preview_image: true,
+		height,
 		id: `file-${runId}-${index}`,
 		mime_type: "image/png",
 		name: `screenshot-${Math.abs(index)}.png`,
+		width,
 	};
 }
 

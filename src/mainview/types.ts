@@ -96,6 +96,8 @@ export type MattermostFileInfo = {
 	mime_type?: string;
 	has_preview_image?: boolean;
 	extension?: string;
+	width?: number;
+	height?: number;
 };
 
 export type MattermostUploadedFile = {
@@ -104,6 +106,8 @@ export type MattermostUploadedFile = {
 	extension?: string;
 	size?: number;
 	mime_type?: string;
+	width?: number;
+	height?: number;
 };
 
 export type MattermostFileUploadResponse = {
