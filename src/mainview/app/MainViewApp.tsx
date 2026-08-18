@@ -80,8 +80,14 @@ import {
 	updatePost as updatePostInState,
 } from "../utils/state";
 import { createCallManager } from "../webrtc/CallManager";
+import {
+	createChatHistoryClient,
+	getActiveChatHistoryClient,
+	setActiveChatHistoryClient,
+} from "../workers/chatHistoryClient";
+import { loadChannelHistoryWaterfall } from "../workers/historyWaterfall";
 import { ChatShell } from "./ChatShell";
-import { electrobun } from "./rpc";
+import { electrobun, rendererLog } from "./rpc";
 
 const emptyState: NormalizedState = {
 	users: {},
@@ -107,26 +113,15 @@ async function loadChannelHistory(
 	channelId: string,
 	currentUserId?: string,
 ): Promise<ChannelHistoryData> {
-	const postList = await api.getPostsForChannel(channelId);
-	chatDataActions.setChannelHasMoreHistory(
-		channelId,
-		Boolean(postList.prev_post_id),
-	);
-	const posts = postList.posts;
-	const postOrder = [...postList.order].reverse();
-	const postUsers = await getPostUsers(
-		api,
-		Object.values(posts),
-		currentUserId,
-	);
-	const members = await getChannelMembers(api, channelId);
-	const memberUsers = await getUsersForIds(
-		api,
-		members.map((member) => member.user_id),
-		currentUserId,
-	);
-
-	return { memberUsers, members, postOrder, posts, postUsers };
+	// The worker client owns orchestration when a session is active; the
+	// waterfall runs on the main thread otherwise (no session yet, or the
+	// worker proved unavailable).
+	const historyClient = getActiveChatHistoryClient();
+	const { data, hasMore } = historyClient
+		? await historyClient.loadChannelHistory(channelId, currentUserId)
+		: await loadChannelHistoryWaterfall(api, channelId, currentUserId);
+	chatDataActions.setChannelHasMoreHistory(channelId, hasMore);
+	return data;
 }
 
 function pruneExpiredTypingUsers(
@@ -693,6 +688,26 @@ export function MainViewApp() {
 				(request) => rpc.request.uploadMattermostFiles(request),
 				(request) => rpc.request.openMattermostAttachment(request),
 			);
+			// History loads run in the chat history worker from here on. The
+			// broker injects the session credentials main-side; the worker
+			// itself never sees the token.
+			const historyClient = createChatHistoryClient({
+				api: nextApi,
+				broker: ({ path, method, body }) =>
+					rpc.request.mattermostRequest({
+						serverUrl: normalizedConfig.serverUrl,
+						token: normalizedConfig.token,
+						path,
+						method,
+						body,
+					}),
+				log: (message) => rendererLog("chat-history-worker", message),
+			});
+			historyClient.onBackgroundHistory = (channelId, data) => {
+				const key = channelHistoryKey(normalizedConfig.serverUrl, channelId);
+				if (key) void mutateSWR(key, data, { revalidate: false });
+			};
+			setActiveChatHistoryClient(historyClient);
 
 			try {
 				const user = await nextApi.getCurrentUser();
@@ -1473,6 +1488,7 @@ export function MainViewApp() {
 		resetUserPresence();
 		chatDataActions.resetForSignOut();
 		chatWorkspaceActions.reset();
+		setActiveChatHistoryClient(null);
 	}
 
 	function showChannelContextMenu(channel: MattermostChannel) {

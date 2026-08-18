@@ -38,6 +38,7 @@ import {
 } from "../../utils/state";
 import type { CallManager } from "../../webrtc/CallManager";
 import { isWebRtcCallPost } from "../../webrtc/CallSignaling";
+import { invalidateActiveChatHistoryClient } from "../../workers/chatHistoryClient";
 
 export function useMainViewEvents({
 	api,
@@ -153,6 +154,9 @@ export function useMainViewEvents({
 			mutateChannelHistory(post.channel_id, (current) =>
 				addPostToHistory(current, post),
 			);
+			// The worker-side history cache answers channel switches without a
+			// fetch; a post for that channel makes the cached entry stale.
+			invalidateActiveChatHistoryClient(post.channel_id);
 			setState((current) =>
 				updateChannelLastPostAt(
 					applyIncomingPost(current, post, selectedChannelRef.current),

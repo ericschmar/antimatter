@@ -20,6 +20,14 @@ export default {
 			mainview: {
 				entrypoint: "src/mainview/index.tsx",
 			},
+			// Build-only "view": the chat history web worker. Bundled as an
+			// IIFE next to the mainview bundle so the main thread can fetch it
+			// and spawn a blob-URL classic worker (WKWebView does not resolve
+			// `new Worker(new URL(...))` module refs through Bun.build).
+			chatHistoryWorker: {
+				entrypoint: "src/mainview/workers/chatHistoryWorker.ts",
+				format: "iife",
+			},
 			childview: {
 				entrypoint: "src/childview/index.ts",
 			},
