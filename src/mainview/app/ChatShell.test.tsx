@@ -114,6 +114,7 @@ function renderChatShell(
 	appUpdateOverride?: AppUpdateState,
 	options: {
 		channels?: MattermostChannel[];
+		error?: string | null;
 		posts?: MattermostPost[];
 		workspacePosts?: MattermostPost[];
 		wsStatus?: WebSocketStatus;
@@ -125,6 +126,7 @@ function renderChatShell(
 	if (chatWorkspace) chatWorkspaceActions.replaceWorkspace(chatWorkspace);
 	uiActions.setStatus("loading");
 	uiActions.setWsStatus(options.wsStatus ?? "idle");
+	uiActions.setError(options.error ?? null);
 	return renderToString(
 		<CallProvider callManager={callManager}>
 			<ChatShell
@@ -251,6 +253,27 @@ describe("ChatShell workspace layout", () => {
 		expect(html).toContain("update-toast network-outage-toast");
 		expect(html).toContain("Network connection lost. Reconnecting…");
 		expect(html).not.toContain("network-outage-banner");
+	});
+
+	test("renders RPC timeout errors as a toast instead of the inline error bar", () => {
+		const html = renderChatShell("channel-1", null, undefined, {
+			error: "RPC request timed out.",
+		});
+
+		expect(html).toContain("update-toast rpc-timeout-toast");
+		expect(html).toContain("RPC request timed out.");
+		expect(html).toContain("Dismiss error notification");
+		expect(html).not.toContain("inline-error");
+	});
+
+	test("renders other errors in the inline error bar", () => {
+		const html = renderChatShell("channel-1", null, undefined, {
+			error: "Could not send message.",
+		});
+
+		expect(html).toContain("inline-error");
+		expect(html).toContain("Could not send message.");
+		expect(html).not.toContain("rpc-timeout-toast");
 	});
 
 	test("renders the selected channel body when workspace has no renderable tabs", () => {

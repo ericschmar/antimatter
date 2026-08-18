@@ -39,4 +39,4 @@ Run:
 bun test src/mainview/mattermostApi.test.ts src/bun/mattermostWebSocketEvents.test.ts src/mainview/components/MessageTimeline.test.tsx && bun test && bun run build
 ```
 
-`bun run typecheck` should also be run separately, but it may fail only with pre-existing TS2882 CSS side-effect import declaration errors. Report that distinctly from feature regressions.
+`bun run typecheck` should also be run separately; it now passes cleanly project-wide (the former TS2882 CSS side-effect import errors are gone), so treat any new `error TS` as real rather than pre-existing.

@@ -491,6 +491,11 @@ textarea:disabled {
 	bottom: 118px;
 }
 
+.rpc-timeout-toast {
+	border-color: var(--danger-border);
+	color: var(--danger-text);
+}
+
 .update-toast-body {
 	display: flex;
 	align-items: flex-start;

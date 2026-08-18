@@ -14,9 +14,8 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   - `bd ready` to find available work.
   - `bd show <id>` to inspect an issue.
   - `bd update <id> --claim` to claim work.
-  - `bd close <id>` to complete work.
-- Do not create markdown TODO files for project task tracking.
-- Beads IDs look like `antimatter-4q5`; the built-in issue/todo board tool uses separate `drg-*` IDs — `bd update drg-...` fails with "no issue found". Find Beads IDs via `bd list --json` (or `bd list | grep <term>`). `bd create <title> --priority P1 -d <desc> --acceptance <criteria>`; there is no `--tag` flag.
+  - `bd close <id>` to complete work. Stage/commit `.dirge/skills/**` edits before the session-close `git pull --rebase` — an unstaged skill patch makes the rebase fail while `git push` still succeeds, leaving stray uncommitted files.- Do not create markdown TODO files for project task tracking.
+- Beads IDs look like `antimatter-4q5`; the built-in issue/todo board tool uses separate `drg-*` IDs — `bd update drg-...` fails with "no issue found". Find Beads IDs via `bd list --json` (or `bd list | grep <term>`). `bd create <title> --type feature --priority 2 --description <desc> --acceptance <criteria>` works (`--priority` accepts both `P1`-style and bare numbers); there is no `--tag` flag.
 
 ## Code-change process
 
@@ -26,12 +25,33 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   - Write the smallest failing test that expresses the desired behavior.
   - Run the test and confirm the failure is meaningful.
   - Implement the minimum code required to pass.
-  - Rerun the focused test, then relevant lint/type/build checks.
+  - Rerun the focused test, then relevant lint/type/build checks — run gates bare (no trailing pipe) and read the real exit code.
   - Re-read changes for scope creep and unrelated edits.
+
+## Channel selection semantics (rendered channel / sidebar unread)
+
+- The channel actually visible is the **rendered channel**: `getRenderedChannelId(workspace, standaloneChannelId)` (src/mainview/state/chatWorkspace.ts) returns the active workspace tab's channel, else the standalone selection. In `MainViewApp`, `standaloneChannelId` is null while any workspace tab is active.
+- `selectedChannelRef.current` mirrors ONLY the standalone selection and goes stale once a chat workspace tab renders. Any "is this channel visible" check — unread badges in `handlePost` (`useMainViewEvents.ts`), `refreshAfterReconnect`'s `changedChannels` filter — must use `getRenderedChannelId(chatWorkspaceStore.workspace, selectedChannelRef.current)`, never `selectedChannelRef` alone.
+- Sidebar unread badges live in `uiStore.channelNotifications`; `uiActions.clearChannelNotification(channelId)` clears one. It is called from `selectChannel`, `openChatPanel`, and `handleActivateChatTab` (tab focus) so a channel that becomes visible never keeps a stale unread flag.
+
+## SSR component tests that import the electrobun rpc module
+
+A component that transitively imports `src/mainview/app/rpc` cannot be statically imported in a `react-dom/server` (`renderToString`) test: electrobun's view API reads `window.__electrobunWebviewId` at module init, so a static import fails with `ReferenceError: window is not defined`. Declare the mock before any component import and load the component with a top-level dynamic import (see `src/mainview/components/AuthScreen.test.tsx` and `src/mainview/app/ChatShell.test.tsx`):
+
+```ts
+mock.module("../app/rpc", () => ({ electrobun: { rpc: null } }));
+const { AuthScreen } = await import("./AuthScreen");
+```
+
+Mock `../storage` the same way when the rendered tree reads or writes persisted state.
 
 ## Source-slice test convention
 
+When the expected snippet contains double quotes, wrap the expectation string in single quotes instead of escaping the inner quotes — `biome check` fails on the escaped double-quoted form and rewrites it (e.g. the `defaultConfigSource={envConfig ? "env" : "saved"}` expectation in `MainViewApp.test.ts`). Run `bunx @biomejs/biome check --write` on the test file after pasting snippets, and scope biome to the changed files: a tree-wide `biome check src/mainview` reports pre-existing failures in untouched files (e.g. `state/chatWorkspace.ts` formatting, `utils/perfTrace.ts` noUnreachable).
+
 `MainViewApp.test.ts` and `src/mainview/features/events/useMainViewEvents.test.ts` assert exact code snippets read from the source file (`readFileSync` + `expect(body).toContain("...")`, function bodies sliced between `indexOf` markers) rather than runtime behavior. When adding or repairing such tests: run `bunx @biomejs/biome check --write` on the source file FIRST, then copy the post-format snippet into the expectation — Biome reflows call shapes (e.g. collapses multi-line `mutateSWR(...)` into one line plus options object) and breaks string matches if formatting happens after the test is written.
+
+Refactoring guarded source breaks existing expectations by design: grep the matching `*.test.ts` for the identifier you changed and update the snippet to the new source (e.g. replacing `const renderedChannelId = activeWorkspaceChannelId ?? selectedChannelId;` with a `getRenderedChannelId(...)` call broke one `MainViewApp.test.ts` guard until its expectation was rewritten).
 
 ## Verification notes
 
@@ -57,9 +77,13 @@ The approved plan is at `docs/design/2026-08-11-rendering-smoothness-and-selecti
 - Mattermost markdown mention handling is centralized in `src/mainview/components/MarkdownMessage.tsx`: `highlightMentionsInMarkdown` preprocesses mentions and `MentionStrong` assigns mention classes. If the @uiw markdown path is active, wire the same strong renderer in `MessageMarkdown.tsx` so legacy and new markdown renderers stay visually consistent.
 - For MUI headless timeline legacy styling parity: `MessageMarkdown.tsx` and `MarkdownMessage.tsx` share mention preprocessing/rendering; MUI timeline CSS scopes mention/reaction/typing styles under `.mui-message-timeline`; `ReactionPill` already emits `.reaction-pill.mine`; typing users come from `MuiTimelineContext.typingUsers` and should render with the legacy `.typing-indicator`/`.typing-dots` structure.
 - Agent-local `.dirge/` skill/session/memory files can appear in the working tree during tool use. Unless the user explicitly asked to change project skills, remove unrequested `.dirge/` changes before handoff after confirming only `.dirge` paths are affected.
+- Unstaged `.dirge/` edits also break the session-close `git pull --rebase` ("cannot pull with rebase: You have unstaged changes") while `git push` itself still succeeds, leaving the tree unverified-clean. Commit or stash `.dirge/` edits before the closing pull/push.
 - Run `bun install --frozen-lockfile` before `bun run typecheck` if dependencies are absent; otherwise Volta may report that it cannot locate `tsc`.
 - With TypeScript 7, use `--ignoreConfig` for focused file checks that pass file names directly. For TSX files, include `--jsx react-jsx`; if the files import CSS side effects, include `--noUncheckedSideEffectImports false`, for example `./node_modules/.bin/tsc --ignoreConfig --noEmit --jsx react-jsx --target ESNext --module ESNext --moduleResolution bundler --lib ESNext,DOM --strict --noUnusedLocals --noUnusedParameters --noFallthroughCasesInSwitch --noPropertyAccessFromIndexSignature --noUncheckedSideEffectImports false <files>`.
 - `bun run typecheck` now passes cleanly project-wide (the former TS2882 CSS side-effect import errors are gone); treat any new `error TS` as real rather than pre-existing.
+- Notification/toast work (routing errors, adding toast variants, ChatShell SSR tests) is covered by the `antimatter-toast-notifications` skill — load it before touching error display in ChatShell.
+- Full-suite gate is bare `bun test` (fast, ~1s, 273+ tests); run it before any commit, not just the focused files. Focused files first for the TDD red→green loop, then the full gate.
+- Empty-chat behavior (user-chosen scope): the `.chat-empty` "Select a conversation" screen in `ChatShell` appears ONLY after the user closes the last workspace chat tab — `handleCloseChatTab` then runs `setSelectedChannelId(null)` (capturing `closedTab` before `closeChatTab`, since the record is gone afterwards). App launch still restores the last conversation from persisted `lastChannelId`; do not "fix" launch to start empty. Covered by `ChatShell.test.tsx` "renders an empty select-a-conversation screen when no channel is selected" and the exact-source `handleCloseChatTab` snippet in `MainViewApp.test.ts`.
 
 ## WebRTC implementation guide workflow
 

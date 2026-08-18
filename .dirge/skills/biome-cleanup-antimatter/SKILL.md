@@ -28,6 +28,7 @@ Use this skill when asked to fix Biome errors or warnings in this repository.
 ## Verification
 
 - `bunx @biomejs/biome check . --max-diagnostics=200` should pass. If it reports only a schema-version info for `biome.json` (for example schema 2.5.3 with CLI 2.5.8), treat that as informational unless the task is to update Biome config.
+- Known exception: `src/mainview/utils/perfTrace.ts` carries pre-existing `lint/correctness/noUnreachable` and format errors, so `bunx @biomejs/biome check src/mainview` is red even on an otherwise clean tree. For feature work, scope the biome gate to the files you changed rather than expecting a green full-tree run; fix perfTrace only when the task is a biome cleanup.
 - `bun test` should pass.
 - `bun run build` should pass.
 - `bun run typecheck` should pass. CSS side-effect imports are covered by `src/css.d.ts` with `declare module "*.css";`; if TS2882 CSS import errors return, check that this declaration file is present and included by `tsconfig.json`.

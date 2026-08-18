@@ -1,5 +1,6 @@
 ---
-description: Diagnose and fix Antimatter chat workspace content issues: restored split panels that render without messages on startup, and chat tabs opened at runtime (DM or new channel) that render without prior messages or with a wrong header.
+name: antimatter-chat-workspace-startup-loading
+description: Diagnose and fix Antimatter chat workspace content issues — restored split panels that render without messages on startup, chat tabs opened at runtime that render without prior messages or with a wrong header, and the empty select-a-conversation screen shown when the last tab closes.
 ---
 
 # Antimatter Chat Workspace Content Loading
@@ -26,7 +27,6 @@ Fix pattern (in `MainViewApp.connect`, after channels are loaded and `selectedCh
 
 Chat tabs opened at runtime (sidebar select, create-channel, create-DM all funnel through `selectChannel`) rendered with no prior messages (issues antimatter-qma for DMs, antimatter-zfr for new channels — same root cause).
 
-Root cause:
 - Opening a workspace tab makes `activeWorkspaceChannelId` set and `standaloneChannelId` become `null`.
 - The standalone `useSWR` history fetch in `MainViewApp` is keyed on `standaloneChannelId`, so it never fires while a tab is active.
 - `selectChannel` previously only applied a cached history from the SWR cache and fetched nothing on a miss, so an uncached channel loaded empty.
@@ -47,6 +47,14 @@ DM chat tabs showed the raw channel `name` (two user IDs joined by `__`) in the 
 Root cause: `ChannelHeader` titled itself with `channel.display_name || channel.name`. DM channels ship an empty `display_name`, so it fell back to the raw `name`.
 
 Fix: use `channelLabel(channel, users, currentUserId)` from `src/mainview/utils/format.ts` — the canonical DM display-name resolver already used by the sidebar, tab strip, and command menu. It resolves the other user via `directChannelOtherUserId` and `userLabel`.
+
+## 4. Closing the last tab shows the empty select-a-conversation screen
+
+Behavior (supersedes the earlier sync-the-closed-channel fix): closing the final workspace tab clears the standalone selection instead of re-showing the closed channel. In `MainViewApp.handleCloseChatTab`, capture `const closedTab = chatWorkspaceStore.workspace.tabs[tabId]` BEFORE calling `closeChatTab` (the tab record is gone afterwards); after `replaceWorkspace` + `persistChatWorkspaceTabs`, run `if (closedTab && !nextWorkspace.activeTabId) setSelectedChannelId(null);`.
+
+With no selection and no renderable workspace tabs, `ChatShell` skips `ChannelHeader` and the `.chat-body` timeline/composer entirely and renders the `.chat-empty` section (`.chat-empty-image` dashed placeholder with the lucide `Image` icon, "Select a conversation" heading). Launch still restores the last channel from persisted `lastChannelId`; only closing the last tab empties the view.
+
+Tests: `MainViewApp.test.ts` "syncs Dockview panel close events to chat workspace state" asserts the exact `handleCloseChatTab` source (update the snippet whenever the handler changes); `ChatShell.test.tsx` "renders an empty select-a-conversation screen when no channel is selected" covers the empty-screen markup via `renderChatShell(null, emptyWorkspace)`.
 
 ## Verification
 

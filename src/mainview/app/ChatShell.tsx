@@ -143,6 +143,10 @@ export function ChatShell({
 		appUpdateToastKey !== dismissedAppUpdateToastKey;
 	const showNetworkOutageToast =
 		ui.wsStatus === "disconnected" || ui.wsStatus === "error";
+	const rpcTimeoutError = rpcTimeoutMessage(ui.error);
+	const stackedToastCount = [showAppUpdateToast, showNetworkOutageToast].filter(
+		Boolean,
+	).length;
 
 	function dismissAppUpdateToast() {
 		if (!appUpdateToastKey) return;
@@ -464,15 +468,6 @@ export function ChatShell({
 							/>
 						)}
 
-						{ui.error ? (
-							<div className="inline-error">
-								<span>{ui.error}</span>
-								<button type="button" onClick={() => uiActions.setError(null)}>
-									Dismiss
-								</button>
-							</div>
-						) : null}
-
 						{hasRenderableChatWorkspace && chatWorkspace ? (
 							<ChatWorkspace
 								channelMembers={workspaceChannelMembers}
@@ -638,6 +633,30 @@ export function ChatShell({
 						</div>
 					</div>
 				) : null}
+				{rpcTimeoutError ? (
+					<div
+						className="update-toast rpc-timeout-toast"
+						role="alert"
+						style={
+							stackedToastCount > 0
+								? { bottom: 20 + stackedToastCount * 98 }
+								: undefined
+						}
+					>
+						<div className="update-toast-body">
+							<span>{rpcTimeoutError}</span>
+							<button
+								aria-label="Dismiss error notification"
+								className="update-toast-dismiss"
+								title="Dismiss"
+								type="button"
+								onClick={() => uiActions.setError(null)}
+							>
+								<X size={14} />
+							</button>
+						</div>
+					</div>
+				) : null}
 				<CallErrorToast />
 				<UserPickerDialog
 					api={api}
@@ -658,6 +677,12 @@ export function ChatShell({
 			</div>
 		</Tooltip.Provider>
 	);
+}
+
+// Electrobun rejects requests with exactly this message once maxRequestTime
+// expires, so match it verbatim to route RPC timeouts to the toast.
+function rpcTimeoutMessage(error: string | null): string | null {
+	return error === "RPC request timed out." ? error : null;
 }
 
 function getAppUpdateToastKey(appUpdate: AppUpdateState) {
