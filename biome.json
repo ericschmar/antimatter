@@ -1,7 +1,15 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
 	"files": {
-		"includes": ["**", "!build", "!artifacts", "!.dirge", "!.beads", "!.claude"]
+		"includes": [
+			"**",
+			"!build",
+			"!artifacts",
+			"!.dirge",
+			"!.beads",
+			"!.claude",
+			"!test-results"
+		]
 	},
 	"assist": {
 		"actions": {

@@ -59,6 +59,7 @@ import type {
 } from "../types";
 import { normalizeEmojiName } from "../utils/emoji";
 import { fileToUploadItem } from "../utils/fileUpload";
+import { startTraceSpan } from "../utils/perfTrace";
 import {
 	channelLabel,
 	includesMention,
@@ -274,6 +275,7 @@ export function MainViewApp() {
 	const activityReportInFlightRef = useRef(false);
 	const autoConnectAttemptedRef = useRef(false);
 	const composerRef = useRef<MessageComposerHandle>(null);
+	const timelinePaintSpanRef = useRef<(() => void) | null>(null);
 	const [channelMembers, setChannelMembers] = useState<
 		MattermostChannelMember[]
 	>([]);
@@ -431,6 +433,43 @@ export function MainViewApp() {
 			revalidateOnFocus: false,
 		},
 	);
+	const historyPrefetchSignals = useMemo(
+		() => ({
+			candidates: Object.keys(state.channels).map((channelId) => ({
+				channelId,
+				unread: Boolean(ui.channelNotifications[channelId]?.unread),
+				mention: Boolean(ui.channelNotifications[channelId]?.mention),
+				typing: Object.keys(ui.typingUsers[channelId] ?? {}).length > 0,
+			})),
+			currentChannelId: renderedChannelId ?? undefined,
+			currentUserId: currentUser?.id,
+			selectedChannelLoading:
+				Boolean(renderedChannelId) &&
+				(status === "loading" ||
+					(selectedChannelHistoryLoading && !selectedChannelHistory)),
+			websocketConnected: ui.wsStatus === "connected",
+		}),
+		[
+			currentUser?.id,
+			renderedChannelId,
+			selectedChannelHistory,
+			selectedChannelHistoryLoading,
+			state.channels,
+			status,
+			ui.channelNotifications,
+			ui.typingUsers,
+			ui.wsStatus,
+		],
+	);
+
+	useEffect(() => {
+		if (!renderedChannelId || status !== "ready") return;
+		getActiveChatHistoryClient()?.recordVisit(renderedChannelId, Date.now());
+	}, [renderedChannelId, status]);
+
+	useEffect(() => {
+		getActiveChatHistoryClient()?.updateSignals(historyPrefetchSignals);
+	}, [historyPrefetchSignals]);
 
 	const mutateChannelHistory = useCallback(
 		(
@@ -1080,6 +1119,10 @@ export function MainViewApp() {
 
 	async function selectChannel(channel: MattermostChannel) {
 		if (!api || !config) return;
+		timelinePaintSpanRef.current?.();
+		const endTimelinePaint = startTraceSpan("clickToFirstTimelinePaint");
+		timelinePaintSpanRef.current = endTimelinePaint;
+		setStatus("loading");
 		unarchiveChannel(channel.id);
 
 		const key = channelHistoryKey(config.serverUrl, channel.id);
@@ -1125,6 +1168,11 @@ export function MainViewApp() {
 			);
 			setChannelMembers(history.members);
 			setStatus("ready");
+			requestAnimationFrame(() => {
+				if (timelinePaintSpanRef.current !== endTimelinePaint) return;
+				endTimelinePaint();
+				timelinePaintSpanRef.current = null;
+			});
 			const postsNeedingReactions = Object.values(history.posts).filter(
 				(post) =>
 					!post.metadata?.reactions &&

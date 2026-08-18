@@ -201,6 +201,56 @@ describe("createChatHistoryClient", () => {
 		expect(background).toEqual([{ channelId: "ch1", hasMore: false }]);
 	});
 
+	test("forwards prefetched histories through the background callback", async () => {
+		const { client, worker } = setup();
+		const background: string[] = [];
+		client.onBackgroundHistory = (channelId) => background.push(channelId);
+		void client.loadChannelHistory("ch1");
+		await new Promise((r) => setTimeout(r, 1));
+
+		worker.deliver({
+			kind: "historyPrefetched",
+			channelId: "ch2",
+			data: {
+				memberUsers: [],
+				members: [],
+				postOrder: ["p2"],
+				posts: {},
+				postUsers: [],
+			},
+			hasMore: false,
+		});
+
+		expect(background).toEqual(["ch2"]);
+	});
+
+	test("posts predictive prefetch signals after the worker is available", async () => {
+		const { client, worker } = setup();
+		void client.loadChannelHistory("ch1");
+		await new Promise((r) => setTimeout(r, 1));
+
+		client.recordVisit("ch1", 10);
+		client.updateSignals({
+			candidates: [],
+			currentChannelId: "ch1",
+			selectedChannelLoading: false,
+			websocketConnected: true,
+		});
+
+		expect(worker.posted.slice(1)).toEqual([
+			{ kind: "recordVisit", channelId: "ch1", at: 10 },
+			{
+				kind: "updateSignals",
+				signals: {
+					candidates: [],
+					currentChannelId: "ch1",
+					selectedChannelLoading: false,
+					websocketConnected: true,
+				},
+			},
+		]);
+	});
+
 	test("invalidate posts an invalidate message", async () => {
 		const { client, worker } = setup();
 

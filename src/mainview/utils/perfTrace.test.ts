@@ -5,6 +5,8 @@ import {
 	__setPerfEnabled,
 	isPerfEnabled,
 	markRender,
+	startTraceSpan,
+	traceEvent,
 	traceSync,
 } from "./perfTrace";
 
@@ -42,6 +44,20 @@ describe("perfTrace", () => {
 		expect(debug).toHaveBeenCalledTimes(1);
 		expect(String(debug.mock.calls[0][0])).toBe("[perf] work: ");
 		expect(String(debug.mock.calls[0][1])).toMatch(/ms$/);
+		debug.mockRestore();
+	});
+
+	it("records named events and spans when enabled", () => {
+		__setPerfEnabled(true);
+		const debug = spyOn(console, "debug");
+		traceEvent("prefetchQueued");
+		const endSpan = startTraceSpan("clickToFirstTimelinePaint");
+		endSpan();
+		expect(debug).toHaveBeenCalledTimes(2);
+		expect(debug.mock.calls[0][0]).toBe("[perf] prefetchQueued");
+		expect(String(debug.mock.calls[1][0])).toBe(
+			"[perf] clickToFirstTimelinePaint: ",
+		);
 		debug.mockRestore();
 	});
 

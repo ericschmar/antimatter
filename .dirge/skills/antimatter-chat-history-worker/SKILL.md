@@ -19,9 +19,12 @@ Status: Phase 1 implemented and green as of 2026-08-18 — design doc is `docs/d
 - `chatHistoryClient.ts` — main-thread client; `createBlobWorker` fetches the IIFE bundle via its own views:// host and spawns a blob-URL classic worker; 5s handshake timeout retires the worker and falls back to the main-thread waterfall; module registry `setActiveChatHistoryClient` / `getActiveChatHistoryClient` / `invalidateActiveChatHistoryClient`.
 - Wiring: `MainViewApp.tsx` `loadChannelHistory` routes through `getActiveChatHistoryClient()`, falling back to `loadChannelHistoryWaterfall`; client created at login (broker injects serverUrl/token main-side, `log` receives a `rendererLog("chat-history-worker", ...)` wrapper); `onBackgroundHistory` warms SWR via `mutateSWR(key, data, { revalidate: false })`; `setActiveChatHistoryClient(null)` on signOut; `useMainViewEvents.ts` `handlePost` calls `invalidateActiveChatHistoryClient(post.channel_id)`. `selectSearchPost` keeps its own inline thread-based load — intentionally not routed through the worker.
 
-## Current-state map (how history loads today)
+## Current-state map (post-Phase-1, 2026-08-18)
 
-- `loadChannelHistory(api, channelId, currentUserId)` in `src/mainview/app/MainViewApp.tsx` (~line 105) runs the load waterfall:
+- `loadChannelHistory` in `src/mainview/app/MainViewApp.tsx` is now a thin wrapper: it calls `getActiveChatHistoryClient()?.loadChannelHistory(channelId, currentUserId)` when a session client is registered, else falls back to `loadChannelHistoryWaterfall` on the main thread. Either path then calls `chatDataActions.setChannelHasMoreHistory(channelId, hasMore)` and returns `data`.
+- Module-level registry in `chatHistoryClient.ts`: `setActiveChatHistoryClient` (created per login in MainViewApp with a credential-injecting broker; reset to null in signOut), `getActiveChatHistoryClient`, `invalidateActiveChatHistoryClient` (called from `useMainViewEvents.handlePost` so websocket posts stale the worker cache).
+- Worker side: `workerCore.ts` (cache + priority queue + per-channel request fan-out), `historyCache.ts` (LRU 20 / TTL 10 min; entries older than `staleAfterMs` 30 s answer immediately then trigger a requestId-0 background refresh → `client.onBackgroundHistory` → `mutateSWR(key, data, { revalidate: false })`), `historyWaterfall.ts` (posts+members in parallel, then postUsers+memberUsers in parallel — faster than the old serial waterfall).
+- Pre-worker flow (historical, for diffing behavior): `loadChannelHistory(api, channelId, currentUserId)` in `src/mainview/app/MainViewApp.tsx` ran the load waterfall serially:
   1. `api.getPostsForChannel(channelId)` (page 0, 60/page) — also fires `chatDataActions.setChannelHasMoreHistory(channelId, Boolean(postList.prev_post_id))` as a side-effect
   2. `getPostUsers(...)` over post authors
   3. `getChannelMembers(...)` — independent of posts, parallelizable
@@ -30,7 +33,7 @@ Status: Phase 1 implemented and green as of 2026-08-18 — design doc is `docs/d
 - Enrichment helpers live in `src/mainview/utils/mattermostLoaders.ts`.
 - SWR wiring in `MainViewApp.tsx`: `channelHistoryKey()` → `["channel-history", serverUrl, channelId]`; `useSWR` fetcher calls `loadChannelHistory`; result is applied into the Valtio `chatDataStore` (commit path + reactions effect downstream).
 - Transport: `MattermostApiClient` accepts an injected `MattermostTransport` (`src/mainview/mattermostApi.ts`); all HTTP is relayed to the bun process via the `mattermostRequest` RPC (`src/shared/electrobunRpc.ts`) with `serverUrl` + `token` on every request.
-- No web workers exist anywhere in the codebase yet (`new Worker` / `new SharedWorker` have zero matches).
+- `src/mainview/workers/` now contains the chat history worker (Phase 1). No other workers exist; `SharedWorker` is still unused.
 - Scroll-back pagination uses `getPostsForChannelBefore` in `MainViewApp.tsx` (~line 1364).
 
 ## User decisions (approved direction)
@@ -64,6 +67,8 @@ Predict the next chat that will be clicked and prefetch it through the same work
 - RESOLVED (spike outcome): `new Worker(new URL(...))` module workers do NOT work under Electrobun/Bun.build. Working approach: a build-only IIFE "view" entry in `electrobun.config.ts` (`chatHistoryWorker` view) — `electrobun build` emits `views/chatHistoryWorker/chatHistoryWorker.js`; the main thread fetches it via `${location.protocol}//chatHistoryWorker/chatHistoryWorker.js` and spawns a blob-URL classic worker (`createBlobWorker` in `chatHistoryClient.ts`). A path-relative URL resolves under the mainview host and 404s — the worker is addressed as its own "host".
 - Tests render with react-dom/server; guard worker creation the same way @tanstack/react-virtual is handled (see the antimatter-virtualized-react-ssr-tests skill).
 - NEVER import `../app/rpc` (or anything transitively pulling `electrobun/view`) from `src/mainview/workers/*` — it throws at module load under `bun test` outside a real webview ("Unhandled error between tests" with no per-test failure). Diagnostics logging must be injected: `createChatHistoryClient({ log })` receives a `rendererLog("chat-history-worker", ...)` wrapper from MainViewApp; the default is console.log.
+- `createHistoryCache` tests must inject `now: () => 0` — the default `Date.now()` makes TTL/expiry assertions nondeterministic.
+- `MainViewApp.test.ts` and `useMainViewEvents.test.ts` assert on source text (`readFileSync` + `toContain` of exact code snippets inside `loadChannelHistory`/`handlePost`); changing those function bodies requires updating the embedded string assertions too.
 - Do NOT move `buildTimelineRows`/`buildMuiTimelineMessages` into the worker — they're entangled with React render memoization and image space reservation; high regression risk for modest gain.
 - `electrobun.config.ts` has a `build.copy` map for static assets if the worker ends up needing a separate unbundled entry file.
 

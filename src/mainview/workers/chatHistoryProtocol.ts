@@ -8,6 +8,21 @@ export const HISTORY_PRIORITY_ORDER: Record<HistoryPriority, number> = {
 	prefetch: 2,
 };
 
+export type HistoryPrefetchCandidate = {
+	channelId: string;
+	unread: boolean;
+	mention: boolean;
+	typing: boolean;
+};
+
+export type HistoryPrefetchSignals = {
+	candidates: HistoryPrefetchCandidate[];
+	currentChannelId?: string;
+	currentUserId?: string;
+	selectedChannelLoading: boolean;
+	websocketConnected: boolean;
+};
+
 export type HistoryRpcCall = {
 	kind: "rpcCall";
 	requestId: number;
@@ -45,6 +60,8 @@ export type MainToWorkerMessage =
 			priority: HistoryPriority;
 	  }
 	| { kind: "invalidate"; channelId: string }
+	| { kind: "recordVisit"; channelId: string; at: number }
+	| { kind: "updateSignals"; signals: HistoryPrefetchSignals }
 	| HistoryRpcResult;
 
 export type WorkerToMainMessage =
@@ -63,4 +80,14 @@ export type WorkerToMainMessage =
 			channelId: string;
 			message: string;
 			status?: number;
+	  }
+	| {
+			kind: "historyPrefetchQueued";
+			channelId: string;
+	  }
+	| {
+			kind: "historyPrefetched";
+			channelId: string;
+			data: ChannelHistoryData;
+			hasMore: boolean;
 	  };

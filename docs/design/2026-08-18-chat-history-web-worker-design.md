@@ -1,7 +1,7 @@
 # Web worker chat-history loading + predictive prefetch — Design
 
 - **Date:** 2026-08-18
-- **Status:** Phase 1 implemented 2026-08-18 (worker, LRU cache, invalidation, priority queue). Phase 2 (§8 predictor) in progress.
+- **Status:** Phase 1 implemented 2026-08-18 (worker, LRU cache, invalidation, priority queue). Phase 2 (§8 predictor) implemented 2026-08-18.
 - **Related skills:** `antimatter-chat-workspace-startup-loading`, `antimatter-mui-timeline-render-perf`, `antimatter-valtio-state-migration`
 - **Related prior designs:** `2026-08-11-rendering-smoothness-and-selective-valtio-migration-design.md`, `2026-08-06-tabbed-chat-panes-design.md`
 

@@ -53,5 +53,6 @@
 		"@types/react-dom": "^19.2.3",
 		"@types/three": "^0.184.1",
 		"typescript": "^7.0.2"
-	}
+	},
+	"packageManager": "pnpm@10.4.0+sha1.896bdea7e92d0a37e53829d6ec47871e5c750419"
 }

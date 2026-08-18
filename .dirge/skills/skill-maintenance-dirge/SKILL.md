@@ -23,6 +23,16 @@ Prevention: keep colons and double quotes out of skill frontmatter descriptions 
 
 Skill maintenance edits under `.dirge/skills/` accumulate as uncommitted working-tree changes and are easy to leave behind after a feature commit+push (seen after the empty-screen feature: `.beads/interactions.jsonl` plus SKILL.md edits in four skills stayed unstaged because `git pull --rebase` refuses to run with unstaged changes, so the pre-push sequence silently degrades to push-only). Before handoff, check `git status` and either fold `.dirge`/`.beads` changes into a maintenance commit or remove them if unrequested.
 
+## Corrupted `.dirge/sessions/state.db` breaks todo sync and session search
+
+Observed 2026-08-18: `write_todo_list` fails with `sync todos (prefetch): database disk image is malformed` and `session_search` reports `Rowid ... out of order`. Both keep failing until the DB is recovered:
+
+```bash
+sqlite3 .dirge/sessions/state.db '.recover' | sqlite3 .dirge/sessions/state.db.recovered
+```
+
+Check whether it's still broken before relying on the todo board or cross-session recall; if it has been repaired, delete this section.
+
 ## Verification
 
 ```bash

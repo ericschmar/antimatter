@@ -15,7 +15,7 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   - `bd show <id>` to inspect an issue.
   - `bd update <id> --claim` to claim work.
   - `bd close <id>` to complete work. Stage/commit `.dirge/skills/**` edits before the session-close `git pull --rebase` — an unstaged skill patch makes the rebase fail while `git push` still succeeds, leaving stray uncommitted files.- Do not create markdown TODO files for project task tracking.
-- Beads IDs look like `antimatter-4q5`; the built-in issue/todo board tool uses separate `drg-*` IDs — `bd update drg-...` fails with "no issue found". Find Beads IDs via `bd list --json` (or `bd list | grep <term>`). `bd create <title> --type feature --priority 2 --description <desc> --acceptance <criteria>` works (`--priority` accepts both `P1`-style and bare numbers); there is no `--tag` flag.
+- Beads IDs look like `antimatter-4q5`; the built-in issue/todo board tool uses separate `drg-*` IDs — `bd update drg-...` fails with "no issue found". Find Beads IDs via `bd list --json` (or `bd list | grep <term>`). `bd create <title> --type feature --priority 2 --description <desc> --acceptance <criteria>` works (`--priority` accepts both `P1`-style and bare numbers); there is no `--tag` flag; `-d` and `--acceptance` are both optional.
 
 ## Code-change process
 
@@ -44,6 +44,14 @@ const { AuthScreen } = await import("./AuthScreen");
 ```
 
 Mock `../storage` the same way when the rendered tree reads or writes persisted state.
+
+## Pre-existing suite failures
+
+- When `bun test` fails in a file you didn't touch, prove it pre-exists before blaming your change: `git stash -u -q && bun test <that file>; git stash pop -q`. If it still fails on clean main, `bd create` a P3 quoting the failing test name, then proceed with your push and mention the filed issue in the close message.
+
+## Session-end push
+
+- `.beads/interactions.jsonl` and `.dirge/skills/**` are normally dirty after a work session and `git pull --rebase` refuses while they are unstaged. Push ritual: `git stash -q && git pull --rebase -q && git push -q && git stash pop -q`.
 
 ## Source-slice test convention
 

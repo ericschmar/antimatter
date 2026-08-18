@@ -1,7 +1,9 @@
 import type { MattermostRpcResponse } from "../../shared/electrobunRpc";
 import { type MattermostApiClient, MattermostApiError } from "../mattermostApi";
 import type { ChannelHistoryData } from "../types";
+import { traceEvent } from "../utils/perfTrace";
 import type {
+	HistoryPrefetchSignals,
 	HistoryPriority,
 	MainToWorkerMessage,
 	WorkerToMainMessage,
@@ -24,6 +26,8 @@ export type ChatHistoryClient = {
 		priority?: HistoryPriority,
 	) => Promise<HistoryWaterfallResult>;
 	invalidate: (channelId: string) => void;
+	recordVisit: (channelId: string, at: number) => void;
+	updateSignals: (signals: HistoryPrefetchSignals) => void;
 	reset: () => void;
 	onBackgroundHistory?: (
 		channelId: string,
@@ -128,7 +132,21 @@ export function createChatHistoryClient(deps: {
 				});
 			return;
 		}
+		if (message.kind === "historyPrefetchQueued") {
+			traceEvent("prefetchQueued");
+			return;
+		}
+		if (message.kind === "historyPrefetched") {
+			traceEvent("prefetchLoaded");
+			client.onBackgroundHistory?.(
+				message.channelId,
+				message.data,
+				message.hasMore,
+			);
+			return;
+		}
 		if (message.kind === "historyLoaded") {
+			if (message.fromCache) traceEvent("cacheHit");
 			if (message.requestId === 0) {
 				client.onBackgroundHistory?.(
 					message.channelId,
@@ -147,7 +165,6 @@ export function createChatHistoryClient(deps: {
 			});
 			return;
 		}
-		// historyError
 		const pending = pendingLoads.get(message.requestId);
 		if (!pending) return;
 		pendingLoads.delete(message.requestId);
@@ -187,8 +204,12 @@ export function createChatHistoryClient(deps: {
 
 	const client: ChatHistoryClient = {
 		async loadChannelHistory(channelId, currentUserId, priority = "user") {
+			traceEvent("historyFetchStart");
 			const created = await ensureWorker();
-			if (!created) return fallback(channelId, currentUserId);
+			if (!created)
+				return fallback(channelId, currentUserId).finally(() =>
+					traceEvent("historyFetchEnd"),
+				);
 
 			const requestId = nextRequestId;
 			nextRequestId += 1;
@@ -215,16 +236,33 @@ export function createChatHistoryClient(deps: {
 				if (loser === "timeout") {
 					pendingLoads.delete(requestId);
 					retireWorker("worker handshake timed out");
-					return fallback(channelId, currentUserId);
+					return fallback(channelId, currentUserId).finally(() =>
+						traceEvent("historyFetchEnd"),
+					);
 				}
 			}
-			return request;
+			return request.finally(() => traceEvent("historyFetchEnd"));
 		},
 
 		invalidate(channelId) {
 			worker?.postMessage({
 				kind: "invalidate",
 				channelId,
+			} satisfies MainToWorkerMessage);
+		},
+
+		recordVisit(channelId, at) {
+			worker?.postMessage({
+				kind: "recordVisit",
+				channelId,
+				at,
+			} satisfies MainToWorkerMessage);
+		},
+
+		updateSignals(signals) {
+			worker?.postMessage({
+				kind: "updateSignals",
+				signals,
 			} satisfies MainToWorkerMessage);
 		},
 

@@ -28,6 +28,9 @@ function createHarness(
 		storedAt?: number;
 		now?: () => number;
 		staleAfterMs?: number;
+		prefetchSpacingMs?: number;
+		prefetchHourlyCap?: number;
+		setTimer?: (callback: () => void, delay: number) => ReturnType<typeof setTimeout>;
 	} = {},
 ): Harness {
 	const sent: WorkerToMainMessage[] = [];
@@ -55,6 +58,9 @@ function createHarness(
 		send: (msg) => sent.push(msg),
 		now: options.now ?? (() => 0),
 		staleAfterMs: options.staleAfterMs,
+		prefetchSpacingMs: options.prefetchSpacingMs,
+		prefetchHourlyCap: options.prefetchHourlyCap,
+		setTimer: options.setTimer,
 	});
 	const h: Harness = {
 		sent,
@@ -250,5 +256,141 @@ describe("createWorkerCore", () => {
 		await flush();
 
 		expect(h.loadCalls).toEqual(["ch1", "ch1"]);
+	});
+
+	test("prefetches the predicted uncached channel and emits a warm-cache result", async () => {
+		const h = createHarness({
+			setTimer: () => 0 as unknown as ReturnType<typeof setTimeout>,
+		});
+		h.core.handle({ kind: "recordVisit", channelId: "alpha", at: 0 });
+		h.core.handle({ kind: "recordVisit", channelId: "beta", at: 1 });
+		h.core.handle({ kind: "recordVisit", channelId: "alpha", at: 2 });
+		h.core.handle({
+			kind: "updateSignals",
+			signals: {
+				candidates: [
+					{ channelId: "alpha", unread: false, mention: false, typing: false },
+					{ channelId: "beta", unread: false, mention: false, typing: false },
+					{ channelId: "gamma", unread: false, mention: false, typing: false },
+				],
+				currentChannelId: "alpha",
+				currentUserId: "me",
+				selectedChannelLoading: false,
+				websocketConnected: true,
+			},
+		});
+		await flush();
+
+		expect(h.loadCalls).toEqual(["beta"]);
+		expect(h.sent).toEqual([{ kind: "historyPrefetchQueued", channelId: "beta" }]);
+
+		h.resolveLoad("beta", true);
+		await flush();
+
+		expect(h.sent[1]).toMatchObject({
+			kind: "historyPrefetched",
+			channelId: "beta",
+			hasMore: true,
+		});
+	});
+
+	test("enforces prefetch spacing before scheduling the next candidate", async () => {
+		let currentTime = 0;
+		const timers: (() => void)[] = [];
+		const h = createHarness({
+			now: () => currentTime,
+			prefetchSpacingMs: 2_000,
+			setTimer: (callback) => {
+				timers.push(callback);
+				return 0 as unknown as ReturnType<typeof setTimeout>;
+			},
+		});
+		const signals = {
+			candidates: [
+				{ channelId: "alpha", unread: false, mention: false, typing: false },
+				{ channelId: "beta", unread: true, mention: false, typing: false },
+				{ channelId: "gamma", unread: false, mention: false, typing: false },
+			],
+			currentChannelId: "alpha",
+			selectedChannelLoading: false,
+			websocketConnected: true,
+		};
+		h.core.handle({ kind: "updateSignals", signals });
+		await flush();
+		h.resolveLoad("beta");
+		await flush();
+
+		currentTime = 1_999;
+		timers.shift()?.();
+		await flush();
+		expect(h.loadCalls).toEqual(["beta"]);
+
+		currentTime = 2_000;
+		timers.shift()?.();
+		await flush();
+		expect(h.loadCalls).toEqual(["beta", "gamma"]);
+	});
+
+	test("enforces the hourly prefetch cap", async () => {
+		let currentTime = 0;
+		const timers: (() => void)[] = [];
+		const h = createHarness({
+			now: () => currentTime,
+			prefetchHourlyCap: 1,
+			setTimer: (callback) => {
+				timers.push(callback);
+				return 0 as unknown as ReturnType<typeof setTimeout>;
+			},
+		});
+		h.core.handle({
+			kind: "updateSignals",
+			signals: {
+				candidates: [
+					{ channelId: "alpha", unread: false, mention: false, typing: false },
+					{ channelId: "beta", unread: true, mention: false, typing: false },
+					{ channelId: "gamma", unread: false, mention: false, typing: false },
+				],
+				currentChannelId: "alpha",
+				selectedChannelLoading: false,
+				websocketConnected: true,
+			},
+		});
+		await flush();
+		h.resolveLoad("beta");
+		await flush();
+
+		currentTime = 2_000;
+		timers.shift()?.();
+		await flush();
+		expect(h.loadCalls).toEqual(["beta"]);
+	});
+
+	test("does not prefetch while disconnected or the selected history is loading", async () => {
+		const h = createHarness();
+		const candidates = [
+			{ channelId: "alpha", unread: false, mention: false, typing: false },
+			{ channelId: "beta", unread: true, mention: false, typing: false },
+		];
+		h.core.handle({
+			kind: "updateSignals",
+			signals: {
+				candidates,
+				currentChannelId: "alpha",
+				selectedChannelLoading: false,
+				websocketConnected: false,
+			},
+		});
+		h.core.handle({
+			kind: "updateSignals",
+			signals: {
+				candidates,
+				currentChannelId: "alpha",
+				selectedChannelLoading: true,
+				websocketConnected: true,
+			},
+		});
+		await flush();
+
+		expect(h.loadCalls).toEqual([]);
 	});
 });

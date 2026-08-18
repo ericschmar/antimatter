@@ -266,13 +266,13 @@ describe("ChatShell workspace layout", () => {
 		expect(html).not.toContain("inline-error");
 	});
 
-	test("renders other errors in the inline error bar", () => {
+	test("renders other errors nowhere", () => {
 		const html = renderChatShell("channel-1", null, undefined, {
 			error: "Could not send message.",
 		});
 
-		expect(html).toContain("inline-error");
-		expect(html).toContain("Could not send message.");
+		expect(html).not.toContain("inline-error");
+		expect(html).not.toContain("Could not send message.");
 		expect(html).not.toContain("rpc-timeout-toast");
 	});
 

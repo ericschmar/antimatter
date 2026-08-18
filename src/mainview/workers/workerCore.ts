@@ -1,7 +1,12 @@
 import type {
+	HistoryPrefetchSignals,
 	MainToWorkerMessage,
 	WorkerToMainMessage,
 } from "./chatHistoryProtocol";
+import {
+	createHistoryPrefetchPredictor,
+	type HistoryPrefetchPredictor,
+} from "./historyPrefetchPredictor";
 import type { HistoryCache } from "./historyCache";
 import type { HistoryWaterfallResult } from "./historyWaterfall";
 import type { LoadQueue } from "./loadQueue";
@@ -11,6 +16,10 @@ export type WorkerCore = {
 };
 
 const BACKGROUND_REFRESH_REQUEST_ID = 0;
+const PREFETCH_SPACING_MS = 2_000;
+const PREFETCH_HOURLY_CAP = 20;
+
+type Timer = ReturnType<typeof setTimeout>;
 
 export function createWorkerCore(deps: {
 	cache: HistoryCache;
@@ -22,14 +31,33 @@ export function createWorkerCore(deps: {
 	send: (message: WorkerToMainMessage) => void;
 	now?: () => number;
 	staleAfterMs?: number;
+	predictor?: HistoryPrefetchPredictor;
+	prefetchSpacingMs?: number;
+	prefetchHourlyCap?: number;
+	setTimer?: (callback: () => void, delay: number) => Timer;
+	clearTimer?: (timer: Timer) => void;
 }): WorkerCore {
 	const now = deps.now ?? (() => Date.now());
 	const staleAfterMs = deps.staleAfterMs ?? 30_000;
-	// Requests waiting on an active (queued or running) load for a channel.
+	const predictor = deps.predictor ?? createHistoryPrefetchPredictor();
+	const prefetchSpacingMs = deps.prefetchSpacingMs ?? PREFETCH_SPACING_MS;
+	const prefetchHourlyCap = deps.prefetchHourlyCap ?? PREFETCH_HOURLY_CAP;
+	const setTimer = deps.setTimer ?? ((callback, delay) => setTimeout(callback, delay));
+	const clearTimer = deps.clearTimer ?? ((timer) => clearTimeout(timer));
 	const pendingRequests = new Map<string, number[]>();
-	// currentUserId of the most recent requester, used for the load call.
 	const pendingCurrentUser = new Map<string, string | undefined>();
 	const activeChannels = new Set<string>();
+	const prefetchStarts: number[] = [];
+	let latestSignals: HistoryPrefetchSignals | null = null;
+	let prefetchInFlight = false;
+	let lastPrefetchAt = Number.NEGATIVE_INFINITY;
+	let prefetchTimer: Timer | undefined;
+
+	function clearPrefetchTimer(): void {
+		if (!prefetchTimer) return;
+		clearTimer(prefetchTimer);
+		prefetchTimer = undefined;
+	}
 
 	function respondLoaded(
 		channelId: string,
@@ -49,9 +77,59 @@ export function createWorkerCore(deps: {
 		}
 	}
 
+	function schedulePrefetch(): void {
+		const signals = latestSignals;
+		if (
+			!signals ||
+			!signals.currentChannelId ||
+			!signals.websocketConnected ||
+			signals.selectedChannelLoading ||
+			prefetchInFlight
+		) {
+			clearPrefetchTimer();
+			return;
+		}
+
+		const currentTime = now();
+		while (
+			prefetchStarts.length > 0 &&
+			prefetchStarts[0] <= currentTime - 60 * 60_000
+		) {
+			prefetchStarts.shift();
+		}
+		if (prefetchStarts.length >= prefetchHourlyCap) return;
+
+		const delay = Math.max(0, lastPrefetchAt + prefetchSpacingMs - currentTime);
+		if (delay > 0) {
+			if (prefetchTimer) return;
+			prefetchTimer = setTimer(() => {
+				prefetchTimer = undefined;
+				schedulePrefetch();
+			}, delay);
+			return;
+		}
+
+		const nextChannelId = predictor
+			.rank(signals.currentChannelId, signals.candidates, currentTime)
+			.find(
+				(channelId) =>
+					!activeChannels.has(channelId) && !deps.cache.get(channelId),
+			);
+		if (!nextChannelId) return;
+
+		prefetchInFlight = true;
+		lastPrefetchAt = currentTime;
+		prefetchStarts.push(currentTime);
+		pendingRequests.set(nextChannelId, []);
+		pendingCurrentUser.set(nextChannelId, signals.currentUserId);
+		deps.send({ kind: "historyPrefetchQueued", channelId: nextChannelId });
+		startLoad(nextChannelId, "prefetch", true);
+	}
+
 	function startLoad(
 		channelId: string,
 		priority: "user" | "startup" | "prefetch",
+		isPrefetch = false,
 	): void {
 		activeChannels.add(channelId);
 		deps.queue.add({
@@ -59,37 +137,49 @@ export function createWorkerCore(deps: {
 			priority,
 			run: async () => {
 				const requestIds = pendingRequests.get(channelId) ?? [];
-				let result: HistoryWaterfallResult;
+				let result: HistoryWaterfallResult | undefined;
+				let error: (Error & { status?: number }) | undefined;
 				try {
-					result = await deps.load(
-						channelId,
-						pendingCurrentUser.get(channelId),
-					);
-				} catch (error) {
-					const err = error as Error & { status?: number };
-					// Background refreshes have no requester to disappoint.
+					result = await deps.load(channelId, pendingCurrentUser.get(channelId));
+				} catch (caught) {
+					error = caught as Error & { status?: number };
+				} finally {
+					pendingRequests.delete(channelId);
+					pendingCurrentUser.delete(channelId);
+					activeChannels.delete(channelId);
+					if (isPrefetch) prefetchInFlight = false;
+				}
+
+				if (!result) {
 					for (const requestId of requestIds) {
 						if (requestId === BACKGROUND_REFRESH_REQUEST_ID) continue;
 						deps.send({
 							kind: "historyError",
 							requestId,
 							channelId,
-							message: err.message,
-							status: err.status,
+							message: error?.message ?? "Could not load channel history.",
+							status: error?.status,
 						});
 					}
+					schedulePrefetch();
 					return;
-				} finally {
-					pendingRequests.delete(channelId);
-					pendingCurrentUser.delete(channelId);
-					activeChannels.delete(channelId);
 				}
+
 				deps.cache.set(channelId, {
 					data: result.data,
 					hasMore: result.hasMore,
 					storedAt: now(),
 				});
+				if (isPrefetch) {
+					deps.send({
+						kind: "historyPrefetched",
+						channelId,
+						data: result.data,
+						hasMore: result.hasMore,
+					});
+				}
 				respondLoaded(channelId, requestIds, result, false);
+				schedulePrefetch();
 			},
 		});
 	}
@@ -98,6 +188,16 @@ export function createWorkerCore(deps: {
 		handle(message) {
 			if (message.kind === "invalidate") {
 				deps.cache.delete(message.channelId);
+				return;
+			}
+			if (message.kind === "recordVisit") {
+				predictor.recordVisit(message.channelId, message.at);
+				schedulePrefetch();
+				return;
+			}
+			if (message.kind === "updateSignals") {
+				latestSignals = message.signals;
+				schedulePrefetch();
 				return;
 			}
 			if (message.kind === "rpcResult") return;
@@ -117,7 +217,6 @@ export function createWorkerCore(deps: {
 				});
 				const age = now() - cached.storedAt;
 				if (age > staleAfterMs) {
-					// Serve instantly, then catch up in the background.
 					pendingRequests.set(channelId, [BACKGROUND_REFRESH_REQUEST_ID]);
 					startLoad(channelId, "prefetch");
 				}

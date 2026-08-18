@@ -6,11 +6,9 @@
 const PERF_FLAG_KEY = "mm-clone:perf";
 
 let enabled = readInitialFlag();
-console.log("perf enabled: ", enabled ? "yes" : "no", " (localStorage: ", PERF_FLAG_KEY,)
 const renderCounts = new Map<string, number>();
 
 function readInitialFlag(): boolean {
-	return true
 	try {
 		return (
 			typeof localStorage !== "undefined" &&
@@ -44,6 +42,20 @@ export function traceSync<T>(label: string, fn: () => T): T {
 		const elapsed = performance.now() - start;
 		console.debug(`[perf] ${label}: `, `${elapsed.toFixed(2)}ms`);
 	}
+}
+
+export function traceEvent(label: string): void {
+	if (!enabled) return;
+	console.debug(`[perf] ${label}`);
+}
+
+export function startTraceSpan(label: string): () => void {
+	if (!enabled) return () => undefined;
+	const start = performance.now();
+	return () => {
+		const elapsed = performance.now() - start;
+		console.debug(`[perf] ${label}: `, `${elapsed.toFixed(2)}ms`);
+	};
 }
 
 /**
