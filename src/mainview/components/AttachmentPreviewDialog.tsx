@@ -5,11 +5,24 @@ import { Download, ExternalLink, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { MattermostApiClient } from "../mattermostApi";
 import type { MattermostFileInfo } from "../types";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 type PreviewState =
 	| { status: "idle" | "loading" }
 	| { status: "ready"; document: IDocument; objectUrl: string }
+	| { status: "markdown-ready"; markdown: string; objectUrl: string }
 	| { status: "error"; message: string };
+
+const MARKDOWN_MIME_TYPES = new Set(["text/markdown", "text/x-markdown"]);
+const MARKDOWN_EXTENSIONS = new Set(["md", "markdown", "mdown", "mkd"]);
+
+export function isMarkdownAttachment(file: MattermostFileInfo | null) {
+	if (!file) return false;
+	if (file.mime_type && MARKDOWN_MIME_TYPES.has(file.mime_type)) return true;
+	const extension =
+		file.extension ?? file.name?.split(".").pop()?.toLowerCase();
+	return Boolean(extension && MARKDOWN_EXTENSIONS.has(extension));
+}
 
 export const attachmentPreviewDocViewerConfig = {
 	dragDrop: { enableDragDrop: false },
@@ -55,6 +68,14 @@ export function AttachmentPreviewDialog({
 				if (cancelled) return;
 				const blob = dataUrlToBlob(dataUrl, file.mime_type);
 				objectUrl = URL.createObjectURL(blob);
+				if (isMarkdownAttachment(file)) {
+					setPreview({
+						status: "markdown-ready",
+						markdown: dataUrlToText(dataUrl),
+						objectUrl,
+					});
+					return;
+				}
 				setPreview({
 					status: "ready",
 					document: {
@@ -109,7 +130,8 @@ export function AttachmentPreviewDialog({
 						>
 							<ExternalLink size={16} />
 						</button>
-						{preview.status === "ready" ? (
+						{preview.status === "ready" ||
+						preview.status === "markdown-ready" ? (
 							<a
 								aria-label="Download attachment"
 								download={fileName}
@@ -145,6 +167,11 @@ export function AttachmentPreviewDialog({
 							</button>
 						</div>
 					) : null}
+					{preview.status === "markdown-ready" ? (
+						<div className="attachment-preview-markdown">
+							<MarkdownMessage markdown={preview.markdown} />
+						</div>
+					) : null}
 					{preview.status === "ready" ? (
 						<DocViewer
 							config={attachmentPreviewDocViewerConfig}
@@ -171,10 +198,18 @@ function dataUrlToBlob(dataUrl: string, fallbackMimeType?: string) {
 		/data:([^;]+)/.exec(header)?.[1] ??
 		fallbackMimeType ??
 		"application/octet-stream";
+	return new Blob([dataUrlToBytes(payload)], { type: mimeType });
+}
+
+function dataUrlToText(dataUrl: string) {
+	return new TextDecoder().decode(dataUrlToBytes(dataUrl.split(",")[1] ?? ""));
+}
+
+function dataUrlToBytes(payload: string) {
 	const binary = atob(payload);
 	const bytes = new Uint8Array(binary.length);
 	for (let index = 0; index < binary.length; index += 1) {
 		bytes[index] = binary.charCodeAt(index);
 	}
-	return new Blob([bytes], { type: mimeType });
+	return bytes;
 }

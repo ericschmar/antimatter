@@ -1208,6 +1208,38 @@ textarea:disabled {
 	text-align: center;
 }
 
+.attachment-preview-markdown {
+	height: 100%;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 20px 26px 32px;
+	background: var(--app-bg);
+	color: var(--text-primary);
+}
+
+.attachment-preview-markdown .markdown-message {
+	max-width: 860px;
+	font-size: 0.95rem;
+	line-height: 1.65;
+}
+
+.attachment-preview-markdown .markdown-message h1,
+.attachment-preview-markdown .markdown-message h2,
+.attachment-preview-markdown .markdown-message h3 {
+	margin: 1.2em 0 0.4em;
+	line-height: 1.3;
+}
+
+.attachment-preview-markdown .markdown-message h1:first-child,
+.attachment-preview-markdown .markdown-message h2:first-child,
+.attachment-preview-markdown .markdown-message h3:first-child {
+	margin-top: 0;
+}
+
+.attachment-preview-markdown .markdown-message pre {
+	overflow-x: auto;
+}
+
 .command-panel,
 .settings-panel {
 	width: min(92vw, 460px);
