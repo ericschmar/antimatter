@@ -76,6 +76,7 @@ import {
 import {
 	applyChannelHistory,
 	applyReaction,
+	evictInactiveChannelPosts,
 	setPostReactions,
 	updateChannelLastPostAt,
 	updatePost as updatePostInState,
@@ -211,6 +212,28 @@ export function MainViewApp() {
 			// a channel.
 			if (closedTab && !nextWorkspace.activeTabId) {
 				setSelectedChannelId(null);
+			}
+			// A closed channel's posts otherwise keep accumulating forever in
+			// state.posts whenever the websocket delivers new posts for it (see
+			// applyIncomingPost), even though nothing renders them anymore.
+			// Drop posts for channels no longer open in a tab or standalone.
+			if (closedTab) {
+				const remainingChannelIds = new Set(
+					Object.values(nextWorkspace.tabs).map((tab) => tab.channelId),
+				);
+				const standalone = selectedChannelRef.current;
+				if (standalone) remainingChannelIds.add(standalone);
+				if (!remainingChannelIds.has(closedTab.channelId)) {
+					chatWorkspaceActions.forgetView(closedTab.channelId);
+					setState((current) =>
+						evictInactiveChannelPosts(current, remainingChannelIds),
+					);
+					// The SWR history cache otherwise keeps this channel's
+					// full post history resident forever too: SWR's default
+					// cache has no size limit or TTL of its own.
+					const key = channelHistoryKey(config?.serverUrl, closedTab.channelId);
+					if (key) swrCache.delete(unstable_serialize(key));
+				}
 			}
 		},
 		[persistChatWorkspaceTabs],

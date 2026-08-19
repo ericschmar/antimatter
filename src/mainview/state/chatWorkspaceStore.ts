@@ -53,6 +53,15 @@ export const chatWorkspaceActions = {
 			tabId,
 		);
 	},
+	// Removes a channel's draft/reply/edit view state once no tab renders it
+	// anymore. chatViewStates is keyed by channel id and otherwise grows for
+	// every channel ever opened for the lifetime of the session.
+	forgetView(viewId: string) {
+		if (!(viewId in chatWorkspaceStore.chatViewStates)) return;
+		const next = { ...chatWorkspaceStore.chatViewStates };
+		delete next[viewId];
+		chatWorkspaceStore.chatViewStates = next;
+	},
 	openTab(input: OpenChatTabInput) {
 		chatWorkspaceStore.workspace = openChatTab(
 			chatWorkspaceStore.workspace,

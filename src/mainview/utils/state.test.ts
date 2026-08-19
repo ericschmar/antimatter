@@ -11,6 +11,7 @@ import {
 	applyChannelHistory,
 	applyIncomingPost,
 	applyReaction,
+	evictInactiveChannelPosts,
 	replacePost,
 	setPostReactions,
 	updateChannelLastPostAt,
@@ -334,6 +335,123 @@ describe("applyChannelHistory", () => {
 		const merged = applyChannelHistory(stateWithPost(), history);
 
 		expect(merged.users["user-3"]).toBe(user);
+	});
+});
+
+describe("resident post cap", () => {
+	function postAt(id: string, channelId: string, createAt: number): MattermostPost {
+		return { ...basePost, id, channel_id: channelId, create_at: createAt };
+	}
+
+	test("addPost trims the oldest posts once the channel exceeds the resident cap", () => {
+		let state: NormalizedState = {
+			channels: {},
+			postOrder: [],
+			posts: {},
+			teams: {},
+			users: {},
+		};
+		for (let i = 0; i < 502; i++) {
+			state = addPost(state, postAt(`post-${i}`, "channel-1", i));
+		}
+		expect(state.postOrder).toHaveLength(500);
+		expect(state.posts["post-0"]).toBeUndefined();
+		expect(state.posts["post-1"]).toBeUndefined();
+		expect(state.posts["post-2"]).toBeDefined();
+		expect(state.posts["post-501"]).toBeDefined();
+		expect(state.postOrder.at(0)).toBe("post-2");
+		expect(state.postOrder.at(-1)).toBe("post-501");
+	});
+
+	test("addPost trimming only affects the incoming post's channel", () => {
+		let state: NormalizedState = {
+			channels: {},
+			postOrder: ["other-channel-post"],
+			posts: {
+				"other-channel-post": postAt("other-channel-post", "channel-2", 0),
+			},
+			teams: {},
+			users: {},
+		};
+		for (let i = 0; i < 501; i++) {
+			state = addPost(state, postAt(`post-${i}`, "channel-1", i + 1));
+		}
+		expect(state.posts["other-channel-post"]).toBeDefined();
+	});
+
+	test("applyIncomingPost trims background-channel posts oldest-first by create_at", () => {
+		// applyIncomingPost only accumulates posts for a background channel once
+		// at least one of its posts is already resident, so seed the first one.
+		let state: NormalizedState = {
+			channels: {},
+			postOrder: [],
+			posts: { "post-0": postAt("post-0", "channel-1", 0) },
+			teams: {},
+			users: {},
+		};
+		for (let i = 1; i < 502; i++) {
+			state = applyIncomingPost(
+				state,
+				postAt(`post-${i}`, "channel-1", i),
+				"other-selected-channel",
+			);
+		}
+		const residentIds = Object.keys(state.posts);
+		expect(residentIds).toHaveLength(500);
+		expect(state.posts["post-0"]).toBeUndefined();
+		expect(state.posts["post-1"]).toBeUndefined();
+		expect(state.posts["post-501"]).toBeDefined();
+	});
+});
+
+describe("evictInactiveChannelPosts", () => {
+	test("removes posts for channels not in the active set", () => {
+		const state: NormalizedState = {
+			channels: {},
+			postOrder: ["post-1", "post-2", "post-3"],
+			posts: {
+				"post-1": { ...basePost, id: "post-1", channel_id: "channel-1" },
+				"post-2": { ...basePost, id: "post-2", channel_id: "channel-2" },
+				"post-3": { ...basePost, id: "post-3", channel_id: "channel-1" },
+			},
+			teams: {},
+			users: {},
+		};
+		const activeChannels = new Set(["channel-1"]);
+		const evicted = evictInactiveChannelPosts(state, activeChannels);
+		expect(Object.keys(evicted.posts)).toEqual(["post-1", "post-3"]);
+		expect(evicted.posts["post-2"]).toBeUndefined();
+	});
+
+	test("returns the same state when all channels are active", () => {
+		const state: NormalizedState = {
+			channels: {},
+			postOrder: ["post-1"],
+			posts: {
+				"post-1": { ...basePost, id: "post-1", channel_id: "channel-1" },
+			},
+			teams: {},
+			users: {},
+		};
+		const activeChannels = new Set(["channel-1"]);
+		const evicted = evictInactiveChannelPosts(state, activeChannels);
+		expect(evicted).toBe(state);
+	});
+
+	test("removes all posts when no channels are active", () => {
+		const state: NormalizedState = {
+			channels: {},
+			postOrder: ["post-1", "post-2"],
+			posts: {
+				"post-1": { ...basePost, id: "post-1", channel_id: "channel-1" },
+				"post-2": { ...basePost, id: "post-2", channel_id: "channel-2" },
+			},
+			teams: {},
+			users: {},
+		};
+		const activeChannels = new Set<string>();
+		const evicted = evictInactiveChannelPosts(state, activeChannels);
+		expect(Object.keys(evicted.posts)).toEqual([]);
 	});
 });
 

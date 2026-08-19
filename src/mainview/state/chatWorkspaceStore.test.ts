@@ -98,4 +98,27 @@ describe("chatWorkspaceStore", () => {
 
 		expect(Object.keys(chatWorkspaceStore.workspace.tabs)).toHaveLength(0);
 	});
+
+	test("forgetView removes view state for a channel", () => {
+		chatWorkspaceActions.setDraft("channel1", "hello");
+		chatWorkspaceActions.setReplyTarget("channel1", "post1");
+		chatWorkspaceActions.setDraft("channel2", "world");
+
+		chatWorkspaceActions.forgetView("channel1");
+
+		expect(chatWorkspaceStore.chatViewStates["channel1"]).toBeUndefined();
+		expect(chatWorkspaceStore.chatViewStates["channel2"]?.draftMarkdown).toBe(
+			"world",
+		);
+	});
+
+	test("forgetView is a no-op when view state does not exist", () => {
+		chatWorkspaceActions.setDraft("channel1", "hello");
+
+		chatWorkspaceActions.forgetView("nonexistent");
+
+		expect(chatWorkspaceStore.chatViewStates["channel1"]?.draftMarkdown).toBe(
+			"hello",
+		);
+	});
 });

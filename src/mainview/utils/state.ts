@@ -6,16 +6,70 @@ import type {
 	NormalizedState,
 } from "../types";
 
+// Upper bound on how many posts of a single channel stay resident in memory
+// while that channel keeps receiving websocket posts. Without this, a
+// channel left open (in a tab or standalone) for days accumulates every post
+// it ever receives, which grows both the JS heap and the number of message
+// rows the (non-virtualized) timeline mounts. Older posts beyond the cap are
+// dropped; "load more" re-fetches them from the server on demand, so this
+// only affects how much scrollback stays resident, not what's reachable.
+const MAX_RESIDENT_POSTS_PER_CHANNEL = 100;
+
 export function addPost(
 	state: NormalizedState,
 	post: MattermostPost,
 ): NormalizedState {
 	if (state.posts[post.id]) return state;
+	const postOrder = [...state.postOrder, post.id];
+	const posts = { ...state.posts, [post.id]: post };
+	return trimResidentPosts(
+		{
+			...state,
+			posts,
+			postOrder,
+		},
+		post.channel_id,
+	);
+}
+
+// Drops the oldest resident posts for a channel once it exceeds
+// MAX_RESIDENT_POSTS_PER_CHANNEL. Only trims postOrder entries (the
+// standalone timeline's single-channel order), never touches posts for
+// other channels, and is a no-op below the cap.
+function trimResidentPosts(
+	state: NormalizedState,
+	channelId: string,
+): NormalizedState {
+	const channelPostIds = state.postOrder.filter(
+		(id) => state.posts[id]?.channel_id === channelId,
+	);
+	if (channelPostIds.length <= MAX_RESIDENT_POSTS_PER_CHANNEL) return state;
+	const excess = channelPostIds.length - MAX_RESIDENT_POSTS_PER_CHANNEL;
+	const idsToDrop = new Set(channelPostIds.slice(0, excess));
+	const posts = { ...state.posts };
+	for (const id of idsToDrop) delete posts[id];
 	return {
 		...state,
-		posts: { ...state.posts, [post.id]: post },
-		postOrder: [...state.postOrder, post.id],
+		posts,
+		postOrder: state.postOrder.filter((id) => !idsToDrop.has(id)),
 	};
+}
+
+// Same cap applied to posts for a background channel (a workspace tab that
+// isn't the standalone selection), which have no postOrder entry of their
+// own — trimmed oldest-first by create_at instead.
+function trimResidentBackgroundPosts(
+	posts: Record<string, MattermostPost>,
+	channelId: string,
+): Record<string, MattermostPost> {
+	const channelPosts = Object.values(posts)
+		.filter((post) => post.channel_id === channelId)
+		.sort((left, right) => left.create_at - right.create_at);
+	if (channelPosts.length <= MAX_RESIDENT_POSTS_PER_CHANNEL) return posts;
+	const excess = channelPosts.length - MAX_RESIDENT_POSTS_PER_CHANNEL;
+	const next = { ...posts };
+	for (const post of channelPosts.slice(0, excess)) delete next[post.id];
+	return next;
 }
 
 export function replacePost(
@@ -75,7 +129,13 @@ export function applyIncomingPost(
 	}
 	if (state.posts[post.id]) return updatePost(state, post);
 	if (isSelectedChannel) return addPost(state, post);
-	return { ...state, posts: { ...state.posts, [post.id]: post } };
+	return {
+		...state,
+		posts: trimResidentBackgroundPosts(
+			{ ...state.posts, [post.id]: post },
+			post.channel_id,
+		),
+	};
 }
 
 export function mergeUsers(
@@ -191,4 +251,25 @@ export function applyChannelHistory(
 		posts,
 		postOrder: replacePostOrder ? history.postOrder : state.postOrder,
 	};
+}
+
+// Evicts posts for channels that are no longer actively rendered (not in the
+// set of open workspace tabs and not the currently selected standalone channel).
+// This prevents unbounded growth of state.posts when channels accumulate posts
+// over time but are no longer visible.
+export function evictInactiveChannelPosts(
+	state: NormalizedState,
+	activeChannelIds: ReadonlySet<string>,
+): NormalizedState {
+	const posts: Record<string, MattermostPost> = {};
+	let changed = false;
+	for (const [id, post] of Object.entries(state.posts)) {
+		if (activeChannelIds.has(post.channel_id)) {
+			posts[id] = post;
+		} else {
+			changed = true;
+		}
+	}
+	if (!changed) return state;
+	return { ...state, posts };
 }

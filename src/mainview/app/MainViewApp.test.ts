@@ -334,12 +334,27 @@ describe("MainViewApp channel selection", () => {
 		);
 
 		expect(mainViewSource).toContain(
-			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst closedTab = chatWorkspaceStore.workspace.tabs[tabId];\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);\n\t\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);\n\t\t\t// Closing the final tab leaves nothing selected; the standalone view\n\t\t\t// shows the empty select-a-conversation screen until the user picks\n\t\t\t// a channel.\n\t\t\tif (closedTab && !nextWorkspace.activeTabId) {\n\t\t\t\tsetSelectedChannelId(null);\n\t\t\t}\n\t\t},\n\t\t[persistChatWorkspaceTabs],\n\t);",
+			"const handleCloseChatTab = useCallback(\n\t\t(tabId: string) => {\n\t\t\tconst closedTab = chatWorkspaceStore.workspace.tabs[tabId];\n\t\t\tconst nextWorkspace = closeChatTab(chatWorkspaceStore.workspace, tabId);\n\t\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\t\tpersistChatWorkspaceTabs(nextWorkspace);",
 		);
+		expect(mainViewSource).toContain(
+			"if (closedTab && !nextWorkspace.activeTabId) {\n\t\t\t\tsetSelectedChannelId(null);\n\t\t\t}",
+		);
+		expect(mainViewSource).toContain("[persistChatWorkspaceTabs],\n\t);");
 		expect(mainViewSource).toContain("onCloseChatTab={handleCloseChatTab}");
 		expect(chatShellSource).toContain("onCloseTab={onCloseChatTab}");
 		expect(chatWorkspaceSource).toContain("event.api.onDidRemovePanel");
 		expect(chatWorkspaceSource).toContain("onCloseTab(panel.id)");
+	});
+
+	test("evicts posts and SWR cache for channels closed by the last referencing tab", () => {
+		const mainViewSource = readFileSync(
+			new URL("./MainViewApp.tsx", import.meta.url),
+			"utf8",
+		);
+
+		expect(mainViewSource).toContain("evictInactiveChannelPosts(current, remainingChannelIds)");
+		expect(mainViewSource).toContain("chatWorkspaceActions.forgetView(closedTab.channelId)");
+		expect(mainViewSource).toContain("swrCache.delete(unstable_serialize(key))");
 	});
 
 	test("moves split actions from panel buttons to the Dockview tab context menu", () => {
