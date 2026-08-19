@@ -6,8 +6,9 @@ import { createLoadQueue } from "./loadQueue";
 import { createRpcRelay } from "./rpcRelay";
 import { createWorkerCore } from "./workerCore";
 
-// Worker entry: wiring only. Runs as a classic (IIFE) worker bundled to
-// views/chatHistoryWorker/chatHistoryWorker.js; all requests are relayed
+// Worker entry: wiring only. Runs as a classic (IIFE) worker; the built
+// bundle is copied into views/mainview/chatHistoryWorker.js by the postBuild
+// hook so the main thread can fetch it same-origin. All requests are relayed
 // through the main thread, so credentials never reach this scope.
 
 const relay = createRpcRelay({

@@ -42,12 +42,16 @@ export type ChatHistoryClient = {
  * directly, and Bun.build does not resolve `new Worker(new URL(...))`
  * module references, so the script is fetched and wrapped in a blob.
  *
- * The views scheme maps `views://<view>/<file>` to app views/<view>/<file>,
- * so the worker is addressed as its own "host" — a path-relative URL would
- * resolve under the mainview host and 404.
+ * The bundle is built as the `chatHistoryWorker` electrobun view, then the
+ * `scripts/copy-chat-history-worker.ts` postBuild hook copies it into the
+ * mainview views folder. It is fetched with a path-relative URL so the
+ * request stays same-origin with the mainview page: WKWebView treats each
+ * `views://<view>` as a distinct origin and blocks a cross-origin fetch to
+ * `views://chatHistoryWorker` (issue antimatter-a72). A path-relative URL
+ * resolves to `views://mainview/chatHistoryWorker.js`.
  */
 async function createBlobWorker(): Promise<Worker> {
-	const scriptUrl = `${location.protocol}//chatHistoryWorker/chatHistoryWorker.js`;
+	const scriptUrl = "chatHistoryWorker.js";
 	const response = await fetch(scriptUrl);
 	if (!response.ok) {
 		throw new Error(`chat history worker fetch failed: ${response.status}`);

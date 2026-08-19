@@ -50,6 +50,12 @@ export default {
 		},
 	},
 	scripts: {
+		// Copy the built chat history worker bundle into the mainview views
+		// folder so the main thread can fetch it same-origin
+		// (views://mainview/chatHistoryWorker.js). WKWebView blocks the
+		// cross-origin fetch from views://mainview to views://chatHistoryWorker
+		// (issue antimatter-a72). Runs after views are built, before wrapping.
+		postBuild: "scripts/copy-chat-history-worker.ts",
 		// Disable macOS App Nap so the bun process keeps forwarding WebSocket
 		// events (and the mainview keeps processing them) while the app is in
 		// the background, instead of delivering a burst on focus.
