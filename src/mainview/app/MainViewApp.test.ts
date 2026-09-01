@@ -37,7 +37,7 @@ describe("MainViewApp channel selection", () => {
 		);
 	});
 
-	test("opens or activates a workspace tab when selecting a channel", () => {
+	test("opens a reusable temporary workspace tab when selecting a channel", () => {
 		const source = readFileSync(
 			new URL("./MainViewApp.tsx", import.meta.url),
 			"utf8",
@@ -51,7 +51,7 @@ describe("MainViewApp channel selection", () => {
 		);
 		expect(source).toContain("? null\n\t\t: selectedChannelId;");
 		expect(source).toContain(
-			"\t\tconst nextWorkspace = openChatTab(chatWorkspaceStore.workspace, {\n\t\t\tchannelId: channel.id,\n\t\t\tteamId: channel.team_id || null,\n\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t});\n\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\tpersistChatWorkspaceTabs(nextWorkspace, nextConfig);\n\t\tsetSelectedChannelId(channel.id);",
+			"\t\tconst nextWorkspace = openChatTab(chatWorkspaceStore.workspace, {\n\t\t\tchannelId: channel.id,\n\t\t\tteamId: channel.team_id || null,\n\t\t\ttitle: channelLabel(channel, stateRef.current.users, currentUser?.id),\n\t\t\ttemporary: true,\n\t\t});\n\t\tchatWorkspaceActions.replaceWorkspace(nextWorkspace);\n\t\tpersistChatWorkspaceTabs(nextWorkspace, nextConfig);\n\t\tsetSelectedChannelId(channel.id);",
 		);
 		expect(source).toContain(
 			"const selectedChannel = renderedChannelId\n\t\t? state.channels[renderedChannelId]\n\t\t: undefined;",

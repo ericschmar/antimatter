@@ -32,6 +32,7 @@ import {
 	getRenderedChannelId,
 	getSelectedChannelId,
 	openChatTab,
+	pinChatTab,
 	updateChatWorkspaceLayout,
 } from "../state/chatWorkspace";
 import {
@@ -1164,6 +1165,7 @@ export function MainViewApp() {
 			channelId: channel.id,
 			teamId: channel.team_id || null,
 			title: channelLabel(channel, stateRef.current.users, currentUser?.id),
+			temporary: true,
 		});
 		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
 		persistChatWorkspaceTabs(nextWorkspace, nextConfig);
@@ -1218,6 +1220,22 @@ export function MainViewApp() {
 		void loadChannelHistory(api, channel.id, currentUser?.id)
 			.then(applyFetchedHistory)
 			.catch(() => undefined);
+	}
+
+	function pinChannel(channel: MattermostChannel) {
+		const workspace = chatWorkspaceStore.workspace;
+		const activeTabId = workspace.activeTabId;
+		const activeTab = activeTabId ? workspace.tabs[activeTabId] : undefined;
+		const nextWorkspace =
+			activeTab?.temporary && activeTab.channelId === channel.id
+				? pinChatTab(workspace, activeTab.id)
+				: openChatTab(workspace, {
+						channelId: channel.id,
+						teamId: channel.team_id || null,
+						title: channelLabel(channel, stateRef.current.users, currentUser?.id),
+					});
+		chatWorkspaceActions.replaceWorkspace(nextWorkspace);
+		persistChatWorkspaceTabs(nextWorkspace);
 	}
 
 	async function selectSearchPost(post: MattermostPost) {
@@ -1829,6 +1847,7 @@ export function MainViewApp() {
 				onLoadMoreMessages={loadMoreMessages}
 				onOpenChatPanel={openChatPanel}
 				onMoveChannel={moveChannel}
+				onPinChannel={pinChannel}
 				onOpenAttachment={openAttachment}
 				onOpenSettings={openSettingsWindow}
 				onSelectChannel={selectChannel}

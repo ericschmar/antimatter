@@ -588,6 +588,10 @@ textarea:disabled {
 	color: var(--text-primary);
 }
 
+.chat-workspace-dockview .temporary-chat-tab .dv-default-tab-content {
+	font-style: italic;
+}
+
 .chat-workspace-dockview .dv-tab:hover {
 	background: var(--panel-hover);
 	color: var(--text-primary);

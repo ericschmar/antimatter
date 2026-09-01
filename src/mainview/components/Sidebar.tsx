@@ -72,6 +72,7 @@ export function Sidebar({
 	activeCallParticipantName,
 	onArchiveChannel,
 	onMoveChannel,
+	onPinChannel,
 	onSelectChannel,
 	onSelectTeam,
 	onSetChannelEmoji,
@@ -103,6 +104,7 @@ export function Sidebar({
 	activeCallParticipantName: string;
 	onArchiveChannel: (channelId: string) => void;
 	onMoveChannel: (section: ChannelSectionKey, channelIds: string[]) => void;
+	onPinChannel: (channel: MattermostChannel) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
 	onSelectTeam: (team: MattermostTeam) => Promise<void>;
 	onSetChannelEmoji: (channelId: string, emoji: string) => void;
@@ -241,6 +243,7 @@ export function Sidebar({
 							userStatuses={userStatuses}
 							onMoveChannel={onMoveChannel}
 							onOpenChatPanel={onOpenChatPanel}
+							onPinChannel={onPinChannel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("favorites")}
@@ -265,6 +268,7 @@ export function Sidebar({
 							onAction={onOpenCreateChannel}
 							onMoveChannel={onMoveChannel}
 							onOpenChatPanel={onOpenChatPanel}
+							onPinChannel={onPinChannel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("channels")}
@@ -289,6 +293,7 @@ export function Sidebar({
 							onAction={onOpenCreateDm}
 							onMoveChannel={onMoveChannel}
 							onOpenChatPanel={onOpenChatPanel}
+							onPinChannel={onPinChannel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("dms")}
@@ -311,6 +316,7 @@ export function Sidebar({
 							userStatuses={userStatuses}
 							onMoveChannel={onMoveChannel}
 							onOpenChatPanel={onOpenChatPanel}
+							onPinChannel={onPinChannel}
 							onSelectChannel={onSelectChannel}
 							onShowChannelContextMenu={onShowChannelContextMenu}
 							onToggleCollapsed={() => onToggleCollapsed("archived")}
@@ -345,6 +351,7 @@ function ChannelSection({
 	onAction,
 	onMoveChannel,
 	onOpenChatPanel,
+	onPinChannel,
 	onSelectChannel,
 	onShowChannelContextMenu,
 	onToggleCollapsed,
@@ -368,6 +375,7 @@ function ChannelSection({
 	onAction?: () => void;
 	onMoveChannel: (section: ChannelSectionKey, channelIds: string[]) => void;
 	onOpenChatPanel: (channelId: string) => void;
+	onPinChannel: (channel: MattermostChannel) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
 	onToggleCollapsed: () => void;
@@ -434,6 +442,7 @@ function ChannelSection({
 									userImages={userImages}
 									userStatuses={userStatuses}
 									onOpenChatPanel={onOpenChatPanel}
+									onPinChannel={onPinChannel}
 									onSelectChannel={onSelectChannel}
 									onShowChannelContextMenu={onShowChannelContextMenu}
 									onToggleFavorite={onToggleFavorite}
@@ -472,6 +481,7 @@ function SortableChannelRow({
 	userImages,
 	userStatuses,
 	onOpenChatPanel,
+	onPinChannel,
 	onSelectChannel,
 	onShowChannelContextMenu,
 	onToggleFavorite,
@@ -487,6 +497,7 @@ function SortableChannelRow({
 	userImages: Record<string, string>;
 	userStatuses: Record<string, MattermostUserStatus>;
 	onOpenChatPanel: (channelId: string) => void;
+	onPinChannel: (channel: MattermostChannel) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
 	onShowChannelContextMenu: (channel: MattermostChannel) => void;
 	onToggleFavorite: (channelId: string) => void;
@@ -543,6 +554,7 @@ function SortableChannelRow({
 					onShowChannelContextMenu(channel);
 				}}
 				onClick={() => void onSelectChannel(channel)}
+				onDoubleClick={() => onPinChannel(channel)}
 			>
 				{icon ? (
 					<span

@@ -5,6 +5,7 @@ export type ChatTabState = {
 	channelId: string;
 	teamId: string | null;
 	title: string;
+	temporary?: boolean;
 	position?: {
 		referenceTabId: string;
 		placement: ChatPanelPlacement;
@@ -39,6 +40,7 @@ export type OpenChatTabInput = {
 	channelId: string;
 	teamId: string | null;
 	title: string;
+	temporary?: boolean;
 	duplicate?: boolean;
 	position?: {
 		referenceTabId: string;
@@ -83,11 +85,17 @@ export function createChatWorkspaceStateFromTabs(
 export function getPersistedChatWorkspaceTabs(
 	workspace: ChatWorkspaceState,
 ): PersistedChatWorkspaceTabs {
+	const tabs = Object.fromEntries(
+		Object.entries(workspace.tabs).filter(([, tab]) => !tab.temporary),
+	);
 	return {
 		version: 1,
-		activeTabId: workspace.activeTabId,
-		tabs: workspace.tabs,
-		layout: workspace.layout ?? undefined,
+		activeTabId: tabs[workspace.activeTabId ?? ""] ? workspace.activeTabId : null,
+		tabs,
+		// A layout containing a temporary panel cannot be restored without it.
+		layout: Object.keys(tabs).length === Object.keys(workspace.tabs).length
+			? (workspace.layout ?? undefined)
+			: undefined,
 	};
 }
 
@@ -124,6 +132,30 @@ export function openChatTab(
 	workspace: ChatWorkspaceState,
 	input: OpenChatTabInput,
 ): ChatWorkspaceState {
+	if (input.temporary) {
+		const permanentTab = Object.values(workspace.tabs).find(
+			(tab) => !tab.temporary && tab.channelId === input.channelId,
+		);
+		if (permanentTab) return activateChatTab(workspace, permanentTab.id);
+
+		const temporaryTab = Object.values(workspace.tabs).find((tab) => tab.temporary);
+		const tabId = temporaryTab?.id ?? getNextPanelId(workspace.tabs);
+		return {
+			...workspace,
+			activeTabId: tabId,
+			tabs: {
+				...workspace.tabs,
+				[tabId]: {
+					id: tabId,
+					channelId: input.channelId,
+					teamId: input.teamId,
+					title: input.title,
+					temporary: true,
+					position: temporaryTab?.position,
+				},
+			},
+		};
+	}
 	const existingTab = input.duplicate
 		? undefined
 		: Object.values(workspace.tabs).find(
@@ -144,6 +176,22 @@ export function openChatTab(
 				title: input.title,
 				position: input.position,
 			},
+		},
+	};
+}
+
+export function pinChatTab(
+	workspace: ChatWorkspaceState,
+	tabId: string,
+): ChatWorkspaceState {
+	const tab = workspace.tabs[tabId];
+	if (!tab?.temporary) return workspace;
+
+	return {
+		...workspace,
+		tabs: {
+			...workspace.tabs,
+			[tabId]: { ...tab, temporary: undefined },
 		},
 	};
 }

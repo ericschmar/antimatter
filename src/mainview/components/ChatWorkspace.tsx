@@ -1,8 +1,10 @@
 import type { DockviewApi, SerializedDockview } from "dockview-core";
 import {
 	DockviewReact,
+	DockviewDefaultTab,
 	type DockviewTheme,
 	type IDockviewPanelProps,
+	type IDockviewPanelHeaderProps,
 	themeDark,
 } from "dockview-react";
 import type { SyntheticEvent } from "react";
@@ -95,6 +97,10 @@ type ChatPanelParams = {
 	title: string;
 	type: MattermostChannel["type"];
 };
+
+function TemporaryChatTab(props: IDockviewPanelHeaderProps) {
+	return <DockviewDefaultTab {...props} className="dv-default-tab temporary-chat-tab" />;
+}
 
 function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 	const workspaceProps = useContext(ChatWorkspaceContext);
@@ -227,6 +233,10 @@ const dockviewComponents = {
 	chat: ChatPanel,
 };
 
+const chatWorkspaceTabComponents = {
+	temporary: TemporaryChatTab,
+};
+
 const chatWorkspaceDockviewTheme: DockviewTheme = {
 	...themeDark,
 	name: "antimatter-chat-workspace",
@@ -274,6 +284,7 @@ export function ChatWorkspace({
 						channelId: tab.channelId,
 						title: channelLabel(channel, data.users, data.currentUserId),
 						type: channel.type,
+						temporary: tab.temporary,
 						position: tab.position,
 					},
 				];
@@ -281,6 +292,13 @@ export function ChatWorkspace({
 		[data.channelsById, data.currentUserId, data.users, workspace.tabs],
 	);
 	const dockviewApiRef = useRef<DockviewApi | null>(null);
+	const workspaceKey = useMemo(
+		() =>
+			tabs
+				.map((tab) => `${tab.id}:${tab.channelId}:${tab.temporary ? "temporary" : "pinned"}`)
+				.join("|"),
+		[tabs],
+	);
 
 	useEffect(() => {
 		if (!workspace.activeTabId) return;
@@ -354,8 +372,9 @@ export function ChatWorkspace({
 			<div className="chat-workspace-dockview">
 				<ChatWorkspaceContext.Provider value={workspaceProps}>
 					<DockviewReact
-						key={Object.keys(workspace.tabs).join(":")}
+						key={workspaceKey}
 						components={dockviewComponents}
+						tabComponents={chatWorkspaceTabComponents}
 						getTabContextMenuItems={({ panel }) => [
 							{
 								label: "Split right",
@@ -397,6 +416,7 @@ export function ChatWorkspace({
 									id: tab.id,
 									component: "chat",
 									title: tab.title,
+									tabComponent: tab.temporary ? "temporary" : undefined,
 									position:
 										!restorableLayout && tab.position
 											? {

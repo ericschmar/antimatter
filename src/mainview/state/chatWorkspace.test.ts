@@ -11,6 +11,7 @@ import {
 	getRenderedChannelId,
 	getSelectedChannelId,
 	openChatTab,
+	pinChatTab,
 	removeInvalidChatTabs,
 	updateChatViewState,
 	updateChatWorkspaceLayout,
@@ -80,6 +81,43 @@ describe("chatWorkspace", () => {
 			channelId: "channel-1",
 			teamId: "team-1",
 			title: "Town Square",
+		});
+	});
+
+	test("replaces the one temporary tab when selecting another channel", () => {
+		const workspace = openChatTab(createEmptyChatWorkspaceState(), {
+			channelId: "channel-1",
+			teamId: "team-1",
+			title: "Town Square",
+			temporary: true,
+		});
+		const replaced = openChatTab(workspace, {
+			channelId: "channel-2",
+			teamId: "team-1",
+			title: "Off-Topic",
+			temporary: true,
+		});
+
+		expect(Object.keys(replaced.tabs)).toEqual(["chat-panel-1"]);
+		expect(replaced.tabs["chat-panel-1"]).toMatchObject({
+			channelId: "channel-2",
+			temporary: true,
+		});
+	});
+
+	test("pins a temporary tab and omits temporary tabs from persisted state", () => {
+		const temporary = openChatTab(createEmptyChatWorkspaceState(), {
+			channelId: "channel-1",
+			teamId: "team-1",
+			title: "Town Square",
+			temporary: true,
+		});
+		const pinned = pinChatTab(temporary, "chat-panel-1");
+
+		expect(pinned.tabs["chat-panel-1"]?.temporary).toBeUndefined();
+		expect(getPersistedChatWorkspaceTabs(temporary)).toMatchObject({
+			tabs: {},
+			activeTabId: null,
 		});
 	});
 

@@ -200,6 +200,7 @@ function renderChatShell(
 				onLoadMoreMessages={async () => {}}
 				onOpenChatPanel={() => {}}
 				onMoveChannel={() => {}}
+				onPinChannel={() => {}}
 				onOpenAttachment={async () => {}}
 				onOpenSettings={() => {}}
 				onSelectChannel={async () => {}}

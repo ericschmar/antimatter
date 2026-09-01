@@ -103,6 +103,7 @@ export function ChatShell({
 	onLoadMoreMessages,
 	onOpenChatPanel,
 	onMoveChannel,
+	onPinChannel,
 	onOpenAttachment,
 	onOpenSettings,
 	onSelectChannel,
@@ -439,6 +440,7 @@ export function ChatShell({
 								wsStatus={ui.wsStatus}
 								onArchiveChannel={onArchiveChannel}
 								onMoveChannel={onMoveChannel}
+								onPinChannel={onPinChannel}
 								onSelectChannel={onSelectChannel}
 								onSelectTeam={onSelectTeam}
 								onSetChannelEmoji={onSetChannelEmoji}
@@ -760,6 +762,7 @@ type ChatShellProps = {
 		referenceTabId?: string,
 	) => void;
 	onMoveChannel: (section: ChannelSectionKey, channelIds: string[]) => void;
+	onPinChannel: (channel: MattermostChannel) => void;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
 	onOpenSettings: (settings: AppSettings) => void;
 	onSelectChannel: (channel: MattermostChannel) => Promise<void>;
