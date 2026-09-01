@@ -61,6 +61,7 @@ import type {
 import { normalizeEmojiName } from "../utils/emoji";
 import { fileToUploadItem } from "../utils/fileUpload";
 import { startTraceSpan } from "../utils/perfTrace";
+import { createReactionScheduler } from "../utils/reactionScheduler";
 import {
 	channelLabel,
 	includesMention,
@@ -148,6 +149,9 @@ function pruneExpiredTypingUsers(
 
 export function MainViewApp() {
 	const { cache: swrCache, mutate: mutateSWR } = useSWRConfig();
+	const reactionSchedulerRef = useRef<ReturnType<typeof createReactionScheduler> | null>(
+		null,
+	);
 	const ui = useSnapshot(uiStore);
 	const [config, setConfig] = useState<MattermostConfig | null>(() =>
 		loadConfig(),
@@ -509,18 +513,24 @@ export function MainViewApp() {
 		[config?.serverUrl, mutateSWR],
 	);
 	const loadPostReactions = useCallback(
-		async (nextApi: MattermostApiClient, posts: MattermostPost[]) => {
-			await Promise.all(
-				posts.map(async (post) => {
-					try {
-						const reactions = await nextApi.getReactionsForPost(post.id);
+		(nextApi: MattermostApiClient, channelId: string, posts: MattermostPost[]) => {
+			if (!reactionSchedulerRef.current) {
+				reactionSchedulerRef.current = createReactionScheduler({
+					api: nextApi,
+					apply: (loaded) =>
 						setState((current) =>
-							setPostReactions(current, post.id, reactions),
-						);
-					} catch {
-						// Reactions are additive UI. A server that rejects the endpoint should not block chat.
-					}
-				}),
+							loaded.reduce(
+								(next, { postId, reactions }) =>
+									setPostReactions(next, postId, reactions),
+								current,
+							),
+						),
+				});
+				reactionSchedulerRef.current.setActiveChannel(channelId);
+			}
+			reactionSchedulerRef.current.schedule(
+				channelId,
+				posts.map((post) => post.id),
 			);
 		},
 		[],
@@ -688,7 +698,9 @@ export function MainViewApp() {
 			(post) => !post.metadata?.reactions && !postsWithReactions.has(post.id),
 		);
 		if (postsNeedingReactions.length > 0)
-			void loadPostReactions(api, postsNeedingReactions);
+			requestAnimationFrame(() =>
+				loadPostReactions(api, standaloneChannelId, postsNeedingReactions),
+			);
 	}, [api, loadPostReactions, selectedChannelHistory, standaloneChannelId]);
 
 	useEffect(() => {
@@ -731,6 +743,8 @@ export function MainViewApp() {
 
 	const connect = useCallback(
 		async (nextConfig: MattermostConfig) => {
+			reactionSchedulerRef.current?.reset();
+			reactionSchedulerRef.current = null;
 			setStatus("loading");
 			setError(null);
 			setWsStatus("idle");
@@ -769,6 +783,28 @@ export function MainViewApp() {
 			historyClient.onBackgroundHistory = (channelId, data) => {
 				const key = channelHistoryKey(normalizedConfig.serverUrl, channelId);
 				if (key) void mutateSWR(key, data, { revalidate: false });
+			};
+			historyClient.onChannelMembers = (channelId, membersData) => {
+				const key = channelHistoryKey(normalizedConfig.serverUrl, channelId);
+				if (key) {
+					void mutateSWR(
+						key,
+						(current: ChannelHistoryData | undefined) =>
+							current ? { ...current, ...membersData } : current,
+						{ revalidate: false },
+					);
+				}
+				setState((current) => ({
+					...current,
+					users: {
+						...current.users,
+						...Object.fromEntries(
+							membersData.memberUsers.map((user) => [user.id, user]),
+						),
+					},
+				}));
+				if (getRenderedChannelId(chatWorkspaceStore.workspace, null) === channelId)
+					setChannelMembers(membersData.members);
 			};
 			setActiveChatHistoryClient(historyClient);
 
@@ -883,7 +919,10 @@ export function MainViewApp() {
 				});
 				setStatus("ready");
 				setChannelMembers(members);
-				void loadPostReactions(nextApi, Object.values(posts));
+				if (selectedChannel)
+					requestAnimationFrame(() =>
+						loadPostReactions(nextApi, selectedChannel.id, Object.values(posts)),
+					);
 
 				setWsStatus("connecting");
 				void electrobun.rpc?.request.connectMattermostWebSocket({
@@ -1134,7 +1173,10 @@ export function MainViewApp() {
 			}));
 			setChannelMembers(members);
 			setStatus("ready");
-			void loadPostReactions(api, Object.values(posts));
+			if (firstChannel)
+				requestAnimationFrame(() =>
+					loadPostReactions(api, firstChannel.id, Object.values(posts)),
+				);
 		} catch (err) {
 			setStatus("error");
 			setError(err instanceof Error ? err.message : "Could not load team.");
@@ -1143,6 +1185,7 @@ export function MainViewApp() {
 
 	async function selectChannel(channel: MattermostChannel) {
 		if (!api || !config) return;
+		reactionSchedulerRef.current?.setActiveChannel(channel.id);
 		timelinePaintSpanRef.current?.();
 		const endTimelinePaint = startTraceSpan("clickToFirstTimelinePaint");
 		timelinePaintSpanRef.current = endTimelinePaint;
@@ -1204,7 +1247,9 @@ export function MainViewApp() {
 					!stateRef.current.posts[post.id]?.metadata?.reactions,
 			);
 			if (postsNeedingReactions.length > 0)
-				void loadPostReactions(api, postsNeedingReactions);
+				requestAnimationFrame(() =>
+					loadPostReactions(api, channel.id, postsNeedingReactions),
+				);
 		};
 
 		if (!cachedHistory) {
@@ -1286,7 +1331,9 @@ export function MainViewApp() {
 			}));
 			setChannelMembers(members);
 			setStatus("ready");
-			void loadPostReactions(api, Object.values(postList.posts));
+			requestAnimationFrame(() =>
+				loadPostReactions(api, channel.id, Object.values(postList.posts)),
+			);
 		} catch (err) {
 			setStatus("error");
 			setError(
@@ -1517,7 +1564,9 @@ export function MainViewApp() {
 					: current.postOrder,
 			}));
 
-			void loadPostReactions(api, Object.values(postList.posts));
+			requestAnimationFrame(() =>
+				loadPostReactions(api, channelId, Object.values(postList.posts)),
+			);
 		} catch (err) {
 			setError(
 				err instanceof Error ? err.message : "Could not load more messages.",
@@ -1557,6 +1606,8 @@ export function MainViewApp() {
 	}
 
 	function signOut() {
+		reactionSchedulerRef.current?.reset();
+		reactionSchedulerRef.current = null;
 		void electrobun.rpc?.request.disconnectMattermostWebSocket({});
 		previousWsStatusRef.current = "idle";
 		websocketHasConnectedRef.current = false;

@@ -28,6 +28,10 @@ export function createWorkerCore(deps: {
 		channelId: string,
 		currentUserId?: string,
 	) => Promise<HistoryWaterfallResult>;
+	loadMembers?: (
+		channelId: string,
+		currentUserId?: string,
+	) => Promise<Pick<HistoryWaterfallResult["data"], "members" | "memberUsers">>;
 	send: (message: WorkerToMainMessage) => void;
 	now?: () => number;
 	staleAfterMs?: number;
@@ -47,6 +51,7 @@ export function createWorkerCore(deps: {
 	const pendingRequests = new Map<string, number[]>();
 	const pendingCurrentUser = new Map<string, string | undefined>();
 	const activeChannels = new Set<string>();
+	const memberHydrations = new Set<string>();
 	const prefetchStarts: number[] = [];
 	let latestSignals: HistoryPrefetchSignals | null = null;
 	let prefetchInFlight = false;
@@ -139,8 +144,9 @@ export function createWorkerCore(deps: {
 				const requestIds = pendingRequests.get(channelId) ?? [];
 				let result: HistoryWaterfallResult | undefined;
 				let error: (Error & { status?: number }) | undefined;
+				const currentUserId = pendingCurrentUser.get(channelId);
 				try {
-					result = await deps.load(channelId, pendingCurrentUser.get(channelId));
+					result = await deps.load(channelId, currentUserId);
 				} catch (caught) {
 					error = caught as Error & { status?: number };
 				} finally {
@@ -177,9 +183,41 @@ export function createWorkerCore(deps: {
 						data: result.data,
 						hasMore: result.hasMore,
 					});
+					if (!isPrefetch) scheduleMemberHydration(channelId, currentUserId);
 				}
 				respondLoaded(channelId, requestIds, result, false);
 				schedulePrefetch();
+			},
+		});
+	}
+
+	function scheduleMemberHydration(
+		channelId: string,
+		currentUserId?: string,
+	): void {
+		if (!deps.loadMembers || memberHydrations.has(channelId)) return;
+		const cached = deps.cache.get(channelId);
+		if (cached?.data.members.length) return;
+		memberHydrations.add(channelId);
+		deps.queue.add({
+			channelId: `members:${channelId}`,
+			priority: "prefetch",
+			run: async () => {
+				try {
+					const hydrated = await deps.loadMembers?.(
+						channelId,
+						currentUserId,
+					);
+					if (!hydrated) return;
+					const entry = deps.cache.get(channelId);
+					if (entry) {
+						entry.data = { ...entry.data, ...hydrated };
+						deps.cache.set(channelId, entry);
+					}
+					deps.send({ kind: "historyMembersLoaded", channelId, ...hydrated });
+				} finally {
+					memberHydrations.delete(channelId);
+				}
 			},
 		});
 	}
@@ -220,6 +258,7 @@ export function createWorkerCore(deps: {
 					pendingRequests.set(channelId, [BACKGROUND_REFRESH_REQUEST_ID]);
 					startLoad(channelId, "prefetch");
 				}
+				scheduleMemberHydration(channelId, message.currentUserId);
 				return;
 			}
 

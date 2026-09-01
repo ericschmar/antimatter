@@ -2,9 +2,11 @@ import { MattermostApiClient } from "../mattermostApi";
 import type { MainToWorkerMessage } from "./chatHistoryProtocol";
 import { createHistoryCache } from "./historyCache";
 import { loadChannelHistoryWaterfall } from "./historyWaterfall";
+import { loadChannelMembersWaterfall } from "./historyWaterfall";
 import { createLoadQueue } from "./loadQueue";
 import { createRpcRelay } from "./rpcRelay";
 import { createWorkerCore } from "./workerCore";
+import { createUserProfileResolver } from "./userProfileResolver";
 
 // Worker entry: wiring only. Runs as a classic (IIFE) worker; the built
 // bundle is copied into views/mainview/chatHistoryWorker.js by the postBuild
@@ -23,12 +25,15 @@ const api = new MattermostApiClient(
 	{ serverUrl: "https://relay.invalid", token: "relay" },
 	relay.transport,
 );
+const profiles = createUserProfileResolver(api);
 
 const core = createWorkerCore({
 	cache: createHistoryCache(),
 	queue: createLoadQueue(),
 	load: (channelId, currentUserId) =>
-		loadChannelHistoryWaterfall(api, channelId, currentUserId),
+		loadChannelHistoryWaterfall(api, channelId, currentUserId, profiles),
+	loadMembers: (channelId, currentUserId) =>
+		loadChannelMembersWaterfall(api, channelId, currentUserId, profiles),
 	send: (message) => {
 		self.postMessage(message);
 	},

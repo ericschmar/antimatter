@@ -10,8 +10,10 @@ import type {
 } from "./chatHistoryProtocol";
 import {
 	type HistoryWaterfallResult,
+	loadChannelMembersWaterfall,
 	loadChannelHistoryWaterfall,
 } from "./historyWaterfall";
+import { createUserProfileResolver } from "./userProfileResolver";
 
 type BrokerCall = {
 	path: string;
@@ -33,6 +35,10 @@ export type ChatHistoryClient = {
 		channelId: string,
 		data: ChannelHistoryData,
 		hasMore: boolean,
+	) => void;
+	onChannelMembers?: (
+		channelId: string,
+		data: Pick<ChannelHistoryData, "members" | "memberUsers">,
 	) => void;
 };
 
@@ -89,12 +95,26 @@ export function createChatHistoryClient(deps: {
 			reject: (error: Error) => void;
 		}
 	>();
+	const fallbackProfiles = createUserProfileResolver(deps.api);
 
 	function fallback(
 		channelId: string,
 		currentUserId?: string,
 	): Promise<HistoryWaterfallResult> {
-		return loadChannelHistoryWaterfall(deps.api, channelId, currentUserId);
+		return loadChannelHistoryWaterfall(
+			deps.api,
+			channelId,
+			currentUserId,
+			fallbackProfiles,
+		).then((history) => {
+			void loadChannelMembersWaterfall(
+				deps.api,
+				channelId,
+				currentUserId,
+				fallbackProfiles,
+			).then((members) => client.onChannelMembers?.(channelId, members));
+			return history;
+		});
 	}
 
 	function retireWorker(reason: string): void {
@@ -149,6 +169,13 @@ export function createChatHistoryClient(deps: {
 			);
 			return;
 		}
+		if (message.kind === "historyMembersLoaded") {
+			client.onChannelMembers?.(message.channelId, {
+				members: message.members,
+				memberUsers: message.memberUsers,
+			});
+			return;
+		}
 		if (message.kind === "historyLoaded") {
 			if (message.fromCache) traceEvent("cacheHit");
 			if (message.requestId === 0) {
@@ -169,6 +196,7 @@ export function createChatHistoryClient(deps: {
 			});
 			return;
 		}
+		if (message.kind !== "historyError") return;
 		const pending = pendingLoads.get(message.requestId);
 		if (!pending) return;
 		pendingLoads.delete(message.requestId);

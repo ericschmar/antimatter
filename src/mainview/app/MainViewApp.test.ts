@@ -104,7 +104,7 @@ describe("MainViewApp channel selection", () => {
 		expect(selectChannelBody).toContain("setChannelMembers(history.members);");
 		expect(selectChannelBody).toContain('setStatus("ready");');
 		expect(selectChannelBody).toContain(
-			"void loadPostReactions(api, postsNeedingReactions);",
+			"requestAnimationFrame(() =>\n\t\t\t\t\tloadPostReactions(api, channel.id, postsNeedingReactions),",
 		);
 	});
 

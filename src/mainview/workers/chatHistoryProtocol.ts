@@ -90,4 +90,10 @@ export type WorkerToMainMessage =
 			channelId: string;
 			data: ChannelHistoryData;
 			hasMore: boolean;
+	  }
+| {
+			kind: "historyMembersLoaded";
+			channelId: string;
+			memberUsers: ChannelHistoryData["memberUsers"];
+			members: ChannelHistoryData["members"];
 	  };

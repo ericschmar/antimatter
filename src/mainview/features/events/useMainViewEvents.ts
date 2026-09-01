@@ -169,7 +169,7 @@ export function useMainViewEvents({
 					if (users.length > 0)
 						setState((current) => mergeUsers(current, users));
 				});
-				void loadPostReactions(api, [post]);
+				loadPostReactions(api, post.channel_id, [post]);
 			}
 			rendererLog("Notification", "Channel check:", {
 				postId: post.id,
@@ -485,8 +485,9 @@ type UseMainViewEventsArgs = {
 	currentUser: MattermostUser | null;
 	loadPostReactions: (
 		api: MattermostApiClient,
+		channelId: string,
 		posts: MattermostPost[],
-	) => Promise<void>;
+	) => void;
 	mutateChannelHistory: (
 		channelId: string,
 		updater: (

@@ -3,8 +3,8 @@ import type { ChannelHistoryData } from "../types";
 import {
 	getChannelMembers,
 	getPostUsers,
-	getUsersForIds,
 } from "../utils/mattermostLoaders";
+import type { UserProfileResolver } from "./userProfileResolver";
 
 export type HistoryWaterfallResult = {
 	data: ChannelHistoryData;
@@ -21,24 +21,34 @@ export async function loadChannelHistoryWaterfall(
 	api: MattermostApiClient,
 	channelId: string,
 	currentUserId?: string,
+	resolver?: UserProfileResolver,
 ): Promise<HistoryWaterfallResult> {
-	const [postList, members] = await Promise.all([
-		api.getPostsForChannel(channelId),
-		getChannelMembers(api, channelId),
-	]);
+	const postList = await api.getPostsForChannel(channelId);
 	const posts = postList.posts;
 	const postOrder = [...postList.order].reverse();
-	const [postUsers, memberUsers] = await Promise.all([
-		getPostUsers(api, Object.values(posts), currentUserId),
-		getUsersForIds(
-			api,
-			members.map((member) => member.user_id),
-			currentUserId,
-		),
-	]);
+	const postUsers = resolver
+		? await resolver.resolve(
+				Object.values(posts).map((post) => post.user_id),
+				currentUserId,
+			)
+		: await getPostUsers(api, Object.values(posts), currentUserId);
 
 	return {
-		data: { memberUsers, members, postOrder, posts, postUsers },
+		data: { memberUsers: [], members: [], postOrder, posts, postUsers },
 		hasMore: Boolean(postList.prev_post_id),
 	};
+}
+
+export async function loadChannelMembersWaterfall(
+	api: MattermostApiClient,
+	channelId: string,
+	currentUserId: string | undefined,
+	resolver: UserProfileResolver,
+) {
+	const members = await getChannelMembers(api, channelId);
+	const memberUsers = await resolver.resolve(
+		members.map((member) => member.user_id),
+		currentUserId,
+	);
+	return { members, memberUsers };
 }
