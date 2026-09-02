@@ -42,4 +42,35 @@ final class AppConfigurationTests: XCTestCase {
             )
         }
     }
+
+    func testSAMLURLContainsOnlyTheDesktopClientToken() async throws {
+        let authenticator = MattermostAuthenticator()
+        let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
+
+        let loginURL = await authenticator.samlLoginURL(
+            serverURL: serverURL,
+            clientToken: "desktop-client-token"
+        )
+
+        XCTAssertEqual(loginURL.absoluteString, "https://chat.example.com/login/sso/saml?desktop_token=desktop-client-token")
+    }
+
+    func testCompleteSAMLSignInRejectsCallbackForAnotherClient() async throws {
+        let authenticator = MattermostAuthenticator()
+        let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
+        let callbackURL = try XCTUnwrap(
+            URL(string: "mattermost-dev://login?client_token=another-client&server_token=server-token")
+        )
+
+        do {
+            _ = try await authenticator.completeSAMLSignIn(
+                serverURL: serverURL,
+                callbackURL: callbackURL,
+                expectedClientToken: "desktop-client-token"
+            )
+            XCTFail("Expected a callback validation error.")
+        } catch let error as MattermostAuthenticationError {
+            XCTAssertEqual(error, .invalidSSOCallback)
+        }
+    }
 }
