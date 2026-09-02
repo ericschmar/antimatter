@@ -19,6 +19,8 @@
 		A10000000000000000000020 /* TimelineViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* TimelineViewModel.swift */; };
 		A10000000000000000000021 /* MessageTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* MessageTimeline.swift */; };
 		A10000000000000000000022 /* MattermostTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* MattermostTimeline.swift */; };
+		A10000000000000000000023 /* RichMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* RichMessageContent.swift */; };
+		A10000000000000000000024 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000026 /* MarkdownUI */; };
 		A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* libAntimatterFoundation.a */; };
 		AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24F3048C65F00B4461D /* ChannelSection.swift */; };
 		AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */; };
@@ -54,6 +56,7 @@
 		A20000000000000000000022 /* TimelineViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000023 /* MessageTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTimeline.swift; sourceTree = "<group>"; };
 		A20000000000000000000024 /* MattermostTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostTimeline.swift; sourceTree = "<group>"; };
+		A20000000000000000000025 /* RichMessageContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichMessageContent.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000008 /* libAntimatterFoundation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAntimatterFoundation.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* Antimatter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Antimatter.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -74,6 +77,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */,
+				A10000000000000000000024 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -105,6 +109,7 @@
 				A20000000000000000000016 /* WorkspaceViewModel.swift */,
 				A20000000000000000000022 /* TimelineViewModel.swift */,
 				A20000000000000000000023 /* MessageTimeline.swift */,
+				A20000000000000000000025 /* RichMessageContent.swift */,
 			);
 			path = Sources/AntimatterApp;
 			sourceTree = SOURCE_ROOT;
@@ -157,6 +162,9 @@
 			dependencies = (
 				A80000000000000000000001 /* PBXTargetDependency */,
 			);
+			packageProductDependencies = (
+				A20000000000000000000026 /* MarkdownUI */,
+			);
 			name = Antimatter;
 			productName = Antimatter;
 			productReference = A20000000000000000000009 /* Antimatter.app */;
@@ -205,6 +213,9 @@
 			mainGroup = A40000000000000000000001;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A40000000000000000000005 /* Products */;
+			packageReferences = (
+				A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -231,6 +242,7 @@
 				A10000000000000000000014 /* WorkspaceViewModel.swift in Sources */,
 				A10000000000000000000020 /* TimelineViewModel.swift in Sources */,
 				A10000000000000000000021 /* MessageTimeline.swift in Sources */,
+				A10000000000000000000023 /* RichMessageContent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -251,6 +263,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCSwiftPackageProductDependency section */
+			A20000000000000000000026 /* MarkdownUI */ = {
+				isa = XCSwiftPackageProductDependency;
+				package = A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+				productName = MarkdownUI;
+			};
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+			A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+				isa = XCRemoteSwiftPackageReference;
+				repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+				requirement = {
+					kind = upToNextMajorVersion;
+					minimumVersion = 2.4.1;
+				};
+			};
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin PBXTargetDependency section */
 		A80000000000000000000001 /* PBXTargetDependency */ = {

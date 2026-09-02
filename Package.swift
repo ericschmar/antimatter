@@ -8,6 +8,9 @@ let package = Package(
     products: [
         .executable(name: "Antimatter", targets: ["AntimatterApp"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
+    ],
     targets: [
         .target(
             name: "AntimatterFoundation",
@@ -15,7 +18,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "AntimatterApp",
-            dependencies: ["AntimatterFoundation"],
+            dependencies: [
+                "AntimatterFoundation",
+                .product(name: "MarkdownUI", package: "swift-markdown-ui"),
+            ],
             path: "Sources/AntimatterApp"
         ),
         .testTarget(

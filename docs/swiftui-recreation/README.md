@@ -92,7 +92,7 @@ be supplied through environment variables.
 | 7 | Team and channel navigation | Complete | Server-backed teams and channels, categorized persistent navigation, locally persisted favorites, alphabetical ordering, archives, unread dots, and mention counts are in place. |
 | 8 | Conversation workspace and selection | Complete | Channel selection opens replaceable previews, tabs can be retained or closed, and tab/selection state is restored between launches. |
 | 9 | Message timeline | Complete | Recent channel posts hydrate from the local store before refresh, then render as compact, virtualized ledger rows with 22 pt avatars, fixed author/time metadata, shared content, date grouping, selectable text, and latest-message scroll anchoring. |
-| 10 | Rich message rendering | Not started | Render Mattermost markdown, links, code, emoji, attachments, and file actions without adopting chat-bubble presentation. |
+| 10 | Rich message rendering | Complete | MarkdownUI renders GitHub-flavored Mattermost message content including links, code, lists, tables, task lists, and Unicode emoji; metadata-backed attachments render as compact file rows with copy-name actions, without chat bubbles. |
 | 11 | Real-time conversation updates | Not started | Apply post, reaction, channel, unread, and user-status WebSocket events to the active timeline and navigation state; preserve scroll position appropriately. |
 | 12 | Reactions | Not started | Show reaction summaries, add/remove reactions, and reconcile optimistic changes with server events. |
 | 13 | Composer and drafts | Not started | Implement rich text composition, paste and drag-and-drop attachments, per-conversation drafts, persisted composer height, and sending state. |

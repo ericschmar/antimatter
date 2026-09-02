@@ -115,10 +115,7 @@ private struct MessageRow: View {
                 .foregroundStyle(WorkspaceTheme.primaryText)
                 .frame(width: 92, alignment: .leading)
 
-            Text(post.message)
-                .font(.system(size: 13))
-                .foregroundStyle(WorkspaceTheme.primaryText)
-                .textSelection(.enabled)
+            RichMessageContent(post: post)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(timestamp)

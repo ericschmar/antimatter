@@ -19,14 +19,24 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
     public let message: String
     public let createAt: Int64
     public let updateAt: Int64
+    public let files: [MattermostFile]
 
-    public init(id: String, channelID: String, userID: String, message: String, createAt: Int64, updateAt: Int64) {
+    public init(
+        id: String,
+        channelID: String,
+        userID: String,
+        message: String,
+        createAt: Int64,
+        updateAt: Int64,
+        files: [MattermostFile] = []
+    ) {
         self.id = id
         self.channelID = channelID
         self.userID = userID
         self.message = message
         self.createAt = createAt
         self.updateAt = updateAt
+        self.files = files
     }
 
     enum CodingKeys: String, CodingKey {
@@ -35,6 +45,51 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         case userID = "user_id"
         case createAt = "create_at"
         case updateAt = "update_at"
+        case metadata
+    }
+
+    private enum MetadataCodingKeys: String, CodingKey {
+        case files
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        channelID = try values.decode(String.self, forKey: .channelID)
+        userID = try values.decode(String.self, forKey: .userID)
+        message = try values.decodeIfPresent(String.self, forKey: .message) ?? ""
+        createAt = try values.decodeIfPresent(Int64.self, forKey: .createAt) ?? 0
+        updateAt = try values.decodeIfPresent(Int64.self, forKey: .updateAt) ?? createAt
+        if values.contains(.metadata) {
+            let metadata = try values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
+            files = try metadata.decodeIfPresent([MattermostFile].self, forKey: .files) ?? []
+        } else {
+            files = []
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(channelID, forKey: .channelID)
+        try values.encode(userID, forKey: .userID)
+        try values.encode(message, forKey: .message)
+        try values.encode(createAt, forKey: .createAt)
+        try values.encode(updateAt, forKey: .updateAt)
+        var metadata = values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
+        try metadata.encode(files, forKey: .files)
+    }
+}
+
+public struct MattermostFile: Codable, Identifiable, Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let mimeType: String
+    public let size: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, size
+        case mimeType = "mime_type"
     }
 }
 
