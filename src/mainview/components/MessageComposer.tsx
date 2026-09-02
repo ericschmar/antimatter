@@ -443,6 +443,15 @@ export const MessageComposer = forwardRef<
 											>
 												<Paperclip size={TOOLBAR_ICON_SIZE} />
 											</button>
+											<button
+												aria-label="Create poll"
+												className="composer-toolbar-button"
+												disabled={disabled || Boolean(editTarget)}
+												type="button"
+												onClick={onOpenPollDialog}
+											>
+												<PieChart size={TOOLBAR_ICON_SIZE} />
+											</button>
 											<EmojiPickerPopover
 												label="Insert emoji"
 												open={emojiPickerOpen}
@@ -509,6 +518,7 @@ export const MessageComposer = forwardRef<
 			giphyPickerOpen,
 			insertEmoji,
 			insertGif,
+			onOpenPollDialog,
 			openFilePicker,
 		],
 	);
@@ -856,15 +866,6 @@ export const MessageComposer = forwardRef<
 				}}
 			/>
 			<div className="composer-actions">
-				<button
-					aria-label="Create poll"
-					className="composer-action-button"
-					disabled={disabled || Boolean(editTarget)}
-					type="button"
-					onClick={onOpenPollDialog}
-				>
-					<PieChart size={18} />
-				</button>
 				<button
 					aria-label="Send message"
 					className="send-button"
