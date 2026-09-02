@@ -16,6 +16,9 @@
 		A10000000000000000000013 /* WorkspaceTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* WorkspaceTabs.swift */; };
 		A10000000000000000000014 /* WorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* WorkspaceViewModel.swift */; };
 		A10000000000000000000019 /* MattermostLocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* MattermostLocalStore.swift */; };
+		A10000000000000000000020 /* TimelineViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* TimelineViewModel.swift */; };
+		A10000000000000000000021 /* MessageTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* MessageTimeline.swift */; };
+		A10000000000000000000022 /* MattermostTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* MattermostTimeline.swift */; };
 		A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* libAntimatterFoundation.a */; };
 		AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24F3048C65F00B4461D /* ChannelSection.swift */; };
 		AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */; };
@@ -48,6 +51,9 @@
 		A20000000000000000000015 /* WorkspaceTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabs.swift; sourceTree = "<group>"; };
 		A20000000000000000000016 /* WorkspaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* MattermostLocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostLocalStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* TimelineViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineViewModel.swift; sourceTree = "<group>"; };
+		A20000000000000000000023 /* MessageTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTimeline.swift; sourceTree = "<group>"; };
+		A20000000000000000000024 /* MattermostTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostTimeline.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000008 /* libAntimatterFoundation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAntimatterFoundation.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* Antimatter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Antimatter.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -97,6 +103,8 @@
 				A20000000000000000000003 /* WorkspaceTheme.swift */,
 				A20000000000000000000015 /* WorkspaceTabs.swift */,
 				A20000000000000000000016 /* WorkspaceViewModel.swift */,
+				A20000000000000000000022 /* TimelineViewModel.swift */,
+				A20000000000000000000023 /* MessageTimeline.swift */,
 			);
 			path = Sources/AntimatterApp;
 			sourceTree = SOURCE_ROOT;
@@ -112,6 +120,7 @@
 				A20000000000000000000005 /* AppLogger.swift */,
 				A20000000000000000000006 /* SecureValueStore.swift */,
 				A20000000000000000000021 /* MattermostLocalStore.swift */,
+				A20000000000000000000024 /* MattermostTimeline.swift */,
 			);
 			path = Sources/AntimatterFoundation;
 			sourceTree = SOURCE_ROOT;
@@ -220,6 +229,8 @@
 				A10000000000000000000003 /* WorkspaceTheme.swift in Sources */,
 				A10000000000000000000013 /* WorkspaceTabs.swift in Sources */,
 				A10000000000000000000014 /* WorkspaceViewModel.swift in Sources */,
+				A10000000000000000000020 /* TimelineViewModel.swift in Sources */,
+				A10000000000000000000021 /* MessageTimeline.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -235,6 +246,7 @@
 				AC7AC25E3048C66C00B4461D /* MattermostAuthentication.swift in Sources */,
 				A10000000000000000000006 /* SecureValueStore.swift in Sources */,
 				A10000000000000000000019 /* MattermostLocalStore.swift in Sources */,
+				A10000000000000000000022 /* MattermostTimeline.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

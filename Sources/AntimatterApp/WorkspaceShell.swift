@@ -5,6 +5,7 @@ struct WorkspaceShell: View {
     let configuration: AppConfiguration
     @StateObject private var navigation: NavigationViewModel
     @StateObject private var workspace: WorkspaceViewModel
+    @StateObject private var timeline: TimelineViewModel
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
 
@@ -12,6 +13,7 @@ struct WorkspaceShell: View {
         self.configuration = configuration
         _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
         _workspace = StateObject(wrappedValue: WorkspaceViewModel())
+        _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
     }
 
     var body: some View {
@@ -35,7 +37,7 @@ struct WorkspaceShell: View {
                         FocusRing(isVisible: focusedRegion == .sidebar)
                     }
 
-                ConversationPlaceholder(workspace: workspace)
+                ConversationPlaceholder(workspace: workspace, timeline: timeline)
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
                     .focused($focusedRegion, equals: .conversation)
@@ -179,6 +181,7 @@ private struct SidebarPlaceholder: View {
 
 private struct ConversationPlaceholder: View {
     @ObservedObject var workspace: WorkspaceViewModel
+    @ObservedObject var timeline: TimelineViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -202,20 +205,8 @@ private struct ConversationPlaceholder: View {
             Divider()
                 .overlay(WorkspaceTheme.divider)
 
-            VStack(spacing: 10) {
-                Image(systemName: "rectangle.split.3x1")
-                    .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-
-                Text(selectedTab == nil ? "Conversation workspace" : "Conversation selected")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-
-                Text("The desktop message workspace will appear here.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            MessageTimeline(timeline: timeline, channelID: selectedTab?.channelID)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(WorkspaceTheme.canvas)
     }

@@ -91,7 +91,7 @@ be supplied through environment variables.
 | 6 | Local data store and synchronization | Complete | Local atomic snapshots cover users, teams, channels, posts, preferences, and unread state; navigation hydrates from cache before refresh and posted WebSocket events reconcile cached posts. |
 | 7 | Team and channel navigation | Complete | Server-backed teams and channels, categorized persistent navigation, locally persisted favorites, alphabetical ordering, archives, unread dots, and mention counts are in place. |
 | 8 | Conversation workspace and selection | Complete | Channel selection opens replaceable previews, tabs can be retained or closed, and tab/selection state is restored between launches. |
-| 9 | Message timeline | Not started | Create compact, virtualized ledger-style message rows with 18–24 pt avatars, fixed metadata column, shared content column, date grouping, and scroll anchoring. |
+| 9 | Message timeline | Complete | Recent channel posts hydrate from the local store before refresh, then render as compact, virtualized ledger rows with 22 pt avatars, fixed author/time metadata, shared content, date grouping, selectable text, and latest-message scroll anchoring. |
 | 10 | Rich message rendering | Not started | Render Mattermost markdown, links, code, emoji, attachments, and file actions without adopting chat-bubble presentation. |
 | 11 | Real-time conversation updates | Not started | Apply post, reaction, channel, unread, and user-status WebSocket events to the active timeline and navigation state; preserve scroll position appropriately. |
 | 12 | Reactions | Not started | Show reaction summaries, add/remove reactions, and reconcile optimistic changes with server events. |
