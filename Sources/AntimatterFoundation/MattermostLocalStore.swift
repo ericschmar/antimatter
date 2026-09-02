@@ -19,6 +19,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
     public let message: String
     public let createAt: Int64
     public let updateAt: Int64
+    public let rootID: String
     public let files: [MattermostFile]
     public let reactions: [MattermostReaction]
 
@@ -29,6 +30,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         message: String,
         createAt: Int64,
         updateAt: Int64,
+        rootID: String = "",
         files: [MattermostFile] = [],
         reactions: [MattermostReaction] = []
     ) {
@@ -38,6 +40,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         self.message = message
         self.createAt = createAt
         self.updateAt = updateAt
+        self.rootID = rootID
         self.files = files
         self.reactions = reactions
     }
@@ -48,6 +51,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         case userID = "user_id"
         case createAt = "create_at"
         case updateAt = "update_at"
+        case rootID = "root_id"
         case metadata
     }
 
@@ -63,6 +67,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         message = try values.decodeIfPresent(String.self, forKey: .message) ?? ""
         createAt = try values.decodeIfPresent(Int64.self, forKey: .createAt) ?? 0
         updateAt = try values.decodeIfPresent(Int64.self, forKey: .updateAt) ?? createAt
+        rootID = try values.decodeIfPresent(String.self, forKey: .rootID) ?? ""
         if values.contains(.metadata) {
             let metadata = try values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
             files = try metadata.decodeIfPresent([MattermostFile].self, forKey: .files) ?? []
@@ -81,6 +86,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         try values.encode(message, forKey: .message)
         try values.encode(createAt, forKey: .createAt)
         try values.encode(updateAt, forKey: .updateAt)
+        try values.encode(rootID, forKey: .rootID)
         var metadata = values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
         try metadata.encode(files, forKey: .files)
         try metadata.encode(reactions, forKey: .reactions)

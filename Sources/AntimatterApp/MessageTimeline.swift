@@ -4,6 +4,7 @@ import SwiftUI
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
     let channelID: String?
+    let onReply: (MattermostPost) -> Void
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -22,7 +23,7 @@ struct MessageTimeline: View {
                         ForEach(groups) { group in
                             TimelineDateHeader(date: group.date)
                             ForEach(group.posts) { post in
-                                MessageRow(post: post) { post, emojiName in
+                                MessageRow(post: post, onReply: onReply) { post, emojiName in
                                     timeline.toggleReaction(on: post, emojiName: emojiName)
                                 }
                                     .id(post.id)
@@ -99,6 +100,7 @@ private struct TimelineDateHeader: View {
 
 private struct MessageRow: View {
     let post: MattermostPost
+    let onReply: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
 
     var body: some View {
@@ -133,6 +135,9 @@ private struct MessageRow: View {
         .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(author), \(timestamp), \(post.message)")
+        .contextMenu {
+            Button("Reply") { onReply(post) }
+        }
     }
 
     private var author: String {

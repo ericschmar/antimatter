@@ -7,6 +7,7 @@ final class ComposerViewModel: ObservableObject {
     @Published var height: CGFloat
     @Published private(set) var isSending = false
     @Published private(set) var sendError: String?
+    @Published private(set) var replyRootID: String?
 
     private let sender: MattermostPostSender
     private let defaults: UserDefaults
@@ -36,9 +37,10 @@ final class ComposerViewModel: ObservableObject {
         sendError = nil
         Task {
             do {
-                let post = try await sender.send(MattermostPostRequest(channelID: channelID, message: draft))
+                let post = try await sender.send(MattermostPostRequest(channelID: channelID, message: draft, rootID: replyRootID ?? ""))
                 message = ""
                 removeDraft(for: channelID)
+                replyRootID = nil
                 onSent(post)
             } catch {
                 sendError = error.localizedDescription
@@ -56,6 +58,14 @@ final class ComposerViewModel: ObservableObject {
 
     func persistHeight() {
         defaults.set(height, forKey: heightKey)
+    }
+
+    func reply(to post: MattermostPost) {
+        replyRootID = post.rootID.isEmpty ? post.id : post.rootID
+    }
+
+    func cancelReply() {
+        replyRootID = nil
     }
 
     private var drafts: [String: String] {

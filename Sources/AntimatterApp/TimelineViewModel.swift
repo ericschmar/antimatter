@@ -6,16 +6,21 @@ final class TimelineViewModel: ObservableObject {
     @Published private(set) var posts: [MattermostPost] = []
     @Published private(set) var isLoading = false
     @Published private(set) var loadError: String?
+    @Published private(set) var editingPostID: String?
+    @Published var editMessage = ""
+    @Published private(set) var editError: String?
 
     private let loader: MattermostTimelineLoader
     private let store: MattermostLocalStore
     private let reactions: MattermostReactions
+    private let editor: MattermostPostSender
     private var currentUserID: String?
 
     init(session: MattermostSession) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
         loader = MattermostTimelineLoader(client: client)
         reactions = MattermostReactions(client: client)
+        editor = MattermostPostSender(client: client)
         store = MattermostLocalStore(serverURL: session.serverURL)
     }
 
@@ -129,5 +134,32 @@ final class TimelineViewModel: ObservableObject {
     func appendSentPost(_ post: MattermostPost) async {
         replace(post)
         try? await store.apply(.posts([post]))
+    }
+
+    func beginEditing(_ post: MattermostPost) {
+        editingPostID = post.id
+        editMessage = post.message
+        editError = nil
+    }
+
+    func cancelEditing() {
+        editingPostID = nil
+        editMessage = ""
+        editError = nil
+    }
+
+    func saveEdit(_ post: MattermostPost) {
+        let message = editMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+        Task {
+            do {
+                let updated = try await editor.update(MattermostPostUpdate(id: post.id, message: message))
+                replace(updated)
+                try? await store.apply(.posts([updated]))
+                cancelEditing()
+            } catch {
+                editError = error.localizedDescription
+            }
+        }
     }
 }

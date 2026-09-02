@@ -10,6 +10,16 @@ struct MessageComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
+            if composer.replyRootID != nil {
+                HStack {
+                    Text("Replying in thread")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                    Spacer()
+                    Button("Cancel", action: composer.cancelReply)
+                        .buttonStyle(.borderless)
+                }
+            }
             TextEditor(text: $composer.message)
                 .font(.system(size: 13))
                 .scrollContentBackground(.hidden)
