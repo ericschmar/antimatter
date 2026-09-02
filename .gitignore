@@ -22,3 +22,6 @@ test-results/
 playwright-report/
 .hutch
 .cottontail-tmp
+
+# Xcode per-user state
+*.xcodeproj/xcuserdata/

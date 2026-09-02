@@ -67,9 +67,17 @@ may proceed in parallel once their shared prerequisites are stable.
 
 ### Native development
 
-The native client is a macOS 14+ Swift package. Open `Package.swift` in Xcode
-to run the `Antimatter` executable, or run `swift build` from the repository
-root. Use `ANTIMATTER_ENV=development` and, when useful for development,
+The native client is a macOS 14+ Swift package with an Xcode application
+target. Open `Antimatter.xcodeproj` in Xcode and run the `Antimatter` scheme
+to launch the bundled application. The Swift package remains available for
+command-line builds and tests:
+
+```sh
+swift build
+swift test
+```
+
+Use `ANTIMATTER_ENV=development` and, when useful for development,
 `ANTIMATTER_SERVER_URL=https://mattermost.example.com`; credentials must never
 be supplied through environment variables.
 
