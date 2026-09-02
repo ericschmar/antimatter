@@ -101,7 +101,7 @@ be supplied through environment variables.
 | 16 | Workspace splits and layout persistence | Not started | Support split-right and split-down conversation panes, independent pane selection/scroll state, tab movement, and persisted workspace layout. |
 | 17 | Channel and message context actions | Complete | Native context menus support channel opening and favorites, message reply/copy/edit actions, and tab selection, retention, and closure; attachment and reaction controls retain their direct inline actions. |
 | 18 | Search | Complete | A server-backed message search submits Mattermost terms, exposes loading/error states, supports Return-key invocation, and opens a result’s conversation in the workspace. |
-| 19 | Command palette | Not started | Add a keyboard-first command palette for navigation and workspace actions, backed by the same command definitions as menus and shortcuts. |
+| 19 | Command palette | Complete | Command-K opens a keyboard-accessible palette for message search and workspace focus actions, matching the native menu command vocabulary. |
 | 20 | Polls | Not started | Render polls, submit/update votes, show results, and reconcile real-time poll-related post updates. |
 | 21 | Notifications | Not started | Add macOS notification permission, routing to the relevant conversation, quiet behavior, and preference-aware mention/unread triggers. |
 | 22 | Settings and account management | Not started | Provide server/account management and user-facing preferences for notifications, appearance, behavior, and workspace defaults. |

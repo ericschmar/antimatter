@@ -30,6 +30,7 @@
 		A10000000000000000000031 /* SearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* SearchViewModel.swift */; };
 		A10000000000000000000032 /* SearchPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* SearchPanel.swift */; };
 		A10000000000000000000033 /* MattermostSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* MattermostSearch.swift */; };
+		A10000000000000000000034 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* CommandPalette.swift */; };
 		A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* libAntimatterFoundation.a */; };
 		AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24F3048C65F00B4461D /* ChannelSection.swift */; };
 		AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */; };
@@ -75,6 +76,7 @@
 		A20000000000000000000034 /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* SearchPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchPanel.swift; sourceTree = "<group>"; };
 		A20000000000000000000036 /* MattermostSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostSearch.swift; sourceTree = "<group>"; };
+		A20000000000000000000037 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000008 /* libAntimatterFoundation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAntimatterFoundation.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* Antimatter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Antimatter.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -134,6 +136,7 @@
 				A20000000000000000000033 /* PresenceViewModel.swift */,
 				A20000000000000000000034 /* SearchViewModel.swift */,
 				A20000000000000000000035 /* SearchPanel.swift */,
+				A20000000000000000000037 /* CommandPalette.swift */,
 			);
 			path = Sources/AntimatterApp;
 			sourceTree = SOURCE_ROOT;
@@ -276,6 +279,7 @@
 				A10000000000000000000030 /* PresenceViewModel.swift in Sources */,
 				A10000000000000000000031 /* SearchViewModel.swift in Sources */,
 				A10000000000000000000032 /* SearchPanel.swift in Sources */,
+				A10000000000000000000034 /* CommandPalette.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

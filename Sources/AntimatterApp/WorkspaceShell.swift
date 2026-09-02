@@ -12,6 +12,7 @@ struct WorkspaceShell: View {
     @StateObject private var search: SearchViewModel
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
+    @State private var isCommandPalettePresented = false
 
     init(configuration: AppConfiguration, session: MattermostSession) {
         self.configuration = configuration
@@ -60,6 +61,22 @@ struct WorkspaceShell: View {
         .frame(minWidth: 900, minHeight: 600)
         .preferredColorScheme(.dark)
         .focusedSceneValue(\.workspaceFocusAction, focus)
+        .overlay {
+            if isCommandPalettePresented {
+                CommandPalette(
+                    isPresented: $isCommandPalettePresented,
+                    focus: focus,
+                    openSearch: { focusedRegion = .sidebar }
+                )
+            }
+        }
+        .background {
+            Button("") {
+                isCommandPalettePresented.toggle()
+            }
+            .keyboardShortcut("k", modifiers: [.command])
+            .opacity(0)
+        }
         .task {
             focusedRegion = .conversation
             await navigation.load(preferredChannelID: workspace.selectedChannelID)
