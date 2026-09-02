@@ -11,7 +11,7 @@ This project is under active development. It is useful as a lightweight client, 
 ## Features
 
 - Connect with a personal access token, username/password, or SSO.
-- SAML SSO uses Mattermost's desktop-token callback flow. On macOS it opens in the system browser for hardware-key authentication; on Linux it opens in a contained CEF login window so the callback can be handled without custom URL-scheme registration.
+- SAML SSO uses Mattermost's desktop-token callback flow in a contained login window. This lets the app capture its callback consistently across native and bundled-CEF renderers.
 - Real-time post, reaction, and status updates over the Mattermost WebSocket API.
 - Channel, group message, and direct message navigation.
 - Message search, user search, public channel search, and command palette access.
@@ -31,9 +31,8 @@ This project uses Mattermost's publicly available, open source API behavior and 
 - Bun
 - A Mattermost-compatible server
 
-ElectroBun's custom URL scheme support is currently macOS-oriented. The app
-registers `mattermost-dev://` for the Mattermost desktop login callback path on
-macOS; Linux captures that callback in its contained SSO window.
+The app registers `mattermost-dev://` for the Mattermost desktop login callback
+path and captures that callback from its contained SSO window.
 
 ## Getting Started
 

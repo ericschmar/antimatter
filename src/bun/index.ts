@@ -806,13 +806,9 @@ async function startMattermostSsoLogin(request: MattermostSsoLoginRequest) {
 	};
 
 	console.info(
-		`[sso:${request.provider}] opening ${process.platform === "darwin" ? "external browser" : "login window"} ${redactUrl(loginUrl)}`,
+		`[sso:${request.provider}] opening login window ${redactUrl(loginUrl)}`,
 	);
-	if (process.platform === "darwin") {
-		Utils.openExternal(loginUrl);
-	} else {
-		openMattermostSsoWindow(loginUrl, clientToken);
-	}
+	openMattermostSsoWindow(loginUrl, clientToken);
 	return { success: true, loginUrl };
 }
 
@@ -834,7 +830,9 @@ function openMattermostSsoWindow(loginUrl: string, clientToken: string) {
 
 	window.webview.on("will-navigate", (event: unknown) => {
 		const url = readOpenUrl(event);
-		if (!url?.startsWith("mattermost-dev://")) return;
+		if (!url) return;
+		console.info(`[sso] login window navigating to ${redactUrl(url)}`);
+		if (!url.startsWith("mattermost-dev://")) return;
 		void handleMattermostDesktopLoginUrl(url).finally(closeMattermostSsoWindow);
 	});
 	window.on("close", () => {
