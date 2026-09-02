@@ -6,6 +6,7 @@ struct WorkspaceShell: View {
     @StateObject private var navigation: NavigationViewModel
     @StateObject private var workspace: WorkspaceViewModel
     @StateObject private var timeline: TimelineViewModel
+    @StateObject private var realtime: RealtimeUpdatesViewModel
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
 
@@ -14,6 +15,7 @@ struct WorkspaceShell: View {
         _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
         _workspace = StateObject(wrappedValue: WorkspaceViewModel())
         _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
+        _realtime = StateObject(wrappedValue: RealtimeUpdatesViewModel(session: session))
     }
 
     var body: some View {
@@ -56,6 +58,14 @@ struct WorkspaceShell: View {
         .task {
             focusedRegion = .conversation
             await navigation.load(preferredChannelID: workspace.selectedChannelID)
+            await realtime.start()
+        }
+        .onChange(of: realtime.latestEvent) { _, event in
+            guard let event else { return }
+            Task {
+                await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
+                await navigation.reconcile(event)
+            }
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in
             guard let channelID, let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
@@ -65,6 +75,9 @@ struct WorkspaceShell: View {
             AppLogger.application.info(
                 "Workspace scene changed to \(String(describing: newPhase), privacy: .public)."
             )
+            if newPhase == .background {
+                Task { await realtime.stop() }
+            }
         }
     }
 

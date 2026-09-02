@@ -192,8 +192,16 @@ public actor MattermostLocalStore {
     }
 
     public func reconcile(_ event: MattermostWebSocketEvent) throws {
-        guard event.event == "posted", let encodedPost = event.data?["post"]?.data(using: .utf8) else { return }
-        try apply(.posts([try JSONDecoder().decode(MattermostPost.self, from: encodedPost)]))
+        switch event.event {
+        case "posted", "post_edited":
+            guard let post = event.decodedData(MattermostPost.self, forKey: "post") else { return }
+            try apply(.posts([post]))
+        case "post_deleted":
+            guard let postID = event.data?["post_id"]?.stringValue else { return }
+            try apply(.removePost(id: postID))
+        default:
+            return
+        }
     }
 
     private func persist() throws {

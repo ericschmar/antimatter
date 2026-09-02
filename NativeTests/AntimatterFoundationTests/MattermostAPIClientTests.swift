@@ -54,6 +54,27 @@ final class MattermostAPIClientTests: XCTestCase {
         )
     }
 
+    func testWebSocketEventDecodesNestedPostAndUnreadCounts() throws {
+        let data = Data(
+            """
+            {
+              "event": "posted",
+              "data": {
+                "post": "{\\"id\\":\\"post-1\\",\\"channel_id\\":\\"channel-1\\",\\"user_id\\":\\"user-1\\",\\"message\\":\\"A message\\",\\"create_at\\":1,\\"update_at\\":1}",
+                "msg_count": 3,
+                "mention_count": "2"
+              },
+              "seq": 1
+            }
+            """.utf8
+        )
+        let event = try JSONDecoder().decode(MattermostWebSocketEvent.self, from: data)
+
+        XCTAssertEqual(event.decodedData(MattermostPost.self, forKey: "post")?.id, "post-1")
+        XCTAssertEqual(event.data?["msg_count"]?.intValue, 3)
+        XCTAssertEqual(event.data?["mention_count"]?.intValue, 2)
+    }
+
     private func stubbedSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]

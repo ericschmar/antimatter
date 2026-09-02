@@ -83,6 +83,33 @@ final class NavigationViewModel: ObservableObject {
         favoriteIDs.contains(channel.id)
     }
 
+    func reconcile(_ event: MattermostWebSocketEvent) async {
+        switch event.event {
+        case "channel_updated", "channel_created":
+            guard let channel = event.decodedData(MattermostChannel.self, forKey: "channel") else { return }
+            channels.removeAll { $0.id == channel.id }
+            channels.append(channel)
+        case "channel_deleted":
+            guard let channelID = event.data?["channel_id"]?.stringValue else { return }
+            channels.removeAll { $0.id == channelID }
+            if selectedChannelID == channelID {
+                selectedChannelID = publicChannels.first?.id ?? directMessages.first?.id
+            }
+        case "channel_viewed", "channel_unread_updated":
+            guard let channelID = event.data?["channel_id"]?.stringValue,
+                  let index = channels.firstIndex(where: { $0.id == channelID }) else { return }
+            if let unreadCount = event.data?["msg_count"]?.intValue {
+                channels[index].unreadCount = unreadCount
+            }
+            if let mentionCount = event.data?["mention_count"]?.intValue {
+                channels[index].mentionCount = mentionCount
+            }
+        default:
+            return
+        }
+        try? await store.apply(.navigation(teams: teams, channels: channels))
+    }
+
     private var favoriteIDs: Set<String> {
         Set(defaults.stringArray(forKey: favoritesKey) ?? [])
     }

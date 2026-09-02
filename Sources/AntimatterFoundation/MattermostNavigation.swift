@@ -17,8 +17,8 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public let displayName: String
     public let type: String
     public let deleteAt: Int64
-    public let unreadCount: Int
-    public let mentionCount: Int
+    public var unreadCount: Int
+    public var mentionCount: Int
 
     enum CodingKeys: String, CodingKey {
         case id, name, type

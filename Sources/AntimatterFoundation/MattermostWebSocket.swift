@@ -1,9 +1,64 @@
 import Foundation
 
-public struct MattermostWebSocketEvent: Decodable, Sendable {
+public enum MattermostWebSocketValue: Codable, Equatable, Sendable {
+    case string(String)
+    case number(Double)
+    case boolean(Bool)
+    case object([String: MattermostWebSocketValue])
+    case array([MattermostWebSocketValue])
+    case null
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() { self = .null }
+        else if let value = try? container.decode(String.self) { self = .string(value) }
+        else if let value = try? container.decode(Double.self) { self = .number(value) }
+        else if let value = try? container.decode(Bool.self) { self = .boolean(value) }
+        else if let value = try? container.decode([String: MattermostWebSocketValue].self) { self = .object(value) }
+        else { self = .array(try container.decode([MattermostWebSocketValue].self)) }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case let .string(value): try container.encode(value)
+        case let .number(value): try container.encode(value)
+        case let .boolean(value): try container.encode(value)
+        case let .object(value): try container.encode(value)
+        case let .array(value): try container.encode(value)
+        case .null: try container.encodeNil()
+        }
+    }
+
+    public var stringValue: String? {
+        if case let .string(value) = self { return value }
+        return nil
+    }
+
+    public var intValue: Int? {
+        switch self {
+        case let .string(value): Int(value)
+        case let .number(value): Int(value)
+        default: nil
+        }
+    }
+}
+
+public struct MattermostWebSocketEvent: Decodable, Equatable, Sendable {
     public let event: String
-    public let data: [String: String]?
+    public let data: [String: MattermostWebSocketValue]?
     public let seq: Int?
+
+    public func decodedData<Value: Decodable>(_ type: Value.Type, forKey key: String) -> Value? {
+        guard let value = data?[key] else { return nil }
+        let data: Data?
+        if let string = value.stringValue {
+            data = string.data(using: .utf8)
+        } else {
+            data = try? JSONEncoder().encode(value)
+        }
+        return data.flatMap { try? JSONDecoder().decode(Value.self, from: $0) }
+    }
 }
 
 public actor MattermostWebSocket {
