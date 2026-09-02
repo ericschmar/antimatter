@@ -125,4 +125,9 @@ final class TimelineViewModel: ObservableObject {
     private func replace(_ post: MattermostPost) {
         posts = chronological(posts.filter { $0.id != post.id } + [post])
     }
+
+    func appendSentPost(_ post: MattermostPost) async {
+        replace(post)
+        try? await store.apply(.posts([post]))
+    }
 }

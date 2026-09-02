@@ -7,6 +7,7 @@ struct WorkspaceShell: View {
     @StateObject private var workspace: WorkspaceViewModel
     @StateObject private var timeline: TimelineViewModel
     @StateObject private var realtime: RealtimeUpdatesViewModel
+    @StateObject private var composer: ComposerViewModel
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
 
@@ -16,6 +17,7 @@ struct WorkspaceShell: View {
         _workspace = StateObject(wrappedValue: WorkspaceViewModel())
         _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
         _realtime = StateObject(wrappedValue: RealtimeUpdatesViewModel(session: session))
+        _composer = StateObject(wrappedValue: ComposerViewModel(session: session))
     }
 
     var body: some View {
@@ -39,7 +41,7 @@ struct WorkspaceShell: View {
                         FocusRing(isVisible: focusedRegion == .sidebar)
                     }
 
-                ConversationPlaceholder(workspace: workspace, timeline: timeline)
+                ConversationPlaceholder(workspace: workspace, timeline: timeline, composer: composer)
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
                     .focused($focusedRegion, equals: .conversation)
@@ -70,6 +72,9 @@ struct WorkspaceShell: View {
         .onChange(of: navigation.selectedChannelID) { _, channelID in
             guard let channelID, let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
             workspace.preview(channel)
+        }
+        .onChange(of: workspace.selectedChannelID, initial: true) { _, channelID in
+            composer.select(channelID: channelID)
         }
         .onChange(of: scenePhase, initial: true) { _, newPhase in
             AppLogger.application.info(
@@ -195,6 +200,7 @@ private struct SidebarPlaceholder: View {
 private struct ConversationPlaceholder: View {
     @ObservedObject var workspace: WorkspaceViewModel
     @ObservedObject var timeline: TimelineViewModel
+    @ObservedObject var composer: ComposerViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -220,6 +226,13 @@ private struct ConversationPlaceholder: View {
 
             MessageTimeline(timeline: timeline, channelID: selectedTab?.channelID)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+                .overlay(WorkspaceTheme.divider)
+
+            MessageComposer(composer: composer, channelID: selectedTab?.channelID) { post in
+                Task { await timeline.appendSentPost(post) }
+            }
         }
         .background(WorkspaceTheme.canvas)
     }
