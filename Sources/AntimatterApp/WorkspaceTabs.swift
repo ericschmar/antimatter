@@ -39,6 +39,14 @@ struct WorkspaceTabs: View {
                     .frame(height: WorkspaceTheme.titleHeight)
                     .background(workspace.selectedChannelID == tab.channelID ? WorkspaceTheme.raisedSurface : .clear)
                     .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+                    .contextMenu {
+                        Button("Select tab") { workspace.select(tab) }
+                        if tab.isPreview {
+                            Button("Keep tab open") { workspace.keep(tab) }
+                        }
+                        Divider()
+                        Button("Close tab") { workspace.close(tab) }
+                    }
                 }
             }
             .padding(.horizontal, 8)

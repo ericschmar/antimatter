@@ -99,7 +99,7 @@ be supplied through environment variables.
 | 14 | Replies and post editing | Complete | Posts carry Mattermost thread roots; native Reply actions establish cancellable thread context in the persisted composer, while the post editor foundation sends REST updates and preserves server permission/error feedback. |
 | 15 | Typing and presence | Complete | The authenticated WebSocket sends channel/thread typing actions; incoming typing indicators expire after five seconds and status-change events maintain live user presence state. |
 | 16 | Workspace splits and layout persistence | Not started | Support split-right and split-down conversation panes, independent pane selection/scroll state, tab movement, and persisted workspace layout. |
-| 17 | Channel and message context actions | Not started | Provide native context menus and mouse workflows for posts, channels, tabs, attachments, reactions, and pane operations. |
+| 17 | Channel and message context actions | Complete | Native context menus support channel opening and favorites, message reply/copy/edit actions, and tab selection, retention, and closure; attachment and reaction controls retain their direct inline actions. |
 | 18 | Search | Not started | Implement server-backed message/channel search, result navigation, filters, keyboard invocation, and opening results in the workspace. |
 | 19 | Command palette | Not started | Add a keyboard-first command palette for navigation and workspace actions, backed by the same command definitions as menus and shortcuts. |
 | 20 | Polls | Not started | Render polls, submit/update votes, show results, and reconcile real-time poll-related post updates. |

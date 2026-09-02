@@ -1,4 +1,5 @@
 import AntimatterFoundation
+import AppKit
 import SwiftUI
 
 struct MessageTimeline: View {
@@ -23,7 +24,11 @@ struct MessageTimeline: View {
                         ForEach(groups) { group in
                             TimelineDateHeader(date: group.date)
                             ForEach(group.posts) { post in
-                                MessageRow(post: post, onReply: onReply) { post, emojiName in
+                                MessageRow(
+                                    post: post,
+                                    onReply: onReply,
+                                    onEdit: timeline.beginEditing
+                                ) { post, emojiName in
                                     timeline.toggleReaction(on: post, emojiName: emojiName)
                                 }
                                     .id(post.id)
@@ -101,6 +106,7 @@ private struct TimelineDateHeader: View {
 private struct MessageRow: View {
     let post: MattermostPost
     let onReply: (MattermostPost) -> Void
+    let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
 
     var body: some View {
@@ -137,6 +143,14 @@ private struct MessageRow: View {
         .accessibilityLabel("\(author), \(timestamp), \(post.message)")
         .contextMenu {
             Button("Reply") { onReply(post) }
+            Button("Copy message") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(post.message, forType: .string)
+            }
+            Divider()
+            Button("Edit message") {
+                onEdit(post)
+            }
         }
     }
 

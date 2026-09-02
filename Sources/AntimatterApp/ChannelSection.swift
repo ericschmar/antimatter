@@ -47,6 +47,9 @@ struct ChannelSection: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
+                        Button("Open in workspace") {
+                            navigation.selectedChannelID = channel.id
+                        }
                         Button(navigation.isFavorite(channel) ? "Remove from Favorites" : "Add to Favorites") {
                             navigation.toggleFavorite(channel)
                         }
