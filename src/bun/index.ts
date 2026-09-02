@@ -94,6 +94,7 @@ let websocketClosedByUser = false;
 let websocketConfig: MattermostWebSocketConfig | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let mattermostSsoWindow: BrowserWindow | null = null;
+let mattermostSsoCallbackServer: { stop: () => void } | null = null;
 let desktopSsoCallbackInFlight = false;
 let pendingDesktopSsoLogin: {
 	clientToken: string;
@@ -824,10 +825,12 @@ async function startMattermostSsoLogin(request: MattermostSsoLoginRequest) {
 
 function openMattermostSsoWindow(loginUrl: string, clientToken: string) {
 	closeMattermostSsoWindow();
+	const callbackUrl = startMattermostSsoCallbackServer(clientToken);
 
 	const window = new BrowserWindow({
 		title: "Sign in to Mattermost",
 		url: loginUrl,
+		preload: createMattermostSsoPreload(callbackUrl),
 		titleBarStyle: "default",
 		transparent: false,
 		passthrough: false,
@@ -857,6 +860,56 @@ function closeMattermostSsoWindow() {
 	const window = mattermostSsoWindow;
 	mattermostSsoWindow = null;
 	window?.close();
+	mattermostSsoCallbackServer?.stop();
+	mattermostSsoCallbackServer = null;
+}
+
+function startMattermostSsoCallbackServer(clientToken: string) {
+	mattermostSsoCallbackServer?.stop();
+
+	const callbackNonce = randomBytes(32).toString("hex");
+	const server = Bun.serve({
+		hostname: "127.0.0.1",
+		port: 0,
+		fetch(request) {
+			const url = new URL(request.url);
+			const serverToken = url.searchParams.get("server_token");
+			const receivedClientToken = url.searchParams.get("client_token");
+			const validCallback =
+				url.pathname === "/mattermost-sso-callback" &&
+				url.searchParams.get("nonce") === callbackNonce &&
+				serverToken &&
+				receivedClientToken === clientToken;
+			if (!validCallback) return new Response("Invalid SSO callback.", { status: 400 });
+
+			const callbackUrl = new URL(
+				"mattermost-dev://callback/login/desktop",
+			);
+			callbackUrl.searchParams.set("client_token", receivedClientToken);
+			callbackUrl.searchParams.set("server_token", serverToken);
+			receiveMattermostDesktopLoginUrl(callbackUrl.toString());
+			return new Response("Completing Mattermost sign-in…", {
+				headers: { "Content-Type": "text/plain; charset=utf-8" },
+			});
+		},
+	});
+	mattermostSsoCallbackServer = server;
+	return `http://127.0.0.1:${server.port}/mattermost-sso-callback?nonce=${callbackNonce}`;
+}
+
+function createMattermostSsoPreload(callbackUrl: string) {
+	return `
+		(() => {
+			const url = new URL(window.location.href);
+			const serverToken = url.searchParams.get("server_token");
+			const clientToken = url.searchParams.get("client_token");
+			if (url.pathname !== "/login/desktop" || !serverToken || !clientToken) return;
+			const callback = new URL(${JSON.stringify(callbackUrl)});
+			callback.searchParams.set("server_token", serverToken);
+			callback.searchParams.set("client_token", clientToken);
+			window.location.replace(callback.toString());
+		})();
+	`;
 }
 
 function getMattermostSsoLoginUrl(
