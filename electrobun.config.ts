@@ -10,6 +10,10 @@ export default {
 		urlSchemes: ["mattermost-dev"],
 	},
 	build: {
+	        // Preserve the v1 Bun main process during the v2 migration. The
+	        // existing main process uses Bun APIs and can move to Cottontail
+	        // independently.
+	        mainProcess: "bun",
 		bun: {
 			define: {
 				__ANTIMATTER_GIPHY_API_KEY__: JSON.stringify(buildGiphyApiKey),
@@ -35,6 +39,21 @@ export default {
 		copy: {
 			"src/mainview/index.html": "views/mainview/index.html",
 			"src/mainview/index.css": "views/mainview/index.css",
+			// CSS @imports are resolved by the WebKit view rather than
+			// transformed by `build.copy`. Keep imported stylesheets under
+			// the same paths the view resolves from `index.css`.
+			"node_modules/@radix-ui/colors/grass-dark.css":
+			        "views/mainview/@radix-ui/colors/grass-dark.css",
+			"node_modules/@radix-ui/colors/slate-dark.css":
+			        "views/mainview/@radix-ui/colors/slate-dark.css",
+			"node_modules/@radix-ui/colors/amber-dark.css":
+			        "views/mainview/@radix-ui/colors/amber-dark.css",
+			"node_modules/@radix-ui/colors/red-dark.css":
+			        "views/mainview/@radix-ui/colors/red-dark.css",
+			"node_modules/dockview-react/dist/styles/dockview.css":
+			        "views/mainview/dockview-react/dist/styles/dockview.css",
+			"src/mainview/components/mui-headless-timeline/MuiMessageTimeline.css":
+			        "views/mainview/components/mui-headless-timeline/MuiMessageTimeline.css",
 			"src/childview/index.html": "views/childview/index.html",
 			"src/childview/index.css": "views/childview/index.css",
 			"node_modules/font-list/libs": "bun/libs",
