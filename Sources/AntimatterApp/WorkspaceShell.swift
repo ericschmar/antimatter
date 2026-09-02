@@ -3,6 +3,8 @@ import SwiftUI
 
 struct WorkspaceShell: View {
     let configuration: AppConfiguration
+    @Environment(\.scenePhase) private var scenePhase
+    @FocusState private var focusedRegion: WorkspaceFocusTarget?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,14 +18,54 @@ struct WorkspaceShell: View {
                         maxWidth: 360,
                         maxHeight: .infinity
                     )
+                    .focusable()
+                    .focused($focusedRegion, equals: .sidebar)
+                    .accessibilityLabel("Workspace sidebar")
+                    .accessibilityHint("Contains teams, channels, and direct messages.")
+                    .accessibilityIdentifier("workspace-sidebar")
+                    .overlay {
+                        FocusRing(isVisible: focusedRegion == .sidebar)
+                    }
 
                 ConversationPlaceholder()
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
+                    .focusable()
+                    .focused($focusedRegion, equals: .conversation)
+                    .accessibilityLabel("Conversation workspace")
+                    .accessibilityHint("Displays the selected conversation.")
+                    .accessibilityIdentifier("conversation-workspace")
+                    .overlay {
+                        FocusRing(isVisible: focusedRegion == .conversation)
+                    }
             }
         }
         .background(WorkspaceTheme.canvas)
         .frame(minWidth: 900, minHeight: 600)
         .preferredColorScheme(.dark)
+        .focusedSceneValue(\.workspaceFocusAction, focus)
+        .task {
+            focusedRegion = .conversation
+        }
+        .onChange(of: scenePhase, initial: true) { _, newPhase in
+            AppLogger.application.info(
+                "Workspace scene changed to \(String(describing: newPhase), privacy: .public)."
+            )
+        }
+    }
+
+    private func focus(_ target: WorkspaceFocusTarget) {
+        focusedRegion = target
+    }
+}
+
+private struct FocusRing: View {
+    let isVisible: Bool
+
+    var body: some View {
+        Rectangle()
+            .strokeBorder(WorkspaceTheme.accent.opacity(isVisible ? 0.9 : 0), lineWidth: 2)
+            .padding(1)
+            .allowsHitTesting(false)
     }
 }
 

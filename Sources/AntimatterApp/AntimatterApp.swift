@@ -16,9 +16,12 @@ struct AntimatterApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Antimatter") {
+        WindowGroup("Antimatter", id: "workspace") {
             WorkspaceShell(configuration: configuration)
         }
         .defaultSize(width: 1_200, height: 800)
+        .commands {
+            WorkspaceCommands()
+        }
     }
 }

@@ -77,7 +77,7 @@ be supplied through environment variables.
 | ---: | --- | --- | --- |
 | 1 | Native application foundation | Complete | macOS 14+ SwiftUI package target, `AntimatterFoundation` boundary, unified logging, environment configuration, Keychain storage boundary, and unit-test target are in place. |
 | 2 | Visual system and desktop shell | Complete | Graphite SwiftUI theme, typography, dividers, semantic green/amber colors, 32 pt title strip, 54 pt conversation header, and resizable 248 pt sidebar shell are in place. |
-| 3 | Accessibility, keyboard, and window foundations | Not started | Define accessibility identifiers/labels, focus behavior, menu-command infrastructure, keyboard-shortcut routing, and multi-window lifecycle before feature UI depends on them. |
+| 3 | Accessibility, keyboard, and window foundations | Complete | Accessible sidebar/workspace containers, keyboard focus routing, native commands, new-workspace-window support, and scene lifecycle logging are in place. |
 | 4 | Server connection and authentication | Not started | Support server discovery/configuration plus password, personal-access-token, and SAML SSO sign-in; keep credentials exclusively in Keychain. |
 | 5 | Mattermost API client and transport | Not started | Build authenticated REST requests, pagination, error handling, reconnecting `URLSessionWebSocketTask` transport, and an API test harness. |
 | 6 | Local data store and synchronization | Not started | Model users, teams, channels, posts, preferences, unread state, and event reconciliation; persist enough data for fast startup and offline-tolerant rendering. |
