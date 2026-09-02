@@ -10,13 +10,14 @@ final class NavigationViewModel: ObservableObject {
     @Published private(set) var isLoading = false
 
     private let loader: MattermostNavigationLoader
+    private let store: MattermostLocalStore
     private let defaults: UserDefaults
     private let favoritesKey = "favoriteMattermostChannelIDs"
 
     init(session: MattermostSession, defaults: UserDefaults = .standard) {
-        loader = MattermostNavigationLoader(
-            client: MattermostAPIClient(serverURL: session.serverURL, token: session.token)
-        )
+        let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
+        loader = MattermostNavigationLoader(client: client)
+        store = MattermostLocalStore(serverURL: session.serverURL)
         self.defaults = defaults
     }
 
@@ -48,15 +49,22 @@ final class NavigationViewModel: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         loadError = nil
+        if let cached = try? await store.load() {
+            teams = cached.teams
+            channels = cached.channels
+        }
         do {
             let snapshot = try await loader.load()
             teams = snapshot.teams.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
             channels = snapshot.channels
+            try await store.apply(.navigation(teams: teams, channels: channels))
             selectedChannelID = preferredChannelID.flatMap { preferredID in
                 channels.contains(where: { $0.id == preferredID }) ? preferredID : nil
             } ?? selectedChannelID ?? publicChannels.first?.id ?? directMessages.first?.id
         } catch {
-            loadError = error.localizedDescription
+            if teams.isEmpty && channels.isEmpty {
+                loadError = error.localizedDescription
+            }
         }
         isLoading = false
     }

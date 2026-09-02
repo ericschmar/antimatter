@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MattermostTeam: Decodable, Identifiable, Equatable, Sendable {
+public struct MattermostTeam: Codable, Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
     public let displayName: String
@@ -11,7 +11,7 @@ public struct MattermostTeam: Decodable, Identifiable, Equatable, Sendable {
     }
 }
 
-public struct MattermostChannel: Decodable, Identifiable, Equatable, Sendable {
+public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
     public let displayName: String
@@ -37,6 +37,17 @@ public struct MattermostChannel: Decodable, Identifiable, Equatable, Sendable {
         deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
         unreadCount = try values.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
         mentionCount = try values.decodeIfPresent(Int.self, forKey: .mentionCount) ?? 0
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(name, forKey: .name)
+        try values.encode(displayName, forKey: .displayName)
+        try values.encode(type, forKey: .type)
+        try values.encode(deleteAt, forKey: .deleteAt)
+        try values.encode(unreadCount, forKey: .unreadCount)
+        try values.encode(mentionCount, forKey: .mentionCount)
     }
 }
 

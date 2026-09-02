@@ -13,17 +13,9 @@
 		A10000000000000000000004 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* AppConfiguration.swift */; };
 		A10000000000000000000005 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AppLogger.swift */; };
 		A10000000000000000000006 /* SecureValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* SecureValueStore.swift */; };
-		A10000000000000000000008 /* AuthenticationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* AuthenticationScreen.swift */; };
-		A10000000000000000000009 /* AuthenticationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* AuthenticationViewModel.swift */; };
-		A10000000000000000000010 /* ChannelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ChannelSection.swift */; };
-		A10000000000000000000011 /* NavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* NavigationViewModel.swift */; };
-		A10000000000000000000012 /* WorkspaceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* WorkspaceCommands.swift */; };
 		A10000000000000000000013 /* WorkspaceTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* WorkspaceTabs.swift */; };
 		A10000000000000000000014 /* WorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* WorkspaceViewModel.swift */; };
-		A10000000000000000000015 /* MattermostAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* MattermostAuthentication.swift */; };
-		A10000000000000000000016 /* MattermostAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* MattermostAPIClient.swift */; };
-		A10000000000000000000017 /* MattermostWebSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* MattermostWebSocket.swift */; };
-		A10000000000000000000018 /* MattermostNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* MattermostNavigation.swift */; };
+		A10000000000000000000019 /* MattermostLocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* MattermostLocalStore.swift */; };
 		A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* libAntimatterFoundation.a */; };
 		AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24F3048C65F00B4461D /* ChannelSection.swift */; };
 		AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */; };
@@ -53,17 +45,9 @@
 		A20000000000000000000004 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* SecureValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStore.swift; sourceTree = "<group>"; };
-		A20000000000000000000010 /* AuthenticationScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationScreen.swift; sourceTree = "<group>"; };
-		A20000000000000000000011 /* AuthenticationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationViewModel.swift; sourceTree = "<group>"; };
-		A20000000000000000000012 /* ChannelSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelSection.swift; sourceTree = "<group>"; };
-		A20000000000000000000013 /* NavigationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationViewModel.swift; sourceTree = "<group>"; };
-		A20000000000000000000014 /* WorkspaceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCommands.swift; sourceTree = "<group>"; };
 		A20000000000000000000015 /* WorkspaceTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabs.swift; sourceTree = "<group>"; };
 		A20000000000000000000016 /* WorkspaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceViewModel.swift; sourceTree = "<group>"; };
-		A20000000000000000000017 /* MattermostAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostAuthentication.swift; sourceTree = "<group>"; };
-		A20000000000000000000018 /* MattermostAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostAPIClient.swift; sourceTree = "<group>"; };
-		A20000000000000000000019 /* MattermostWebSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostWebSocket.swift; sourceTree = "<group>"; };
-		A20000000000000000000020 /* MattermostNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostNavigation.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* MattermostLocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostLocalStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000008 /* libAntimatterFoundation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAntimatterFoundation.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* Antimatter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Antimatter.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -111,11 +95,6 @@
 				A20000000000000000000001 /* AntimatterApp.swift */,
 				A20000000000000000000002 /* WorkspaceShell.swift */,
 				A20000000000000000000003 /* WorkspaceTheme.swift */,
-				A20000000000000000000010 /* AuthenticationScreen.swift */,
-				A20000000000000000000011 /* AuthenticationViewModel.swift */,
-				A20000000000000000000012 /* ChannelSection.swift */,
-				A20000000000000000000013 /* NavigationViewModel.swift */,
-				A20000000000000000000014 /* WorkspaceCommands.swift */,
 				A20000000000000000000015 /* WorkspaceTabs.swift */,
 				A20000000000000000000016 /* WorkspaceViewModel.swift */,
 			);
@@ -132,10 +111,7 @@
 				A20000000000000000000004 /* AppConfiguration.swift */,
 				A20000000000000000000005 /* AppLogger.swift */,
 				A20000000000000000000006 /* SecureValueStore.swift */,
-				A20000000000000000000017 /* MattermostAuthentication.swift */,
-				A20000000000000000000018 /* MattermostAPIClient.swift */,
-				A20000000000000000000019 /* MattermostWebSocket.swift */,
-				A20000000000000000000020 /* MattermostNavigation.swift */,
+				A20000000000000000000021 /* MattermostLocalStore.swift */,
 			);
 			path = Sources/AntimatterFoundation;
 			sourceTree = SOURCE_ROOT;
@@ -242,11 +218,6 @@
 				AC7AC2563048C65F00B4461D /* NavigationViewModel.swift in Sources */,
 				A10000000000000000000002 /* WorkspaceShell.swift in Sources */,
 				A10000000000000000000003 /* WorkspaceTheme.swift in Sources */,
-				A10000000000000000000008 /* AuthenticationScreen.swift in Sources */,
-				A10000000000000000000009 /* AuthenticationViewModel.swift in Sources */,
-				A10000000000000000000010 /* ChannelSection.swift in Sources */,
-				A10000000000000000000011 /* NavigationViewModel.swift in Sources */,
-				A10000000000000000000012 /* WorkspaceCommands.swift in Sources */,
 				A10000000000000000000013 /* WorkspaceTabs.swift in Sources */,
 				A10000000000000000000014 /* WorkspaceViewModel.swift in Sources */,
 			);
@@ -263,10 +234,7 @@
 				AC7AC25D3048C66C00B4461D /* MattermostNavigation.swift in Sources */,
 				AC7AC25E3048C66C00B4461D /* MattermostAuthentication.swift in Sources */,
 				A10000000000000000000006 /* SecureValueStore.swift in Sources */,
-				A10000000000000000000015 /* MattermostAuthentication.swift in Sources */,
-				A10000000000000000000016 /* MattermostAPIClient.swift in Sources */,
-				A10000000000000000000017 /* MattermostWebSocket.swift in Sources */,
-				A10000000000000000000018 /* MattermostNavigation.swift in Sources */,
+				A10000000000000000000019 /* MattermostLocalStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
