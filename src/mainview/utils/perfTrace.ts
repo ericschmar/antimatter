@@ -113,9 +113,7 @@ export function observeLongTasks(): () => void {
 
 /** Removes query values and opaque resource identifiers from a route in logs. */
 export function sanitizePerfRoute(path: string): string {
-	return path
-		.replace(/\?.*$/, "")
-		.replace(/\/[a-z0-9]{10,}/gi, "/:id");
+	return path.replace(/\?.*$/, "").replace(/\/[a-z0-9]{10,}/gi, "/:id");
 }
 
 /**
