@@ -17,6 +17,12 @@ Use this skill when starting or executing coding work in the Antimatter reposito
   - `bd close <id>` to complete work. Stage/commit `.dirge/skills/**` edits before the session-close `git pull --rebase` — an unstaged skill patch makes the rebase fail while `git push` still succeeds, leaving stray uncommitted files.- Do not create markdown TODO files for project task tracking.
 - Beads IDs look like `antimatter-4q5`; the built-in issue/todo board tool uses separate `drg-*` IDs — `bd update drg-...` fails with "no issue found". Find Beads IDs via `bd list --json` (or `bd list | grep <term>`). `bd create <title> --type feature --priority 2 --description <desc> --acceptance <criteria>` works (`--priority` accepts both `P1`-style and bare numbers); there is no `--tag` flag; `-d` and `--acceptance` are both optional.
 
+## Design-only planning
+
+- `CLAUDE.md` places feature work in design-only mode until the user explicitly approves a presented design. During this phase, explore the repository and relevant external component sources, ask one concrete clarifying question at a time, define scope/non-goals, compare 2–3 approaches, and request approval before creating implementation files.
+- For a SwiftUI recreation of Antimatter, preserve its compact desktop Mattermost-client character rather than importing mobile messenger conventions: favor flat, column-aligned message rows, dense sidebar/workspace layouts, thin borders, restrained radii, graphite surfaces, grass-green actions, and amber attention states. Treat Nibware components as selectively adapted source primitives; do not adopt its rounded chat-bubble or social-card visual language unchanged.
+- The native recreation target agreed in planning is a clean-room macOS 14+ SwiftUI app with a phased full-parity roadmap. The recommended architecture is a SwiftUI shell with small AppKit bridges where desktop workspace behavior requires them (resizable/nested split panes, closable tabs, rich text editing), backed by URLSession REST/WebSockets and Keychain credentials rather than ElectroBun/Bun.
+
 ## Code-change process
 
 - Follow TDD for code changes:
