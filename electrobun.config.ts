@@ -52,6 +52,32 @@ export default {
 			        "views/mainview/@radix-ui/colors/red-dark.css",
 			"node_modules/dockview-react/dist/styles/dockview.css":
 			        "views/mainview/dockview-react/dist/styles/dockview.css",
+			"node_modules/react-resizable/css/styles.css":
+			        "views/mainview/react-resizable/css/styles.css",
+			"node_modules/@iamjariwala/react-doc-viewer/dist/index.css":
+			        "views/mainview/@iamjariwala/react-doc-viewer/dist/index.css",
+			"node_modules/@mdxeditor/editor/dist/style.css":
+			        "views/mainview/@mdxeditor/editor/style.css",
+			"node_modules/@uiw/react-markdown-preview/markdown.css":
+			        "views/mainview/@uiw/react-markdown-preview/markdown.css",
+			"node_modules/@uiw/react-md-editor/markdown-editor.css":
+			        "views/mainview/@uiw/react-md-editor/markdown-editor.css",
+			"src/mainview/components/AuthScreen.css":
+			        "views/mainview/components/AuthScreen.css",
+			"src/mainview/components/MessageComposer.css":
+			        "views/mainview/components/MessageComposer.css",
+			"src/mainview/components/MessageTimeline.css":
+			        "views/mainview/components/MessageTimeline.css",
+			"src/mainview/components/NewMessageComposer.css":
+			        "views/mainview/components/NewMessageComposer.css",
+			"src/mainview/components/PollDialog.css":
+			        "views/mainview/components/PollDialog.css",
+			"src/mainview/components/Sidebar.css":
+			        "views/mainview/components/Sidebar.css",
+			"src/mainview/components/Titlebar.css":
+			        "views/mainview/components/Titlebar.css",
+			"src/mainview/components/WebRTCCallUI.css":
+			        "views/mainview/components/WebRTCCallUI.css",
 			"src/mainview/components/mui-headless-timeline/MuiMessageTimeline.css":
 			        "views/mainview/components/mui-headless-timeline/MuiMessageTimeline.css",
 			"src/childview/index.html": "views/childview/index.html",

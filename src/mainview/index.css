@@ -3,6 +3,18 @@
 @import url("@radix-ui/colors/amber-dark.css");
 @import url("@radix-ui/colors/red-dark.css");
 @import url("dockview-react/dist/styles/dockview.css");
+@import url("react-resizable/css/styles.css");
+@import url("@mdxeditor/editor/style.css");
+@import url("@uiw/react-markdown-preview/markdown.css");
+@import url("@uiw/react-md-editor/markdown-editor.css");
+@import url("./components/AuthScreen.css");
+@import url("./components/MessageComposer.css");
+@import url("./components/MessageTimeline.css");
+@import url("./components/NewMessageComposer.css");
+@import url("./components/PollDialog.css");
+@import url("./components/Sidebar.css");
+@import url("./components/Titlebar.css");
+@import url("./components/WebRTCCallUI.css");
 @import url("./components/mui-headless-timeline/MuiMessageTimeline.css");
 
 :root {
