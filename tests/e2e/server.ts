@@ -5,24 +5,22 @@ const projectRoot = join(import.meta.dir, "..", "..");
 const outDir = join(projectRoot, "build", "e2e");
 const port = Number(process.env.E2E_PORT ?? 4511);
 
-const buildArgs = [
-	"bun",
-	"build",
-	"tests/e2e/harness/harness.tsx",
-	"--outdir",
-	"build/e2e",
-	"--target=browser",
-	"--format=esm",
-];
-if (!process.env.E2E_NO_MINIFY) buildArgs.push("--minify");
-const build = Bun.spawnSync({
-	cmd: buildArgs,
-	cwd: projectRoot,
-	stderr: "pipe",
-	stdout: "pipe",
+const build = await Bun.build({
+	entrypoints: [join(projectRoot, "tests/e2e/harness/harness.tsx")],
+	outdir: outDir,
+	target: "browser",
+	format: "esm",
+	minify: !process.env.E2E_NO_MINIFY,
+	alias: {
+		react: "preact/compat",
+		"react-dom": "preact/compat",
+		"react-dom/client": "preact/compat/client",
+		"react-dom/test-utils": "preact/test-utils",
+		"react/jsx-runtime": "preact/jsx-runtime",
+	},
 });
 if (!build.success) {
-	console.error(build.stderr.toString());
+	console.error(build.logs);
 	process.exit(1);
 }
 

@@ -43,7 +43,7 @@ import {
 	type MessageComposerHandle,
 	type MessageComposerProps,
 } from "./MessageComposer";
-import { MuiMessageTimeline } from "./mui-headless-timeline/MuiMessageTimeline";
+import { MessageTimeline } from "./MessageTimeline";
 import { NewMessageComposer } from "./NewMessageComposer";
 
 type ChatWorkspaceProps = {
@@ -62,6 +62,7 @@ type ChatWorkspaceProps = {
 	) => void;
 	onLayoutChange: (layout: unknown) => void;
 	onOpenAttachment: (file: MattermostFileInfo) => Promise<void>;
+	resolveImageSrc: (src: string) => Promise<string>;
 	onShowMessageContextMenu: (post: MattermostPost) => void;
 	onSetUserColor: (userId: string, color: string) => void;
 	onStartDm: (userId: string) => void;
@@ -189,12 +190,21 @@ function ChatPanel({ api, params }: IDockviewPanelProps<ChatPanelParams>) {
 				users={data.users}
 				onOpenUserPicker={workspaceProps.onOpenUserPicker}
 			/>
-			<MuiMessageTimeline
-				channel={panelChannel}
+			<MessageTimeline
 				channelId={params.channelId}
 				loading={workspaceProps.loading}
 				loadingHistory={workspaceProps.loadingHistory}
 				posts={panelPosts}
+				currentUserId={data.currentUserId}
+				users={data.users}
+				userColors={data.userColors}
+				userImages={data.userImages}
+				userStatuses={data.userStatuses}
+				resolveImageSrc={workspaceProps.resolveImageSrc}
+				ownMessageIndicatorColor={data.settings.ownMessageIndicatorColor}
+				showOwnMessageIndicators={data.settings.showOwnMessageIndicators}
+				showProfilePictures={data.settings.showProfilePictures}
+				useNewComposer={data.settings.useNewComposer}
 				typingUsers={panelTypingUsers}
 				onOpenAttachment={workspaceProps.onOpenAttachment}
 				onShowMessageContextMenu={workspaceProps.onShowMessageContextMenu}
@@ -255,6 +265,7 @@ export function ChatWorkspace({
 	onOpenTab,
 	onLayoutChange,
 	onOpenAttachment,
+	resolveImageSrc,
 	onShowMessageContextMenu,
 	onSetUserColor,
 	onStartDm,
@@ -317,6 +328,7 @@ export function ChatWorkspace({
 			onCloseTab,
 			onOpenTab,
 			onOpenAttachment,
+			resolveImageSrc,
 			onShowMessageContextMenu,
 			onSetUserColor,
 			onStartDm,
@@ -343,6 +355,7 @@ export function ChatWorkspace({
 			onCloseTab,
 			onOpenTab,
 			onOpenAttachment,
+			resolveImageSrc,
 			onShowMessageContextMenu,
 			onSetUserColor,
 			onStartDm,

@@ -238,7 +238,7 @@ export function MessageTimeline({
 
 	return (
 		<div
-			className="message-scroll"
+			className="message-scroll mui-message-list-scroller"
 			ref={viewportRef}
 			style={
 				{
@@ -275,6 +275,10 @@ export function MessageTimeline({
 								<div
 									className="message-row"
 									data-index={virtualRow.index}
+									data-message-list-row=""
+									data-message-id={
+										row.type === "message" ? row.post.id : undefined
+									}
 									key={row.key}
 									ref={virtualizer.measureElement}
 									style={{ transform: `translateY(${virtualRow.start}px)` }}

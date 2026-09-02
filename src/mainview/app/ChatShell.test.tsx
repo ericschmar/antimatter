@@ -155,6 +155,7 @@ function renderChatShell(
 				minComposerHeight={80}
 				minSidebarWidth={220}
 				posts={options.posts ?? []}
+				resolveImageSrc={async (src) => src}
 				workspacePosts={options.workspacePosts ?? options.posts ?? []}
 				sections={{
 					archived: [],

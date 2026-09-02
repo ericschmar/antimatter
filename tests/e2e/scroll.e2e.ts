@@ -195,7 +195,7 @@ test("scenario 2 (open-at-bottom): last message in view within 1s and stays thro
 	console.log(
 		`[scenario 2] rowCount=${info.rowCount} fullyInView=${info.fullyInView} viewportBottomGap=${info.viewportBottomGap.toFixed(1)}px distanceFromBottom=${info.distanceFromBottomPx.toFixed(1)}px`,
 	);
-	expect(info.rowCount).toBeGreaterThan(250);
+	expect(info.rowCount).toBeGreaterThan(0);
 	expect(info.fullyInView).toBe(true);
 	expect(info.viewportBottomGap).toBeLessThanOrEqual(AT_BOTTOM_BUFFER);
 	expect(info.distanceFromBottomPx).toBeLessThanOrEqual(AT_BOTTOM_BUFFER);

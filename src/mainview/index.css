@@ -15,7 +15,6 @@
 @import url("./components/Sidebar.css");
 @import url("./components/Titlebar.css");
 @import url("./components/WebRTCCallUI.css");
-@import url("./components/mui-headless-timeline/MuiMessageTimeline.css");
 
 :root {
 	color-scheme: dark;

@@ -1,7 +1,7 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { MuiMessageTimeline } from "../../../src/mainview/components/mui-headless-timeline/MuiMessageTimeline";
+import { MessageTimeline } from "../../../src/mainview/components/MessageTimeline";
 import { chatDataActions } from "../../../src/mainview/state/chatDataStore";
 import type { AppSettings, MattermostPost } from "../../../src/mainview/types";
 import "../../../src/mainview/index.css";
@@ -13,6 +13,9 @@ import {
 } from "./fixture";
 
 const BASE_TIME = Date.UTC(2026, 0, 6, 9, 0, 0);
+const fixtureUsers = makeFixtureUsers();
+const emptyStringMap: Record<string, string> = {};
+const emptyStatusMap = {};
 
 const harnessSettings: AppSettings = {
 	devLoopback: false,
@@ -117,7 +120,7 @@ function snapshotOnce(): TraceSample | null {
 	let firstVisibleTop: number | null = null;
 	for (const row of rows) {
 		const rect = row.getBoundingClientRect();
-		if (rect.bottom > scrollerTop + 1) {
+		if (row.dataset.messageId && rect.bottom > scrollerTop + 1) {
 			firstVisibleId = row.dataset.messageId ?? null;
 			firstVisibleTop = rect.top - scrollerTop;
 			break;
@@ -187,7 +190,7 @@ function snapshotAnchor() {
 	const rows = getRows();
 	for (const row of rows) {
 		const rect = row.getBoundingClientRect();
-		if (rect.bottom > scrollerTop + 1) {
+		if (row.dataset.messageId && rect.bottom > scrollerTop + 1) {
 			return {
 				id: row.dataset.messageId ?? null,
 				rowCount: rows.length,
@@ -278,9 +281,9 @@ async function triggerLoadMore() {
 	for (let attempt = 0; attempt < 20; attempt++) {
 		await sleep(150);
 		if (trace.loadMoreCalls > callsBefore) return { attempts: attempt + 1 };
-		scroller.scrollTop = 300;
-		await sleep(60);
-		scroller.scrollTop = 0;
+		const loadMoreButton =
+			document.querySelector<HTMLButtonElement>(".load-more-button");
+		loadMoreButton?.click();
 	}
 	throw new Error("onLoadMore never fired after reaching the top");
 }
@@ -415,11 +418,20 @@ function HarnessApp() {
 		<div className="harness-shell">
 			{run ? (
 				<Tooltip.Provider>
-					<MuiMessageTimeline
-						channel={fixtureChannel}
+					<MessageTimeline
 						channelId={fixtureChannel.id}
 						loading={false}
 						loadingHistory={false}
+						currentUserId={fixtureUsers.currentUser.id}
+						users={fixtureUsers.users}
+						userColors={emptyStringMap}
+						userImages={emptyStringMap}
+						userStatuses={emptyStatusMap}
+						resolveImageSrc={stubResolveImageSrc}
+						ownMessageIndicatorColor="#00aa00"
+						showOwnMessageIndicators
+						showProfilePictures
+						useNewComposer={false}
 						onLoadMore={handleLoadMore}
 						onOpenAttachment={noopAsync}
 						onReply={noop}

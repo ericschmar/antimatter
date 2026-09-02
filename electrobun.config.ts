@@ -23,6 +23,15 @@ export default {
 		views: {
 			mainview: {
 				entrypoint: "src/mainview/index.tsx",
+				// Third-party renderer dependencies remain React-oriented;
+				// ship them on Preact's compatibility runtime instead.
+				alias: {
+				        react: "preact/compat",
+				        "react-dom": "preact/compat",
+				        "react-dom/client": "preact/compat/client",
+				        "react-dom/test-utils": "preact/test-utils",
+				        "react/jsx-runtime": "preact/jsx-runtime",
+				},
 			},
 			// Build-only "view": the chat history web worker. Bundled as an
 			// IIFE next to the mainview bundle so the main thread can fetch it
@@ -78,8 +87,6 @@ export default {
 			        "views/mainview/components/Titlebar.css",
 			"src/mainview/components/WebRTCCallUI.css":
 			        "views/mainview/components/WebRTCCallUI.css",
-			"src/mainview/components/mui-headless-timeline/MuiMessageTimeline.css":
-			        "views/mainview/components/mui-headless-timeline/MuiMessageTimeline.css",
 			"src/childview/index.html": "views/childview/index.html",
 			"src/childview/index.css": "views/childview/index.css",
 			"node_modules/font-list/libs": "bun/libs",

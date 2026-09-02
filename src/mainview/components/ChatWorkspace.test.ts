@@ -23,7 +23,7 @@ describe("ChatWorkspace panel layout", () => {
 			"utf8",
 		);
 		const headerIndex = source.indexOf("<ChannelHeader");
-		const timelineIndex = source.indexOf("<MuiMessageTimeline");
+		const timelineIndex = source.indexOf("<MessageTimeline");
 		const composerIndex = source.indexOf(
 			'className="chat-workspace-panel-composer resizable-composer"',
 		);

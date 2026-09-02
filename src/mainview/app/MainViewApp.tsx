@@ -1809,7 +1809,7 @@ export function MainViewApp() {
 	);
 
 	// Mirror read-mostly lookup data into the shared chatDataStore so the chat
-	// workspace and MUI timeline can consume it via useSnapshot instead of
+	// workspace can consume it via useSnapshot instead of
 	// receiving it as drilled props. The React state above remains the producer.
 	useEffect(() => {
 		chatDataActions.setApi(api);
@@ -1874,6 +1874,7 @@ export function MainViewApp() {
 				minComposerHeight={MIN_COMPOSER_HEIGHT}
 				minSidebarWidth={MIN_SIDEBAR_WIDTH}
 				posts={posts}
+				resolveImageSrc={resolveImageSrc}
 				workspacePosts={workspacePosts}
 				appUpdate={appUpdate}
 				sections={sections}

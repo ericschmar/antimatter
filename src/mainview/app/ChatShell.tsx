@@ -19,7 +19,7 @@ import {
 	type MessageComposerHandle,
 	type MessageComposerProps,
 } from "../components/MessageComposer";
-import { MuiMessageTimeline } from "../components/mui-headless-timeline/MuiMessageTimeline";
+import { MessageTimeline } from "../components/MessageTimeline";
 import { NewMessageComposer } from "../components/NewMessageComposer";
 import { PollDialog } from "../components/PollDialog";
 import { Sidebar } from "../components/Sidebar";
@@ -73,6 +73,7 @@ export function ChatShell({
 	minComposerHeight,
 	minSidebarWidth,
 	posts,
+	resolveImageSrc,
 	workspacePosts,
 	appUpdate,
 	sections,
@@ -496,16 +497,26 @@ export function ChatShell({
 								onToggleReaction={onToggleReaction}
 								onVotePoll={onVotePoll}
 								posts={workspacePosts}
+								resolveImageSrc={resolveImageSrc}
 								typingUsers={ui.typingUsers}
 							/>
 						) : selectedChannelId ? (
 							<section className="chat-body">
-								<MuiMessageTimeline
-									channel={selectedChannel}
+								<MessageTimeline
 									channelId={selectedChannelId}
 									loading={ui.status === "loading"}
 									loadingHistory={ui.loadingHistory}
 									posts={posts}
+									currentUserId={currentUser.id}
+									users={users}
+									userColors={userColors}
+									userImages={userImages}
+									userStatuses={userStatuses}
+									resolveImageSrc={resolveImageSrc}
+									ownMessageIndicatorColor={settings.ownMessageIndicatorColor}
+									showOwnMessageIndicators={settings.showOwnMessageIndicators}
+									showProfilePictures={settings.showProfilePictures}
+									useNewComposer={settings.useNewComposer}
 									typingUsers={typingUsers}
 									onOpenAttachment={onOpenAttachment}
 									onShowMessageContextMenu={onShowMessageContextMenu}
@@ -724,6 +735,7 @@ type ChatShellProps = {
 	minComposerHeight: number;
 	minSidebarWidth: number;
 	posts: MattermostPost[];
+	resolveImageSrc: (src: string) => Promise<string>;
 	workspacePosts: MattermostPost[];
 	appUpdate: AppUpdateState;
 	sections: Record<ChannelSectionKey, MattermostChannel[]>;
