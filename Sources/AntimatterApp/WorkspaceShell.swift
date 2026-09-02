@@ -4,12 +4,14 @@ import SwiftUI
 struct WorkspaceShell: View {
     let configuration: AppConfiguration
     @StateObject private var navigation: NavigationViewModel
+    @StateObject private var workspace: WorkspaceViewModel
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
 
     init(configuration: AppConfiguration, session: MattermostSession) {
         self.configuration = configuration
         _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
+        _workspace = StateObject(wrappedValue: WorkspaceViewModel())
     }
 
     var body: some View {
@@ -33,7 +35,7 @@ struct WorkspaceShell: View {
                         FocusRing(isVisible: focusedRegion == .sidebar)
                     }
 
-                ConversationPlaceholder()
+                ConversationPlaceholder(workspace: workspace)
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
                     .focused($focusedRegion, equals: .conversation)
@@ -51,7 +53,11 @@ struct WorkspaceShell: View {
         .focusedSceneValue(\.workspaceFocusAction, focus)
         .task {
             focusedRegion = .conversation
-            await navigation.load()
+            await navigation.load(preferredChannelID: workspace.selectedChannelID)
+        }
+        .onChange(of: navigation.selectedChannelID) { _, channelID in
+            guard let channelID, let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
+            workspace.preview(channel)
         }
         .onChange(of: scenePhase, initial: true) { _, newPhase in
             AppLogger.application.info(
@@ -172,14 +178,18 @@ private struct SidebarPlaceholder: View {
 }
 
 private struct ConversationPlaceholder: View {
+    @ObservedObject var workspace: WorkspaceViewModel
+
     var body: some View {
         VStack(spacing: 0) {
+            WorkspaceTabs(workspace: workspace)
+
             HStack(spacing: 10) {
                 Image(systemName: "number")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
 
-                Text("Select a conversation")
+                Text(selectedTab?.title ?? "Select a conversation")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(WorkspaceTheme.primaryText)
 
@@ -197,7 +207,7 @@ private struct ConversationPlaceholder: View {
                     .font(.system(size: 28, weight: .light))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
 
-                Text("Conversation workspace")
+                Text(selectedTab == nil ? "Conversation workspace" : "Conversation selected")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(WorkspaceTheme.primaryText)
 
@@ -208,5 +218,9 @@ private struct ConversationPlaceholder: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(WorkspaceTheme.canvas)
+    }
+
+    private var selectedTab: WorkspaceTab? {
+        workspace.tabs.first(where: { $0.channelID == workspace.selectedChannelID })
     }
 }

@@ -44,7 +44,7 @@ final class NavigationViewModel: ObservableObject {
         ordered(channels.filter { $0.deleteAt != 0 })
     }
 
-    func load() async {
+    func load(preferredChannelID: String? = nil) async {
         guard !isLoading else { return }
         isLoading = true
         loadError = nil
@@ -52,7 +52,9 @@ final class NavigationViewModel: ObservableObject {
             let snapshot = try await loader.load()
             teams = snapshot.teams.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
             channels = snapshot.channels
-            selectedChannelID = selectedChannelID ?? publicChannels.first?.id ?? directMessages.first?.id
+            selectedChannelID = preferredChannelID.flatMap { preferredID in
+                channels.contains(where: { $0.id == preferredID }) ? preferredID : nil
+            } ?? selectedChannelID ?? publicChannels.first?.id ?? directMessages.first?.id
         } catch {
             loadError = error.localizedDescription
         }
