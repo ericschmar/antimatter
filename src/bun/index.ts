@@ -286,10 +286,10 @@ const mainWindow = new BrowserWindow({
 	url: "views://mainview/index.html",
 	rpc,
 	titleBarStyle: "hidden",
-	// The document background is transparent and .window-shell clips the app
-	// surface to its 12px radius. Keep the native backing transparent so CEF
-	// does not expose its opaque rectangular surface in those corner pixels.
-	transparent: true,
+	// CEF's transparent off-screen rendering path magnifies the application
+	// surface while a Linux window is resized. Use opaque compositing until
+	// CEF can clip the native frame without that rendering mode.
+	transparent: false,
 	passthrough: false,
 	frame: {
 		width: 1180,
