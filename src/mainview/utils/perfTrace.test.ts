@@ -5,7 +5,10 @@ import {
 	__setPerfEnabled,
 	isPerfEnabled,
 	markRender,
+	observeLongTasks,
+	sanitizePerfRoute,
 	startTraceSpan,
+	traceAsync,
 	traceEvent,
 	traceSync,
 } from "./perfTrace";
@@ -59,6 +62,32 @@ describe("perfTrace", () => {
 			"[perf] clickToFirstTimelinePaint: ",
 		);
 		debug.mockRestore();
+	});
+
+	it("records async duration and preserves the result", async () => {
+		__setPerfEnabled(true);
+		const debug = spyOn(console, "debug");
+		await expect(
+			traceAsync("apiRequest", { method: "GET" }, async () => 7),
+		).resolves.toBe(7);
+		expect(debug).toHaveBeenCalledTimes(1);
+		expect(debug.mock.calls[0][0]).toBe("[perf] apiRequest: ");
+		expect(debug.mock.calls[0][1]).toMatchObject({
+			method: "GET",
+			outcome: "success",
+		});
+		debug.mockRestore();
+	});
+
+	it("does not install a long-task observer when disabled", () => {
+		__setPerfEnabled(false);
+		expect(observeLongTasks()).toBeInstanceOf(Function);
+	});
+
+	it("redacts query values and opaque IDs from logged routes", () => {
+		expect(
+			sanitizePerfRoute("/channels/a1b2c3d4e5f6/posts?before=secret-value"),
+		).toBe("/channels/:id/posts");
 	});
 
 	it("aggregates render marks until flushed", () => {

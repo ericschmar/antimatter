@@ -21,6 +21,7 @@ import type {
 	PostListResponse,
 	PostSearchResponse,
 } from "./types";
+import { sanitizePerfRoute, traceAsync } from "./utils/perfTrace";
 
 type RequestOptions = {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -522,7 +523,15 @@ export class MattermostApiClient {
 		path: string,
 		options: RequestOptions = {},
 	): Promise<T> {
-		const response = await this.requestWithResponse<T>(path, options);
+		const response = await traceAsync(
+			"apiRequest",
+			{
+				method: options.method ?? "GET",
+				route: sanitizePerfRoute(path),
+				transport: this.transport ? "rpc" : "fetch",
+			},
+			() => this.requestWithResponse<T>(path, options),
+		);
 		return response.body;
 	}
 

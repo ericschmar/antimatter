@@ -60,7 +60,11 @@ import type {
 } from "../types";
 import { normalizeEmojiName } from "../utils/emoji";
 import { fileToUploadItem } from "../utils/fileUpload";
-import { startTraceSpan } from "../utils/perfTrace";
+import {
+	observeLongTasks,
+	startTraceSpan,
+	traceEvent,
+} from "../utils/perfTrace";
 import { createReactionScheduler } from "../utils/reactionScheduler";
 import {
 	channelLabel,
@@ -149,6 +153,7 @@ function pruneExpiredTypingUsers(
 
 export function MainViewApp() {
 	const { cache: swrCache, mutate: mutateSWR } = useSWRConfig();
+	useEffect(() => observeLongTasks(), []);
 	const reactionSchedulerRef = useRef<ReturnType<typeof createReactionScheduler> | null>(
 		null,
 	);
@@ -1200,6 +1205,7 @@ export function MainViewApp() {
 						| undefined
 				)?.data
 			: undefined;
+		traceEvent(cachedHistory ? "channelHistoryCacheHit" : "channelHistoryCacheMiss");
 		const nextConfig = { ...config, lastChannelId: channel.id };
 		saveConfig(nextConfig);
 		setConfig(nextConfig);

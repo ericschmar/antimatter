@@ -59,6 +59,66 @@ export function startTraceSpan(label: string): () => void {
 }
 
 /**
+ * Times an async operation without changing its result or error behavior.
+ * Metadata is kept separate from the label so DevTools can group the metric.
+ */
+export async function traceAsync<T>(
+	label: string,
+	metadata: Record<string, unknown>,
+	fn: () => Promise<T>,
+): Promise<T> {
+	if (!enabled) return fn();
+	const start = performance.now();
+	try {
+		const result = await fn();
+		console.debug(`[perf] ${label}: `, {
+			...metadata,
+			durationMs: Number((performance.now() - start).toFixed(2)),
+			outcome: "success",
+		});
+		return result;
+	} catch (error) {
+		console.debug(`[perf] ${label}: `, {
+			...metadata,
+			durationMs: Number((performance.now() - start).toFixed(2)),
+			outcome: "error",
+		});
+		throw error;
+	}
+}
+
+/**
+ * Reports main-thread tasks that exceed the browser's long-task threshold
+ * (normally 50ms). Safari/WebKit does not currently expose this API, so this
+ * remains a safe no-op there.
+ */
+export function observeLongTasks(): () => void {
+	if (
+		!enabled ||
+		typeof PerformanceObserver === "undefined" ||
+		!PerformanceObserver.supportedEntryTypes?.includes("longtask")
+	)
+		return () => undefined;
+
+	const observer = new PerformanceObserver((entries) => {
+		for (const entry of entries.getEntries())
+			console.debug("[perf] longTask: ", {
+				durationMs: Number(entry.duration.toFixed(2)),
+				startTimeMs: Number(entry.startTime.toFixed(2)),
+			});
+	});
+	observer.observe({ type: "longtask", buffered: true });
+	return () => observer.disconnect();
+}
+
+/** Removes query values and opaque resource identifiers from a route in logs. */
+export function sanitizePerfRoute(path: string): string {
+	return path
+		.replace(/\?.*$/, "")
+		.replace(/\/[a-z0-9]{10,}/gi, "/:id");
+}
+
+/**
  * Increments a named render count. Counts are buffered and flushed by
  * `__flushPerfRenderCounts`, which logs a single aggregate line. Intended to be
  * called at the top of a component body guarded by `isPerfEnabled()`.

@@ -1,7 +1,11 @@
 import type { MattermostRpcResponse } from "../../shared/electrobunRpc";
 import { type MattermostApiClient, MattermostApiError } from "../mattermostApi";
 import type { ChannelHistoryData } from "../types";
-import { traceEvent } from "../utils/perfTrace";
+import {
+	sanitizePerfRoute,
+	traceAsync,
+	traceEvent,
+} from "../utils/perfTrace";
 import type {
 	HistoryPrefetchSignals,
 	HistoryPriority,
@@ -131,12 +135,16 @@ export function createChatHistoryClient(deps: {
 
 	function handleWorkerMessage(message: WorkerToMainMessage): void {
 		if (message.kind === "rpcCall") {
-			void deps
-				.broker({
-					path: message.path,
-					method: message.method,
-					body: message.body,
-				})
+			void traceAsync(
+				"historyWorkerRpc",
+				{ method: message.method, route: sanitizePerfRoute(message.path) },
+				() =>
+					deps.broker({
+						path: message.path,
+						method: message.method,
+						body: message.body,
+					}),
+			)
 				.then((response) => {
 					worker?.postMessage({
 						kind: "rpcResult",

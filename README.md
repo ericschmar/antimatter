@@ -54,6 +54,35 @@ Run without file watching:
 bun run start
 ```
 
+## Profiling UI Responsiveness
+
+Enable the renderer metrics in the app's DevTools console before reproducing a
+slow interaction:
+
+```js
+localStorage.setItem("mm-clone:perf", "1");
+location.reload();
+```
+
+Filter the console for `[perf]`. The logs distinguish:
+
+- `clickToFirstTimelinePaint`: elapsed time from selecting a channel to its
+  timeline being scheduled for paint.
+- `channelHistoryCacheHit` / `channelHistoryCacheMiss`, `historyFetchStart`,
+  and `historyFetchEnd`: whether a channel wait is local cache or history
+  loading.
+- `apiRequest` and `historyWorkerRpc`: per-request duration, method, normalized
+  route, transport, and success/error outcome. `historyWorkerRpc` covers the
+  history worker's requests, which bypass the renderer API client.
+- `render counts`: aggregate React rendering churn every 1.5 seconds.
+- `longTask`: renderer main-thread work over the browser's long-task threshold.
+  WebKit does not expose this performance API, so its absence is expected in
+  the current ElectroBun build; use the DevTools performance recording there.
+
+Disable the instrumentation after profiling with
+`localStorage.removeItem("mm-clone:perf"); location.reload()`. The metrics are
+off by default and do not record message content or authentication tokens.
+
 Typecheck and test:
 
 ```sh
