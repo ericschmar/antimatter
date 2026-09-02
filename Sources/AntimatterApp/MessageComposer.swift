@@ -6,6 +6,7 @@ struct MessageComposer: View {
     @ObservedObject var composer: ComposerViewModel
     let channelID: String?
     let onSent: (MattermostPost) -> Void
+    let onTyping: () -> Void
     @State private var isImportingFiles = false
 
     var body: some View {
@@ -28,7 +29,10 @@ struct MessageComposer: View {
                 .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
                 .frame(height: composer.height)
                 .disabled(channelID == nil || composer.isSending)
-                .onChange(of: composer.message) { _, _ in composer.persistDraft() }
+                .onChange(of: composer.message) { _, _ in
+                    composer.persistDraft()
+                    onTyping()
+                }
                 .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
                     loadDroppedText(from: providers)
                 }

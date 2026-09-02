@@ -36,4 +36,8 @@ final class RealtimeUpdatesViewModel: ObservableObject {
         eventTask = nil
         await socket.disconnect()
     }
+
+    func sendTyping(channelID: String, parentID: String = "") async {
+        try? await socket.send(MattermostTypingEvent(channelID: channelID, parentID: parentID))
+    }
 }

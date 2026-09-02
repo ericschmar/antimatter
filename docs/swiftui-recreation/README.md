@@ -97,7 +97,7 @@ be supplied through environment variables.
 | 12 | Reactions | Complete | Compact semantic reaction trays summarize each emoji, use native symbols for common reactions, add/remove reactions optimistically through Mattermost’s REST API, and reconcile server reaction events. |
 | 13 | Composer and drafts | Complete | Markdown composition supports paste and drag-and-drop text, file references can be imported into a message, drafts are persisted per conversation, composer height is retained, and native send state/error feedback posts through Mattermost’s REST API. |
 | 14 | Replies and post editing | Complete | Posts carry Mattermost thread roots; native Reply actions establish cancellable thread context in the persisted composer, while the post editor foundation sends REST updates and preserves server permission/error feedback. |
-| 15 | Typing and presence | Not started | Send and display typing indicators and live user-status/presence updates. |
+| 15 | Typing and presence | Complete | The authenticated WebSocket sends channel/thread typing actions; incoming typing indicators expire after five seconds and status-change events maintain live user presence state. |
 | 16 | Workspace splits and layout persistence | Not started | Support split-right and split-down conversation panes, independent pane selection/scroll state, tab movement, and persisted workspace layout. |
 | 17 | Channel and message context actions | Not started | Provide native context menus and mouse workflows for posts, channels, tabs, attachments, reactions, and pane operations. |
 | 18 | Search | Not started | Implement server-backed message/channel search, result navigation, filters, keyboard invocation, and opening results in the workspace. |

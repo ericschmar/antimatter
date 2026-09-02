@@ -8,6 +8,7 @@ struct WorkspaceShell: View {
     @StateObject private var timeline: TimelineViewModel
     @StateObject private var realtime: RealtimeUpdatesViewModel
     @StateObject private var composer: ComposerViewModel
+    @StateObject private var presence = PresenceViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
 
@@ -41,7 +42,7 @@ struct WorkspaceShell: View {
                         FocusRing(isVisible: focusedRegion == .sidebar)
                     }
 
-                ConversationPlaceholder(workspace: workspace, timeline: timeline, composer: composer)
+                ConversationPlaceholder(workspace: workspace, timeline: timeline, composer: composer, presence: presence, realtime: realtime)
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
                     .focused($focusedRegion, equals: .conversation)
@@ -67,6 +68,7 @@ struct WorkspaceShell: View {
             Task {
                 await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 await navigation.reconcile(event)
+                presence.reconcile(event, channelID: workspace.selectedChannelID)
             }
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in
@@ -201,6 +203,8 @@ private struct ConversationPlaceholder: View {
     @ObservedObject var workspace: WorkspaceViewModel
     @ObservedObject var timeline: TimelineViewModel
     @ObservedObject var composer: ComposerViewModel
+    @ObservedObject var presence: PresenceViewModel
+    @ObservedObject var realtime: RealtimeUpdatesViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -234,6 +238,18 @@ private struct ConversationPlaceholder: View {
 
             MessageComposer(composer: composer, channelID: selectedTab?.channelID) { post in
                 Task { await timeline.appendSentPost(post) }
+            } onTyping: {
+                guard let channelID = selectedTab?.channelID else { return }
+                Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
+            }
+            .overlay(alignment: .topLeading) {
+                if let typingLabel = presence.typingLabel {
+                    Text(typingLabel)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .padding(.horizontal, 14)
+                        .offset(y: -14)
+                }
             }
         }
         .background(WorkspaceTheme.canvas)

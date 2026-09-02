@@ -107,6 +107,11 @@ public actor MattermostWebSocket {
         continuation = nil
     }
 
+    public func send<Action: Encodable>(_ action: Action) async throws {
+        guard let task else { throw MattermostAPIError.invalidResponse }
+        try await task.send(.data(try JSONEncoder().encode(action)))
+    }
+
     public static func endpoint(for serverURL: URL) -> URL {
         var components = URLComponents(url: URL(string: "/api/v4/websocket", relativeTo: serverURL)!.absoluteURL, resolvingAgainstBaseURL: false)!
         components.scheme = serverURL.scheme == "https" ? "wss" : "ws"
@@ -155,5 +160,24 @@ private struct AuthenticationChallenge: Encodable {
 
     init(token: String) {
         data = ["token": token]
+    }
+}
+
+public struct MattermostTypingEvent: Encodable, Sendable {
+    public let action = "user_typing"
+    public let data: Payload
+
+    public init(channelID: String, parentID: String = "") {
+        data = Payload(channelID: channelID, parentID: parentID)
+    }
+
+    public struct Payload: Encodable, Sendable {
+        let channelID: String
+        let parentID: String
+
+        enum CodingKeys: String, CodingKey {
+            case channelID = "channel_id"
+            case parentID = "parent_id"
+        }
     }
 }
