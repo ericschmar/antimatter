@@ -79,7 +79,7 @@ be supplied through environment variables.
 | 2 | Visual system and desktop shell | Complete | Graphite SwiftUI theme, typography, dividers, semantic green/amber colors, 32 pt title strip, 54 pt conversation header, and resizable 248 pt sidebar shell are in place. |
 | 3 | Accessibility, keyboard, and window foundations | Complete | Accessible sidebar/workspace containers, keyboard focus routing, native commands, new-workspace-window support, and scene lifecycle logging are in place. |
 | 4 | Server connection and authentication | Complete | Server validation, password and personal-access-token sign-in, SAML browser sign-in with callback verification, and Keychain-only token persistence are in place. |
-| 5 | Mattermost API client and transport | Not started | Build authenticated REST requests, pagination, error handling, reconnecting `URLSessionWebSocketTask` transport, and an API test harness. |
+| 5 | Mattermost API client and transport | Complete | Authenticated REST GET/POST requests, bounded pagination, decoded server errors, reconnecting `URLSessionWebSocketTask` events, and URL-protocol API tests are in place. |
 | 6 | Local data store and synchronization | Not started | Model users, teams, channels, posts, preferences, unread state, and event reconciliation; persist enough data for fast startup and offline-tolerant rendering. |
 | 7 | Team and channel navigation | Not started | Render teams, public/private channels, DMs, group DMs, archives, favorites, local ordering, unread badges, and mention cues in the persistent sidebar. |
 | 8 | Conversation workspace and selection | Not started | Add the 54 pt conversation header, channel switching, temporary previews, closable tabs, and selection restoration. |
