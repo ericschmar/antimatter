@@ -14,6 +14,7 @@ struct WorkspaceShell: View {
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
     @State private var isCommandPalettePresented = false
+    @State private var isSettingsPresented = false
 
     init(configuration: AppConfiguration, session: MattermostSession) {
         self.configuration = configuration
@@ -30,7 +31,7 @@ struct WorkspaceShell: View {
             TitleStrip(environment: configuration.environment)
 
             HSplitView {
-                SidebarPlaceholder(navigation: navigation, search: search)
+                SidebarPlaceholder(navigation: navigation, search: search, isSettingsPresented: $isSettingsPresented)
                     .frame(
                         minWidth: 220,
                         idealWidth: WorkspaceTheme.sidebarWidth,
@@ -77,6 +78,9 @@ struct WorkspaceShell: View {
             }
             .keyboardShortcut("k", modifiers: [.command])
             .opacity(0)
+        }
+        .sheet(isPresented: $isSettingsPresented) {
+            SettingsView()
         }
         .task {
             focusedRegion = .conversation
@@ -167,6 +171,7 @@ private struct TitleStrip: View {
 private struct SidebarPlaceholder: View {
     @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var search: SearchViewModel
+    @Binding var isSettingsPresented: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -178,7 +183,11 @@ private struct SidebarPlaceholder: View {
 
                 Spacer(minLength: 0)
 
-                Image(systemName: "gearshape")
+                Button {
+                    isSettingsPresented = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
             }

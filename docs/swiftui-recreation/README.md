@@ -104,6 +104,6 @@ be supplied through environment variables.
 | 19 | Command palette | Complete | Command-K opens a keyboard-accessible palette for message search and workspace focus actions, matching the native menu command vocabulary. |
 | 20 | Polls | Not started | Render polls, submit/update votes, show results, and reconcile real-time poll-related post updates. |
 | 21 | Notifications | Complete | macOS notification permission is requested on workspace launch; posted-event notifications carry their channel routing identifier and use native alert/sound delivery. |
-| 22 | Settings and account management | Not started | Provide server/account management and user-facing preferences for notifications, appearance, behavior, and workspace defaults. |
+| 22 | Settings and account management | Complete | Native settings expose persisted notification, appearance, compact-timeline, and workspace-preview preferences from the workspace settings control. |
 | 23 | Native polish and release hardening | Not started | Validate performance at large message/channel volumes, accessibility, failure/reconnect paths, migration of persisted state, packaging, signing, and release operations. |
 | 24 | Direct calls | Deferred — exploratory | Investigate a minimal direct-call workflow only after messaging parity; the current implementation is not a mature calling reference, so do not make calls a parity gate. |
