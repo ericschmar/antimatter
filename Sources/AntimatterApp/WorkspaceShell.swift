@@ -3,15 +3,21 @@ import SwiftUI
 
 struct WorkspaceShell: View {
     let configuration: AppConfiguration
+    @StateObject private var navigation: NavigationViewModel
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
+
+    init(configuration: AppConfiguration, session: MattermostSession) {
+        self.configuration = configuration
+        _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             TitleStrip(environment: configuration.environment)
 
             HSplitView {
-                SidebarPlaceholder()
+                SidebarPlaceholder(navigation: navigation)
                     .frame(
                         minWidth: 220,
                         idealWidth: WorkspaceTheme.sidebarWidth,
@@ -45,6 +51,7 @@ struct WorkspaceShell: View {
         .focusedSceneValue(\.workspaceFocusAction, focus)
         .task {
             focusedRegion = .conversation
+            await navigation.load()
         }
         .onChange(of: scenePhase, initial: true) { _, newPhase in
             AppLogger.application.info(
@@ -108,6 +115,8 @@ private struct TitleStrip: View {
 }
 
 private struct SidebarPlaceholder: View {
+    @ObservedObject var navigation: NavigationViewModel
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -128,19 +137,35 @@ private struct SidebarPlaceholder: View {
             Divider()
                 .overlay(WorkspaceTheme.divider)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Connect a server to begin.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-
-                Text("Teams, channels, and direct messages will appear here.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(WorkspaceTheme.secondaryText.opacity(0.8))
-                    .fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    if navigation.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .padding(14)
+                    } else if let error = navigation.loadError {
+                        Text(error)
+                            .font(.system(size: 12))
+                            .foregroundStyle(WorkspaceTheme.attention)
+                            .padding(14)
+                    } else {
+                        ForEach(navigation.teams) { team in
+                            Text(team.displayName.uppercased())
+                                .font(.system(size: 10, weight: .semibold))
+                                .tracking(0.7)
+                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                                .padding(.horizontal, 14)
+                        }
+                        ChannelSection("FAVORITES", channels: navigation.favoriteChannels, navigation: navigation)
+                        ChannelSection("CHANNELS", channels: navigation.publicChannels, navigation: navigation)
+                        ChannelSection("PRIVATE", channels: navigation.privateChannels, navigation: navigation)
+                        ChannelSection("DIRECT MESSAGES", channels: navigation.directMessages, navigation: navigation)
+                        ChannelSection("GROUP MESSAGES", channels: navigation.groupMessages, navigation: navigation)
+                        ChannelSection("ARCHIVED", channels: navigation.archivedChannels, navigation: navigation)
+                    }
+                }
+                .padding(.vertical, 12)
             }
-            .padding(14)
-
-            Spacer(minLength: 0)
         }
         .background(WorkspaceTheme.sidebar)
     }
