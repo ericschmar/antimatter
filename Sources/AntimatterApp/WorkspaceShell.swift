@@ -10,6 +10,7 @@ struct WorkspaceShell: View {
     @StateObject private var composer: ComposerViewModel
     @StateObject private var presence = PresenceViewModel()
     @StateObject private var search: SearchViewModel
+    @StateObject private var notifications = NotificationManager()
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
     @State private var isCommandPalettePresented = false
@@ -81,6 +82,7 @@ struct WorkspaceShell: View {
             focusedRegion = .conversation
             await navigation.load(preferredChannelID: workspace.selectedChannelID)
             await realtime.start()
+            await notifications.requestPermission()
         }
         .onChange(of: realtime.latestEvent) { _, event in
             guard let event else { return }
@@ -88,6 +90,7 @@ struct WorkspaceShell: View {
                 await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 await navigation.reconcile(event)
                 presence.reconcile(event, channelID: workspace.selectedChannelID)
+                notifications.notify(for: event)
             }
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in
