@@ -1,8 +1,91 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import type { MattermostPost } from "../types";
-import { createLoopbackPeer } from "./loopback";
+import { createLoopbackMediaStream, createLoopbackPeer } from "./loopback";
+
+const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+const originalMediaStream = Object.getOwnPropertyDescriptor(
+	globalThis,
+	"MediaStream",
+);
+
+afterEach(() => {
+	if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+	else Reflect.deleteProperty(globalThis, "window");
+	if (originalMediaStream)
+		Object.defineProperty(globalThis, "MediaStream", originalMediaStream);
+	else Reflect.deleteProperty(globalThis, "MediaStream");
+});
 
 describe("LoopbackPeer", () => {
+	test("cleans up audio tracks when the renderer does not implement track.stop", async () => {
+		let oscillatorStopped = false;
+		let audioContextClosed = false;
+		const track = {
+			addEventListener: () => {},
+		} as unknown as MediaStreamTrack;
+
+		class MockAudioContext {
+			createOscillator() {
+				return {
+					connect: () => {},
+					start: () => {},
+					stop: () => {
+						oscillatorStopped = true;
+					},
+					frequency: { value: 0 },
+				};
+			}
+
+			createGain() {
+				return {
+					connect: () => {},
+					gain: { value: 0 },
+				};
+			}
+
+			createMediaStreamDestination() {
+				return {
+					stream: {
+						getAudioTracks: () => [track],
+					},
+				};
+			}
+
+			async resume() {}
+
+			async close() {
+				audioContextClosed = true;
+			}
+		}
+
+		class MockMediaStream {
+			private tracks: MediaStreamTrack[] = [];
+
+			addTrack(mediaTrack: MediaStreamTrack) {
+				this.tracks.push(mediaTrack);
+			}
+
+			getAudioTracks() {
+				return this.tracks;
+			}
+		}
+
+		Object.defineProperty(globalThis, "window", {
+			configurable: true,
+			value: { AudioContext: MockAudioContext },
+		});
+		Object.defineProperty(globalThis, "MediaStream", {
+			configurable: true,
+			value: MockMediaStream,
+		});
+
+		const stream = await createLoopbackMediaStream("audio");
+		stream.getAudioTracks()[0]?.stop();
+
+		expect(oscillatorStopped).toBe(true);
+		expect(audioContextClosed).toBe(true);
+	});
+
 	test("uses a stable loopback direct channel", async () => {
 		const peer = createLoopbackPeer("me");
 

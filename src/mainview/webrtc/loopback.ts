@@ -47,6 +47,12 @@ async function createLoopbackAudioTrack(): Promise<MediaStreamTrack> {
 	oscillator.start();
 	await audioContext.resume();
 	const track = destination.stream.getAudioTracks()[0];
+	if (!track) {
+		oscillator.stop();
+		void audioContext.close();
+		loopbackAudioContexts.delete(audioContext);
+		throw new Error("AudioContext did not produce an audio track");
+	}
 	let closed = false;
 	const close = () => {
 		if (closed) return;
@@ -55,10 +61,12 @@ async function createLoopbackAudioTrack(): Promise<MediaStreamTrack> {
 		void audioContext.close();
 		loopbackAudioContexts.delete(audioContext);
 	};
-	const stop = track.stop.bind(track);
+	const nativeStop = track.stop;
+	const stop =
+		typeof nativeStop === "function" ? () => nativeStop.call(track) : undefined;
 	track.stop = () => {
 		close();
-		stop();
+		stop?.();
 	};
 	track.addEventListener("ended", close);
 	return track;
