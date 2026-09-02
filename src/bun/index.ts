@@ -286,10 +286,10 @@ const mainWindow = new BrowserWindow({
 	url: "views://mainview/index.html",
 	rpc,
 	titleBarStyle: "hidden",
-	// CEF's Linux renderer does not reliably deliver pointer input to controls
-	// in a transparent native window. The UI paints its own opaque background,
-	// so native transparency provides no benefit here.
-	transparent: false,
+	// The document background is transparent and .window-shell clips the app
+	// surface to its 12px radius. Keep the native backing transparent so CEF
+	// does not expose its opaque rectangular surface in those corner pixels.
+	transparent: true,
 	passthrough: false,
 	frame: {
 		width: 1180,
