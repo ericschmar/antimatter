@@ -31,6 +31,7 @@ export default {
 				        "react-dom/client": "preact/compat/client",
 				        "react-dom/test-utils": "preact/test-utils",
 				        "react/jsx-runtime": "preact/jsx-runtime",
+				        "react/jsx-dev-runtime": "preact/jsx-dev-runtime",
 				},
 			},
 			// Build-only "view": the chat history web worker. Bundled as an
