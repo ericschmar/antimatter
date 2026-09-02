@@ -62,13 +62,20 @@ Calls are explicitly treated as an exploratory late phase because the current im
 ## Ordered implementation plan
 
 Status is for the new SwiftUI application, not the existing TypeScript application.
-All scoped work is currently **Not started**. Complete each row's dependencies before
-starting it; rows with the same order may proceed in parallel once their shared
-prerequisites are stable.
+Complete each row's dependencies before starting it; rows with the same order
+may proceed in parallel once their shared prerequisites are stable.
+
+### Native development
+
+The native client is a macOS 14+ Swift package. Open `Package.swift` in Xcode
+to run the `Antimatter` executable, or run `swift build` from the repository
+root. Use `ANTIMATTER_ENV=development` and, when useful for development,
+`ANTIMATTER_SERVER_URL=https://mattermost.example.com`; credentials must never
+be supplied through environment variables.
 
 | Order | Feature | Status | Implementation notes |
 | ---: | --- | --- | --- |
-| 1 | Native application foundation | Not started | Establish the macOS 14+ SwiftUI app target, dependency boundaries, logging, configuration, Keychain access, and test targets. |
+| 1 | Native application foundation | Complete | macOS 14+ SwiftUI package target, `AntimatterFoundation` boundary, unified logging, environment configuration, Keychain storage boundary, and unit-test target are in place. |
 | 2 | Visual system and desktop shell | Not started | Implement the graphite surfaces, typography, spacing, dividers, semantic colors, 32 pt title strip, and resizable 248 pt sidebar baseline. |
 | 3 | Accessibility, keyboard, and window foundations | Not started | Define accessibility identifiers/labels, focus behavior, menu-command infrastructure, keyboard-shortcut routing, and multi-window lifecycle before feature UI depends on them. |
 | 4 | Server connection and authentication | Not started | Support server discovery/configuration plus password, personal-access-token, and SAML SSO sign-in; keep credentials exclusively in Keychain. |
