@@ -82,72 +82,82 @@ export function isGroupedMessage(
 
 export function MuiMessageTimeline(props: MuiMessageTimelineProps) {
 	const data = useSnapshot(chatDataStore);
-	const currentUser = data.currentUser ?? {
-		id: data.currentUserId,
-		username: data.currentUserId,
-	};
-	const value: MuiTimelineContextValue = {
-		...props,
-		currentUser,
+        const value = useMemo<MuiTimelineContextValue>(() => ({
 		currentUserId: data.currentUserId,
-		users: data.users,
-		userColors: data.userColors,
-		userImages: data.userImages,
-		userStatuses: data.userStatuses,
-		settings: data.settings,
-		resolveImageSrc: data.resolveImageSrc,
-	};
+	        onOpenAttachment: props.onOpenAttachment,
+	        onShowMessageContextMenu: props.onShowMessageContextMenu,
+	        onSetUserColor: props.onSetUserColor,
+	        onStartDm: props.onStartDm,
+	        onReply: props.onReply,
+	        onToggleReaction: props.onToggleReaction,
+	        onVotePoll: props.onVotePoll,
+	}), [
+	        data.currentUserId,
+	        props.onOpenAttachment,
+	        props.onReply,
+	        props.onSetUserColor,
+	        props.onShowMessageContextMenu,
+	        props.onStartDm,
+	        props.onToggleReaction,
+	        props.onVotePoll,
+	]);
 	return (
 		<MuiTimelineProvider value={value}>
-			<MuiMessageTimelineInner />
+			<MuiMessageTimelineInner {...props} />
 		</MuiTimelineProvider>
 	);
 }
 
-const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
-	const context = useMuiTimelineContext();
+const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner(props: MuiMessageTimelineProps) {
 	const data = useSnapshot(chatDataStore);
 	const messages = useMemo(
-		() => buildMuiTimelineMessages(context.posts, context),
+		() => buildMuiTimelineMessages(props.posts, {
+		        channelId: props.channelId,
+		        currentUserId: data.currentUserId,
+		        users: data.users,
+		        userColors: data.userColors,
+		        userImages: data.userImages,
+		        userStatuses: data.userStatuses,
+		}),
 		[
-			context.posts,
-			context.users,
-			context.userColors,
-			context.userImages,
-			context.userStatuses,
-			context.channelId,
-			context.currentUserId,
+			props.posts,
+			props.channelId,
+			data.currentUserId,
+			data.users,
+			data.userColors,
+			data.userImages,
+			data.userStatuses,
 		],
 	);
 	const members = useMemo(
 		() =>
 			buildMuiUsers(
-				context.users,
-				context.userStatuses,
-				context.userImages,
-				context.currentUserId,
+				data.users,
+				data.userStatuses,
+				data.userImages,
+				data.currentUserId,
 			),
 		[
-			context.users,
-			context.userStatuses,
-			context.userImages,
-			context.currentUserId,
+			data.users,
+			data.userStatuses,
+			data.userImages,
+			data.currentUserId,
 		],
 	);
 	const currentUser = useMemo(
 		() =>
-			members.find((member) => member.id === context.currentUser.id) ?? {
-				id: context.currentUser.id,
-				displayName: context.currentUser.username,
-				avatarUrl: context.userImages[context.currentUser.id],
+                        members.find((member) => member.id === data.currentUserId) ?? {
+				id: data.currentUserId,
+				displayName: data.currentUser?.username ?? data.currentUserId,
+				avatarUrl: data.userImages[data.currentUserId],
 				role: "user" as const,
-				metadata: { mattermostUser: context.currentUser },
+				metadata: { mattermostUser: data.currentUser },
 			},
-		[members, context.currentUser, context.userImages],
+		[members, data.currentUser, data.currentUserId, data.userImages],
 	);
 	const conversations = useMemo(
-		() => [buildMuiConversation(context.channelId, members, context.channel)],
-		[context.channelId, members, context.channel],
+		() => [buildMuiConversation(props.channelId, members, props.channel)],
+		[props.channelId, members, props.channel],
 	);
 	const messageIdsRef = useRef<string[] | null>(null);
 	const messageIds = useMemo(() => {
@@ -168,12 +178,12 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 	>(undefined);
 	const lastMessageId = messageIds.at(-1);
 	const hasMoreHistory =
-		data.hasMoreHistoryByChannel[context.channelId ?? ""] ?? true;
+		data.hasMoreHistoryByChannel[props.channelId ?? ""] ?? true;
 	const canLoadMore =
-		context.onLoadMore &&
-		!context.loadingHistory &&
+		props.onLoadMore &&
+		!props.loadingHistory &&
 		hasMoreHistory &&
-		loadMoreReadyChannelId === context.channelId;
+		loadMoreReadyChannelId === props.channelId;
 	const renderMessageItem = useCallback(
 		({ id, index }: { id: string; index: number }) => {
 			const message = messageById.get(id);
@@ -195,13 +205,13 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 	useEffect(() => {
 		const previousChannelId = previousChannelIdRef.current;
 		const previousLastMessageId = previousLastMessageIdRef.current;
-		const channelChanged = previousChannelId !== context.channelId;
+		const channelChanged = previousChannelId !== props.channelId;
 		const channelContentLoaded =
 			!channelChanged &&
-			previousChannelId === context.channelId &&
+			previousChannelId === props.channelId &&
 			!previousLastMessageId &&
 			Boolean(lastMessageId);
-		previousChannelIdRef.current = context.channelId;
+		previousChannelIdRef.current = props.channelId;
 		previousLastMessageIdRef.current = lastMessageId;
 		if (channelChanged) setLoadMoreReadyChannelId(undefined);
 		if (!lastMessageId || (!channelChanged && !channelContentLoaded)) return;
@@ -210,8 +220,8 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 		// corrected by TimelineScrollKeeper's settle window, so no rAF
 		// re-scroll is needed here.
 		messageListRef.current?.scrollToBottom({ behavior: "auto" });
-		setLoadMoreReadyChannelId(context.channelId);
-	}, [context.channelId, lastMessageId]);
+	        setLoadMoreReadyChannelId(props.channelId);
+	}, [props.channelId, lastMessageId]);
 
 	useEffect(() => {
 		if (!isPerfEnabled()) return;
@@ -231,15 +241,15 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 					// indicator variable transparent so the own-message accent
 					// bar disappears live (the main bubble applies `.own` from
 					// message role, which doesn't otherwise react to the setting).
-					"--own-message-indicator-color": context.settings
+					"--own-message-indicator-color": data.settings
 						.showOwnMessageIndicators
-						? context.settings.ownMessageIndicatorColor
+						? data.settings.ownMessageIndicatorColor
 						: "transparent",
 				} as React.CSSProperties
 			}
 		>
 			<Chat.Root
-				activeConversationId={context.channelId ?? "timeline"}
+				activeConversationId={props.channelId ?? "timeline"}
 				adapter={timelineAdapter}
 				className="mui-message-timeline-chat"
 				conversations={conversations}
@@ -248,17 +258,21 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 				messages={messages}
 				partRenderers={mattermostPartRenderers}
 				slotProps={muiChatRootSlotProps}
-				variant={context.settings.showProfilePictures ? "default" : "compact"}
+				variant={data.settings.showProfilePictures ? "default" : "compact"}
 			>
-				<MuiHistoryStateBridge />
+				<MuiHistoryStateBridge
+				        channelId={props.channelId}
+				        loadingHistory={props.loadingHistory}
+				        onLoadMore={props.onLoadMore}
+				/>
 				<Conversation.Root
 					className="mui-message-timeline-conversation"
 					slotProps={muiConversationSlotProps}
 				>
-					{context.loading ? (
+					{props.loading ? (
 						<div className="mui-timeline-state">Loading messages…</div>
 					) : null}
-					{!context.loading && messageIds.length === 0 ? (
+					{!props.loading && messageIds.length === 0 ? (
 						<div className="mui-timeline-empty">No messages yet.</div>
 					) : null}
 					<MessageList.Root
@@ -269,14 +283,14 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 						overlay={
 							<TimelineScrollKeeper
 								buffer={muiMessageListAutoScroll.buffer}
-								channelId={context.channelId}
+								channelId={props.channelId}
 							/>
 						}
 						slotProps={muiTimelineSlotProps.messageList}
-						onReachTop={canLoadMore ? context.onLoadMore : undefined}
+						onReachTop={canLoadMore ? props.onLoadMore : undefined}
 						renderItem={renderMessageItem}
 					/>
-					{context.typingUsers.length > 0 ? (
+					{props.typingUsers.length > 0 ? (
 						<div
 							className="typing-indicator mui-timeline-typing"
 							role="status"
@@ -287,7 +301,7 @@ const MuiMessageTimelineInner = memo(function MuiMessageTimelineInner() {
 								<span />
 								<span />
 							</span>
-							<span>{typingLabel(context.typingUsers)}</span>
+							<span>{typingLabel(props.typingUsers)}</span>
 						</div>
 					) : null}
 				</Conversation.Root>
@@ -303,24 +317,27 @@ function typingLabel(users: { username: string }[]) {
 	return `${names.slice(0, 2).join(", ")} and ${names.length - 2} others are typing…`;
 }
 
-function MuiHistoryStateBridge() {
-	const context = useMuiTimelineContext();
+function MuiHistoryStateBridge({
+	channelId,
+	loadingHistory,
+	onLoadMore,
+}: Pick<MuiMessageTimelineProps, "channelId" | "loadingHistory" | "onLoadMore">) {
 	const chatData = useSnapshot(chatDataStore);
 	const store = useChatStore();
 	useEffect(() => {
 		const hasMoreHistory =
-			chatData.hasMoreHistoryByChannel[context.channelId ?? ""] ?? true;
+			chatData.hasMoreHistoryByChannel[channelId ?? ""] ?? true;
 		store.setHistoryState({
 			cursor: undefined,
-			hasMore: hasMoreHistory && Boolean(context.onLoadMore),
+			hasMore: hasMoreHistory && Boolean(onLoadMore),
 		});
-		store.setHistoryLoading(Boolean(context.loadingHistory));
+		store.setHistoryLoading(Boolean(loadingHistory));
 	}, [
 		store,
 		chatData.hasMoreHistoryByChannel,
-		context.onLoadMore,
-		context.loadingHistory,
-		context.channelId,
+		onLoadMore,
+		loadingHistory,
+		channelId,
 	]);
 	return null;
 }
@@ -340,12 +357,17 @@ const MuiMessageItem = memo(function MuiMessageItem({
 }) {
 	markRender("MuiMessageItem");
 	const context = useMuiTimelineContext();
+	const data = useSnapshot(chatDataStore);
 	const metadata = message.metadata as MattermostMessageMetadata;
 	const post = metadata.post;
-	const author = context.users[post.user_id];
+	const author = data.users[post.user_id];
+	const image = data.userImages[post.user_id];
+	const status = data.userStatuses[post.user_id];
+	const userColor = data.userColors[post.user_id];
+	const showProfilePictures = data.settings.showProfilePictures;
 	const deleted = metadata.deleted;
 	const grouped = isGroupedMessage(message, previousMessage, groupKey);
-	const metaClassName = context.settings.showProfilePictures
+	const metaClassName = showProfilePictures
 		? "mui-message-meta has-avatar"
 		: "mui-message-meta";
 	const canReply = !deleted && (!post.root_id || post.root_id === post.id);
@@ -377,10 +399,10 @@ const MuiMessageItem = memo(function MuiMessageItem({
 						aria-hidden={grouped ? true : undefined}
 						className={grouped ? `${metaClassName} is-grouped` : metaClassName}
 					>
-						{!grouped && context.settings.showProfilePictures ? (
+						{!grouped && showProfilePictures ? (
 							<div className="mui-message-meta-avatar">
-								{context.userImages[post.user_id] ? (
-									<img alt="" src={context.userImages[post.user_id]} />
+                                                                {image ? (
+									<img alt="" src={image} />
 								) : (
 									initials(author?.nickname || author?.username || post.user_id)
 								)}
@@ -390,11 +412,11 @@ const MuiMessageItem = memo(function MuiMessageItem({
 							<UserDetailsTrigger
 								currentUserId={context.currentUserId}
 								fallback={post.user_id}
-								imageSrc={context.userImages[post.user_id]}
-								status={context.userStatuses[post.user_id]?.status}
+								imageSrc={image}
+								status={status?.status}
 								triggerClassName="mui-message-author message-author"
 								user={author}
-								userColor={metadata.userColor}
+								userColor={userColor}
 								onSetUserColor={context.onSetUserColor}
 								onStartDm={context.onStartDm}
 							/>

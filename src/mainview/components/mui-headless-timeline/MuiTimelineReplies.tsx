@@ -1,5 +1,7 @@
 import { Reply, SmilePlus } from "lucide-react";
 import { memo, useMemo } from "react";
+import { useSnapshot } from "valtio";
+import { chatDataStore } from "../../state/chatDataStore";
 import { normalizeEmojiName } from "../../utils/emoji";
 import { formatTime } from "../../utils/format";
 import { EmojiPickerPopover } from "../EmojiPickerPopover";
@@ -33,7 +35,11 @@ const MuiTimelineReply = memo(function MuiTimelineReply({
 	>["data"]["replies"][number];
 }) {
 	const context = useMuiTimelineContext();
-	const author = context.users[reply.user_id];
+	const data = useSnapshot(chatDataStore);
+	const author = data.users[reply.user_id];
+	const image = data.userImages[reply.user_id];
+	const status = data.userStatuses[reply.user_id];
+	const userColor = data.userColors[reply.user_id];
 	const groupedReactions = useMemo(
 		() =>
 			groupReactions(reply.metadata?.reactions ?? [], context.currentUserId),
@@ -41,7 +47,7 @@ const MuiTimelineReply = memo(function MuiTimelineReply({
 	);
 	const deleted = reply.delete_at > 0;
 	const isOwnMessage =
-		context.settings.showOwnMessageIndicators &&
+		data.settings.showOwnMessageIndicators &&
 		reply.user_id === context.currentUserId;
 	return (
 		<div
@@ -55,11 +61,11 @@ const MuiTimelineReply = memo(function MuiTimelineReply({
 				<UserDetailsTrigger
 					currentUserId={context.currentUserId}
 					fallback={reply.user_id}
-					imageSrc={context.userImages[reply.user_id]}
-					status={context.userStatuses[reply.user_id]?.status}
+					imageSrc={image}
+					status={status?.status}
 					triggerClassName="mui-message-author reply-message-author message-author"
 					user={author}
-					userColor={context.userColors[reply.user_id]}
+					userColor={userColor}
 					onSetUserColor={context.onSetUserColor}
 					onStartDm={context.onStartDm}
 				/>
@@ -71,14 +77,14 @@ const MuiTimelineReply = memo(function MuiTimelineReply({
 				) : (
 					<>
 						<MarkdownRenderer
-							currentUsername={context.users[context.currentUserId]?.username}
+							currentUsername={data.users[context.currentUserId]?.username}
 							markdown={reply.message}
-							resolveImageSrc={context.resolveImageSrc}
-							useNewComposer={context.settings.useNewComposer}
+							resolveImageSrc={data.resolveImageSrc}
+							useNewComposer={data.settings.useNewComposer}
 						/>
 						<MessageAttachments
 							files={reply.metadata?.files ?? []}
-							resolveImageSrc={context.resolveImageSrc}
+							resolveImageSrc={data.resolveImageSrc}
 							onOpenAttachment={context.onOpenAttachment}
 						/>
 						{groupedReactions.length > 0 ? (
@@ -87,7 +93,6 @@ const MuiTimelineReply = memo(function MuiTimelineReply({
 									<ReactionPill
 										key={reaction.emojiName}
 										reaction={reaction}
-										users={context.users}
 										onClick={() =>
 											void context.onToggleReaction(reply, reaction.emojiName)
 										}

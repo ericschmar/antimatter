@@ -1,11 +1,9 @@
 import { createContext, useContext } from "react";
 import type {
-	AppSettings,
-	MattermostChannel,
-	MattermostFileInfo,
-	MattermostPost,
-	MattermostUser,
-	MattermostUserStatus,
+        MattermostChannel,
+        MattermostFileInfo,
+        MattermostPost,
+        MattermostUser,
 } from "../../types";
 
 /**
@@ -32,20 +30,22 @@ export type MuiMessageTimelineProps = {
 };
 
 /**
- * The full value consumed inside the timeline subtree. The lookup data half
- * (users, colors, images, statuses, current user, settings, image resolver) is
- * sourced from `chatDataStore` by `MuiMessageTimeline` rather than drilled in
- * as props; the instance half comes from `MuiMessageTimelineProps`.
+ * Values shared by message rows and part renderers. Keep this limited to
+ * instance identity and actions: lookup data belongs to each component's
+ * tracked Valtio subscription so an update for one user cannot invalidate
+ * every visible row.
  */
-export type MuiTimelineContextValue = MuiMessageTimelineProps & {
-	currentUser: MattermostUser;
+export type MuiTimelineContextValue = Pick<
+	MuiMessageTimelineProps,
+	| "onOpenAttachment"
+	| "onShowMessageContextMenu"
+	| "onSetUserColor"
+	| "onStartDm"
+	| "onReply"
+	| "onToggleReaction"
+	| "onVotePoll"
+> & {
 	currentUserId: string;
-	users: Record<string, MattermostUser>;
-	userColors: Record<string, string>;
-	userImages: Record<string, string>;
-	userStatuses: Record<string, MattermostUserStatus>;
-	settings: AppSettings;
-	resolveImageSrc: (src: string) => Promise<string>;
 };
 
 const MuiTimelineContext = createContext<MuiTimelineContextValue | null>(null);

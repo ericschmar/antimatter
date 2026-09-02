@@ -16,11 +16,11 @@ import {
 	MuiMessageTimeline,
 	type MuiMessageTimelineProps,
 } from "./MuiMessageTimeline";
-import type { MuiTimelineContextValue } from "./MuiTimelineContext";
 import {
 	buildMuiConversation,
 	buildMuiTimelineMessages,
 	buildMuiUsers,
+	type MuiTimelineModelData,
 } from "./muiChatModels";
 
 const channel: MattermostChannel = {
@@ -102,18 +102,20 @@ function timelineProps(
 }
 
 function contextValue(
-	overrides: Partial<MuiTimelineContextValue> = {},
-): MuiTimelineContextValue {
+        overrides: Partial<MuiTimelineModelData> = {},
+): MuiTimelineModelData & {
+        currentUser: MattermostUser;
+        channel: MattermostChannel;
+} {
 	return {
-		...timelineProps(),
 		currentUser,
 		currentUserId: currentUser.id,
+		channelId: channel.id,
+		channel,
 		users,
 		userColors: {},
 		userImages: {},
 		userStatuses: {},
-		settings: testSettings,
-		resolveImageSrc: async (src) => src,
 		...overrides,
 	};
 }
@@ -224,12 +226,12 @@ describe("MuiMessageTimeline", () => {
 		expect(source).toContain("messageListRef");
 		expect(source).toContain('scrollToBottom({ behavior: "auto" })');
 		expect(source).toContain("channelContentLoaded");
-		expect(source).toContain("context.posts,");
+		expect(source).toContain("props.posts,");
 		expect(source).not.toContain("[context],");
-		expect(source).toContain("loadMoreReadyChannelId === context.channelId");
-		expect(source).toContain("setLoadMoreReadyChannelId(context.channelId)");
+		expect(source).toContain("loadMoreReadyChannelId === props.channelId");
+		expect(source).toContain("setLoadMoreReadyChannelId(props.channelId)");
 		expect(source).toContain(
-			"onReachTop={canLoadMore ? context.onLoadMore : undefined}",
+			"onReachTop={canLoadMore ? props.onLoadMore : undefined}",
 		);
 	});
 
@@ -240,9 +242,26 @@ describe("MuiMessageTimeline", () => {
 		);
 
 		expect(source).toContain(
-			'hasMoreHistoryByChannel[context.channelId ?? ""]',
+			'hasMoreHistoryByChannel[channelId ?? ""]',
 		);
-		expect(source).toContain("hasMoreHistory && Boolean(context.onLoadMore)");
+		expect(source).toContain("hasMoreHistory && Boolean(onLoadMore)");
+	});
+
+	test("keeps user lookup maps out of the shared timeline context", () => {
+	        const contextSource = readFileSync(
+	                "src/mainview/components/mui-headless-timeline/MuiTimelineContext.tsx",
+	                "utf8",
+	        );
+	        const timelineSource = readFileSync(
+	                "src/mainview/components/mui-headless-timeline/MuiMessageTimeline.tsx",
+	                "utf8",
+	        );
+
+	        expect(contextSource).not.toContain("users: Record");
+	        expect(contextSource).not.toContain("userImages: Record");
+	        expect(contextSource).not.toContain("userStatuses: Record");
+	        expect(timelineSource).toContain("const data = useSnapshot(chatDataStore);");
+	        expect(timelineSource).toContain("const image = data.userImages[post.user_id];");
 	});
 
 	test("disables native scroll anchoring on the MUI scroller", () => {

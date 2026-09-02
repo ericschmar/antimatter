@@ -17,7 +17,14 @@ import type {
 import { userLabel } from "../../utils/format";
 import { traceSync } from "../../utils/perfTrace";
 import { buildTimelineRows } from "../../utils/timeline";
-import type { MuiTimelineContextValue } from "./MuiTimelineContext";
+export type MuiTimelineModelData = {
+        channelId: string | null;
+        currentUserId: string;
+        users: Record<string, MattermostUser>;
+        userColors: Record<string, string>;
+        userImages: Record<string, string>;
+        userStatuses: Record<string, MattermostUserStatus>;
+};
 
 export type MattermostMessagePart =
 	| ChatMessagePart
@@ -118,7 +125,7 @@ function repliesEqual(a: MattermostPost[], b: MattermostPost[]): boolean {
 
 export function buildMuiTimelineMessages(
 	posts: MattermostPost[],
-	context: MuiTimelineContextValue,
+	context: MuiTimelineModelData,
 ): ChatMessage[] {
 	return traceSync("buildMuiTimelineMessages", () => {
 		if (context.channelId !== muiMessageCacheChannel) {

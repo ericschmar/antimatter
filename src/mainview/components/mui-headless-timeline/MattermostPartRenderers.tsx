@@ -1,5 +1,7 @@
 import type { ChatPartRendererMap } from "@mui/x-chat/headless";
 import { memo, useMemo } from "react";
+import { useSnapshot } from "valtio";
+import { chatDataStore } from "../../state/chatDataStore";
 import { markRender } from "../../utils/perfTrace";
 import { MessageAttachments } from "../MessageAttachments";
 import { MarkdownRenderer } from "../MessageMarkdown";
@@ -46,12 +48,13 @@ const MattermostTextPart = memo(function MattermostTextPart({
 }) {
 	markRender("MattermostTextPart");
 	const context = useMuiTimelineContext();
+	const data = useSnapshot(chatDataStore);
 	return (
 		<MarkdownRenderer
-			currentUsername={context.users[context.currentUserId]?.username}
+			currentUsername={data.users[context.currentUserId]?.username}
 			markdown={part.text}
-			resolveImageSrc={context.resolveImageSrc}
-			useNewComposer={context.settings.useNewComposer}
+			resolveImageSrc={data.resolveImageSrc}
+			useNewComposer={data.settings.useNewComposer}
 		/>
 	);
 });
@@ -113,11 +116,12 @@ const MattermostAttachmentsPart = memo(function MattermostAttachmentsPart({
 	part: Extract<MattermostMessagePart, { type: "data-attachments" }>;
 }) {
 	const context = useMuiTimelineContext();
+	const data = useSnapshot(chatDataStore);
 	return (
 		<div className="mui-attachments-part">
 			<MessageAttachments
 				files={part.data.files}
-				resolveImageSrc={context.resolveImageSrc}
+				resolveImageSrc={data.resolveImageSrc}
 				onOpenAttachment={context.onOpenAttachment}
 			/>
 		</div>
@@ -141,7 +145,6 @@ const MattermostReactionsPart = memo(function MattermostReactionsPart({
 				<ReactionPill
 					key={reaction.emojiName}
 					reaction={reaction}
-					users={context.users}
 					onClick={() =>
 						void context.onToggleReaction(part.data.post, reaction.emojiName)
 					}

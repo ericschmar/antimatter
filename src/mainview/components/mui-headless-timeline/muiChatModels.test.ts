@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { ChatMessage } from "@mui/x-chat/headless";
 import type { MattermostPost, MattermostUser } from "../../types";
-import type { MuiTimelineContextValue } from "./MuiTimelineContext";
 import {
 	__resetMuiMessageCache,
 	buildMuiTimelineMessages,
+	type MuiTimelineModelData,
 } from "./muiChatModels";
 
 function makeUser(id: string): MattermostUser {
@@ -25,34 +25,17 @@ function makePost(overrides: Partial<MattermostPost>): MattermostPost {
 }
 
 function makeContext(
-	overrides: Partial<MuiTimelineContextValue> = {},
-): MuiTimelineContextValue {
+        overrides: Partial<MuiTimelineModelData> = {},
+): MuiTimelineModelData {
 	return {
-		posts: [],
-		channel: undefined,
 		channelId: "channel-1",
-		currentUser: makeUser("me"),
 		currentUserId: "me",
 		users: {},
 		userColors: {},
 		userImages: {},
 		userStatuses: {},
-		loading: false,
-		resolveImageSrc: (src: string) => Promise.resolve(src),
-		ownMessageIndicatorColor: "#000",
-		showOwnMessageIndicators: true,
-		showProfilePictures: true,
-		useNewComposer: false,
-		typingUsers: [],
-		onOpenAttachment: async () => {},
-		onShowMessageContextMenu: () => {},
-		onSetUserColor: () => {},
-		onStartDm: () => {},
-		onReply: () => {},
-		onToggleReaction: async () => {},
-		onVotePoll: async () => {},
 		...overrides,
-	} as MuiTimelineContextValue;
+	};
 }
 
 function byId(messages: ChatMessage[]): Record<string, ChatMessage> {
@@ -105,6 +88,25 @@ describe("buildMuiTimelineMessages object cache", () => {
 			firstById["p1"],
 		);
 		expect(second.find((message) => message.id === "p2")).toBe(firstById["p2"]);
+	});
+
+	test("keeps an unrelated row cached when a message gains a reaction", () => {
+		const u1 = makeUser("u1");
+		const u2 = makeUser("u2");
+		const p1 = makePost({ id: "p1", user_id: "u1" });
+		const p2 = makePost({ id: "p2", user_id: "u2", create_at: 2 });
+		const context = makeContext({ users: { u1, u2 } });
+		const first = buildMuiTimelineMessages([p1, p2], context);
+		const reactedP1 = {
+			...p1,
+			metadata: {
+				reactions: [{ post_id: p1.id, user_id: u2.id, emoji_name: "thumbsup" }],
+			},
+		};
+		const second = buildMuiTimelineMessages([reactedP1, p2], context);
+
+		expect(second.find((message) => message.id === "p1")).not.toBe(first[0]);
+		expect(second.find((message) => message.id === "p2")).toBe(first[1]);
 	});
 
 	test("reuses existing message objects when a new post is appended (burst)", () => {

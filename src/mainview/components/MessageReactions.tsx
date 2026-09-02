@@ -1,5 +1,7 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { memo } from "react";
+import { useSnapshot } from "valtio";
+import { chatDataStore } from "../state/chatDataStore";
 import type { MattermostReaction, MattermostUser } from "../types";
 import { emojiNameToGlyph } from "../utils/emoji";
 import { userLabel } from "../utils/format";
@@ -46,12 +48,13 @@ export const ReactionPill = memo(function ReactionPill({
 	onClick,
 }: {
 	reaction: GroupedReaction;
-	users: Record<string, MattermostUser>;
+	users?: Record<string, MattermostUser>;
 	onClick: () => void;
 }) {
+	const chatData = useSnapshot(chatDataStore);
 	const glyph = emojiNameToGlyph(reaction.emojiName);
 	const reactionUsers = reaction.userIds.map((userId) =>
-		userLabel(users[userId], userId),
+		userLabel(users?.[userId] ?? chatData.users[userId], userId),
 	);
 	const tooltipLabel = `${formatReactionUsers(reactionUsers)} reacted with ${glyph}`;
 
