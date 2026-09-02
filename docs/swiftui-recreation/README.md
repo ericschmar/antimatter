@@ -58,3 +58,37 @@ This plan reflects the current repository’s documented and implemented surface
 - Closable tabs, temporary previews, split-right/split-down panels, persisted workspace layout, drafts, reply/edit state, scroll anchors, and composer heights.
 
 Calls are explicitly treated as an exploratory late phase because the current implementation is not a finished replacement for mature calling infrastructure.
+
+## Ordered implementation plan
+
+Status is for the new SwiftUI application, not the existing TypeScript application.
+All scoped work is currently **Not started**. Complete each row's dependencies before
+starting it; rows with the same order may proceed in parallel once their shared
+prerequisites are stable.
+
+| Order | Feature | Status | Implementation notes |
+| ---: | --- | --- | --- |
+| 1 | Native application foundation | Not started | Establish the macOS 14+ SwiftUI app target, dependency boundaries, logging, configuration, Keychain access, and test targets. |
+| 2 | Visual system and desktop shell | Not started | Implement the graphite surfaces, typography, spacing, dividers, semantic colors, 32 pt title strip, and resizable 248 pt sidebar baseline. |
+| 3 | Accessibility, keyboard, and window foundations | Not started | Define accessibility identifiers/labels, focus behavior, menu-command infrastructure, keyboard-shortcut routing, and multi-window lifecycle before feature UI depends on them. |
+| 4 | Server connection and authentication | Not started | Support server discovery/configuration plus password, personal-access-token, and SAML SSO sign-in; keep credentials exclusively in Keychain. |
+| 5 | Mattermost API client and transport | Not started | Build authenticated REST requests, pagination, error handling, reconnecting `URLSessionWebSocketTask` transport, and an API test harness. |
+| 6 | Local data store and synchronization | Not started | Model users, teams, channels, posts, preferences, unread state, and event reconciliation; persist enough data for fast startup and offline-tolerant rendering. |
+| 7 | Team and channel navigation | Not started | Render teams, public/private channels, DMs, group DMs, archives, favorites, local ordering, unread badges, and mention cues in the persistent sidebar. |
+| 8 | Conversation workspace and selection | Not started | Add the 54 pt conversation header, channel switching, temporary previews, closable tabs, and selection restoration. |
+| 9 | Message timeline | Not started | Create compact, virtualized ledger-style message rows with 18–24 pt avatars, fixed metadata column, shared content column, date grouping, and scroll anchoring. |
+| 10 | Rich message rendering | Not started | Render Mattermost markdown, links, code, emoji, attachments, and file actions without adopting chat-bubble presentation. |
+| 11 | Real-time conversation updates | Not started | Apply post, reaction, channel, unread, and user-status WebSocket events to the active timeline and navigation state; preserve scroll position appropriately. |
+| 12 | Reactions | Not started | Show reaction summaries, add/remove reactions, and reconcile optimistic changes with server events. |
+| 13 | Composer and drafts | Not started | Implement rich text composition, paste and drag-and-drop attachments, per-conversation drafts, persisted composer height, and sending state. |
+| 14 | Replies and post editing | Not started | Add reply state/thread context, edit flows, cancellation, draft recovery, and permission/error feedback. |
+| 15 | Typing and presence | Not started | Send and display typing indicators and live user-status/presence updates. |
+| 16 | Workspace splits and layout persistence | Not started | Support split-right and split-down conversation panes, independent pane selection/scroll state, tab movement, and persisted workspace layout. |
+| 17 | Channel and message context actions | Not started | Provide native context menus and mouse workflows for posts, channels, tabs, attachments, reactions, and pane operations. |
+| 18 | Search | Not started | Implement server-backed message/channel search, result navigation, filters, keyboard invocation, and opening results in the workspace. |
+| 19 | Command palette | Not started | Add a keyboard-first command palette for navigation and workspace actions, backed by the same command definitions as menus and shortcuts. |
+| 20 | Polls | Not started | Render polls, submit/update votes, show results, and reconcile real-time poll-related post updates. |
+| 21 | Notifications | Not started | Add macOS notification permission, routing to the relevant conversation, quiet behavior, and preference-aware mention/unread triggers. |
+| 22 | Settings and account management | Not started | Provide server/account management and user-facing preferences for notifications, appearance, behavior, and workspace defaults. |
+| 23 | Native polish and release hardening | Not started | Validate performance at large message/channel volumes, accessibility, failure/reconnect paths, migration of persisted state, packaging, signing, and release operations. |
+| 24 | Direct calls | Deferred — exploratory | Investigate a minimal direct-call workflow only after messaging parity; the current implementation is not a mature calling reference, so do not make calls a parity gate. |
