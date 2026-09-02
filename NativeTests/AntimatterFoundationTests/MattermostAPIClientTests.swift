@@ -75,6 +75,34 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(event.data?["mention_count"]?.intValue, 2)
     }
 
+    func testReactionEndpointsUseAuthenticatedMattermostPaths() async throws {
+        var requestedPaths: [String] = []
+        URLProtocolStub.handler = { request in
+            requestedPaths.append(request.url!.path)
+            if request.httpMethod == "POST" {
+                return (
+                    try Self.response(for: request, status: 201),
+                    Data("{\"user_id\":\"user-1\",\"post_id\":\"post-1\",\"emoji_name\":\"heart\"}".utf8)
+                )
+            }
+            return (try Self.response(for: request, status: 200), Data("{}".utf8))
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let reactions = MattermostReactions(client: client)
+
+        try await reactions.add(postID: "post-1", emojiName: "heart", userID: "user-1")
+        try await reactions.remove(postID: "post-1", emojiName: "heart", userID: "user-1")
+
+        XCTAssertEqual(requestedPaths, [
+            "/api/v4/reactions",
+            "/api/v4/users/user-1/posts/post-1/reactions/heart",
+        ])
+    }
+
     private func stubbedSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]

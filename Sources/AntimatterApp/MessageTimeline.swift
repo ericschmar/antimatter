@@ -22,7 +22,9 @@ struct MessageTimeline: View {
                         ForEach(groups) { group in
                             TimelineDateHeader(date: group.date)
                             ForEach(group.posts) { post in
-                                MessageRow(post: post)
+                                MessageRow(post: post) { post, emojiName in
+                                    timeline.toggleReaction(on: post, emojiName: emojiName)
+                                }
                                     .id(post.id)
                             }
                         }
@@ -97,6 +99,7 @@ private struct TimelineDateHeader: View {
 
 private struct MessageRow: View {
     let post: MattermostPost
+    let onToggleReaction: (MattermostPost, String) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -115,8 +118,11 @@ private struct MessageRow: View {
                 .foregroundStyle(WorkspaceTheme.primaryText)
                 .frame(width: 92, alignment: .leading)
 
-            RichMessageContent(post: post)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 6) {
+                RichMessageContent(post: post)
+                ReactionSummary(post: post, onToggleReaction: onToggleReaction)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(timestamp)
                 .font(.system(size: 10, design: .monospaced))
@@ -141,6 +147,77 @@ private struct MessageRow: View {
         Date(timeIntervalSince1970: TimeInterval(post.createAt) / 1_000)
             .formatted(date: .omitted, time: .shortened)
     }
+}
+
+private struct ReactionSummary: View {
+    let post: MattermostPost
+    let onToggleReaction: (MattermostPost, String) -> Void
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(summaries) { summary in
+                Button {
+                    onToggleReaction(post, summary.emojiName)
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: symbol(for: summary.emojiName))
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("\(summary.count)")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    }
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(WorkspaceTheme.raisedSurface)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(WorkspaceTheme.divider, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(summary.emojiName) reaction, \(summary.count)")
+            }
+
+            Menu {
+                ForEach(Self.supportedEmojiNames, id: \.self) { emojiName in
+                    Button(emojiName) {
+                        onToggleReaction(post, emojiName)
+                    }
+                }
+            } label: {
+                Image(systemName: "face.smiling")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .padding(5)
+            }
+            .menuStyle(.borderlessButton)
+            .accessibilityLabel("Add reaction")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var summaries: [ReactionCount] {
+        Dictionary(grouping: post.reactions, by: \.emojiName)
+            .map { ReactionCount(emojiName: $0.key, count: $0.value.count) }
+            .sorted { $0.emojiName < $1.emojiName }
+    }
+
+    private func symbol(for emojiName: String) -> String {
+        switch emojiName {
+        case "heart": "heart.fill"
+        case "+1", "thumbsup": "hand.thumbsup.fill"
+        case "-1", "thumbsdown": "hand.thumbsdown.fill"
+        case "tada": "sparkles"
+        default: "face.smiling"
+        }
+    }
+
+    private static let supportedEmojiNames = ["heart", "+1", "-1", "tada"]
+}
+
+private struct ReactionCount: Identifiable {
+    let emojiName: String
+    let count: Int
+
+    var id: String { emojiName }
 }
 
 private struct TimelineStatus: View {

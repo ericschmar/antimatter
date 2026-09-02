@@ -63,6 +63,10 @@ public actor MattermostAPIClient {
         try await request(path, method: "POST", queryItems: [], body: try JSONEncoder().encode(body))
     }
 
+    public func delete<Response: Decodable & Sendable>(_ path: String) async throws -> Response {
+        try await request(path, method: "DELETE", queryItems: [], body: Optional<Data>.none)
+    }
+
     private func request<Response: Decodable & Sendable>(
         _ path: String,
         method: String,

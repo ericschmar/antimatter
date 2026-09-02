@@ -20,6 +20,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
     public let createAt: Int64
     public let updateAt: Int64
     public let files: [MattermostFile]
+    public let reactions: [MattermostReaction]
 
     public init(
         id: String,
@@ -28,7 +29,8 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         message: String,
         createAt: Int64,
         updateAt: Int64,
-        files: [MattermostFile] = []
+        files: [MattermostFile] = [],
+        reactions: [MattermostReaction] = []
     ) {
         self.id = id
         self.channelID = channelID
@@ -37,6 +39,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         self.createAt = createAt
         self.updateAt = updateAt
         self.files = files
+        self.reactions = reactions
     }
 
     enum CodingKeys: String, CodingKey {
@@ -49,7 +52,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
     }
 
     private enum MetadataCodingKeys: String, CodingKey {
-        case files
+        case files, reactions
     }
 
     public init(from decoder: Decoder) throws {
@@ -63,8 +66,10 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         if values.contains(.metadata) {
             let metadata = try values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
             files = try metadata.decodeIfPresent([MattermostFile].self, forKey: .files) ?? []
+            reactions = try metadata.decodeIfPresent([MattermostReaction].self, forKey: .reactions) ?? []
         } else {
             files = []
+            reactions = []
         }
     }
 
@@ -78,6 +83,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         try values.encode(updateAt, forKey: .updateAt)
         var metadata = values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
         try metadata.encode(files, forKey: .files)
+        try metadata.encode(reactions, forKey: .reactions)
     }
 }
 
@@ -90,6 +96,26 @@ public struct MattermostFile: Codable, Identifiable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, name, size
         case mimeType = "mime_type"
+    }
+}
+
+public struct MattermostReaction: Codable, Identifiable, Equatable, Sendable {
+    public let userID: String
+    public let postID: String
+    public let emojiName: String
+
+    public var id: String { "\(userID)-\(postID)-\(emojiName)" }
+
+    public init(userID: String, postID: String, emojiName: String) {
+        self.userID = userID
+        self.postID = postID
+        self.emojiName = emojiName
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case postID = "post_id"
+        case emojiName = "emoji_name"
     }
 }
 
@@ -199,6 +225,22 @@ public actor MattermostLocalStore {
         case "post_deleted":
             guard let postID = event.data?["post_id"]?.stringValue else { return }
             try apply(.removePost(id: postID))
+        case "reaction_added", "reaction_removed":
+            guard let reaction = event.decodedData(MattermostReaction.self, forKey: "reaction"),
+                  let post = snapshot.posts.first(where: { $0.id == reaction.postID }) else { return }
+            let reactions = event.event == "reaction_added"
+                ? post.reactions.filter { $0.id != reaction.id } + [reaction]
+                : post.reactions.filter { $0.id != reaction.id }
+            try apply(.posts([MattermostPost(
+                id: post.id,
+                channelID: post.channelID,
+                userID: post.userID,
+                message: post.message,
+                createAt: post.createAt,
+                updateAt: post.updateAt,
+                files: post.files,
+                reactions: reactions
+            )]))
         default:
             return
         }
