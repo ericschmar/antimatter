@@ -9,6 +9,7 @@ struct WorkspaceShell: View {
     @StateObject private var realtime: RealtimeUpdatesViewModel
     @StateObject private var composer: ComposerViewModel
     @StateObject private var presence = PresenceViewModel()
+    @StateObject private var search: SearchViewModel
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
 
@@ -19,6 +20,7 @@ struct WorkspaceShell: View {
         _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
         _realtime = StateObject(wrappedValue: RealtimeUpdatesViewModel(session: session))
         _composer = StateObject(wrappedValue: ComposerViewModel(session: session))
+        _search = StateObject(wrappedValue: SearchViewModel(session: session))
     }
 
     var body: some View {
@@ -26,7 +28,7 @@ struct WorkspaceShell: View {
             TitleStrip(environment: configuration.environment)
 
             HSplitView {
-                SidebarPlaceholder(navigation: navigation)
+                SidebarPlaceholder(navigation: navigation, search: search)
                     .frame(
                         minWidth: 220,
                         idealWidth: WorkspaceTheme.sidebarWidth,
@@ -144,6 +146,7 @@ private struct TitleStrip: View {
 
 private struct SidebarPlaceholder: View {
     @ObservedObject var navigation: NavigationViewModel
+    @ObservedObject var search: SearchViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -164,6 +167,10 @@ private struct SidebarPlaceholder: View {
 
             Divider()
                 .overlay(WorkspaceTheme.divider)
+
+            SearchPanel(search: search) { post in
+                navigation.selectedChannelID = post.channelID
+            }
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
