@@ -93,6 +93,7 @@ let pendingWebsocketPingSeq: number | null = null;
 let websocketClosedByUser = false;
 let websocketConfig: MattermostWebSocketConfig | null = null;
 let settingsWindow: BrowserWindow | null = null;
+let mattermostSsoWindow: BrowserWindow | null = null;
 let pendingDesktopSsoLogin: {
 	clientToken: string;
 	provider: MattermostSsoProvider;
@@ -284,7 +285,11 @@ const mainWindow = new BrowserWindow({
 	url: "views://mainview/index.html",
 	rpc,
 	titleBarStyle: "hidden",
-	transparent: true,
+	// CEF's Linux renderer does not reliably deliver pointer input to controls
+	// in a transparent native window. The UI paints its own opaque background,
+	// so native transparency provides no benefit here.
+	transparent: false,
+	passthrough: false,
 	frame: {
 		width: 1180,
 		height: 760,
@@ -801,10 +806,50 @@ async function startMattermostSsoLogin(request: MattermostSsoLoginRequest) {
 	};
 
 	console.info(
-		`[sso:${request.provider}] opening external browser ${redactUrl(loginUrl)}`,
+		`[sso:${request.provider}] opening ${process.platform === "darwin" ? "external browser" : "login window"} ${redactUrl(loginUrl)}`,
 	);
-	Utils.openExternal(loginUrl);
+	if (process.platform === "darwin") {
+		Utils.openExternal(loginUrl);
+	} else {
+		openMattermostSsoWindow(loginUrl, clientToken);
+	}
 	return { success: true, loginUrl };
+}
+
+function openMattermostSsoWindow(loginUrl: string, clientToken: string) {
+	closeMattermostSsoWindow();
+
+	const window = new BrowserWindow({
+		title: "Sign in to Mattermost",
+		url: loginUrl,
+		titleBarStyle: "default",
+		transparent: false,
+		passthrough: false,
+		frame: {
+			width: 520,
+			height: 720,
+		},
+	});
+	mattermostSsoWindow = window;
+
+	window.webview.on("will-navigate", (event: unknown) => {
+		const url = readOpenUrl(event);
+		if (!url?.startsWith("mattermost-dev://")) return;
+		void handleMattermostDesktopLoginUrl(url).finally(closeMattermostSsoWindow);
+	});
+	window.on("close", () => {
+		if (mattermostSsoWindow !== window) return;
+		mattermostSsoWindow = null;
+		if (pendingDesktopSsoLogin?.clientToken === clientToken) {
+			sendMattermostSsoLoginError("SSO sign-in was cancelled.");
+		}
+	});
+}
+
+function closeMattermostSsoWindow() {
+	const window = mattermostSsoWindow;
+	mattermostSsoWindow = null;
+	window?.close();
 }
 
 function getMattermostSsoLoginUrl(
