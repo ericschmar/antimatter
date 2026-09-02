@@ -14,7 +14,26 @@
 		A10000000000000000000005 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AppLogger.swift */; };
 		A10000000000000000000006 /* SecureValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* SecureValueStore.swift */; };
 		A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* libAntimatterFoundation.a */; };
+		AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24F3048C65F00B4461D /* ChannelSection.swift */; };
+		AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */; };
+		AC7AC2543048C65F00B4461D /* WorkspaceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2513048C65F00B4461D /* WorkspaceCommands.swift */; };
+		AC7AC2553048C65F00B4461D /* AuthenticationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24E3048C65F00B4461D /* AuthenticationViewModel.swift */; };
+		AC7AC2563048C65F00B4461D /* NavigationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2503048C65F00B4461D /* NavigationViewModel.swift */; };
+		AC7AC25B3048C66C00B4461D /* MattermostAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2573048C66C00B4461D /* MattermostAPIClient.swift */; };
+		AC7AC25C3048C66C00B4461D /* MattermostWebSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC25A3048C66C00B4461D /* MattermostWebSocket.swift */; };
+		AC7AC25D3048C66C00B4461D /* MattermostNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2593048C66C00B4461D /* MattermostNavigation.swift */; };
+		AC7AC25E3048C66C00B4461D /* MattermostAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2583048C66C00B4461D /* MattermostAuthentication.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA00000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A90000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A50000000000000000000002;
+			remoteInfo = AntimatterFoundation;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A20000000000000000000001 /* AntimatterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntimatterApp.swift; sourceTree = "<group>"; };
@@ -26,6 +45,15 @@
 		A20000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000008 /* libAntimatterFoundation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAntimatterFoundation.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* Antimatter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Antimatter.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationScreen.swift; sourceTree = "<group>"; };
+		AC7AC24E3048C65F00B4461D /* AuthenticationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationViewModel.swift; sourceTree = "<group>"; };
+		AC7AC24F3048C65F00B4461D /* ChannelSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelSection.swift; sourceTree = "<group>"; };
+		AC7AC2503048C65F00B4461D /* NavigationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationViewModel.swift; sourceTree = "<group>"; };
+		AC7AC2513048C65F00B4461D /* WorkspaceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCommands.swift; sourceTree = "<group>"; };
+		AC7AC2573048C66C00B4461D /* MattermostAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostAPIClient.swift; sourceTree = "<group>"; };
+		AC7AC2583048C66C00B4461D /* MattermostAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostAuthentication.swift; sourceTree = "<group>"; };
+		AC7AC2593048C66C00B4461D /* MattermostNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostNavigation.swift; sourceTree = "<group>"; };
+		AC7AC25A3048C66C00B4461D /* MattermostWebSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostWebSocket.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,16 +71,21 @@
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				A40000000000000000000002 /* AntimatterApp */,
-				A40000000000000000000003 /* AntimatterFoundation */,
-				A40000000000000000000004 /* Supporting Files */,
+				A40000000000000000000002 /* Sources/AntimatterApp */,
+				A40000000000000000000003 /* Sources/AntimatterFoundation */,
+				A40000000000000000000004 /* Xcode/Antimatter */,
 				A40000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A40000000000000000000002 /* AntimatterApp */ = {
+		A40000000000000000000002 /* Sources/AntimatterApp */ = {
 			isa = PBXGroup;
 			children = (
+				AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */,
+				AC7AC24E3048C65F00B4461D /* AuthenticationViewModel.swift */,
+				AC7AC24F3048C65F00B4461D /* ChannelSection.swift */,
+				AC7AC2503048C65F00B4461D /* NavigationViewModel.swift */,
+				AC7AC2513048C65F00B4461D /* WorkspaceCommands.swift */,
 				A20000000000000000000001 /* AntimatterApp.swift */,
 				A20000000000000000000002 /* WorkspaceShell.swift */,
 				A20000000000000000000003 /* WorkspaceTheme.swift */,
@@ -60,9 +93,13 @@
 			path = Sources/AntimatterApp;
 			sourceTree = SOURCE_ROOT;
 		};
-		A40000000000000000000003 /* AntimatterFoundation */ = {
+		A40000000000000000000003 /* Sources/AntimatterFoundation */ = {
 			isa = PBXGroup;
 			children = (
+				AC7AC2573048C66C00B4461D /* MattermostAPIClient.swift */,
+				AC7AC2583048C66C00B4461D /* MattermostAuthentication.swift */,
+				AC7AC2593048C66C00B4461D /* MattermostNavigation.swift */,
+				AC7AC25A3048C66C00B4461D /* MattermostWebSocket.swift */,
 				A20000000000000000000004 /* AppConfiguration.swift */,
 				A20000000000000000000005 /* AppLogger.swift */,
 				A20000000000000000000006 /* SecureValueStore.swift */,
@@ -70,7 +107,7 @@
 			path = Sources/AntimatterFoundation;
 			sourceTree = SOURCE_ROOT;
 		};
-		A40000000000000000000004 /* Supporting Files */ = {
+		A40000000000000000000004 /* Xcode/Antimatter */ = {
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000007 /* Info.plist */,
@@ -142,11 +179,13 @@
 			};
 			buildConfigurationList = A60000000000000000000003 /* Build configuration list for PBXProject "Antimatter" */;
 			developmentRegion = en;
+			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
 			mainGroup = A40000000000000000000001;
+			preferredProjectObjectVersion = 77;
 			productRefGroup = A40000000000000000000005 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -163,6 +202,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* AntimatterApp.swift in Sources */,
+				AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */,
+				AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */,
+				AC7AC2543048C65F00B4461D /* WorkspaceCommands.swift in Sources */,
+				AC7AC2553048C65F00B4461D /* AuthenticationViewModel.swift in Sources */,
+				AC7AC2563048C65F00B4461D /* NavigationViewModel.swift in Sources */,
 				A10000000000000000000002 /* WorkspaceShell.swift in Sources */,
 				A10000000000000000000003 /* WorkspaceTheme.swift in Sources */,
 			);
@@ -174,6 +218,10 @@
 			files = (
 				A10000000000000000000004 /* AppConfiguration.swift in Sources */,
 				A10000000000000000000005 /* AppLogger.swift in Sources */,
+				AC7AC25B3048C66C00B4461D /* MattermostAPIClient.swift in Sources */,
+				AC7AC25C3048C66C00B4461D /* MattermostWebSocket.swift in Sources */,
+				AC7AC25D3048C66C00B4461D /* MattermostNavigation.swift in Sources */,
+				AC7AC25E3048C66C00B4461D /* MattermostAuthentication.swift in Sources */,
 				A10000000000000000000006 /* SecureValueStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -187,16 +235,6 @@
 			targetProxy = AA00000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXContainerItemProxy section */
-		AA00000000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A90000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A50000000000000000000002;
-			remoteInfo = AntimatterFoundation;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		AB00000000000000000000001 /* Debug */ = {
