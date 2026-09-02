@@ -94,6 +94,7 @@ let websocketClosedByUser = false;
 let websocketConfig: MattermostWebSocketConfig | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let mattermostSsoWindow: BrowserWindow | null = null;
+let desktopSsoCallbackInFlight = false;
 let pendingDesktopSsoLogin: {
 	clientToken: string;
 	provider: MattermostSsoProvider;
@@ -307,7 +308,16 @@ setTimeout(() => {
 electrobunApp.on("open-url", (event) => {
 	const url = readOpenUrl(event);
 	if (!url) return;
-	void handleMattermostDesktopLoginUrl(url);
+	receiveMattermostDesktopLoginUrl(url);
+});
+
+// CEF reports an in-window custom-protocol navigation at the application
+// level. Listening here supplements BrowserView's navigation notifications,
+// which do not fire before CEF renders ERR_UNKNOWN_URL_SCHEME.
+electrobunApp.on("will-navigate", (event) => {
+	const url = readOpenUrl(event);
+	if (!url) return;
+	receiveMattermostDesktopLoginUrl(url);
 });
 
 ContextMenu.on("context-menu-clicked", (event) => {
@@ -832,8 +842,7 @@ function openMattermostSsoWindow(loginUrl: string, clientToken: string) {
 		const url = readOpenUrl(event);
 		if (!url) return;
 		console.info(`[sso] login window navigating to ${redactUrl(url)}`);
-		if (!url.startsWith("mattermost-dev://")) return;
-		void handleMattermostDesktopLoginUrl(url).finally(closeMattermostSsoWindow);
+		receiveMattermostDesktopLoginUrl(url);
 	});
 	window.on("close", () => {
 		if (mattermostSsoWindow !== window) return;
@@ -905,6 +914,16 @@ function readOpenUrl(event: unknown) {
 	if (!data || typeof data !== "object") return null;
 	const dataUrl = (data as { url?: unknown }).url;
 	return typeof dataUrl === "string" ? dataUrl : null;
+}
+
+function receiveMattermostDesktopLoginUrl(value: string) {
+	if (!value.startsWith("mattermost-dev://") || desktopSsoCallbackInFlight)
+		return;
+	desktopSsoCallbackInFlight = true;
+	void handleMattermostDesktopLoginUrl(value).finally(() => {
+		desktopSsoCallbackInFlight = false;
+		closeMattermostSsoWindow();
+	});
 }
 
 async function handleMattermostDesktopLoginUrl(value: string) {
