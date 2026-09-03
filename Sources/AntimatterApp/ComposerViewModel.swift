@@ -5,6 +5,7 @@ import Foundation
 final class ComposerViewModel: ObservableObject {
     @Published var message = ""
     @Published var height: CGFloat
+    @Published private(set) var attachmentURLs: [URL] = []
     @Published private(set) var isSending = false
     @Published private(set) var sendError: String?
     @Published private(set) var replyRootID: String?
@@ -39,6 +40,7 @@ final class ComposerViewModel: ObservableObject {
             do {
                 let post = try await sender.send(MattermostPostRequest(channelID: channelID, message: draft, rootID: replyRootID ?? ""))
                 message = ""
+                attachmentURLs = []
                 removeDraft(for: channelID)
                 replyRootID = nil
                 onSent(post)
@@ -66,6 +68,18 @@ final class ComposerViewModel: ObservableObject {
 
     func cancelReply() {
         replyRootID = nil
+    }
+
+    func addAttachments(_ urls: [URL]) {
+        attachmentURLs += urls.filter { url in !attachmentURLs.contains(url) }
+        let references = urls.map { "[\($0.lastPathComponent)](\($0.absoluteString))" }.joined(separator: "\n")
+        message += message.isEmpty ? references : "\n\(references)"
+    }
+
+    func removeAttachment(_ url: URL) {
+        attachmentURLs.removeAll { $0 == url }
+        message = message.replacingOccurrences(of: "[\(url.lastPathComponent)](\(url.absoluteString))", with: "")
+            .trimmingCharacters(in: .newlines)
     }
 
     private var drafts: [String: String] {

@@ -21,6 +21,9 @@ struct MessageComposer: View {
                         .buttonStyle(.borderless)
                 }
             }
+            if !composer.attachmentURLs.isEmpty {
+                ComposerAttachmentChips(urls: composer.attachmentURLs, remove: composer.removeAttachment)
+            }
             TextEditor(text: $composer.message)
                 .font(.system(size: 13))
                 .scrollContentBackground(.hidden)
@@ -68,17 +71,12 @@ struct MessageComposer: View {
         .background(WorkspaceTheme.surface)
         .fileImporter(isPresented: $isImportingFiles, allowedContentTypes: [.data], allowsMultipleSelection: true) { result in
             guard case let .success(urls) = result else { return }
-            appendAttachmentReferences(urls)
+            composer.addAttachments(urls)
         }
         .onChange(of: channelID) { _, channelID in
             composer.select(channelID: channelID)
         }
         .onChange(of: composer.height) { _, _ in composer.persistHeight() }
-    }
-
-    private func appendAttachmentReferences(_ urls: [URL]) {
-        let references = urls.map { "[\($0.lastPathComponent)](\($0.absoluteString))" }.joined(separator: "\n")
-        composer.message += composer.message.isEmpty ? references : "\n\(references)"
     }
 
     private func loadDroppedText(from providers: [NSItemProvider]) -> Bool {
@@ -89,5 +87,42 @@ struct MessageComposer: View {
             Task { @MainActor in composer.message += text }
         }
         return true
+    }
+}
+
+private struct ComposerAttachmentChips: View {
+    let urls: [URL]
+    let remove: (URL) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+            ForEach(urls, id: \.self) { url in
+                HStack(spacing: 7) {
+                    Circle().fill(color(for: url)).frame(width: 6, height: 6)
+                    Text(url.lastPathComponent).lineLimit(1)
+                    Button { remove(url) } label: {
+                        Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .accessibilityLabel("Remove \(url.lastPathComponent)")
+                }
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(WorkspaceTheme.raisedSurface, in: Capsule())
+            }
+            }
+        }
+    }
+
+    private func color(for url: URL) -> Color {
+        switch url.pathExtension.lowercased() {
+        case "pdf": WorkspaceTheme.attention
+        case "jpg", "jpeg", "png", "gif", "webp": .purple
+        case "xls", "xlsx", "csv": WorkspaceTheme.accent
+        default: WorkspaceTheme.secondaryText
+        }
     }
 }
