@@ -180,6 +180,7 @@ public struct MattermostPreferences: Codable, Equatable, Sendable {
 public struct MattermostStoreSnapshot: Codable, Equatable, Sendable {
     public var teams: [MattermostTeam]
     public var channels: [MattermostChannel]
+    public var selectedTeamID: String?
     public var users: [MattermostUser]
     public var posts: [MattermostPost]
     public var unread: [MattermostUnreadState]
@@ -188,6 +189,7 @@ public struct MattermostStoreSnapshot: Codable, Equatable, Sendable {
     public init(
         teams: [MattermostTeam] = [],
         channels: [MattermostChannel] = [],
+        selectedTeamID: String? = nil,
         users: [MattermostUser] = [],
         posts: [MattermostPost] = [],
         unread: [MattermostUnreadState] = [],
@@ -195,6 +197,7 @@ public struct MattermostStoreSnapshot: Codable, Equatable, Sendable {
     ) {
         self.teams = teams
         self.channels = channels
+        self.selectedTeamID = selectedTeamID
         self.users = users
         self.posts = posts
         self.unread = unread
@@ -204,6 +207,7 @@ public struct MattermostStoreSnapshot: Codable, Equatable, Sendable {
 
 public enum MattermostStoreChange: Sendable {
     case navigation(teams: [MattermostTeam], channels: [MattermostChannel])
+    case selectedTeam(id: String)
     case users([MattermostUser])
     case posts([MattermostPost])
     case removePost(id: String)
@@ -237,6 +241,8 @@ public actor MattermostLocalStore {
         case let .navigation(teams, channels):
             snapshot.teams = teams
             snapshot.channels = channels
+        case let .selectedTeam(id):
+            snapshot.selectedTeamID = id
         case let .users(users):
             snapshot.users = merged(users, into: snapshot.users, id: \.id)
         case let .posts(posts):

@@ -73,6 +73,7 @@ final class NavigationViewModel: ObservableObject {
             teams = cached.teams
             channels = cached.channels
             users = Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })
+            selectedTeamID = cached.selectedTeamID ?? selectedTeamID
             restoreSelectedTeam()
         }
         do {
@@ -152,6 +153,9 @@ final class NavigationViewModel: ObservableObject {
         guard selectedTeamID != team.id else { return }
         selectedTeamID = team.id
         defaults.set(team.id, forKey: selectedTeamKey)
+        Task { [store] in
+            try? await store.apply(.selectedTeam(id: team.id))
+        }
         selectedChannelID = regularChannels.first?.id ?? directMessages.first?.id
     }
 

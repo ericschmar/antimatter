@@ -33,12 +33,14 @@ final class MattermostLocalStoreTests: XCTestCase {
         )
 
         try await store.apply(.navigation(teams: [team], channels: [channel]))
+        try await store.apply(.selectedTeam(id: team.id))
         try await store.apply(.posts([original]))
         try await store.apply(.posts([updated]))
 
         let restored = try await MattermostLocalStore(serverURL: serverURL, directory: directory).load()
         XCTAssertEqual(restored.teams, [team])
         XCTAssertEqual(restored.channels, [channel])
+        XCTAssertEqual(restored.selectedTeamID, team.id)
         XCTAssertEqual(restored.posts, [updated])
     }
 
