@@ -56,6 +56,22 @@ public actor MattermostAPIClient {
         try await get(path, queryItems: page.queryItems)
     }
 
+    /// Fetches a non-JSON resource using the same authenticated session as the API.
+    public func getData(_ path: String) async throws -> Data {
+        var request = URLRequest(url: URL(string: path, relativeTo: serverURL)!.absoluteURL)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("image/*", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        guard let response = response as? HTTPURLResponse else {
+            throw MattermostAPIError.invalidResponse
+        }
+        guard (200 ..< 300).contains(response.statusCode) else {
+            throw MattermostAPIError.rejected(status: response.statusCode, message: nil)
+        }
+        return data
+    }
+
     public func post<Body: Encodable & Sendable, Response: Decodable & Sendable>(
         _ path: String,
         body: Body

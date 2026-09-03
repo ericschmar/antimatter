@@ -4,6 +4,8 @@ import Foundation
 @MainActor
 final class TimelineViewModel: ObservableObject {
     @Published private(set) var posts: [MattermostPost] = []
+    @Published private(set) var users: [String: MattermostUser] = [:]
+    @Published private(set) var avatarData: [String: Data] = [:]
     @Published private(set) var isLoading = false
     @Published private(set) var loadError: String?
     @Published private(set) var editingPostID: String?
@@ -41,12 +43,37 @@ final class TimelineViewModel: ObservableObject {
             let recentPosts = try await loader.loadRecentPosts(channelID: channelID)
             try await store.apply(.posts(recentPosts))
             posts = chronological(recentPosts)
+            await loadAuthors(for: recentPosts)
         } catch {
             if posts.isEmpty {
                 loadError = error.localizedDescription
             }
         }
         isLoading = false
+    }
+
+    private func loadAuthors(for posts: [MattermostPost]) async {
+        let authorIDs = Array(Set(posts.map(\.userID)))
+        do {
+            let fetchedUsers = try await loader.loadUsers(ids: authorIDs)
+            users.merge(Dictionary(uniqueKeysWithValues: fetchedUsers.map { ($0.id, $0) })) { _, new in new }
+            try? await store.apply(.users(fetchedUsers))
+        } catch {
+            if let cached = try? await store.load() {
+                users.merge(Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })) { _, new in new }
+            }
+        }
+
+        await withTaskGroup(of: (String, Data?).self) { group in
+            for userID in authorIDs where avatarData[userID] == nil {
+                group.addTask { [loader] in
+                    (userID, try? await loader.loadAvatarData(userID: userID))
+                }
+            }
+            for await (userID, data) in group where data != nil {
+                avatarData[userID] = data
+            }
+        }
     }
 
     func toggleReaction(on post: MattermostPost, emojiName: String) {

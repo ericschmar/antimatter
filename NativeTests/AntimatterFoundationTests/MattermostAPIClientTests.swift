@@ -103,6 +103,30 @@ final class MattermostAPIClientTests: XCTestCase {
         ])
     }
 
+    func testTimelineIdentityRequestsAreAuthenticated() async throws {
+        var requestedPaths: [String] = []
+        URLProtocolStub.handler = { request in
+            requestedPaths.append(request.url!.path)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
+            if request.httpMethod == "POST" {
+                return (try Self.response(for: request, status: 200), Data("[{\"id\":\"user-1\",\"username\":\"ada\"}]".utf8))
+            }
+            return (try Self.response(for: request, status: 200), Data([0x89, 0x50, 0x4E, 0x47]))
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let loader = MattermostTimelineLoader(client: client)
+
+        let users = try await loader.loadUsers(ids: ["user-1"])
+        _ = try await loader.loadAvatarData(userID: "user-1")
+
+        XCTAssertEqual(users.first?.displayName, "ada")
+        XCTAssertEqual(requestedPaths, ["/api/v4/users/ids", "/api/v4/users/user-1/image"])
+    }
+
     private func stubbedSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]

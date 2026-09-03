@@ -10,6 +10,38 @@ public struct MattermostUser: Codable, Identifiable, Equatable, Sendable {
         self.username = username
         self.displayName = displayName
     }
+
+    enum CodingKeys: String, CodingKey {
+        case id, username, nickname, displayName
+        case firstName = "first_name"
+        case lastName = "last_name"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        username = try values.decodeIfPresent(String.self, forKey: .username) ?? id
+        let fullName = [
+            try values.decodeIfPresent(String.self, forKey: .firstName) ?? "",
+            try values.decodeIfPresent(String.self, forKey: .lastName) ?? "",
+        ]
+        .joined(separator: " ")
+        .trimmingCharacters(in: .whitespaces)
+        let nickname = try values.decodeIfPresent(String.self, forKey: .nickname)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        let cachedDisplayName = try values.decodeIfPresent(String.self, forKey: .displayName)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        displayName = fullName.isEmpty
+            ? (nickname.isEmpty ? (cachedDisplayName.isEmpty ? username : cachedDisplayName) : nickname)
+            : fullName
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(username, forKey: .username)
+        try values.encode(displayName, forKey: .displayName)
+    }
 }
 
 public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {

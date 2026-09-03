@@ -264,7 +264,11 @@ private struct ConversationPlaceholder: View {
             Divider()
                 .overlay(WorkspaceTheme.divider)
 
-            MessageTimeline(timeline: timeline, channelID: selectedTab?.channelID) { post in
+            MessageTimeline(
+                timeline: timeline,
+                statuses: presence.statuses,
+                channelID: selectedTab?.channelID
+            ) { post in
                 composer.reply(to: post)
             }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

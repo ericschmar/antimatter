@@ -2,6 +2,16 @@ import AntimatterFoundation
 import XCTest
 
 final class MattermostTimelineTests: XCTestCase {
+    func testUserDecodingUsesPersonNameBeforeUsername() throws {
+        let user = try JSONDecoder().decode(
+            MattermostUser.self,
+            from: Data("{\"id\":\"user-1\",\"username\":\"ada\",\"first_name\":\"Ada\",\"last_name\":\"Lovelace\"}".utf8)
+        )
+
+        XCTAssertEqual(user.displayName, "Ada Lovelace")
+        XCTAssertEqual(user.username, "ada")
+    }
+
     func testPostListPreservesServerOrderAndIncludesUnorderedPosts() {
         let early = post(id: "early", createdAt: 1)
         let latest = post(id: "latest", createdAt: 2)

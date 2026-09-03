@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
+    let statuses: [String: String]
     let channelID: String?
     let onReply: (MattermostPost) -> Void
 
@@ -26,6 +27,9 @@ struct MessageTimeline: View {
                             ForEach(group.posts) { post in
                                 MessageRow(
                                     post: post,
+                                    user: timeline.users[post.userID],
+                                    avatarData: timeline.avatarData[post.userID],
+                                    status: statuses[post.userID],
                                     onReply: onReply,
                                     onEdit: timeline.beginEditing
                                 ) { post, emojiName in
@@ -105,40 +109,45 @@ private struct TimelineDateHeader: View {
 
 private struct MessageRow: View {
     let post: MattermostPost
+    let user: MattermostUser?
+    let avatarData: Data?
+    let status: String?
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
+    @AppStorage("showTimelineAvatars") private var showAvatars = true
+    @State private var isHovering = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Circle()
-                .fill(WorkspaceTheme.raisedSurface)
-                .frame(width: 22, height: 22)
-                .overlay {
-                    Text(initials)
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                }
-                .accessibilityHidden(true)
-
-            Text(author)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(WorkspaceTheme.primaryText)
-                .frame(width: 92, alignment: .leading)
+            if showAvatars {
+                Avatar(data: avatarData, initials: initials)
+                    .accessibilityHidden(true)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 5) {
+                    Text(author)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                    PresenceDot(status: status)
+                    Text(timestamp)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
                 RichMessageContent(post: post)
-                ReactionSummary(post: post, onToggleReaction: onToggleReaction)
+                ReactionSummary(
+                    post: post,
+                    showsAddReaction: isHovering,
+                    onToggleReaction: onToggleReaction
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text(timestamp)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(WorkspaceTheme.secondaryText)
-                .frame(width: 44, alignment: .trailing)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(author), \(timestamp), \(post.message)")
         .contextMenu {
@@ -155,11 +164,13 @@ private struct MessageRow: View {
     }
 
     private var author: String {
-        "Member \(post.userID.prefix(6))"
+        user?.displayName ?? user?.username ?? "Unknown member"
     }
 
     private var initials: String {
-        String(post.userID.prefix(2)).uppercased()
+        let components = author.split(separator: " ")
+        let initials = components.prefix(2).compactMap(\.first)
+        return String(initials).uppercased()
     }
 
     private var timestamp: String {
@@ -168,9 +179,62 @@ private struct MessageRow: View {
     }
 }
 
+private struct Avatar: View {
+    let data: Data?
+    let initials: String
+
+    var body: some View {
+        Group {
+            if let data, let image = NSImage(data: data) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Text(initials)
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
+        }
+        .frame(width: 22, height: 22)
+        .background(WorkspaceTheme.raisedSurface)
+        .clipShape(Circle())
+    }
+}
+
+private struct PresenceDot: View {
+    let status: String?
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 5, height: 5)
+            .accessibilityLabel(accessibilityStatus)
+    }
+
+    private var color: Color {
+        switch status {
+        case "online": .green
+        case "away": .yellow
+        case "dnd": WorkspaceTheme.attention
+        default: WorkspaceTheme.secondaryText.opacity(0.55)
+        }
+    }
+
+    private var accessibilityStatus: String {
+        switch status {
+        case "online": "Online"
+        case "away": "Away"
+        case "dnd": "Do not disturb"
+        default: "Offline"
+        }
+    }
+}
+
 private struct ReactionSummary: View {
     let post: MattermostPost
+    let showsAddReaction: Bool
     let onToggleReaction: (MattermostPost, String) -> Void
+    @State private var isPickerPresented = false
 
     var body: some View {
         HStack(spacing: 5) {
@@ -195,20 +259,25 @@ private struct ReactionSummary: View {
                 .accessibilityLabel("\(summary.emojiName) reaction, \(summary.count)")
             }
 
-            Menu {
-                ForEach(Self.supportedEmojiNames, id: \.self) { emojiName in
-                    Button(emojiName) {
-                        onToggleReaction(post, emojiName)
-                    }
+            if showsAddReaction {
+                Button {
+                    isPickerPresented = true
+                } label: {
+                    Image(systemName: "face.smiling")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .padding(5)
                 }
-            } label: {
-                Image(systemName: "face.smiling")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-                    .padding(5)
+                .buttonStyle(.plain)
+                .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
+                    ReactionPicker { emojiName in
+                        onToggleReaction(post, emojiName)
+                        isPickerPresented = false
+                    }
+                    .padding(10)
+                }
+                .accessibilityLabel("Add reaction")
             }
-            .menuStyle(.borderlessButton)
-            .accessibilityLabel("Add reaction")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -229,7 +298,43 @@ private struct ReactionSummary: View {
         }
     }
 
-    private static let supportedEmojiNames = ["heart", "+1", "-1", "tada"]
+}
+
+private struct ReactionPicker: View {
+    let onSelect: (String) -> Void
+    private let emojiNames = ["+1", "heart", "joy", "tada", "rocket", "eyes", "fire", "white_check_mark", "thinking_face", "wave"]
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(28)), count: 5), spacing: 6) {
+            ForEach(emojiNames, id: \.self) { emojiName in
+                Button {
+                    onSelect(emojiName)
+                } label: {
+                    Text(symbol(for: emojiName))
+                        .font(.system(size: 17))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(emojiName)
+            }
+        }
+        .frame(width: 164)
+    }
+
+    private func symbol(for emojiName: String) -> String {
+        switch emojiName {
+        case "+1": "👍"
+        case "heart": "❤️"
+        case "joy": "😂"
+        case "tada": "🎉"
+        case "rocket": "🚀"
+        case "eyes": "👀"
+        case "fire": "🔥"
+        case "white_check_mark": "✅"
+        case "thinking_face": "🤔"
+        default: "👋"
+        }
+    }
 }
 
 private struct ReactionCount: Identifiable {
