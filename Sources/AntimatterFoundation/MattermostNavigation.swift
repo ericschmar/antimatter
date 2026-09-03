@@ -13,6 +13,7 @@ public struct MattermostTeam: Codable, Identifiable, Equatable, Sendable {
 
 public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public let id: String
+    public let teamID: String
     public let name: String
     public let displayName: String
     public let type: String
@@ -22,6 +23,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, type
+        case teamID = "team_id"
         case displayName = "display_name"
         case deleteAt = "delete_at"
         case unreadCount = "msg_count"
@@ -31,6 +33,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
+        teamID = try values.decodeIfPresent(String.self, forKey: .teamID) ?? ""
         name = try values.decode(String.self, forKey: .name)
         displayName = (try values.decodeIfPresent(String.self, forKey: .displayName))?.nonEmpty ?? name
         type = try values.decode(String.self, forKey: .type)
@@ -42,6 +45,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(id, forKey: .id)
+        try values.encode(teamID, forKey: .teamID)
         try values.encode(name, forKey: .name)
         try values.encode(displayName, forKey: .displayName)
         try values.encode(type, forKey: .type)

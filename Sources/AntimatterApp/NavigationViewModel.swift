@@ -8,6 +8,7 @@ final class NavigationViewModel: ObservableObject {
     @Published private(set) var users: [String: MattermostUser] = [:]
     @Published private(set) var currentUserAvatarData: Data?
     @Published var selectedChannelID: String?
+    @Published var selectedTeamID: String?
     @Published private(set) var loadError: String?
     @Published private(set) var isLoading = false
 
@@ -26,16 +27,16 @@ final class NavigationViewModel: ObservableObject {
     }
 
     var favoriteChannels: [MattermostChannel] {
-        ordered(channels.filter { favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "favorites")
+        ordered(visibleChannels.filter { favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "favorites")
     }
 
     var publicChannels: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "O" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "channels")
+        ordered(visibleChannels.filter { $0.type == "O" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "channels")
     }
 
     var regularChannels: [MattermostChannel] {
         ordered(
-            channels.filter {
+            visibleChannels.filter {
                 ($0.type == "O" || $0.type == "P") && !favoriteIDs.contains($0.id) && $0.deleteAt == 0
             },
             section: "channels"
@@ -43,19 +44,19 @@ final class NavigationViewModel: ObservableObject {
     }
 
     var privateChannels: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "P" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "private")
+        ordered(visibleChannels.filter { $0.type == "P" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "private")
     }
 
     var directMessages: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "D" && $0.deleteAt == 0 }, section: "direct")
+        ordered(visibleChannels.filter { $0.type == "D" && $0.deleteAt == 0 }, section: "direct")
     }
 
     var groupMessages: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "G" && $0.deleteAt == 0 }, section: "group")
+        ordered(visibleChannels.filter { $0.type == "G" && $0.deleteAt == 0 }, section: "group")
     }
 
     var archivedChannels: [MattermostChannel] {
-        ordered(channels.filter { $0.deleteAt != 0 }, section: "archived")
+        ordered(visibleChannels.filter { $0.deleteAt != 0 }, section: "archived")
     }
 
     func load(preferredChannelID: String? = nil) async {
@@ -66,11 +67,15 @@ final class NavigationViewModel: ObservableObject {
             teams = cached.teams
             channels = cached.channels
             users = Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })
+            selectedTeamID = teams.first?.id
         }
         do {
             let snapshot = try await loader.load()
             teams = snapshot.teams.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
             channels = snapshot.channels
+            selectedTeamID = teams.contains(where: { $0.id == selectedTeamID })
+                ? selectedTeamID
+                : teams.first?.id
             users = Dictionary(uniqueKeysWithValues: snapshot.users.map { ($0.id, $0) })
             currentUserID = snapshot.currentUserID.isEmpty ? nil : snapshot.currentUserID
             try await store.apply(.navigation(teams: teams, channels: channels))
@@ -102,6 +107,12 @@ final class NavigationViewModel: ObservableObject {
 
     func isFavorite(_ channel: MattermostChannel) -> Bool {
         favoriteIDs.contains(channel.id)
+    }
+
+    func selectTeam(_ team: MattermostTeam) {
+        guard selectedTeamID != team.id else { return }
+        selectedTeamID = team.id
+        selectedChannelID = regularChannels.first?.id ?? directMessages.first?.id
     }
 
     func displayName(for channel: MattermostChannel) -> String {
@@ -153,6 +164,12 @@ final class NavigationViewModel: ObservableObject {
 
     private var favoriteIDs: Set<String> {
         Set(defaults.stringArray(forKey: favoritesKey) ?? [])
+    }
+
+    private var visibleChannels: [MattermostChannel] {
+        channels.filter {
+            $0.type == "D" || $0.type == "G" || selectedTeamID == nil || $0.teamID == selectedTeamID
+        }
     }
 
     private func ordered(_ channels: [MattermostChannel], section: String) -> [MattermostChannel] {

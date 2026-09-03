@@ -134,10 +134,12 @@ private struct SidebarPlaceholder: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             LargeTitleHeader(
-                teamName: navigation.teams.first?.displayName ?? "No team",
+                teams: navigation.teams,
+                selectedTeamID: navigation.selectedTeamID,
                 avatarData: navigation.currentUserAvatarData,
                 search: search,
-                isSettingsPresented: $isSettingsPresented
+                isSettingsPresented: $isSettingsPresented,
+                onSelectTeam: navigation.selectTeam
             )
             .padding(16)
 
@@ -175,10 +177,17 @@ private struct SidebarPlaceholder: View {
 }
 
 private struct LargeTitleHeader: View {
-    let teamName: String
+    let teams: [MattermostTeam]
+    let selectedTeamID: String?
     let avatarData: Data?
     @ObservedObject var search: SearchViewModel
     @Binding var isSettingsPresented: Bool
+    let onSelectTeam: (MattermostTeam) -> Void
+    @State private var isTeamPickerPresented = false
+
+    private var selectedTeam: MattermostTeam? {
+        teams.first { $0.id == selectedTeamID } ?? teams.first
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -188,10 +197,28 @@ private struct LargeTitleHeader: View {
                         .font(.system(size: 12, weight: .semibold))
                         .tracking(0.5)
                         .foregroundStyle(WorkspaceTheme.secondaryText)
-                    Text(teamName)
+                    Button {
+                        isTeamPickerPresented.toggle()
+                    } label: {
+                        HStack(spacing: 7) {
+                            Text(selectedTeam?.displayName ?? "No team")
+                            Image(systemName: isTeamPickerPresented ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
                         .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(WorkspaceTheme.primaryText)
                         .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $isTeamPickerPresented, arrowEdge: .bottom) {
+                        TeamPicker(
+                            teams: teams,
+                            selectedTeamID: selectedTeamID
+                        ) { team in
+                            onSelectTeam(team)
+                            isTeamPickerPresented = false
+                        }
+                    }
                 }
                 Spacer(minLength: 0)
                 Button {
@@ -230,6 +257,47 @@ private struct LargeTitleHeader: View {
             .padding(.vertical, 11)
             .background(WorkspaceTheme.raisedSurface, in: Capsule())
         }
+    }
+}
+
+private struct TeamPicker: View {
+    let teams: [MattermostTeam]
+    let selectedTeamID: String?
+    let onSelect: (MattermostTeam) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(teams) { team in
+                Button {
+                    onSelect(team)
+                } label: {
+                    HStack {
+                        Text(team.displayName)
+                            .font(.system(size: 15))
+                            .foregroundStyle(team.id == selectedTeamID ? WorkspaceTheme.accent : WorkspaceTheme.primaryText)
+                        Spacer()
+                        if team.id == selectedTeamID {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(WorkspaceTheme.accent)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                }
+                .buttonStyle(.plain)
+                if team.id != teams.last?.id {
+                    Divider().overlay(WorkspaceTheme.divider)
+                }
+            }
+        }
+        .frame(width: 300)
+        .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(WorkspaceTheme.divider, lineWidth: 1)
+        }
+        .padding(6)
     }
 }
 
