@@ -36,6 +36,7 @@ struct SettingsView: View {
     @EnvironmentObject private var accentColorSettings: AccentColorSettings
     @State private var selection: Section? = .general
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
+    @AppStorage("notificationSoundsEnabled") private var notificationSoundsEnabled = true
     @AppStorage("compactTimeline") private var compactTimeline = true
     @AppStorage("showTimelineAvatars") private var showTimelineAvatars = true
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
@@ -101,6 +102,9 @@ struct SettingsView: View {
             SettingsPageHeader("Notifications", subtitle: "Choose whether Antimatter can alert you about activity.")
             SettingsGroup {
                 SettingsToggleRow("Enable notifications", isOn: $notificationsEnabled)
+                SettingsDivider()
+                SettingsToggleRow("Play notification sounds", isOn: $notificationSoundsEnabled)
+                    .disabled(!notificationsEnabled)
             }
 
         case .workspace:
