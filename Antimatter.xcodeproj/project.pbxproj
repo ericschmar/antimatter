@@ -46,6 +46,7 @@
 		AC7AC25D3048C66C00B4461D /* MattermostNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2593048C66C00B4461D /* MattermostNavigation.swift */; };
 		AC7AC25E3048C66C00B4461D /* MattermostAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2583048C66C00B4461D /* MattermostAuthentication.swift */; };
 		AC7AC2663049E3C400B4461D /* EmojiKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC7AC2653049E3C400B4461D /* EmojiKit */; };
+		AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -97,6 +98,7 @@
 		AC7AC2593048C66C00B4461D /* MattermostNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostNavigation.swift; sourceTree = "<group>"; };
 		AC7AC25A3048C66C00B4461D /* MattermostWebSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostWebSocket.swift; sourceTree = "<group>"; };
 		AC7AC2683049E3C400B4461D /* MattermostPolls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostPolls.swift; sourceTree = "<group>"; };
+		AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTypingIndicator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +146,7 @@
 				A20000000000000000000030 /* ComposerViewModel.swift */,
 				A20000000000000000000031 /* MessageComposer.swift */,
 				A20000000000000000000033 /* PresenceViewModel.swift */,
+				AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */,
 				A20000000000000000000034 /* SearchViewModel.swift */,
 				A20000000000000000000035 /* SearchPanel.swift */,
 				A20000000000000000000037 /* CommandPalette.swift */,
@@ -294,6 +297,7 @@
 				A10000000000000000000027 /* ComposerViewModel.swift in Sources */,
 				A10000000000000000000028 /* MessageComposer.swift in Sources */,
 				A10000000000000000000030 /* PresenceViewModel.swift in Sources */,
+				AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */,
 				A10000000000000000000031 /* SearchViewModel.swift in Sources */,
 				A10000000000000000000032 /* SearchPanel.swift in Sources */,
 				A10000000000000000000034 /* CommandPalette.swift in Sources */,

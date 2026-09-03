@@ -150,6 +150,27 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(event.data?["mention_count"]?.intValue, 2)
     }
 
+    func testWebSocketTypingEventDecodesChannelAndUser() throws {
+        let data = Data(
+            """
+            {
+              "event": "typing",
+              "data": {
+                "channel_id": "channel-1",
+                "user_id": "user-1"
+              },
+              "seq": 2
+            }
+            """.utf8
+        )
+
+        let event = try JSONDecoder().decode(MattermostWebSocketEvent.self, from: data)
+
+        XCTAssertEqual(event.event, "typing")
+        XCTAssertEqual(event.data?["channel_id"]?.stringValue, "channel-1")
+        XCTAssertEqual(event.data?["user_id"]?.stringValue, "user-1")
+    }
+
     func testReactionEndpointsUseAuthenticatedMattermostPaths() async throws {
         var requestedPaths: [String] = []
         URLProtocolStub.handler = { request in

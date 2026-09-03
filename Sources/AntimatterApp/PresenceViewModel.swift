@@ -50,8 +50,13 @@ final class PresenceViewModel: ObservableObject {
         }
     }
 
-    var typingLabel: String? {
-        guard !typingUserIDs.isEmpty else { return nil }
-        return typingUserIDs.count == 1 ? "Someone is typing" : "\(typingUserIDs.count) people are typing"
+    func clearTypingIndicators() {
+        expiryTasks.values.forEach { $0.cancel() }
+        expiryTasks.removeAll()
+        typingUserIDs.removeAll()
+    }
+
+    var hasTypingUsers: Bool {
+        !typingUserIDs.isEmpty
     }
 }

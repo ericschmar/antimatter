@@ -133,6 +133,7 @@ struct WorkspaceShell: View {
         }
         .onChange(of: workspace.selectedChannelID, initial: true) { _, channelID in
             composer.select(channelID: channelID)
+            presence.clearTypingIndicators()
         }
         .onChange(of: scenePhase, initial: true) { _, newPhase in
             AppLogger.application.info(
@@ -616,6 +617,10 @@ private struct ConversationPlaceholder: View {
             }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+            if presence.hasTypingUsers {
+                ChatTypingIndicator()
+            }
+
             Divider()
                 .overlay(WorkspaceTheme.divider)
 
@@ -624,15 +629,6 @@ private struct ConversationPlaceholder: View {
             } onTyping: {
                 guard let channelID = selectedTab?.channelID else { return }
                 Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
-            }
-            .overlay(alignment: .topLeading) {
-                if let typingLabel = presence.typingLabel {
-                    Text(typingLabel)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                        .padding(.horizontal, 14)
-                        .offset(y: -14)
-                }
             }
         }
         .background(WorkspaceTheme.canvas)
