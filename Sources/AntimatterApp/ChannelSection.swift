@@ -88,7 +88,7 @@ struct ChannelSection: View {
                         .overlay(alignment: .leading) {
                             if navigation.selectedChannelID == channel.id {
                                 Capsule()
-                                    .fill(WorkspaceTheme.navigationAccent)
+                                    .fill(WorkspaceTheme.accent)
                                     .frame(width: 3, height: 17)
                             }
                         }
@@ -184,7 +184,7 @@ private struct DirectMessageAvatar: View {
 
     private var statusColor: Color {
         switch status {
-        case "online": WorkspaceTheme.accent
+        case "online": .green
         case "away": .yellow
         case "dnd": WorkspaceTheme.attention
         default: WorkspaceTheme.secondaryText.opacity(0.65)

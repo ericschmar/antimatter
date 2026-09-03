@@ -61,7 +61,7 @@ private struct WorkspaceTabItem: View {
         .overlay(alignment: .bottom) {
             if workspace.selectedChannelID == tab.channelID {
                 Capsule()
-                    .fill(WorkspaceTheme.navigationAccent)
+                    .fill(WorkspaceTheme.accent)
                     .frame(height: 2)
                     .padding(.horizontal, 8)
             }

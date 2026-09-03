@@ -353,7 +353,7 @@ private struct LoggedInAvatar: View {
 
     private var statusColor: Color {
         switch status {
-        case "online": WorkspaceTheme.accent
+        case "online": .green
         case "away": .yellow
         case "dnd": WorkspaceTheme.attention
         default: WorkspaceTheme.secondaryText.opacity(0.65)
@@ -442,7 +442,7 @@ private struct AccountMenu: View {
 
     private var statusColor: Color {
         switch status {
-        case "online": WorkspaceTheme.accent
+        case "online": .green
         case "away": .yellow
         case "dnd": WorkspaceTheme.attention
         default: WorkspaceTheme.secondaryText.opacity(0.65)
