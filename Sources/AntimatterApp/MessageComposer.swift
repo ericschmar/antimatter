@@ -72,9 +72,6 @@ struct MessageComposer: View {
                     )
                     .disabled(composerDisabled)
 
-                    Text("⌘ ↩ Send")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
                     Spacer()
                     if let error = composer.sendError {
                         Text(error)
