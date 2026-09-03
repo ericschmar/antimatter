@@ -108,7 +108,6 @@ public actor MattermostWebSocket {
             self.task = nil
             throw error
         }
-        reconnectAttempt = 0
         startHeartbeat(for: task)
         Task { [weak self, weak task] in
             guard let self, let task else { return }
@@ -149,6 +148,7 @@ public actor MattermostWebSocket {
             do {
                 let message = try await receivingTask.receive()
                 guard task === receivingTask else { return }
+                reconnectAttempt = 0
                 let data: Data
                 switch message {
                 case let .data(value): data = value
@@ -170,10 +170,10 @@ public actor MattermostWebSocket {
 
     private func scheduleReconnect() {
         guard task == nil, reconnectTask == nil else { return }
-        let delay = min(pow(2, Double(reconnectAttempt)), 30)
+        let delay = Self.reconnectDelay(for: reconnectAttempt)
         reconnectAttempt += 1
         reconnectTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(delay))
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             await self?.clearReconnectTask()
             do {
@@ -182,6 +182,10 @@ public actor MattermostWebSocket {
                 await self?.scheduleReconnect()
             }
         }
+    }
+
+    static func reconnectDelay(for attempt: Int) -> Duration {
+        .seconds(min(pow(2, Double(attempt)), 30))
     }
 
     private func clearReconnectTask() {

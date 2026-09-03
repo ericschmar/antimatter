@@ -13,6 +13,7 @@
 		A10000000000000000000004 /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* AppConfiguration.swift */; };
 		A10000000000000000000005 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AppLogger.swift */; };
 		A10000000000000000000006 /* SecureValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* SecureValueStore.swift */; };
+		A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* libAntimatterFoundation.a */; };
 		A10000000000000000000013 /* WorkspaceTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* WorkspaceTabs.swift */; };
 		A10000000000000000000014 /* WorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* WorkspaceViewModel.swift */; };
 		A10000000000000000000019 /* MattermostLocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* MattermostLocalStore.swift */; };
@@ -21,7 +22,6 @@
 		A10000000000000000000022 /* MattermostTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* MattermostTimeline.swift */; };
 		A10000000000000000000023 /* RichMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* RichMessageContent.swift */; };
 		A10000000000000000000024 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000026 /* MarkdownUI */; };
-		A10000000000000000000037 /* SwiftEmojiPicker in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000042 /* SwiftEmojiPicker */; };
 		A10000000000000000000025 /* RealtimeUpdatesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* RealtimeUpdatesViewModel.swift */; };
 		A10000000000000000000026 /* MattermostReactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* MattermostReactions.swift */; };
 		A10000000000000000000027 /* ComposerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* ComposerViewModel.swift */; };
@@ -34,7 +34,7 @@
 		A10000000000000000000034 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* CommandPalette.swift */; };
 		A10000000000000000000035 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000038 /* NotificationManager.swift */; };
 		A10000000000000000000036 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* SettingsView.swift */; };
-		A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* libAntimatterFoundation.a */; };
+		A10000000000000000000037 /* SwiftEmojiPicker in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000042 /* SwiftEmojiPicker */; };
 		AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24F3048C65F00B4461D /* ChannelSection.swift */; };
 		AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */; };
 		AC7AC2543048C65F00B4461D /* WorkspaceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2513048C65F00B4461D /* WorkspaceCommands.swift */; };
@@ -44,6 +44,7 @@
 		AC7AC25C3048C66C00B4461D /* MattermostWebSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC25A3048C66C00B4461D /* MattermostWebSocket.swift */; };
 		AC7AC25D3048C66C00B4461D /* MattermostNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2593048C66C00B4461D /* MattermostNavigation.swift */; };
 		AC7AC25E3048C66C00B4461D /* MattermostAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2583048C66C00B4461D /* MattermostAuthentication.swift */; };
+		AC7AC2663049E3C400B4461D /* EmojiKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC7AC2653049E3C400B4461D /* EmojiKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,6 +64,9 @@
 		A20000000000000000000004 /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* SecureValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureValueStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000000000000000000008 /* libAntimatterFoundation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAntimatterFoundation.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000009 /* Antimatter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Antimatter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000015 /* WorkspaceTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabs.swift; sourceTree = "<group>"; };
 		A20000000000000000000016 /* WorkspaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* MattermostLocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostLocalStore.swift; sourceTree = "<group>"; };
@@ -82,9 +86,6 @@
 		A20000000000000000000037 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		A20000000000000000000038 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		A20000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A20000000000000000000008 /* libAntimatterFoundation.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAntimatterFoundation.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		A20000000000000000000009 /* Antimatter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Antimatter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationScreen.swift; sourceTree = "<group>"; };
 		AC7AC24E3048C65F00B4461D /* AuthenticationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationViewModel.swift; sourceTree = "<group>"; };
 		AC7AC24F3048C65F00B4461D /* ChannelSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelSection.swift; sourceTree = "<group>"; };
@@ -101,6 +102,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC7AC2663049E3C400B4461D /* EmojiKit in Frameworks */,
 				A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */,
 				A10000000000000000000024 /* MarkdownUI in Frameworks */,
 				A10000000000000000000037 /* SwiftEmojiPicker in Frameworks */,
@@ -200,11 +202,12 @@
 			dependencies = (
 				A80000000000000000000001 /* PBXTargetDependency */,
 			);
+			name = Antimatter;
 			packageProductDependencies = (
 				A20000000000000000000026 /* MarkdownUI */,
 				A20000000000000000000042 /* SwiftEmojiPicker */,
+				AC7AC2653049E3C400B4461D /* EmojiKit */,
 			);
-			name = Antimatter;
 			productName = Antimatter;
 			productReference = A20000000000000000000009 /* Antimatter.app */;
 			productType = "com.apple.product-type.application";
@@ -250,12 +253,13 @@
 				Base,
 			);
 			mainGroup = A40000000000000000000001;
-			preferredProjectObjectVersion = 77;
-			productRefGroup = A40000000000000000000005 /* Products */;
 			packageReferences = (
 				A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */,
+				AC7AC2643049E3C400B4461D /* XCRemoteSwiftPackageReference "EmojiKit" */,
 			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A40000000000000000000005 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -315,38 +319,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin XCSwiftPackageProductDependency section */
-			A20000000000000000000026 /* MarkdownUI */ = {
-				isa = XCSwiftPackageProductDependency;
-				package = A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
-				productName = MarkdownUI;
-			};
-			A20000000000000000000042 /* SwiftEmojiPicker */ = {
-				isa = XCSwiftPackageProductDependency;
-				package = A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */;
-				productName = SwiftEmojiPicker;
-			};
-/* End XCSwiftPackageProductDependency section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-			A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
-				isa = XCRemoteSwiftPackageReference;
-				repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
-				requirement = {
-					kind = upToNextMajorVersion;
-					minimumVersion = 2.4.1;
-				};
-			};
-			A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */ = {
-				isa = XCRemoteSwiftPackageReference;
-				repositoryURL = "https://github.com/sergius-la/SwiftEmojiPicker";
-				requirement = {
-					kind = upToNextMajorVersion;
-					minimumVersion = 2.2.1;
-				};
-			};
-/* End XCRemoteSwiftPackageReference section */
 
 /* Begin PBXTargetDependency section */
 		A80000000000000000000001 /* PBXTargetDependency */ = {
@@ -464,6 +436,51 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+		A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sergius-la/SwiftEmojiPicker";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.1;
+			};
+		};
+		AC7AC2643049E3C400B4461D /* XCRemoteSwiftPackageReference "EmojiKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/danielsaidi/EmojiKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A20000000000000000000026 /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+		A20000000000000000000042 /* SwiftEmojiPicker */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */;
+			productName = SwiftEmojiPicker;
+		};
+		AC7AC2653049E3C400B4461D /* EmojiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AC7AC2643049E3C400B4461D /* XCRemoteSwiftPackageReference "EmojiKit" */;
+			productName = EmojiKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A90000000000000000000001 /* Project object */;
 }

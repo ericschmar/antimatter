@@ -1,4 +1,4 @@
-import AntimatterFoundation
+@testable import AntimatterFoundation
 import Foundation
 import XCTest
 
@@ -52,6 +52,13 @@ final class MattermostAPIClientTests: XCTestCase {
             MattermostWebSocket.endpoint(for: serverURL).absoluteString,
             "wss://chat.example.com/api/v4/websocket"
         )
+    }
+
+    func testWebSocketReconnectDelayUsesBoundedExponentialBackoff() {
+        XCTAssertEqual(MattermostWebSocket.reconnectDelay(for: 0), .seconds(1))
+        XCTAssertEqual(MattermostWebSocket.reconnectDelay(for: 1), .seconds(2))
+        XCTAssertEqual(MattermostWebSocket.reconnectDelay(for: 5), .seconds(30))
+        XCTAssertEqual(MattermostWebSocket.reconnectDelay(for: 10), .seconds(30))
     }
 
     func testWebSocketEventDecodesNestedPostAndUnreadCounts() throws {
