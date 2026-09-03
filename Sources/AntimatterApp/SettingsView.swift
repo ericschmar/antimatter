@@ -266,12 +266,19 @@ private struct SettingsToggleRow: View {
     }
 
     var body: some View {
-        Toggle(title, isOn: $isOn)
-            .font(.system(size: 13))
-            .foregroundStyle(WorkspaceTheme.primaryText)
-            .toggleStyle(.switch)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+        HStack(spacing: 16) {
+            Text(title)
+            Spacer(minLength: 20)
+            Toggle(title, isOn: $isOn)
+                .labelsHidden()
+                .accessibilityLabel(title)
+        }
+        .font(.system(size: 13))
+        .foregroundStyle(WorkspaceTheme.primaryText)
+        .toggleStyle(.switch)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 
