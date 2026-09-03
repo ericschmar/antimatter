@@ -164,7 +164,7 @@ private struct SidebarPlaceholder: View {
             Divider()
                 .overlay(WorkspaceTheme.divider)
 
-            SearchPanel(search: search) { post in
+            SearchPanel(search: search, channels: navigation.channels, users: navigation.users) { post in
                 navigation.selectedChannelID = post.channelID
             }
 
@@ -286,14 +286,18 @@ private struct LargeTitleHeader: View {
                     .textFieldStyle(.plain)
                     .onSubmit { Task { await search.search() } }
                 Spacer(minLength: 0)
-                Image(systemName: "mic.fill")
+                Text("⌘K")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .accessibilityHidden(true)
             }
             .font(.system(size: 16))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .background(WorkspaceTheme.raisedSurface, in: Capsule())
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
     }
 
@@ -497,62 +501,75 @@ private struct ChannelParticipant: Identifiable {
 private struct ChannelParticipantStack: View {
     let participants: [ChannelParticipant]
     private let visibleParticipantCount = 4
-    @State private var isHovering = false
+    @State private var isMemberListPresented = false
 
     var body: some View {
-        HStack(spacing: -9) {
-            ForEach(participants.prefix(visibleParticipantCount)) { participant in
-                Group {
-                    if let data = participant.avatarData, let image = NSImage(data: data) {
-                        Image(nsImage: image).resizable().scaledToFill()
-                    } else {
-                        Text(initials(for: participant.displayName))
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundStyle(WorkspaceTheme.secondaryText)
+        Button {
+            isMemberListPresented.toggle()
+        } label: {
+            HStack(spacing: -9) {
+                ForEach(participants.prefix(visibleParticipantCount)) { participant in
+                    Group {
+                        if let data = participant.avatarData, let image = NSImage(data: data) {
+                            Image(nsImage: image).resizable().scaledToFill()
+                        } else {
+                            Text(initials(for: participant.displayName))
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                        }
                     }
-                }
-                .frame(width: 28, height: 28)
-                .background(WorkspaceTheme.raisedSurface)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
-            }
-
-            if participants.count > visibleParticipantCount {
-                Text("+\(participants.count - visibleParticipantCount)")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
                     .frame(width: 28, height: 28)
                     .background(WorkspaceTheme.raisedSurface)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
-            }
-        }
-        .onHover { isHovering = $0 }
-        .overlay(alignment: .bottomTrailing) {
-            if isHovering {
-                Text(memberTooltip)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                    .multilineTextAlignment(.leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
-                            .stroke(WorkspaceTheme.divider, lineWidth: 1)
-                    )
-                    .fixedSize()
-                    .offset(y: 34)
-                    .allowsHitTesting(false)
-            }
-        }
-        .zIndex(isHovering ? 1 : 0)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(participants.count) channel participants")
-    }
+                }
 
-    private var memberTooltip: String {
-        "Channel members:\n" + participants.map(\.displayName).joined(separator: "\n")
+                if participants.count > visibleParticipantCount {
+                    Text("+\(participants.count - visibleParticipantCount)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .frame(width: 28, height: 28)
+                        .background(WorkspaceTheme.raisedSurface)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isMemberListPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Channel members")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .padding(12)
+                Divider().overlay(WorkspaceTheme.divider)
+                ForEach(participants) { participant in
+                    HStack(spacing: 8) {
+                        Group {
+                            if let data = participant.avatarData, let image = NSImage(data: data) {
+                                Image(nsImage: image).resizable().scaledToFill()
+                            } else {
+                                Text(initials(for: participant.displayName))
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                            }
+                        }
+                        .frame(width: 22, height: 22)
+                        .background(WorkspaceTheme.raisedSurface)
+                        .clipShape(Circle())
+                        Text(participant.displayName)
+                            .font(.system(size: 12))
+                            .foregroundStyle(WorkspaceTheme.primaryText)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                }
+            }
+            .frame(width: 220)
+            .background(WorkspaceTheme.surface)
+        }
+        .accessibilityLabel("\(participants.count) channel participants")
     }
 
     private func initials(for name: String) -> String {

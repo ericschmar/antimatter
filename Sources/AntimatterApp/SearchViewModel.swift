@@ -6,6 +6,7 @@ final class SearchViewModel: ObservableObject {
     @Published var query = ""
     @Published private(set) var posts: [MattermostPost] = []
     @Published private(set) var isSearching = false
+    @Published private(set) var hasSearched = false
     @Published private(set) var error: String?
 
     private let loader: MattermostSearchLoader
@@ -20,8 +21,10 @@ final class SearchViewModel: ObservableObject {
         let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !terms.isEmpty else {
             posts = []
+            hasSearched = false
             return
         }
+        hasSearched = true
         isSearching = true
         error = nil
         do {

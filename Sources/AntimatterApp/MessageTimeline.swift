@@ -20,14 +20,11 @@ struct MessageTimeline: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if timeline.isLoading && timeline.posts.isEmpty {
-                        ProgressView()
-                            .controlSize(.small)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 28)
+                        TimelineLoadingState()
                     } else if let error = timeline.loadError {
                         TimelineStatus(message: error, isError: true)
                     } else if timeline.posts.isEmpty {
-                        TimelineStatus(message: "No messages in this conversation yet.", isError: false)
+                        TimelineEmptyState()
                     } else {
                         if timeline.hasEarlierPosts {
                             ProgressView()
@@ -244,14 +241,36 @@ private struct MessageRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
                 if isHovering {
-                    AddReactionButton(post: post, onToggleReaction: onToggleReaction)
-                        .background(WorkspaceTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+                    HStack(spacing: 2) {
+                        AddReactionButton(post: post, onToggleReaction: onToggleReaction)
+                        messageActionButton("arrowshape.turn.up.left", label: "Reply") { onReply(post) }
+                        if post.userID == currentUserID {
+                            messageActionButton("pencil", label: "Edit message") { onEdit(post) }
+                        }
+                        Menu {
+                            Button("Copy message") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(post.message, forType: .string)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(width: 26, height: 26)
+                        }
+                        .menuStyle(.borderlessButton)
+                    }
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous)
+                            .stroke(WorkspaceTheme.divider, lineWidth: 1)
+                    }
                 }
             }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 3)
+        .background(isHovering ? WorkspaceTheme.hoverSurface : .clear)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .zIndex(isReactionTooltipPresented ? 1 : 0)
@@ -268,6 +287,17 @@ private struct MessageRow: View {
                 onEdit(post)
             }
         }
+    }
+
+    private func messageActionButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 26, height: 26)
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
     }
 
     private var author: String {
@@ -620,6 +650,55 @@ private struct ReactionCount: Identifiable {
 
     var id: String { emojiName }
     var count: Int { userIDs.count }
+}
+
+private struct TimelineLoadingState: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(0 ..< 4, id: \.self) { index in
+                HStack(alignment: .top, spacing: 10) {
+                    Circle()
+                        .fill(WorkspaceTheme.raisedSurface)
+                        .frame(width: 22, height: 22)
+                    VStack(alignment: .leading, spacing: 6) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(WorkspaceTheme.raisedSurface)
+                            .frame(width: index.isMultiple(of: 2) ? 120 : 88, height: 10)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(WorkspaceTheme.raisedSurface.opacity(0.8))
+                            .frame(maxWidth: index.isMultiple(of: 2) ? 290 : 360)
+                            .frame(height: 11)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 42)
+        .padding(.top, 28)
+        .redacted(reason: .placeholder)
+        .accessibilityLabel("Loading messages")
+    }
+}
+
+private struct TimelineEmptyState: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(WorkspaceTheme.navigationAccent)
+                .frame(width: 56, height: 56)
+                .background(WorkspaceTheme.navigationAccent.opacity(0.12), in: Circle())
+            Text("This is the beginning of the conversation")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+            Text("Share an update, ask a question, or drop a file to get started.")
+                .font(.system(size: 12))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 52)
+        .accessibilityLabel("No messages in this conversation yet")
+    }
 }
 
 private struct TimelineStatus: View {

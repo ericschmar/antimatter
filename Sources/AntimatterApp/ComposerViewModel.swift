@@ -9,6 +9,7 @@ final class ComposerViewModel: ObservableObject {
     @Published private(set) var isSending = false
     @Published private(set) var sendError: String?
     @Published private(set) var replyRootID: String?
+    @Published private(set) var replyPost: MattermostPost?
 
     private let sender: MattermostPostSender
     private let defaults: UserDefaults
@@ -43,6 +44,7 @@ final class ComposerViewModel: ObservableObject {
                 attachmentURLs = []
                 removeDraft(for: channelID)
                 replyRootID = nil
+                replyPost = nil
                 onSent(post)
             } catch {
                 sendError = error.localizedDescription
@@ -64,10 +66,12 @@ final class ComposerViewModel: ObservableObject {
 
     func reply(to post: MattermostPost) {
         replyRootID = post.rootID.isEmpty ? post.id : post.rootID
+        replyPost = post
     }
 
     func cancelReply() {
         replyRootID = nil
+        replyPost = nil
     }
 
     func addAttachments(_ urls: [URL]) {

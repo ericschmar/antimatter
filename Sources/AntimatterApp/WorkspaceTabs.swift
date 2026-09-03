@@ -54,9 +54,18 @@ private struct WorkspaceTabItem: View {
             }
         }
         .font(.system(size: 10, weight: .semibold))
-        .foregroundStyle(WorkspaceTheme.primaryText)
+        .foregroundStyle(workspace.selectedChannelID == tab.channelID ? WorkspaceTheme.primaryText : WorkspaceTheme.secondaryText)
         .padding(.horizontal, 10)
         .frame(height: WorkspaceTheme.titleHeight)
+        .background(workspace.selectedChannelID == tab.channelID ? WorkspaceTheme.surface : .clear)
+        .overlay(alignment: .bottom) {
+            if workspace.selectedChannelID == tab.channelID {
+                Capsule()
+                    .fill(WorkspaceTheme.navigationAccent)
+                    .frame(height: 2)
+                    .padding(.horizontal, 8)
+            }
+        }
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .contextMenu {

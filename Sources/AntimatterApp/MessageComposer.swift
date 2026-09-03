@@ -10,62 +10,99 @@ struct MessageComposer: View {
     @State private var isImportingFiles = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            if composer.replyRootID != nil {
-                HStack {
-                    Text("Replying in thread")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                    Spacer()
-                    Button("Cancel", action: composer.cancelReply)
-                        .buttonStyle(.borderless)
+        VStack(alignment: .leading, spacing: 8) {
+            if let replyPost = composer.replyPost {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrowshape.turn.up.left.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(WorkspaceTheme.navigationAccent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Replying in thread")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(WorkspaceTheme.primaryText)
+                        Text(replyPost.message)
+                            .font(.system(size: 11))
+                            .foregroundStyle(WorkspaceTheme.secondaryText)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    Button(action: composer.cancelReply) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .accessibilityLabel("Cancel reply")
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(WorkspaceTheme.raisedSurface.opacity(0.7), in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
             }
             if !composer.attachmentURLs.isEmpty {
                 ComposerAttachmentChips(urls: composer.attachmentURLs, remove: composer.removeAttachment)
             }
-            TextEditor(text: $composer.message)
-                .font(.system(size: 13))
-                .scrollContentBackground(.hidden)
-                .padding(7)
-                .background(WorkspaceTheme.raisedSurface)
-                .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
-                .frame(height: composer.height)
-                .disabled(channelID == nil || composer.isSending)
-                .onChange(of: composer.message) { _, _ in
-                    composer.persistDraft()
-                    onTyping()
-                }
-                .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
-                    loadDroppedText(from: providers)
-                }
+            VStack(spacing: 0) {
+                TextEditor(text: $composer.message)
+                    .font(.system(size: 13))
+                    .scrollContentBackground(.hidden)
+                    .padding(8)
+                    .frame(height: composer.height)
+                    .disabled(channelID == nil || composer.isSending)
+                    .onChange(of: composer.message) { _, _ in
+                        composer.persistDraft()
+                        onTyping()
+                    }
+                    .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
+                        loadDroppedText(from: providers)
+                    }
 
-            HStack(spacing: 10) {
-                Button {
-                    isImportingFiles = true
-                } label: {
-                    Label("Attach", systemImage: "paperclip")
-                }
-                .buttonStyle(.borderless)
-                .disabled(channelID == nil || composer.isSending)
+                Divider().overlay(WorkspaceTheme.divider)
 
-                Text("Markdown supported")
-                    .font(.system(size: 10, design: .monospaced))
+                HStack(spacing: 8) {
+                    Button {
+                        isImportingFiles = true
+                    } label: {
+                        Image(systemName: "paperclip")
+                            .font(.system(size: 13, weight: .medium))
+                            .frame(width: 28, height: 26)
+                    }
+                    .buttonStyle(.plain)
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                Spacer()
-                if let error = composer.sendError {
-                    Text(error)
-                        .font(.system(size: 11))
-                        .foregroundStyle(WorkspaceTheme.attention)
-                        .lineLimit(1)
+                    .help("Attach files")
+                    .disabled(channelID == nil || composer.isSending)
+
+                    Text("⌘↩ Send")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                    Spacer()
+                    if let error = composer.sendError {
+                        Text(error)
+                            .font(.system(size: 11))
+                            .foregroundStyle(WorkspaceTheme.attention)
+                            .lineLimit(1)
+                    }
+                    Button {
+                        composer.send(onSent: onSent)
+                    } label: {
+                        Image(systemName: composer.isSending ? "ellipsis" : "arrow.up")
+                            .font(.system(size: 12, weight: .bold))
+                            .frame(width: 28, height: 28)
+                            .foregroundStyle(WorkspaceTheme.canvas)
+                            .background(WorkspaceTheme.accent, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.return, modifiers: [.command])
+                    .help(composer.isSending ? "Sending" : "Send message")
+                    .disabled(channelID == nil || composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composer.isSending)
                 }
-                Button(composer.isSending ? "Sending…" : "Send") {
-                    composer.send(onSent: onSent)
-                }
-                .keyboardShortcut(.return, modifiers: [.command])
-                .disabled(channelID == nil || composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composer.isSending)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
             }
-            .font(.system(size: 12, weight: .medium))
+            .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(WorkspaceTheme.divider, lineWidth: 1)
+            }
         }
         .padding(12)
         .background(WorkspaceTheme.surface)
@@ -99,7 +136,9 @@ private struct ComposerAttachmentChips: View {
             HStack(spacing: 8) {
             ForEach(urls, id: \.self) { url in
                 HStack(spacing: 7) {
-                    Circle().fill(color(for: url)).frame(width: 6, height: 6)
+                    Image(systemName: symbol(for: url))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(color(for: url))
                     Text(url.lastPathComponent).lineLimit(1)
                     Button { remove(url) } label: {
                         Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
@@ -114,6 +153,15 @@ private struct ComposerAttachmentChips: View {
                 .background(WorkspaceTheme.raisedSurface, in: Capsule())
             }
             }
+        }
+    }
+
+    private func symbol(for url: URL) -> String {
+        switch url.pathExtension.lowercased() {
+        case "pdf": "doc.richtext"
+        case "jpg", "jpeg", "png", "gif", "webp": "photo"
+        case "xls", "xlsx", "csv": "tablecells"
+        default: "doc"
         }
     }
 

@@ -76,14 +76,22 @@ struct ChannelSection: View {
                                     .foregroundStyle(WorkspaceTheme.accent)
                             }
                         }
-                        .font(.system(size: 13))
+                        .font(.system(size: 13, weight: navigation.selectedChannelID == channel.id ? .semibold : .regular))
                         .foregroundStyle(WorkspaceTheme.primaryText)
                         .padding(.leading, 27)
-                        .frame(height: 27)
+                        .padding(.trailing, 8)
+                        .frame(height: 29)
                         .background(
                             navigation.selectedChannelID == channel.id ? WorkspaceTheme.raisedSurface : .clear,
                             in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous)
                         )
+                        .overlay(alignment: .leading) {
+                            if navigation.selectedChannelID == channel.id {
+                                Capsule()
+                                    .fill(WorkspaceTheme.navigationAccent)
+                                    .frame(width: 3, height: 17)
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
                     .onDrag {
