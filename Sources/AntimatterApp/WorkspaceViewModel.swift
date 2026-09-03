@@ -2,11 +2,22 @@ import AntimatterFoundation
 import Foundation
 
 struct WorkspaceTab: Codable, Identifiable, Equatable {
+    private static let searchTabPrefix = "search:"
+
     let channelID: String
     var title: String
     var isPreview: Bool
 
     var id: String { channelID }
+    var isSearchResults: Bool { channelID.hasPrefix(Self.searchTabPrefix) }
+
+    static func searchResults(query: String) -> WorkspaceTab {
+        WorkspaceTab(
+            channelID: "\(searchTabPrefix)\(query)",
+            title: "Search: \(query)",
+            isPreview: false
+        )
+    }
 }
 
 @MainActor
@@ -50,6 +61,17 @@ final class WorkspaceViewModel: ObservableObject {
         persist()
     }
 
+    func openSearchResults(for query: String) {
+        let tab = WorkspaceTab.searchResults(query: query)
+        if let existingIndex = tabs.firstIndex(where: { $0.channelID == tab.channelID }) {
+            tabs[existingIndex] = tab
+        } else {
+            tabs.append(tab)
+        }
+        selectedChannelID = tab.channelID
+        persist()
+    }
+
     func select(_ tab: WorkspaceTab) {
         selectedChannelID = tab.channelID
         persist()
@@ -68,6 +90,10 @@ final class WorkspaceViewModel: ObservableObject {
             selectedChannelID = tabs.indices.contains(index) ? tabs[index].channelID : tabs.last?.channelID
         }
         persist()
+    }
+
+    var isSearchResultsSelected: Bool {
+        tabs.first(where: { $0.channelID == selectedChannelID })?.isSearchResults ?? false
     }
 
     private func persist() {

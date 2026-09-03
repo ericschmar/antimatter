@@ -1,14 +1,14 @@
 import AntimatterFoundation
 import SwiftUI
 
-struct SearchPanel: View {
+struct SearchResultsView: View {
     @ObservedObject var search: SearchViewModel
     let channels: [MattermostChannel]
     let users: [String: MattermostUser]
     let onSelect: (MattermostPost) -> Void
 
     var body: some View {
-        if search.isSearching || search.error != nil || search.hasSearched {
+        ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 if search.isSearching {
                     HStack(spacing: 8) {
@@ -61,12 +61,11 @@ struct SearchPanel: View {
                     }
                 }
             }
-            .padding(12)
-            .background(WorkspaceTheme.surface)
-            .overlay(alignment: .bottom) {
-                Divider().overlay(WorkspaceTheme.divider)
             }
-        }
+            .frame(maxWidth: 760, alignment: .leading)
+            .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(WorkspaceTheme.canvas)
     }
 
     private func channelName(for post: MattermostPost) -> String {

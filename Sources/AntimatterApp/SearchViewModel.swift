@@ -26,6 +26,7 @@ final class SearchViewModel: ObservableObject {
         }
         hasSearched = true
         isSearching = true
+        posts = []
         error = nil
         do {
             posts = try await loader.searchPosts(terms: terms)

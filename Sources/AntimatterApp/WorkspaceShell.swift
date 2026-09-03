@@ -45,6 +45,7 @@ struct WorkspaceShell: View {
                     navigation: navigation,
                     presence: presence,
                     search: search,
+                    onSearch: performSearch,
                     onOpenSettings: { isSettingsPresented = true },
                     onOpenPermanently: openPermanently,
                     disconnect: disconnect
@@ -68,7 +69,8 @@ struct WorkspaceShell: View {
                     timeline: timeline,
                     composer: composer,
                     presence: presence,
-                    realtime: realtime
+                    realtime: realtime,
+                    search: search
                 )
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
@@ -143,6 +145,7 @@ struct WorkspaceShell: View {
             workspace.preview(channel, title: navigation.displayName(for: channel))
         }
         .onChange(of: workspace.selectedChannelID, initial: true) { previousChannelID, channelID in
+            guard !workspace.isSearchResultsSelected else { return }
             if navigation.selectedChannelID != channelID {
                 navigation.selectedChannelID = channelID
             }
@@ -171,12 +174,20 @@ struct WorkspaceShell: View {
     private func openPermanently(_ channel: MattermostChannel) {
         workspace.openPermanently(channel, title: navigation.displayName(for: channel))
     }
+
+    private func performSearch() {
+        let query = search.query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        workspace.openSearchResults(for: query)
+        Task { await search.search() }
+    }
 }
 
 private struct SidebarPlaceholder: View {
     @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var presence: PresenceViewModel
     @ObservedObject var search: SearchViewModel
+    let onSearch: () -> Void
     let onOpenSettings: () -> Void
     let onOpenPermanently: (MattermostChannel) -> Void
     let disconnect: () -> Void
@@ -190,6 +201,7 @@ private struct SidebarPlaceholder: View {
                 currentUser: navigation.currentUserID.flatMap { navigation.users[$0] },
                 status: navigation.currentUserID.flatMap { presence.statuses[$0] },
                 search: search,
+                onSearch: onSearch,
                 onSelectTeam: navigation.selectTeam,
                 onOpenSettings: onOpenSettings,
                 onLogout: disconnect
@@ -199,10 +211,6 @@ private struct SidebarPlaceholder: View {
                 mentionCount: navigation.mentionCount,
                 unreadChannelCount: navigation.unreadChannelCount
             )
-
-            SearchPanel(search: search, channels: navigation.channels, users: navigation.users) { post in
-                navigation.selectedChannelID = post.channelID
-            }
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
@@ -264,6 +272,7 @@ private struct CommandDeckHeader: View {
     let currentUser: MattermostUser?
     let status: String?
     @ObservedObject var search: SearchViewModel
+    let onSearch: () -> Void
     let onSelectTeam: (MattermostTeam) -> Void
     let onOpenSettings: () -> Void
     let onLogout: () -> Void
@@ -329,7 +338,7 @@ private struct CommandDeckHeader: View {
                 TextField("Search conversations", text: $search.query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
-                    .onSubmit { Task { await search.search() } }
+                    .onSubmit(onSearch)
                 Spacer(minLength: 0)
                 Text("⌘K")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
@@ -636,6 +645,7 @@ private struct ConversationPlaceholder: View {
     @ObservedObject var composer: ComposerViewModel
     @ObservedObject var presence: PresenceViewModel
     @ObservedObject var realtime: RealtimeUpdatesViewModel
+    @ObservedObject var search: SearchViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -655,7 +665,9 @@ private struct ConversationPlaceholder: View {
                 }
 
                 Spacer(minLength: 0)
-                ChannelParticipantStack(participants: channelParticipants)
+                if selectedTab?.isSearchResults != true {
+                    ChannelParticipantStack(participants: channelParticipants)
+                }
             }
             .padding(.horizontal, 18)
             .frame(height: WorkspaceTheme.headerHeight)
@@ -664,37 +676,46 @@ private struct ConversationPlaceholder: View {
             Divider()
                 .overlay(WorkspaceTheme.divider)
 
-            MessageTimeline(
-                timeline: timeline,
-                knownUsers: navigation.users,
-                statuses: presence.statuses,
-                currentUserID: navigation.currentUserID,
-                currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
-                channelID: selectedTab?.channelID,
-                onStartDirectMessage: { user in
-                    Task {
-                        await navigation.openDirectMessage(with: user)
+            if selectedTab?.isSearchResults == true {
+                SearchResultsView(
+                    search: search,
+                    channels: navigation.channels,
+                    users: navigation.users,
+                    onSelect: openSearchResult
+                )
+            } else {
+                MessageTimeline(
+                    timeline: timeline,
+                    knownUsers: navigation.users,
+                    statuses: presence.statuses,
+                    currentUserID: navigation.currentUserID,
+                    currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
+                    channelID: selectedTab?.channelID,
+                    onStartDirectMessage: { user in
+                        Task {
+                            await navigation.openDirectMessage(with: user)
+                        }
                     }
+                ) { post in
+                    composer.reply(to: post)
+                } onVote: { post, actionID in
+                    timeline.vote(on: post, actionID: actionID)
                 }
-            ) { post in
-                composer.reply(to: post)
-            } onVote: { post, actionID in
-                timeline.vote(on: post, actionID: actionID)
-            }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if presence.hasTypingUsers {
-                ChatTypingIndicator()
-            }
+                if presence.hasTypingUsers {
+                    ChatTypingIndicator()
+                }
 
-            Divider()
-                .overlay(WorkspaceTheme.divider)
+                Divider()
+                    .overlay(WorkspaceTheme.divider)
 
-            MessageComposer(composer: composer, channelID: selectedTab?.channelID) { post in
-                Task { await timeline.appendSentPost(post) }
-            } onTyping: {
-                guard let channelID = selectedTab?.channelID else { return }
-                Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
+                MessageComposer(composer: composer, channelID: selectedTab?.channelID) { post in
+                    Task { await timeline.appendSentPost(post) }
+                } onTyping: {
+                    guard let channelID = selectedTab?.channelID else { return }
+                    Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
+                }
             }
         }
         .background(WorkspaceTheme.canvas)
@@ -702,6 +723,11 @@ private struct ConversationPlaceholder: View {
 
     private var selectedTab: WorkspaceTab? {
         workspace.tabs.first(where: { $0.channelID == workspace.selectedChannelID })
+    }
+
+    private func openSearchResult(_ post: MattermostPost) {
+        guard let channel = navigation.channels.first(where: { $0.id == post.channelID }) else { return }
+        workspace.openPermanently(channel, title: navigation.displayName(for: channel))
     }
 
     private var channelDescription: String? {
