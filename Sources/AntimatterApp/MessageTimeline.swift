@@ -242,6 +242,9 @@ private struct MessageRow: View {
                     .foregroundStyle(WorkspaceTheme.secondaryText)
                     .frame(width: 50, alignment: .trailing)
                     .padding(.top, 4)
+            } else {
+                Color.clear.frame(width: 112, height: 1)
+                Color.clear.frame(width: 50, height: 1)
             }
 
             VStack(alignment: .leading, spacing: 6) {
