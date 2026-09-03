@@ -17,19 +17,3 @@ enum WorkspaceTheme {
     static let sidebarWidth: CGFloat = 248
     static let compactCornerRadius: CGFloat = 5
 }
-
-extension View {
-    func sidebarTreeCard(_ padding: CGFloat = 16) -> some View {
-        self
-            .padding(padding)
-            .background(
-                WorkspaceTheme.surface,
-                in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
-    }
-}

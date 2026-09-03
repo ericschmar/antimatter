@@ -131,7 +131,7 @@ struct ChannelSection: View {
                     }
                 }
             }
-            .sidebarTreeCard()
+            .padding(.horizontal, 14)
         }
     }
 
