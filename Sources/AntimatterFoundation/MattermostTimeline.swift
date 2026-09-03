@@ -68,6 +68,39 @@ public enum MattermostMentionMatcher {
     }
 }
 
+public struct MattermostTimelineThread: Identifiable, Sendable {
+    public let root: MattermostPost
+    public let replies: [MattermostPost]
+
+    public init(root: MattermostPost, replies: [MattermostPost]) {
+        self.root = root
+        self.replies = replies
+    }
+
+    public var id: String { root.id }
+}
+
+public enum MattermostTimelineThreading {
+    public static func threads(from posts: [MattermostPost]) -> [MattermostTimelineThread] {
+        let posts = posts.sorted { $0.createAt < $1.createAt }
+        let rootPostIDs = Set(posts.lazy.filter(\.rootID.isEmpty).map(\.id))
+        var repliesByRootID: [String: [MattermostPost]] = [:]
+        var roots: [MattermostPost] = []
+
+        for post in posts {
+            guard !post.rootID.isEmpty, rootPostIDs.contains(post.rootID) else {
+                roots.append(post)
+                continue
+            }
+            repliesByRootID[post.rootID, default: []].append(post)
+        }
+
+        return roots.map { root in
+            MattermostTimelineThread(root: root, replies: repliesByRootID[root.id] ?? [])
+        }
+    }
+}
+
 public struct MattermostPostList: Decodable, Sendable {
     public let order: [String]
     public let posts: [String: MattermostPost]

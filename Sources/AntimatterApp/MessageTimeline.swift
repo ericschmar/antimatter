@@ -28,24 +28,38 @@ struct MessageTimeline: View {
                     } else {
                         ForEach(groups) { group in
                             TimelineDateHeader(date: group.date)
-                            ForEach(Array(group.posts.enumerated()), id: \.element.id) { index, post in
+                            ForEach(group.threads) { thread in
                                 MessageRow(
-                                    post: post,
+                                    post: thread.root,
                                     users: messageUsers,
-                                    avatarData: timeline.avatarData[post.userID],
-                                    status: timeline.statuses[post.userID] ?? statuses[post.userID],
+                                    avatarData: timeline.avatarData[thread.root.userID],
+                                    status: timeline.statuses[thread.root.userID] ?? statuses[thread.root.userID],
                                     messageFontSize: messageFontSize,
                                     currentUsername: currentUsername,
                                     showsMetadata: !messageGrouping.shouldGroup(
-                                        post,
-                                        with: index == 0 ? nil : group.posts[index - 1]
+                                        thread.root,
+                                        with: group.previousRoot(of: thread.root)
                                     ),
                                     onReply: onReply,
                                     onEdit: timeline.beginEditing
                                 ) { post, emojiName in
                                     timeline.toggleReaction(on: post, emojiName: emojiName)
                                 }
-                                    .id(post.id)
+                                .id(thread.root.id)
+
+                                if !thread.replies.isEmpty {
+                                    InlineReplyThread(
+                                        replies: thread.replies,
+                                        users: messageUsers,
+                                        statuses: messageStatuses,
+                                        currentUsername: currentUsername,
+                                        messageFontSize: messageFontSize,
+                                        onReply: onReply,
+                                        onEdit: timeline.beginEditing
+                                    ) { post, emojiName in
+                                        timeline.toggleReaction(on: post, emojiName: emojiName)
+                                    }
+                                }
                             }
                         }
                     }
@@ -66,10 +80,10 @@ struct MessageTimeline: View {
     }
 
     private var groups: [TimelineGroup] {
-        Dictionary(grouping: timeline.posts) { post in
-            Calendar.current.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(post.createAt) / 1_000))
+        Dictionary(grouping: MattermostTimelineThreading.threads(from: timeline.posts)) { thread in
+            Calendar.current.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(thread.root.createAt) / 1_000))
         }
-        .map { TimelineGroup(date: $0.key, posts: $0.value) }
+        .map { TimelineGroup(date: $0.key, threads: $0.value) }
         .sorted { $0.date < $1.date }
     }
 
@@ -79,6 +93,10 @@ struct MessageTimeline: View {
 
     private var messageUsers: [String: MattermostUser] {
         knownUsers.merging(timeline.users) { _, timelineUser in timelineUser }
+    }
+
+    private var messageStatuses: [String: String] {
+        statuses.merging(timeline.statuses) { _, timelineStatus in timelineStatus }
     }
 
     private var messageGrouping: MattermostTimelineGrouping {
@@ -97,9 +115,21 @@ struct MessageTimeline: View {
 
 private struct TimelineGroup: Identifiable {
     let date: Date
-    let posts: [MattermostPost]
+    let threads: [MattermostTimelineThread]
 
     var id: Date { date }
+
+    init(date: Date, threads: [MattermostTimelineThread]) {
+        self.date = date
+        self.threads = threads
+    }
+
+    func previousRoot(of post: MattermostPost) -> MattermostPost? {
+        guard let index = threads.firstIndex(where: { $0.root.id == post.id }), index > 0 else {
+            return nil
+        }
+        return threads[index - 1].root
+    }
 }
 
 private struct TimelineDateHeader: View {
@@ -230,6 +260,107 @@ private struct MessageRow: View {
 
     private var accessibilityLabel: String {
         showsMetadata ? "\(author), \(timestamp), \(post.message)" : post.message
+    }
+}
+
+private struct InlineReplyThread: View {
+    let replies: [MattermostPost]
+    let users: [String: MattermostUser]
+    let statuses: [String: String]
+    let currentUsername: String?
+    let messageFontSize: Double
+    let onReply: (MattermostPost) -> Void
+    let onEdit: (MattermostPost) -> Void
+    let onToggleReaction: (MattermostPost, String) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(WorkspaceTheme.divider)
+                .frame(width: 2)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(replies) { reply in
+                    InlineReplyRow(
+                        post: reply,
+                        users: users,
+                        status: statuses[reply.userID],
+                        currentUsername: currentUsername,
+                        messageFontSize: messageFontSize,
+                        onReply: onReply,
+                        onEdit: onEdit,
+                        onToggleReaction: onToggleReaction
+                    )
+                }
+            }
+            .padding(10)
+        }
+        .background(WorkspaceTheme.raisedSurface)
+        .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+        .padding(.leading, 302)
+        .padding(.trailing, 18)
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(replies.count) inline replies")
+    }
+}
+
+private struct InlineReplyRow: View {
+    let post: MattermostPost
+    let users: [String: MattermostUser]
+    let status: String?
+    let currentUsername: String?
+    let messageFontSize: Double
+    let onReply: (MattermostPost) -> Void
+    let onEdit: (MattermostPost) -> Void
+    let onToggleReaction: (MattermostPost, String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                PresenceDot(status: status)
+                Text(author)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                Text(timestamp)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
+
+            RichMessageContent(
+                post: post,
+                fontSize: messageFontSize,
+                currentUsername: currentUsername
+            )
+            ReactionSummary(
+                post: post,
+                displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
+                onToggleReaction: onToggleReaction
+            )
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(author), \(timestamp), \(post.message)")
+        .contextMenu {
+            Button("Reply") { onReply(post) }
+            Button("Copy message") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(post.message, forType: .string)
+            }
+            Divider()
+            Button("Edit message") {
+                onEdit(post)
+            }
+        }
+    }
+
+    private var author: String {
+        users[post.userID]?.displayName ?? "Unknown member"
+    }
+
+    private var timestamp: String {
+        Date(timeIntervalSince1970: TimeInterval(post.createAt) / 1_000)
+            .formatted(date: .omitted, time: .shortened)
     }
 }
 

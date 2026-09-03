@@ -60,6 +60,33 @@ final class MattermostTimelineTests: XCTestCase {
         XCTAssertFalse(MattermostMentionMatcher.containsHighlightableMention(in: "Hello", username: nil))
     }
 
+    func testThreadingNestsRepliesUnderTheirRootAndKeepsOrphansVisible() {
+        let root = post(id: "root", userID: "ada", createdAt: 1_000)
+        let reply = MattermostPost(
+            id: "reply",
+            channelID: "channel",
+            userID: "grace",
+            message: "Reply",
+            createAt: 2_000,
+            updateAt: 2_000,
+            rootID: root.id
+        )
+        let orphan = MattermostPost(
+            id: "orphan",
+            channelID: "channel",
+            userID: "lin",
+            message: "Orphaned reply",
+            createAt: 3_000,
+            updateAt: 3_000,
+            rootID: "missing-root"
+        )
+
+        let threads = MattermostTimelineThreading.threads(from: [orphan, reply, root])
+
+        XCTAssertEqual(threads.map(\.root.id), ["root", "orphan"])
+        XCTAssertEqual(threads.first?.replies.map(\.id), ["reply"])
+    }
+
     private func post(id: String, userID: String = "user", createdAt: Int64) -> MattermostPost {
         MattermostPost(
             id: id,
