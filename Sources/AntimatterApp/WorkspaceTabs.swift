@@ -5,9 +5,15 @@ struct WorkspaceTabs: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 1) {
-                ForEach(workspace.tabs) { tab in
-                    WorkspaceTabItem(tab: tab, workspace: workspace)
+            HStack(spacing: 0) {
+                ForEach(workspace.tabs.indices, id: \.self) { index in
+                    WorkspaceTabItem(tab: workspace.tabs[index], workspace: workspace)
+
+                    if workspace.tabs.count > 1 && index < workspace.tabs.index(before: workspace.tabs.endIndex) {
+                        Divider()
+                            .overlay(WorkspaceTheme.divider)
+                            .frame(height: 18)
+                    }
                 }
             }
             .padding(.horizontal, 8)
@@ -51,8 +57,6 @@ private struct WorkspaceTabItem: View {
         .foregroundStyle(WorkspaceTheme.primaryText)
         .padding(.horizontal, 10)
         .frame(height: WorkspaceTheme.titleHeight)
-        .background(workspace.selectedChannelID == tab.channelID ? WorkspaceTheme.raisedSurface : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .contextMenu {
