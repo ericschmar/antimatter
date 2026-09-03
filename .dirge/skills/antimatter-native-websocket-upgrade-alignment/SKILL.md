@@ -1,29 +1,28 @@
 ---
 name: antimatter-native-websocket-upgrade-alignment
-description: Compare and align Antimatter's native Mattermost WebSocket HTTP upgrade with its former Bun implementation.
+description: Diagnose and align Antimatter native Mattermost WebSocket connections with current Mattermost server protocol behavior.
 ---
 
 # Native Mattermost WebSocket Upgrade Alignment
 
-Use this when a native `URLSessionWebSocketTask` fails to connect but the former Bun client worked.
+Use this when a native `URLSessionWebSocketTask` fails while connecting to Mattermost.
 
 ## Investigation
 
-1. Inspect the old Bun socket construction in the JavaScript history. The established connection path converts the configured HTTP(S) server URL to WS(S), sets `/api/v4/websocket`, clears the query, and invokes `new WebSocket(url.toString())` with no options.
-2. This means Bun performs a bare RFC 6455 upgrade: no application `Authorization` header and no explicit `Origin` header. The app sends Mattermost's `authentication_challenge` only in the `open` event.
-3. Inspect `Sources/AntimatterFoundation/MattermostWebSocket.swift`. Keep native upgrade behavior structurally equivalent: create `URLSessionWebSocketTask` with an unmodified `URLRequest` for the calculated endpoint, then send `authentication_challenge` after resuming.
-4. Do not add a forged `Origin` header. It is security-sensitive and is not part of the working Bun behavior.
+1. Inspect the JavaScript implementation as historical evidence, but validate against the deployed Mattermost version.
+2. Mattermost v11 initializes the WebSocket connection from the authenticated HTTP-upgrade request context. Construct the endpoint request with the session authorization credential.
+3. Keep the post-open `authentication_challenge` for compatibility. Mattermost accepts it when the upgrade has no session and ignores the duplicate when the upgrade is authenticated.
+4. Do not forge an `Origin` header. It is security-sensitive and unrelated to credential propagation.
 
-## Minimal implementation
+## Mattermost v11 frame rule
 
-- Centralize bare request construction in `MattermostWebSocket.upgradeRequest(for:)` when a request assertion needs a test seam.
-- Construct the task with `session.webSocketTask(with: Self.upgradeRequest(for: serverURL))`.
-- Preserve the existing challenge send, serialized lifecycle guards, heartbeat, and reconnect behavior.
+`URLSessionWebSocketTask.Message.data` sends a binary WebSocket frame even if it contains UTF-8 JSON. Mattermost v11 closes an unauthenticated connection whose first inbound frame is binary; it expects a text JSON authentication challenge.
+
+- Encode every JSON action as a text frame using `.string(String(decoding: jsonData, as: UTF8.self))`.
+- Apply this consistently to authentication, heartbeat pings, and generic actions such as typing.
+- Centralize the conversion in `MattermostWebSocket.textMessage(for:)` and add a regression test asserting the helper produces `.string`.
 
 ## Verification
-
-- In `NativeTests/AntimatterFoundationTests/MattermostAPIClientTests.swift`, assert the request endpoint is `wss://<host>/api/v4/websocket` and `Authorization` is absent.
-- Run:
 
 ```sh
 swift test --filter 'AntimatterFoundationTests.MattermostAPIClientTests'
@@ -31,6 +30,4 @@ swift test
 git diff --check
 ```
 
-## Evidence note
-
-At the Mattermost endpoint tested on 2026-09-03, raw HTTP/1.1 upgrades returned `101 Switching Protocols` both with no `Authorization` header and with a deliberately invalid bearer value. A local Bun 1.3.6 upgrade capture also showed only RFC 6455 headers (`Connection`, `Host`, `Sec-WebSocket-*`, and `Upgrade`)—no application authorization or `Origin`. Therefore header removal aligns implementations, but does not by itself prove it resolves every transport-level `NSPOSIXErrorDomain Code=57` failure.
+A `101 Switching Protocols` response only proves the HTTP upgrade succeeded. If the native socket later fails with POSIX 57, distinguish server rejection before changing retries or headers: inspect the first received frame or Mattermost/nginx logs.

@@ -95,11 +95,11 @@ public actor MattermostWebSocket {
         guard task == nil else { return }
         reconnectTask?.cancel()
         reconnectTask = nil
-        let task = session.webSocketTask(with: Self.upgradeRequest(for: serverURL))
+        let task = session.webSocketTask(with: Self.upgradeRequest(for: serverURL, token: token))
         self.task = task
         task.resume()
         do {
-            try await task.send(.data(try JSONEncoder().encode(AuthenticationChallenge(token: token, sequence: nextSequence))))
+            try await task.send(Self.textMessage(for: try JSONEncoder().encode(AuthenticationChallenge(token: token, sequence: nextSequence))))
             nextSequence += 1
         } catch {
             guard self.task === task else { throw error }
@@ -132,7 +132,7 @@ public actor MattermostWebSocket {
         }
         payload["seq"] = nextSequence
         nextSequence += 1
-        try await task.send(.data(try JSONSerialization.data(withJSONObject: payload)))
+        try await task.send(Self.textMessage(for: try JSONSerialization.data(withJSONObject: payload)))
     }
 
     public static func endpoint(for serverURL: URL) -> URL {
@@ -141,8 +141,14 @@ public actor MattermostWebSocket {
         return components.url!
     }
 
-    static func upgradeRequest(for serverURL: URL) -> URLRequest {
-        URLRequest(url: endpoint(for: serverURL))
+    static func upgradeRequest(for serverURL: URL, token: String) -> URLRequest {
+        var request = URLRequest(url: endpoint(for: serverURL))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    static func textMessage(for data: Data) -> URLSessionWebSocketTask.Message {
+        .string(String(decoding: data, as: UTF8.self))
     }
 
     private func receiveLoop(_ receivingTask: URLSessionWebSocketTask) async {
@@ -215,7 +221,7 @@ public actor MattermostWebSocket {
     private func sendHeartbeat(to heartbeatTask: URLSessionWebSocketTask) async {
         guard task === heartbeatTask else { return }
         do {
-            try await heartbeatTask.send(.data(try JSONEncoder().encode(WebSocketPing(sequence: nextSequence))))
+            try await heartbeatTask.send(Self.textMessage(for: try JSONEncoder().encode(WebSocketPing(sequence: nextSequence))))
             nextSequence += 1
         } catch {
             guard task === heartbeatTask else { return }

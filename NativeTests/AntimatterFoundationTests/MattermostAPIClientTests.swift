@@ -52,7 +52,20 @@ final class MattermostAPIClientTests: XCTestCase {
             MattermostWebSocket.endpoint(for: serverURL).absoluteString,
             "wss://chat.example.com/api/v4/websocket"
         )
-        XCTAssertNil(MattermostWebSocket.upgradeRequest(for: serverURL).value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(
+            MattermostWebSocket.upgradeRequest(for: serverURL, token: "private-token")
+                .value(forHTTPHeaderField: "Authorization"),
+            "Bearer private-token"
+        )
+    }
+
+    func testWebSocketProtocolPayloadUsesTextFrame() {
+        let message = MattermostWebSocket.textMessage(for: Data("{\"action\":\"ping\"}".utf8))
+
+        guard case let .string(payload) = message else {
+            return XCTFail("Expected a text WebSocket frame.")
+        }
+        XCTAssertEqual(payload, "{\"action\":\"ping\"}")
     }
 
     func testWebSocketReconnectDelayUsesBoundedExponentialBackoff() {
