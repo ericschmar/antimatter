@@ -195,6 +195,7 @@ private struct LargeTitleHeader: View {
     let onSelectTeam: (MattermostTeam) -> Void
     let onLogout: () -> Void
     @State private var isTeamPickerPresented = false
+    @State private var isAccountMenuPresented = false
 
     private var selectedTeam: MattermostTeam? {
         teams.first { $0.id == selectedTeamID } ?? teams.first
@@ -203,39 +204,44 @@ private struct LargeTitleHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 10) {
-                Text("TEAM")
-                    .font(.system(size: 12, weight: .semibold))
-                    .tracking(0.5)
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-                Button {
-                    isTeamPickerPresented.toggle()
-                } label: {
-                    HStack(spacing: 7) {
-                        Text(selectedTeam?.displayName ?? "No team")
-                        Image(systemName: isTeamPickerPresented ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 13, weight: .semibold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TEAM")
+                        .font(.system(size: 12, weight: .semibold))
+                        .tracking(0.5)
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                    Button {
+                        isTeamPickerPresented.toggle()
+                    } label: {
+                        HStack(spacing: 7) {
+                            Text(selectedTeam?.displayName ?? "No team")
+                            Image(systemName: isTeamPickerPresented ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                        .lineLimit(1)
                     }
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                    .lineLimit(1)
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $isTeamPickerPresented, arrowEdge: .bottom) {
-                    TeamPicker(
-                        teams: teams,
-                        selectedTeamID: selectedTeamID
-                    ) { team in
-                        onSelectTeam(team)
-                        isTeamPickerPresented = false
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $isTeamPickerPresented, arrowEdge: .bottom) {
+                        TeamPicker(
+                            teams: teams,
+                            selectedTeamID: selectedTeamID
+                        ) { team in
+                            onSelectTeam(team)
+                            isTeamPickerPresented = false
+                        }
                     }
                 }
                 Spacer(minLength: 0)
-                Menu {
-                    Button("Log Out", role: .destructive, action: onLogout)
+                Button {
+                    isAccountMenuPresented.toggle()
                 } label: {
                     LoggedInAvatar(data: avatarData, status: status)
                 }
-                .menuStyle(.borderlessButton)
+                .buttonStyle(.plain)
+                .popover(isPresented: $isAccountMenuPresented, arrowEdge: .trailing) {
+                    AccountMenu(onLogout: onLogout)
+                }
                 .accessibilityLabel("Account menu")
             }
 
@@ -282,6 +288,7 @@ private struct LoggedInAvatar: View {
                 .frame(width: 18, height: 18)
                 .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 3))
         }
+        .frame(width: 66, height: 66)
     }
 
     private var statusColor: Color {
@@ -291,6 +298,19 @@ private struct LoggedInAvatar: View {
         case "dnd": WorkspaceTheme.attention
         default: WorkspaceTheme.secondaryText.opacity(0.65)
         }
+    }
+}
+
+private struct AccountMenu: View {
+    let onLogout: () -> Void
+
+    var body: some View {
+        Button("Log Out", role: .destructive, action: onLogout)
+            .buttonStyle(.plain)
+            .foregroundStyle(WorkspaceTheme.attention)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .frame(width: 150, alignment: .leading)
     }
 }
 
