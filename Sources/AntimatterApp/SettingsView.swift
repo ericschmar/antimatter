@@ -21,7 +21,7 @@ struct SettingsView: View {
                 Toggle("Show user avatars", isOn: $showTimelineAvatars)
                 Stepper("Message font size: \(Int(messageFontSize)) pt", value: $messageFontSize, in: 10...20, step: 1)
                 Stepper(
-                    "Group consecutive messages within: \(Int(messageGroupingIntervalMinutes)) min",
+                    groupingIntervalLabel,
                     value: $messageGroupingIntervalMinutes,
                     in: 0...60,
                     step: 1
@@ -37,5 +37,11 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding()
         .frame(width: 420, height: 320)
+    }
+
+    private var groupingIntervalLabel: String {
+        messageGroupingIntervalMinutes == 0
+            ? "Don't group consecutive messages"
+            : "Group consecutive messages within: \(Int(messageGroupingIntervalMinutes)) min"
     }
 }
