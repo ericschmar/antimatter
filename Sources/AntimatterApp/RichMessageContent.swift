@@ -11,10 +11,13 @@ struct RichMessageContent: View {
         VStack(alignment: .leading, spacing: 7) {
             Markdown(post.message)
                 .markdownTheme(.gitHub)
-                .font(.system(size: fontSize))
+                .markdownTextStyle {
+                    FontSize(fontSize)
+                }
                 .tint(WorkspaceTheme.accent)
                 .foregroundStyle(WorkspaceTheme.primaryText)
                 .textSelection(.enabled)
+                .id(fontSize)
 
             if !post.files.isEmpty {
                 ForEach(post.files) { file in
