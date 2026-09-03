@@ -11,7 +11,7 @@ struct RichMessageContent: View {
         VStack(alignment: .leading, spacing: 7) {
             Markdown(post.message)
                 .markdownTheme(.gitHub)
-                .markdownTextStyle {
+                .markdownTextStyle(\.text) {
                     FontSize(fontSize)
                 }
                 .tint(WorkspaceTheme.accent)
