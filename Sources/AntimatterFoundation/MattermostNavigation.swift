@@ -112,7 +112,26 @@ public actor MattermostNavigationLoader {
     public func createDirectChannel(userIDs: [String]) async throws -> MattermostChannel {
         try await client.post("/api/v4/channels/direct", body: userIDs)
     }
+
+    public func viewChannel(channelID: String, previousChannelID: String?) async throws {
+        let _: EmptyResponse = try await client.post(
+            "/api/v4/channels/\(channelID)/view",
+            body: ChannelViewRequest(channelID: channelID, previousChannelID: previousChannelID)
+        )
+    }
 }
+
+private struct ChannelViewRequest: Encodable, Sendable {
+    let channelID: String
+    let previousChannelID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case channelID = "channel_id"
+        case previousChannelID = "prev_channel_id"
+    }
+}
+
+private struct EmptyResponse: Decodable, Sendable {}
 
 private extension String {
     var nonEmpty: String? {

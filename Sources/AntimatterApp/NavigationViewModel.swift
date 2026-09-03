@@ -201,6 +201,16 @@ final class NavigationViewModel: ObservableObject {
         }
     }
 
+    func markChannelAsRead(_ channelID: String, previousChannelID: String?) async {
+        if let index = channels.firstIndex(where: { $0.id == channelID }),
+           channels[index].unreadCount > 0 || channels[index].mentionCount > 0 {
+            channels[index].unreadCount = 0
+            channels[index].mentionCount = 0
+            try? await store.apply(.navigation(teams: teams, channels: channels))
+        }
+        try? await loader.viewChannel(channelID: channelID, previousChannelID: previousChannelID)
+    }
+
     func reorderChannels(
         _ channels: [MattermostChannel],
         from source: IndexSet,

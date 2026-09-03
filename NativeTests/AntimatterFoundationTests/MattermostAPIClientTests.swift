@@ -99,6 +99,23 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(channel.type, "D")
     }
 
+    func testViewChannelUsesMattermostChannelViewEndpoint() async throws {
+        URLProtocolStub.handler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v4/channels/channel-2/view")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+            return (try Self.response(for: request, status: 200), Data("{}".utf8))
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let loader = MattermostNavigationLoader(client: client)
+
+        try await loader.viewChannel(channelID: "channel-2", previousChannelID: "channel-1")
+    }
+
     func testWebSocketEndpointUsesSecureScheme() throws {
         let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
 

@@ -131,9 +131,14 @@ struct WorkspaceShell: View {
                   let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
             workspace.preview(channel, title: navigation.displayName(for: channel))
         }
-        .onChange(of: workspace.selectedChannelID, initial: true) { _, channelID in
+        .onChange(of: workspace.selectedChannelID, initial: true) { previousChannelID, channelID in
             composer.select(channelID: channelID)
             presence.clearTypingIndicators()
+            if let channelID {
+                Task {
+                    await navigation.markChannelAsRead(channelID, previousChannelID: previousChannelID)
+                }
+            }
         }
         .onChange(of: scenePhase, initial: true) { _, newPhase in
             AppLogger.application.info(
