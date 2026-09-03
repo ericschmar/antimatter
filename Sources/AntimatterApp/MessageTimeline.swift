@@ -17,6 +17,7 @@ struct MessageTimeline: View {
     let onVote: (MattermostPost, String) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
+    @State private var reactionTooltip: ReactionTooltip?
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -60,7 +61,8 @@ struct MessageTimeline: View {
                                         onStartDirectMessage: onStartDirectMessage,
                                         onReply: onReply,
                                         onEdit: timeline.beginEditing,
-                                        onVote: onVote
+                                        onVote: onVote,
+                                        onReactionTooltipChange: updateReactionTooltip
                                     ) { post, emojiName in
                                         timeline.toggleReaction(on: post, emojiName: emojiName)
                                     }
@@ -71,6 +73,18 @@ struct MessageTimeline: View {
                 }
                 .padding(.vertical, 10)
                 .id(messageFontSize)
+            }
+            .overlayPreferenceValue(ReactionTooltipAnchorKey.self) { anchors in
+                GeometryReader { proxy in
+                    if let reactionTooltip, let anchor = anchors[reactionTooltip.id] {
+                        ReactionTooltipView(text: reactionTooltip.text)
+                            .position(
+                                x: proxy[anchor].midX,
+                                y: proxy[anchor].maxY + 18
+                            )
+                            .allowsHitTesting(false)
+                    }
+                }
             }
             .onChange(of: newestPostID) { _, postID in
                 scrollToLatest(postID, with: proxy)
@@ -127,10 +141,15 @@ struct MessageTimeline: View {
             onReply: onReply,
             onEdit: timeline.beginEditing,
             onVote: onVote,
+            onReactionTooltipChange: updateReactionTooltip,
             onToggleReaction: { post, emojiName in
                 timeline.toggleReaction(on: post, emojiName: emojiName)
             }
         )
+    }
+
+    private func updateReactionTooltip(_ tooltip: ReactionTooltip?) {
+        reactionTooltip = tooltip
     }
 
     private func scrollToLatest(_ postID: String?, with proxy: ScrollViewProxy) {
@@ -140,6 +159,40 @@ struct MessageTimeline: View {
                 proxy.scrollTo(postID, anchor: .bottom)
             }
         }
+    }
+}
+
+private struct ReactionTooltip: Identifiable {
+    let id: String
+    let text: String
+}
+
+private struct ReactionTooltipAnchorKey: PreferenceKey {
+    static let defaultValue: [String: Anchor<CGRect>] = [:]
+
+    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+private struct ReactionTooltipView: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(WorkspaceTheme.primaryText)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                WorkspaceTheme.surface,
+                in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+                    .stroke(WorkspaceTheme.divider, lineWidth: 1)
+            )
+            .fixedSize()
     }
 }
 
@@ -200,11 +253,11 @@ private struct MessageRow: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
+    let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var isHovering = false
-    @State private var isReactionTooltipPresented = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -265,10 +318,9 @@ private struct MessageRow: View {
                     post: post,
                     displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
                     currentUserID: currentUserID,
-                    onToggleReaction: onToggleReaction
-                ) { isPresented in
-                    isReactionTooltipPresented = isPresented
-                }
+                    onToggleReaction: onToggleReaction,
+                    onTooltipChange: onReactionTooltipChange
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
@@ -305,7 +357,6 @@ private struct MessageRow: View {
         .background(isHovering ? WorkspaceTheme.hoverSurface : .clear)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .zIndex(isReactionTooltipPresented ? 100 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .contextMenu {
@@ -440,9 +491,9 @@ private struct InlineReplyThread: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
+    let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
-    @State private var isReactionTooltipPresented = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -465,10 +516,9 @@ private struct InlineReplyThread: View {
                         onReply: onReply,
                         onEdit: onEdit,
                         onVote: onVote,
+                        onReactionTooltipChange: onReactionTooltipChange,
                         onToggleReaction: onToggleReaction
-                    ) { isPresented in
-                        isReactionTooltipPresented = isPresented
-                    }
+                    )
                 }
             }
             .padding(10)
@@ -478,7 +528,6 @@ private struct InlineReplyThread: View {
         .padding(.leading, replyLeadingInset)
         .padding(.trailing, 18)
         .padding(.vertical, 5)
-        .zIndex(isReactionTooltipPresented ? 100 : 0)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(replies.count) inline replies")
     }
@@ -507,10 +556,9 @@ private struct InlineReplyRow: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
+    let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
-    let onReactionTooltipVisibilityChange: (Bool) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
-    @State private var isReactionTooltipPresented = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -547,14 +595,11 @@ private struct InlineReplyRow: View {
                 post: post,
                 displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
                 currentUserID: currentUserID,
-                onToggleReaction: onToggleReaction
-            ) { isPresented in
-                isReactionTooltipPresented = isPresented
-                onReactionTooltipVisibilityChange(isPresented)
-            }
+                onToggleReaction: onToggleReaction,
+                onTooltipChange: onReactionTooltipChange
+            )
         }
         .contentShape(Rectangle())
-        .zIndex(isReactionTooltipPresented ? 100 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(author), \(timestamp), \(post.message)")
         .contextMenu {
@@ -781,8 +826,7 @@ private struct ReactionSummary: View {
     let displayName: (String) -> String
     let currentUserID: String?
     let onToggleReaction: (MattermostPost, String) -> Void
-    let onTooltipVisibilityChange: (Bool) -> Void
-    @State private var hoveredReactionID: String?
+    let onTooltipChange: (ReactionTooltip?) -> Void
 
     var body: some View {
         HStack(spacing: 5) {
@@ -814,32 +858,19 @@ private struct ReactionSummary: View {
                 .accessibilityLabel(
                     "\(summary.emojiName) reaction, \(summary.count)\(summary.userIDs.contains(currentUserID ?? "") ? ", selected" : "")"
                 )
+                .anchorPreference(key: ReactionTooltipAnchorKey.self, value: .bounds) {
+                    [summary.id: $0]
+                }
                 .onHover { isHovering in
-                    hoveredReactionID = isHovering ? summary.id : nil
-                    onTooltipVisibilityChange(isHovering)
-                }
-                .overlay(alignment: .bottom) {
-                    if hoveredReactionID == summary.id {
-                        Text("\(readableName(for: summary.emojiName)) · \(summary.userIDs.map(displayName).joined(separator: ", "))")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(WorkspaceTheme.primaryText)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(
-                                WorkspaceTheme.surface,
-                                in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+                    onTooltipChange(
+                        isHovering
+                            ? ReactionTooltip(
+                                id: summary.id,
+                                text: "\(readableName(for: summary.emojiName)) · \(summary.userIDs.map(displayName).joined(separator: ", "))"
                             )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
-                                    .stroke(WorkspaceTheme.divider, lineWidth: 1)
-                            )
-                            .fixedSize()
-                            .offset(y: 30)
-                            .compositingGroup()
-                            .zIndex(100)
-                    }
+                            : nil
+                    )
                 }
-                .zIndex(hoveredReactionID == summary.id ? 100 : 0)
             }
 
         }

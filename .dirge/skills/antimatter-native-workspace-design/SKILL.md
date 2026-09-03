@@ -26,6 +26,14 @@ Use a dense editorial utility-panel treatment rather than generic stacked naviga
 
 Keep presentation work focused in `ChannelSection.swift` and the sidebar area of `WorkspaceShell.swift`. Do not alter the navigation model or channel behavior merely to implement a visual redesign.
 
+## SwiftUI Timeline Overlay Stacking
+
+When a timeline is a `LazyVStack`, each message/thread is a direct sibling. `zIndex` only orders views in the same immediate parent stacking context: a tooltip within `MessageRow` or an inline reply cannot rise above the next timeline sibling solely by increasing its own `zIndex`.
+
+Lift reaction-tooltip presentation state to the direct timeline-row container (for example, a `TimelineThreadRow` that owns the root post plus inline replies), then apply a positive `zIndex` to that container while any contained reaction tooltip is open. Preserve local `zIndex` on the root/reply sibling as needed so the tooltip's own row renders above its inline siblings. Avoid treating a larger numeric value on nested tooltip views as a fix.
+
+The current native test target (`NativeTests/AntimatterFoundationTests`) covers foundation and timeline-model behavior, not SwiftUI visual stacking; validate this interaction manually in addition to the standard build/tests.
+
 ## Verification
 
 For an implementation, run:
