@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
+    let knownUsers: [String: MattermostUser]
     let statuses: [String: String]
     let channelID: String?
     let onReply: (MattermostPost) -> Void
@@ -27,7 +28,7 @@ struct MessageTimeline: View {
                             ForEach(group.posts) { post in
                                 MessageRow(
                                     post: post,
-                                    user: timeline.users[post.userID],
+                                    user: timeline.users[post.userID] ?? knownUsers[post.userID],
                                     avatarData: timeline.avatarData[post.userID],
                                     status: statuses[post.userID],
                                     onReply: onReply,

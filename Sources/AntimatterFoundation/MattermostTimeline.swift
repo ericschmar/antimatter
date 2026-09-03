@@ -35,14 +35,10 @@ public actor MattermostTimelineLoader {
 
     public func loadUsers(ids: [String]) async throws -> [MattermostUser] {
         guard !ids.isEmpty else { return [] }
-        return try await client.post("/api/v4/users/ids", body: MattermostUserIDsRequest(ids: ids))
+        return try await client.post("/api/v4/users/ids", body: ids)
     }
 
     public func loadAvatarData(userID: String) async throws -> Data {
         try await client.getData("/api/v4/users/\(userID)/image")
     }
-}
-
-private struct MattermostUserIDsRequest: Encodable, Sendable {
-    let ids: [String]
 }

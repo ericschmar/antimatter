@@ -42,7 +42,14 @@ struct WorkspaceShell: View {
                     .accessibilityHint("Contains teams, channels, and direct messages.")
                     .accessibilityIdentifier("workspace-sidebar")
 
-                ConversationPlaceholder(workspace: workspace, timeline: timeline, composer: composer, presence: presence, realtime: realtime)
+                ConversationPlaceholder(
+                    navigation: navigation,
+                    workspace: workspace,
+                    timeline: timeline,
+                    composer: composer,
+                    presence: presence,
+                    realtime: realtime
+                )
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
                     .focused($focusedRegion, equals: .conversation)
@@ -176,6 +183,7 @@ private struct SidebarPlaceholder: View {
 }
 
 private struct ConversationPlaceholder: View {
+    @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var workspace: WorkspaceViewModel
     @ObservedObject var timeline: TimelineViewModel
     @ObservedObject var composer: ComposerViewModel
@@ -206,6 +214,7 @@ private struct ConversationPlaceholder: View {
 
             MessageTimeline(
                 timeline: timeline,
+                knownUsers: navigation.users,
                 statuses: presence.statuses,
                 channelID: selectedTab?.channelID
             ) { post in
