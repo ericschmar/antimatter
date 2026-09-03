@@ -18,6 +18,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public let displayName: String
     public let type: String
     public let deleteAt: Int64
+    public let lastPostAt: Int64
     public var unreadCount: Int
     public var mentionCount: Int
 
@@ -26,6 +27,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
         case teamID = "team_id"
         case displayName = "display_name"
         case deleteAt = "delete_at"
+        case lastPostAt = "last_post_at"
         case unreadCount = "msg_count"
         case mentionCount = "mention_count"
     }
@@ -38,6 +40,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
         displayName = (try values.decodeIfPresent(String.self, forKey: .displayName))?.nonEmpty ?? name
         type = try values.decode(String.self, forKey: .type)
         deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
+        lastPostAt = try values.decodeIfPresent(Int64.self, forKey: .lastPostAt) ?? 0
         unreadCount = try values.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
         mentionCount = try values.decodeIfPresent(Int.self, forKey: .mentionCount) ?? 0
     }
@@ -50,6 +53,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
         try values.encode(displayName, forKey: .displayName)
         try values.encode(type, forKey: .type)
         try values.encode(deleteAt, forKey: .deleteAt)
+        try values.encode(lastPostAt, forKey: .lastPostAt)
         try values.encode(unreadCount, forKey: .unreadCount)
         try values.encode(mentionCount, forKey: .mentionCount)
     }

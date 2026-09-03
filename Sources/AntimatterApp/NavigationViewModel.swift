@@ -6,6 +6,7 @@ final class NavigationViewModel: ObservableObject {
     @Published private(set) var teams: [MattermostTeam] = []
     @Published private(set) var channels: [MattermostChannel] = []
     @Published private(set) var users: [String: MattermostUser] = [:]
+    @Published private(set) var avatarData: [String: Data] = [:]
     @Published private(set) var currentUserAvatarData: Data?
     @Published var selectedChannelID: String?
     @Published var selectedTeamID: String?
@@ -48,7 +49,9 @@ final class NavigationViewModel: ObservableObject {
     }
 
     var directMessages: [MattermostChannel] {
-        ordered(visibleChannels.filter { $0.type == "D" && $0.deleteAt == 0 }, section: "direct")
+        visibleChannels
+            .filter { $0.type == "D" && $0.deleteAt == 0 }
+            .sorted { $0.lastPostAt > $1.lastPostAt }
     }
 
     var groupMessages: [MattermostChannel] {
@@ -83,6 +86,20 @@ final class NavigationViewModel: ObservableObject {
             if let currentUserID, currentUserAvatarData == nil {
                 currentUserAvatarData = try? await loader.loadAvatarData(userID: currentUserID)
             }
+            let directUserIDs = Set(directMessages.compactMap(directMessageUserID(for:)))
+            let loadedAvatars = await withTaskGroup(of: (String, Data?).self, returning: [String: Data].self) { group in
+                for userID in directUserIDs where avatarData[userID] == nil {
+                    group.addTask { [loader] in
+                        (userID, try? await loader.loadAvatarData(userID: userID))
+                    }
+                }
+                var results: [String: Data] = [:]
+                for await (userID, data) in group {
+                    if let data { results[userID] = data }
+                }
+                return results
+            }
+            avatarData.merge(loadedAvatars) { _, new in new }
             selectedChannelID = preferredChannelID.flatMap { preferredID in
                 channels.contains(where: { $0.id == preferredID }) ? preferredID : nil
             } ?? selectedChannelID ?? publicChannels.first?.id ?? directMessages.first?.id
@@ -186,7 +203,7 @@ final class NavigationViewModel: ObservableObject {
         defaults.dictionary(forKey: channelOrderKey) as? [String: [String]] ?? [:]
     }
 
-    private func directMessageUserID(for channel: MattermostChannel) -> String? {
+    func directMessageUserID(for channel: MattermostChannel) -> String? {
         guard let currentUserID else { return nil }
         return channel.name
             .split(separator: "_")

@@ -7,37 +7,62 @@ struct ChannelSection: View {
     let sectionID: String
     let channels: [MattermostChannel]
     @ObservedObject var navigation: NavigationViewModel
+    @ObservedObject var presence: PresenceViewModel
     @State private var draggedChannelID: String?
+    @State private var isCollapsed = false
 
     init(
         _ title: String,
         sectionID: String,
         channels: [MattermostChannel],
-        navigation: NavigationViewModel
+        navigation: NavigationViewModel,
+        presence: PresenceViewModel
     ) {
         self.title = title
         self.sectionID = sectionID
         self.channels = channels
         self.navigation = navigation
+        self.presence = presence
     }
 
     var body: some View {
         if !channels.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.7)
+                Button {
+                    isCollapsed.toggle()
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(title)
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(0.7)
+                        Spacer(minLength: 0)
+                        Text(String(channels.count))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    }
                     .foregroundStyle(WorkspaceTheme.secondaryText)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 3)
+                }
+                .buttonStyle(.plain)
 
-                ForEach(channels) { channel in
+                if !isCollapsed {
+                    ForEach(channels) { channel in
                     Button {
                         navigation.selectedChannelID = channel.id
                     } label: {
-                        HStack(spacing: 7) {
-                            Image(systemName: channel.type == "O" || channel.type == "P" ? "number" : "person")
+                        HStack(spacing: 8) {
+                            if channel.type == "D" {
+                                DirectMessageAvatar(
+                                    data: navigation.avatarData[navigation.directMessageUserID(for: channel) ?? ""],
+                                    initials: String(navigation.displayName(for: channel).prefix(2)),
+                                    status: navigation.directMessageUserID(for: channel).flatMap { presence.statuses[$0] }
+                                )
+                            } else {
+                                Image(systemName: "number")
                                 .font(.system(size: 11, weight: .semibold))
+                            }
                             Text(navigation.displayName(for: channel)).lineLimit(1)
                             Spacer(minLength: 0)
                             if channel.mentionCount > 0 {
@@ -45,7 +70,9 @@ struct ChannelSection: View {
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                                     .foregroundStyle(WorkspaceTheme.attention)
                             } else if channel.unreadCount > 0 {
-                                Circle().fill(WorkspaceTheme.accent).frame(width: 6, height: 6)
+                                Text(String(channel.unreadCount))
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(WorkspaceTheme.accent)
                             }
                         }
                         .font(.system(size: 13))
@@ -86,8 +113,47 @@ struct ChannelSection: View {
                             navigation.toggleFavorite(channel)
                         }
                     }
+                    }
                 }
             }
+        }
+    }
+}
+
+private struct DirectMessageAvatar: View {
+    let data: Data?
+    let initials: String
+    let status: String?
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Group {
+                if let data, let image = NSImage(data: data) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Text(initials)
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
+            }
+            .frame(width: 22, height: 22)
+            .background(WorkspaceTheme.raisedSurface)
+            .clipShape(Circle())
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+                .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 1.5))
+        }
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case "online": WorkspaceTheme.accent
+        case "away": .yellow
+        case "dnd": WorkspaceTheme.attention
+        default: WorkspaceTheme.secondaryText.opacity(0.65)
         }
     }
 }
