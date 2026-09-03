@@ -4,6 +4,8 @@ struct CommandPalette: View {
     @Binding var isPresented: Bool
     let focus: (WorkspaceFocusTarget) -> Void
     let openSearch: () -> Void
+    @State private var query = ""
+    @FocusState private var isQueryFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,25 +13,33 @@ struct CommandPalette: View {
                 Image(systemName: "command")
                     .font(.system(size: 15))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                Text("Type a command or search…")
+                TextField("Type a command or search…", text: $query)
+                    .textFieldStyle(.plain)
                     .font(.system(size: 15))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-                Spacer()
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .focused($isQueryFocused)
+                    .onSubmit(performFirstMatchingAction)
             }
             .padding(14)
             Divider().overlay(WorkspaceTheme.divider)
 
-            PaletteAction(title: "Search messages", symbol: "magnifyingglass") {
-                openSearch()
-                isPresented = false
+            if matches("Search messages") {
+                PaletteAction(title: "Search messages", symbol: "magnifyingglass") {
+                    openSearch()
+                    isPresented = false
+                }
             }
-            PaletteAction(title: "Focus sidebar", symbol: "sidebar.left") {
-                focus(.sidebar)
-                isPresented = false
+            if matches("Focus sidebar") {
+                PaletteAction(title: "Focus sidebar", symbol: "sidebar.left") {
+                    focus(.sidebar)
+                    isPresented = false
+                }
             }
-            PaletteAction(title: "Focus conversation", symbol: "rectangle.split.3x1") {
-                focus(.conversation)
-                isPresented = false
+            if matches("Focus conversation") {
+                PaletteAction(title: "Focus conversation", symbol: "rectangle.split.3x1") {
+                    focus(.conversation)
+                    isPresented = false
+                }
             }
         }
         .frame(width: 320)
@@ -43,7 +53,29 @@ struct CommandPalette: View {
         .onExitCommand {
             isPresented = false
         }
+        .onAppear {
+            DispatchQueue.main.async {
+                isQueryFocused = true
+            }
+        }
         .accessibilityIdentifier("command-palette")
+    }
+
+    private func matches(_ title: String) -> Bool {
+        query.isEmpty || title.localizedCaseInsensitiveContains(query)
+    }
+
+    private func performFirstMatchingAction() {
+        if matches("Search messages") {
+            openSearch()
+            isPresented = false
+        } else if matches("Focus sidebar") {
+            focus(.sidebar)
+            isPresented = false
+        } else if matches("Focus conversation") {
+            focus(.conversation)
+            isPresented = false
+        }
     }
 }
 
