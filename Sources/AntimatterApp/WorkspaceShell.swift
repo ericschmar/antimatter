@@ -286,7 +286,7 @@ private struct LoggedInAvatar: View {
                         .foregroundStyle(WorkspaceTheme.secondaryText)
                 }
             }
-            .frame(width: 66, height: 66)
+            .frame(width: 40, height: 40)
             .clipShape(Circle())
             Circle()
                 .fill(statusColor)
