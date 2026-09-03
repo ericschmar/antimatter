@@ -133,6 +133,9 @@ struct WorkspaceShell: View {
             workspace.preview(channel, title: navigation.displayName(for: channel))
         }
         .onChange(of: workspace.selectedChannelID, initial: true) { previousChannelID, channelID in
+            if navigation.selectedChannelID != channelID {
+                navigation.selectedChannelID = channelID
+            }
             composer.select(channelID: channelID)
             presence.clearTypingIndicators()
             if let channelID {
