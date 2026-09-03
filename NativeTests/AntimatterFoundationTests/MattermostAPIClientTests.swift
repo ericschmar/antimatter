@@ -220,6 +220,12 @@ final class MattermostAPIClientTests: XCTestCase {
         var requests: [URLRequest] = []
         URLProtocolStub.handler = { request in
             requests.append(request)
+            if request.httpMethod == "GET" {
+                return (
+                    try Self.response(for: request, status: 200),
+                    Data(#"{"id":"post-1","channel_id":"channel-1","user_id":"user-1"}"#.utf8)
+                )
+            }
             return (try Self.response(for: request, status: 200), Data("{}".utf8))
         }
         let client = MattermostAPIClient(
@@ -230,12 +236,14 @@ final class MattermostAPIClientTests: XCTestCase {
         let polls = MattermostPolls(client: client)
 
         try await polls.create(channelID: "channel-1", teamID: "team-1", question: "Ship it?", options: ["Yes", "No"])
-        try await polls.vote(postID: "post-1", actionID: "0")
+        let post = try await polls.vote(postID: "post-1", actionID: "vote0")
 
         XCTAssertEqual(requests.map { $0.url?.path }, [
             "/api/v4/commands/execute",
-            "/api/v4/posts/post-1/actions/0",
+            "/api/v4/posts/post-1/actions/vote0",
+            "/api/v4/posts/post-1",
         ])
+        XCTAssertEqual(post.id, "post-1")
         XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
     }
 
@@ -245,7 +253,7 @@ final class MattermostAPIClientTests: XCTestCase {
           "id":"post-1", "channel_id":"channel-1", "user_id":"user-1",
           "type":"custom_matterpoll", "create_at":1, "update_at":1,
           "props":{"poll_id":"poll-1","attachments":[{"title":"Ship it?","actions":[
-            {"id":"0","name":"Yes (12)","type":"button"},
+            {"id":"vote0","name":"Yes (12)","type":"button"},
             {"id":"addOption","name":"Add Option","type":"button"}
           ]}]}
         }

@@ -192,7 +192,9 @@ final class TimelineViewModel: ObservableObject {
     func vote(on post: MattermostPost, actionID: String) {
         Task {
             do {
-                try await polls.vote(postID: post.id, actionID: actionID)
+                let updatedPost = try await polls.vote(postID: post.id, actionID: actionID)
+                replace(updatedPost)
+                try? await store.apply(.posts([updatedPost]))
             } catch {
                 loadError = error.localizedDescription
             }

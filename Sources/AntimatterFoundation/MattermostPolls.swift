@@ -38,7 +38,9 @@ public struct MattermostPollAction: Codable, Equatable, Identifiable, Sendable {
         name.replacingOccurrences(of: #" \([0-9]+\)$"#, with: "", options: .regularExpression)
     }
 
-    public var isVote: Bool { type == "button" && !["addOption", "endPoll", "deletePoll"].contains(id) }
+    public var isVote: Bool {
+        type == "button" && id.hasPrefix("vote") && id != "resetVote"
+    }
 }
 
 public struct MattermostPollCommand: Codable, Sendable {
@@ -79,11 +81,16 @@ public actor MattermostPolls {
     }
 
     /// Votes through the Mattermost post-action API used by the Matterpoll plugin.
-    public func vote(postID: String, actionID: String) async throws {
+    /// The action response only acknowledges the action. Fetch the post
+    /// afterwards so native clients update immediately instead of depending on
+    /// a later `post_edited` websocket event.
+    public func vote(postID: String, actionID: String) async throws -> MattermostPost {
         let _: MattermostCommandResponse = try await client.post(
             "/api/v4/posts/\(postID)/actions/\(actionID)",
             body: EmptyRequest()
         )
+        let post: MattermostPost = try await client.get("/api/v4/posts/\(postID)")
+        return post
     }
 }
 
