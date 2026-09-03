@@ -187,8 +187,17 @@ final class NavigationViewModel: ObservableObject {
         objectWillChange.send()
     }
 
-    func reconcile(_ event: MattermostWebSocketEvent) async {
+    func reconcile(_ event: MattermostWebSocketEvent, activeChannelID: String?) async {
         switch event.event {
+        case "posted":
+            guard let post = event.decodedData(MattermostPost.self, forKey: "post"),
+                  let index = channels.firstIndex(where: { $0.id == post.channelID })
+            else { return }
+
+            channels[index].lastPostAt = max(channels[index].lastPostAt, post.createAt)
+            if post.channelID != activeChannelID, post.userID != currentUserID {
+                channels[index].unreadCount += 1
+            }
         case "channel_updated", "channel_created":
             guard let channel = event.decodedData(MattermostChannel.self, forKey: "channel") else { return }
             channels.removeAll { $0.id == channel.id }

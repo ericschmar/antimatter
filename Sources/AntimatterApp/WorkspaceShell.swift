@@ -109,7 +109,7 @@ struct WorkspaceShell: View {
             guard let event else { return }
             Task {
                 await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
-                await navigation.reconcile(event)
+                await navigation.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 presence.reconcile(event, channelID: workspace.selectedChannelID)
                 notifications.notify(for: event)
             }

@@ -19,7 +19,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public let description: String
     public let type: String
     public let deleteAt: Int64
-    public let lastPostAt: Int64
+    public var lastPostAt: Int64
     public var unreadCount: Int
     public var mentionCount: Int
 

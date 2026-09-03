@@ -155,6 +155,7 @@ final class TimelineViewModel: ObservableObject {
             guard let post = event.decodedData(MattermostPost.self, forKey: "post"),
                   post.channelID == activeChannelID else { return }
             posts = chronological(posts.filter { $0.id != post.id } + [post])
+            await loadAuthors(for: [post])
             await loadImageAttachments(for: [post])
         case "post_deleted":
             guard let postID = event.data?["post_id"]?.stringValue else { return }
