@@ -15,6 +15,10 @@ struct MessageComposer: View {
         channelID == nil || composer.isSending
     }
 
+    private var canSendMessage: Bool {
+        !composerDisabled && !composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let replyPost = composer.replyPost {
@@ -61,6 +65,12 @@ struct MessageComposer: View {
                     .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
                         loadDroppedText(from: providers)
                     }
+                    .onKeyPress(.return, phases: .down) { (keyPress: KeyPress) -> KeyPress.Result in
+                        let isShiftPressed = keyPress.modifiers.contains(.shift)
+                        guard !isShiftPressed else { return .ignored }
+                        sendMessage()
+                        return .handled
+                    }
 
                 Divider().overlay(WorkspaceTheme.divider)
 
@@ -79,9 +89,7 @@ struct MessageComposer: View {
                             .foregroundStyle(WorkspaceTheme.attention)
                             .lineLimit(1)
                     }
-                    Button {
-                        composer.send(onSent: onSent)
-                    } label: {
+                    Button(action: sendMessage) {
                         Image(systemName: composer.isSending ? "ellipsis" : "arrow.up")
                             .font(.system(size: 12, weight: .bold))
                             .frame(width: 28, height: 28)
@@ -89,9 +97,8 @@ struct MessageComposer: View {
                             .background(WorkspaceTheme.accent, in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .keyboardShortcut(.return, modifiers: [.command])
                     .help(composer.isSending ? "Sending" : "Send message")
-                    .disabled(channelID == nil || composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || composer.isSending)
+                    .disabled(!canSendMessage)
                 }
                 .padding(.horizontal, 7)
                 .padding(.vertical, 5)
@@ -134,6 +141,11 @@ struct MessageComposer: View {
         composer.message = format.apply(to: composer.message)
         composer.persistDraft()
         onTyping()
+    }
+
+    private func sendMessage() {
+        guard canSendMessage else { return }
+        composer.send(onSent: onSent)
     }
 }
 
