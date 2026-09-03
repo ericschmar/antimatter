@@ -87,10 +87,19 @@ public actor MattermostWebSocket {
 
     public func connect() async throws {
         reconnectTask?.cancel()
+        reconnectTask = nil
+        task?.cancel(with: .normalClosure, reason: nil)
         let task = session.webSocketTask(with: Self.endpoint(for: serverURL))
         self.task = task
         task.resume()
-        try await task.send(.data(try JSONEncoder().encode(AuthenticationChallenge(token: token))))
+        do {
+            try await task.send(.data(try JSONEncoder().encode(AuthenticationChallenge(token: token))))
+        } catch {
+            guard self.task === task else { throw error }
+            self.task = nil
+            task.cancel(with: .normalClosure, reason: nil)
+            throw error
+        }
         reconnectAttempt = 0
         Task { [weak self, weak task] in
             guard let self, let task else { return }
@@ -122,6 +131,7 @@ public actor MattermostWebSocket {
         while task === receivingTask {
             do {
                 let message = try await receivingTask.receive()
+                guard task === receivingTask else { return }
                 let data: Data
                 switch message {
                 case let .data(value): data = value
@@ -132,6 +142,8 @@ public actor MattermostWebSocket {
                     continuation?.yield(event)
                 }
             } catch {
+                guard task === receivingTask else { return }
+                task = nil
                 scheduleReconnect()
                 return
             }
@@ -139,18 +151,23 @@ public actor MattermostWebSocket {
     }
 
     private func scheduleReconnect() {
-        guard task != nil else { return }
+        guard task == nil, reconnectTask == nil else { return }
         let delay = min(pow(2, Double(reconnectAttempt)), 30)
         reconnectAttempt += 1
         reconnectTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
+            await self?.clearReconnectTask()
             do {
                 try await self?.connect()
             } catch {
                 await self?.scheduleReconnect()
             }
         }
+    }
+
+    private func clearReconnectTask() {
+        reconnectTask = nil
     }
 }
 
