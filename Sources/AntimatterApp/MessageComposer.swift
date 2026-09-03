@@ -249,33 +249,30 @@ private struct PollComposer: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Create a poll")
                 .font(.system(size: 20, weight: .semibold))
-            TextField("Question", text: $question)
-                .textFieldStyle(.roundedBorder)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Options")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            VStack(spacing: 0) {
+                formRow("Question", placeholder: "What would you like to ask?", text: $question)
+                Divider().padding(.leading, 16)
                 ForEach(options.indices, id: \.self) { index in
-                    HStack {
-                        TextField("Option \(index + 1)", text: $options[index])
-                            .textFieldStyle(.roundedBorder)
-                        if options.count > 2 {
-                            Button {
-                                options.remove(at: index)
-                            } label: {
-                                Image(systemName: "minus.circle")
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Remove option \(index + 1)")
-                        }
+                    formRow(
+                        "Option \(index + 1)",
+                        placeholder: "Answer \(index + 1)",
+                        text: $options[index],
+                        remove: options.count > 2 ? { options.remove(at: index) } : nil
+                    )
+                    if index < options.indices.last! {
+                        Divider().padding(.leading, 16)
                     }
                 }
-                if options.count < 10 {
-                    Button("Add option", systemImage: "plus") {
-                        options.append("")
-                    }
-                    .buttonStyle(.plain)
+            }
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .formaCard(0)
+            if options.count < 10 {
+                Button("Add option", systemImage: "plus") {
+                    options.append("")
                 }
+                .buttonStyle(.plain)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(WorkspaceTheme.navigationAccent)
             }
             HStack {
                 Spacer()
@@ -289,6 +286,34 @@ private struct PollComposer: View {
         }
         .padding(24)
         .frame(width: 420)
+    }
+
+    @ViewBuilder
+    private func formRow(
+        _ label: String,
+        placeholder: String,
+        text: Binding<String>,
+        remove: (() -> Void)? = nil
+    ) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 92, alignment: .leading)
+            TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 16))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+            if let remove {
+                Button(action: remove) {
+                    Image(systemName: "minus.circle")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+                .accessibilityLabel("Remove \(label.lowercased())")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
     }
 }
 
