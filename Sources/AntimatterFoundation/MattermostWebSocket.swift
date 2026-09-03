@@ -93,7 +93,9 @@ public actor MattermostWebSocket {
         heartbeatTask?.cancel()
         heartbeatTask = nil
         task?.cancel(with: .normalClosure, reason: nil)
-        let task = session.webSocketTask(with: Self.endpoint(for: serverURL))
+        var request = URLRequest(url: Self.endpoint(for: serverURL))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let task = session.webSocketTask(with: request)
         self.task = task
         task.resume()
         do {
