@@ -167,7 +167,7 @@ private struct MessageRow: View {
             }
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 6)
+        .padding(.vertical, 3)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .accessibilityElement(children: .combine)
