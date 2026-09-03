@@ -2,8 +2,11 @@ import SwiftUI
 
 struct AuthenticationScreen: View {
     @ObservedObject var model: AuthenticationViewModel
+    @EnvironmentObject private var accentColorSettings: AccentColorSettings
 
     var body: some View {
+        let accentColor = accentColorSettings.selected.color
+
         VStack(spacing: 0) {
             HStack {
                 Text("ANTIMATTER")
@@ -66,7 +69,7 @@ struct AuthenticationScreen: View {
                     model.submit()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(WorkspaceTheme.accent)
+                .tint(accentColor)
                 .disabled(model.isWorking)
             }
             .frame(width: 360)
@@ -83,15 +86,6 @@ struct AuthenticationScreen: View {
         case .password: "Sign in"
         case .saml: "Sign in with SSO"
         }
-    }
-}
-
-private extension View {
-    func formaCard(_ pad: CGFloat = 18) -> some View {
-        padding(pad)
-            .background(Color(NSColor.windowBackgroundColor), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.06), lineWidth: 1))
-            .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
     }
 }
 

@@ -5,6 +5,7 @@ import SwiftUI
 struct WorkspaceShell: View {
     let configuration: AppConfiguration
     let disconnect: () -> Void
+    @EnvironmentObject private var accentColorSettings: AccentColorSettings
     @StateObject private var navigation: NavigationViewModel
     @StateObject private var workspace: WorkspaceViewModel
     @StateObject private var timeline: TimelineViewModel
@@ -35,6 +36,8 @@ struct WorkspaceShell: View {
     }
 
     var body: some View {
+        let accentColor = accentColorSettings.selected.color
+
         VStack(spacing: 0) {
             HSplitView {
                 SidebarPlaceholder(
@@ -74,6 +77,7 @@ struct WorkspaceShell: View {
                     .accessibilityIdentifier("conversation-workspace")
             }
         }
+        .tint(accentColor)
         .background(WorkspaceTheme.canvas)
         .frame(minWidth: 900, minHeight: 600)
         .preferredColorScheme(.dark)

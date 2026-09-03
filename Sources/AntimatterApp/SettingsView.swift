@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -32,6 +33,7 @@ struct SettingsView: View {
     }
 
     let disconnect: () -> Void
+    @EnvironmentObject private var accentColorSettings: AccentColorSettings
     @State private var selection: Section? = .general
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
     @AppStorage("compactTimeline") private var compactTimeline = true
@@ -86,6 +88,7 @@ struct SettingsView: View {
 
         case .appearance:
             SettingsPageHeader("Appearance", subtitle: "Control the density and visual treatment of your timeline.")
+            AccentColorPicker(selection: $accentColorSettings.selected)
             SettingsGroup {
                 SettingsToggleRow("Follow system appearance", isOn: $followSystemAppearance)
                 SettingsDivider()
@@ -131,6 +134,85 @@ struct SettingsView: View {
 
     private var groupingIntervalValue: String {
         messageGroupingIntervalMinutes == 0 ? "Off" : "\(Int(messageGroupingIntervalMinutes)) min"
+    }
+}
+
+extension View {
+    func formaCard(_ padding: CGFloat = 18) -> some View {
+        self
+            .padding(padding)
+            .background(Color(NSColor.windowBackgroundColor), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
+    }
+}
+
+private struct AccentColorPicker: View {
+    @Binding var selection: AccentColor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Accent color")
+                    .font(.system(size: 15, weight: .semibold))
+                Spacer()
+                Text(selection.name)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 0) {
+                ForEach(AccentColor.allCases) { swatch in
+                    AccentColorSwatch(swatch: swatch, isSelected: selection == swatch) {
+                        withAnimation(.snappy) {
+                            selection = swatch
+                        }
+                    }
+                    if swatch != AccentColor.allCases.last {
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+        }
+        .formaCard()
+    }
+}
+
+private struct AccentColorSwatch: View {
+    let swatch: AccentColor
+    let isSelected: Bool
+    let select: () -> Void
+
+    var body: some View {
+        Button(action: select) {
+            Circle()
+                .fill(swatch.color)
+                .frame(width: 32, height: 32)
+                .overlay {
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .overlay {
+                    Circle()
+                        .stroke(Color.primary.opacity(isSelected ? 0 : 0.08), lineWidth: 1)
+                }
+                .padding(3)
+                .overlay {
+                    if isSelected {
+                        Circle().stroke(swatch.color, lineWidth: 2)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(swatch.name)
+        .accessibilityValue(isSelected ? "Selected" : "")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

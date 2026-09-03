@@ -6,6 +6,7 @@ import SwiftUI
 struct AntimatterApp: App {
     private let configuration: AppConfiguration
     @StateObject private var authentication: AuthenticationViewModel
+    @StateObject private var accentColorSettings = AccentColorSettings()
 
     init() {
         let loadedConfiguration: AppConfiguration
@@ -21,15 +22,18 @@ struct AntimatterApp: App {
 
     var body: some Scene {
         WindowGroup("Antimatter", id: "workspace") {
-            if authentication.connectedSession == nil {
-                AuthenticationScreen(model: authentication)
-            } else {
-                WorkspaceShell(
-                    configuration: configuration,
-                    session: authentication.connectedSession!,
-                    disconnect: authentication.disconnect
-                )
+            Group {
+                if authentication.connectedSession == nil {
+                    AuthenticationScreen(model: authentication)
+                } else {
+                    WorkspaceShell(
+                        configuration: configuration,
+                        session: authentication.connectedSession!,
+                        disconnect: authentication.disconnect
+                    )
+                }
             }
+            .environmentObject(accentColorSettings)
         }
         .defaultSize(width: 1_200, height: 800)
         .commands {
