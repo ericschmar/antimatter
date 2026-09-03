@@ -32,7 +32,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
         name = try values.decode(String.self, forKey: .name)
-        displayName = try values.decodeIfPresent(String.self, forKey: .displayName) ?? name
+        displayName = (try values.decodeIfPresent(String.self, forKey: .displayName))?.nonEmpty ?? name
         type = try values.decode(String.self, forKey: .type)
         deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
         unreadCount = try values.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
@@ -54,6 +54,8 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
 public struct MattermostNavigationSnapshot: Sendable {
     public let teams: [MattermostTeam]
     public let channels: [MattermostChannel]
+    public let users: [MattermostUser]
+    public let currentUserID: String
 }
 
 public actor MattermostNavigationLoader {
@@ -66,6 +68,35 @@ public actor MattermostNavigationLoader {
     public func load() async throws -> MattermostNavigationSnapshot {
         async let teams: [MattermostTeam] = client.get("/api/v4/users/me/teams")
         async let channels: [MattermostChannel] = client.get("/api/v4/users/me/channels")
-        return try await MattermostNavigationSnapshot(teams: teams, channels: channels)
+        async let currentUser: MattermostUser = client.get("/api/v4/users/me")
+        let loadedChannels = try await channels
+        let me = try? await currentUser
+        let directUserIDs = Set(
+            loadedChannels
+                .filter { $0.type == "D" }
+                .flatMap { $0.name.split(separator: "_").map(String.init) }
+                .filter { !$0.isEmpty && $0 != me?.id }
+        )
+        let directUsers: [MattermostUser]
+        if directUserIDs.isEmpty {
+            directUsers = []
+        } else {
+            directUsers = (try? await client.post(
+                "/api/v4/users/ids",
+                body: Array(directUserIDs)
+            )) ?? []
+        }
+        return try await MattermostNavigationSnapshot(
+            teams: teams,
+            channels: loadedChannels,
+            users: (me.map { [$0] } ?? []) + directUsers,
+            currentUserID: me?.id ?? ""
+        )
+    }
+}
+
+private extension String {
+    var nonEmpty: String? {
+        isEmpty ? nil : self
     }
 }

@@ -5,6 +5,7 @@ import Foundation
 final class NavigationViewModel: ObservableObject {
     @Published private(set) var teams: [MattermostTeam] = []
     @Published private(set) var channels: [MattermostChannel] = []
+    @Published private(set) var users: [String: MattermostUser] = [:]
     @Published var selectedChannelID: String?
     @Published private(set) var loadError: String?
     @Published private(set) var isLoading = false
@@ -13,6 +14,8 @@ final class NavigationViewModel: ObservableObject {
     private let store: MattermostLocalStore
     private let defaults: UserDefaults
     private let favoritesKey = "favoriteMattermostChannelIDs"
+    private let channelOrderKey = "mattermostChannelOrder"
+    private var currentUserID: String?
 
     init(session: MattermostSession, defaults: UserDefaults = .standard) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
@@ -22,27 +25,36 @@ final class NavigationViewModel: ObservableObject {
     }
 
     var favoriteChannels: [MattermostChannel] {
-        ordered(channels.filter { favoriteIDs.contains($0.id) && $0.deleteAt == 0 })
+        ordered(channels.filter { favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "favorites")
     }
 
     var publicChannels: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "O" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 })
+        ordered(channels.filter { $0.type == "O" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "channels")
+    }
+
+    var regularChannels: [MattermostChannel] {
+        ordered(
+            channels.filter {
+                ($0.type == "O" || $0.type == "P") && !favoriteIDs.contains($0.id) && $0.deleteAt == 0
+            },
+            section: "channels"
+        )
     }
 
     var privateChannels: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "P" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 })
+        ordered(channels.filter { $0.type == "P" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "private")
     }
 
     var directMessages: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "D" && $0.deleteAt == 0 })
+        ordered(channels.filter { $0.type == "D" && $0.deleteAt == 0 }, section: "direct")
     }
 
     var groupMessages: [MattermostChannel] {
-        ordered(channels.filter { $0.type == "G" && $0.deleteAt == 0 })
+        ordered(channels.filter { $0.type == "G" && $0.deleteAt == 0 }, section: "group")
     }
 
     var archivedChannels: [MattermostChannel] {
-        ordered(channels.filter { $0.deleteAt != 0 })
+        ordered(channels.filter { $0.deleteAt != 0 }, section: "archived")
     }
 
     func load(preferredChannelID: String? = nil) async {
@@ -52,12 +64,16 @@ final class NavigationViewModel: ObservableObject {
         if let cached = try? await store.load() {
             teams = cached.teams
             channels = cached.channels
+            users = Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })
         }
         do {
             let snapshot = try await loader.load()
             teams = snapshot.teams.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
             channels = snapshot.channels
+            users = Dictionary(uniqueKeysWithValues: snapshot.users.map { ($0.id, $0) })
+            currentUserID = snapshot.currentUserID.isEmpty ? nil : snapshot.currentUserID
             try await store.apply(.navigation(teams: teams, channels: channels))
+            try await store.apply(.users(snapshot.users))
             selectedChannelID = preferredChannelID.flatMap { preferredID in
                 channels.contains(where: { $0.id == preferredID }) ? preferredID : nil
             } ?? selectedChannelID ?? publicChannels.first?.id ?? directMessages.first?.id
@@ -77,10 +93,31 @@ final class NavigationViewModel: ObservableObject {
             updated.insert(channel.id)
         }
         defaults.set(Array(updated), forKey: favoritesKey)
+        objectWillChange.send()
     }
 
     func isFavorite(_ channel: MattermostChannel) -> Bool {
         favoriteIDs.contains(channel.id)
+    }
+
+    func displayName(for channel: MattermostChannel) -> String {
+        guard channel.type == "D" else { return channel.displayName }
+        guard let userID = directMessageUserID(for: channel) else { return channel.displayName }
+        return users[userID]?.displayName ?? channel.displayName
+    }
+
+    func reorderChannels(
+        _ channels: [MattermostChannel],
+        from source: IndexSet,
+        to destination: Int,
+        section: String
+    ) {
+        var reordered = channels
+        reordered.move(fromOffsets: source, toOffset: destination)
+        var order = channelOrder
+        order[section] = reordered.map(\.id)
+        defaults.set(order, forKey: channelOrderKey)
+        objectWillChange.send()
     }
 
     func reconcile(_ event: MattermostWebSocketEvent) async {
@@ -114,7 +151,25 @@ final class NavigationViewModel: ObservableObject {
         Set(defaults.stringArray(forKey: favoritesKey) ?? [])
     }
 
-    private func ordered(_ channels: [MattermostChannel]) -> [MattermostChannel] {
-        channels.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+    private func ordered(_ channels: [MattermostChannel], section: String) -> [MattermostChannel] {
+        let order = channelOrder[section] ?? []
+        return channels.sorted {
+            let leftIndex = order.firstIndex(of: $0.id) ?? .max
+            let rightIndex = order.firstIndex(of: $1.id) ?? .max
+            if leftIndex != rightIndex { return leftIndex < rightIndex }
+            return displayName(for: $0).localizedStandardCompare(displayName(for: $1)) == .orderedAscending
+        }
+    }
+
+    private var channelOrder: [String: [String]] {
+        defaults.dictionary(forKey: channelOrderKey) as? [String: [String]] ?? [:]
+    }
+
+    private func directMessageUserID(for channel: MattermostChannel) -> String? {
+        guard let currentUserID else { return nil }
+        return channel.name
+            .split(separator: "_")
+            .map(String.init)
+            .first { $0 != currentUserID }
     }
 }

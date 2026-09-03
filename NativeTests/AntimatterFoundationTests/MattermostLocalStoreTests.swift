@@ -3,6 +3,14 @@ import Foundation
 import XCTest
 
 final class MattermostLocalStoreTests: XCTestCase {
+    func testUserDecodesMattermostProfileName() throws {
+        let user = try decode(MattermostUser.self, from: """
+        {"id":"user-1","username":"ada","first_name":"Ada","last_name":"Lovelace"}
+        """)
+
+        XCTAssertEqual(user.displayName, "Ada Lovelace")
+    }
+
     func testStorePersistsNavigationAndReconcilesUpdatedPosts() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

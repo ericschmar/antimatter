@@ -28,8 +28,6 @@ struct WorkspaceShell: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TitleStrip(environment: configuration.environment)
-
             HSplitView {
                 SidebarPlaceholder(navigation: navigation, search: search, isSettingsPresented: $isSettingsPresented)
                     .frame(
@@ -43,9 +41,6 @@ struct WorkspaceShell: View {
                     .accessibilityLabel("Workspace sidebar")
                     .accessibilityHint("Contains teams, channels, and direct messages.")
                     .accessibilityIdentifier("workspace-sidebar")
-                    .overlay {
-                        FocusRing(isVisible: focusedRegion == .sidebar)
-                    }
 
                 ConversationPlaceholder(workspace: workspace, timeline: timeline, composer: composer, presence: presence, realtime: realtime)
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
@@ -54,9 +49,6 @@ struct WorkspaceShell: View {
                     .accessibilityLabel("Conversation workspace")
                     .accessibilityHint("Displays the selected conversation.")
                     .accessibilityIdentifier("conversation-workspace")
-                    .overlay {
-                        FocusRing(isVisible: focusedRegion == .conversation)
-                    }
             }
         }
         .background(WorkspaceTheme.canvas)
@@ -119,55 +111,6 @@ struct WorkspaceShell: View {
     }
 }
 
-private struct FocusRing: View {
-    let isVisible: Bool
-
-    var body: some View {
-        Rectangle()
-            .strokeBorder(WorkspaceTheme.accent.opacity(isVisible ? 0.9 : 0), lineWidth: 2)
-            .padding(1)
-            .allowsHitTesting(false)
-    }
-}
-
-private struct TitleStrip: View {
-    let environment: AppConfiguration.Environment
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text("ANTIMATTER")
-                .font(.system(size: 11, weight: .semibold))
-                .tracking(0.8)
-                .foregroundStyle(WorkspaceTheme.primaryText)
-
-            Text("NATIVE")
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .tracking(0.6)
-                .foregroundStyle(WorkspaceTheme.secondaryText)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(WorkspaceTheme.raisedSurface)
-                .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
-
-            Spacer(minLength: 0)
-
-            Text(environment.rawValue.uppercased())
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(
-                    environment == .development ? WorkspaceTheme.attention : WorkspaceTheme.secondaryText
-                )
-        }
-        .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity)
-        .frame(height: WorkspaceTheme.titleHeight)
-        .background(WorkspaceTheme.sidebar)
-        .overlay(alignment: .bottom) {
-            Divider()
-                .overlay(WorkspaceTheme.divider)
-        }
-    }
-}
-
 private struct SidebarPlaceholder: View {
     @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var search: SearchViewModel
@@ -175,24 +118,29 @@ private struct SidebarPlaceholder: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("WORKSPACE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.7)
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TEAM")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.7)
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                    Text(navigation.teams.first?.displayName ?? "No team")
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                }
 
                 Spacer(minLength: 0)
 
                 Button {
                     isSettingsPresented = true
                 } label: {
-                    Image(systemName: "gearshape")
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 27, weight: .medium))
                 }
-                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
             }
-            .padding(.horizontal, 14)
-            .frame(height: WorkspaceTheme.headerHeight)
+            .padding(.horizontal, 16)
+            .frame(height: 72)
 
             Divider()
                 .overlay(WorkspaceTheme.divider)
@@ -202,7 +150,7 @@ private struct SidebarPlaceholder: View {
             }
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     if navigation.isLoading {
                         ProgressView()
                             .controlSize(.small)
@@ -213,19 +161,11 @@ private struct SidebarPlaceholder: View {
                             .foregroundStyle(WorkspaceTheme.attention)
                             .padding(14)
                     } else {
-                        ForEach(navigation.teams) { team in
-                            Text(team.displayName.uppercased())
-                                .font(.system(size: 10, weight: .semibold))
-                                .tracking(0.7)
-                                .foregroundStyle(WorkspaceTheme.secondaryText)
-                                .padding(.horizontal, 14)
-                        }
-                        ChannelSection("FAVORITES", channels: navigation.favoriteChannels, navigation: navigation)
-                        ChannelSection("CHANNELS", channels: navigation.publicChannels, navigation: navigation)
-                        ChannelSection("PRIVATE", channels: navigation.privateChannels, navigation: navigation)
-                        ChannelSection("DIRECT MESSAGES", channels: navigation.directMessages, navigation: navigation)
-                        ChannelSection("GROUP MESSAGES", channels: navigation.groupMessages, navigation: navigation)
-                        ChannelSection("ARCHIVED", channels: navigation.archivedChannels, navigation: navigation)
+                        ChannelSection("FAVORITES", sectionID: "favorites", channels: navigation.favoriteChannels, navigation: navigation)
+                        ChannelSection("CHANNELS", sectionID: "channels", channels: navigation.regularChannels, navigation: navigation)
+                        ChannelSection("DIRECT MESSAGES", sectionID: "direct", channels: navigation.directMessages, navigation: navigation)
+                        ChannelSection("GROUP MESSAGES", sectionID: "group", channels: navigation.groupMessages, navigation: navigation)
+                        ChannelSection("ARCHIVED", sectionID: "archived", channels: navigation.archivedChannels, navigation: navigation)
                     }
                 }
                 .padding(.vertical, 12)
