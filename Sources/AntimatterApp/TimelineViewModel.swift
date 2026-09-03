@@ -9,6 +9,8 @@ final class TimelineViewModel: ObservableObject {
     @Published private(set) var fileData: [String: Data] = [:]
     @Published private(set) var statuses: [String: String] = [:]
     @Published private(set) var isLoading = false
+    @Published private(set) var isLoadingEarlierPosts = false
+    @Published private(set) var hasEarlierPosts = true
     @Published private(set) var loadError: String?
     @Published private(set) var editingPostID: String?
     @Published var editMessage = ""
@@ -19,6 +21,9 @@ final class TimelineViewModel: ObservableObject {
     private let reactions: MattermostReactions
     private let editor: MattermostPostSender
     private var currentUserID: String?
+    private var activeChannelID: String?
+    private var nextPageIndex = 1
+    private let pageSize = MattermostPage().size
 
     init(session: MattermostSession) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
@@ -32,9 +37,15 @@ final class TimelineViewModel: ObservableObject {
         guard let channelID else {
             posts = []
             loadError = nil
+            activeChannelID = nil
+            hasEarlierPosts = true
+            nextPageIndex = 1
             return
         }
 
+        activeChannelID = channelID
+        nextPageIndex = 1
+        hasEarlierPosts = true
         isLoading = true
         loadError = nil
         if let cached = try? await store.load() {
@@ -56,6 +67,39 @@ final class TimelineViewModel: ObservableObject {
             }
         }
         isLoading = false
+    }
+
+    func loadEarlierPosts() async {
+        guard
+            let channelID = activeChannelID,
+            !isLoading,
+            !isLoadingEarlierPosts,
+            hasEarlierPosts
+        else {
+            return
+        }
+
+        isLoadingEarlierPosts = true
+        defer { isLoadingEarlierPosts = false }
+
+        do {
+            let page = MattermostPage(index: nextPageIndex, size: pageSize)
+            let olderPosts = try await loader.loadRecentPosts(channelID: channelID, page: page)
+            guard activeChannelID == channelID else { return }
+
+            nextPageIndex += 1
+            hasEarlierPosts = olderPosts.count == pageSize
+            let existingPostIDs = Set(posts.map(\.id))
+            let newPosts = olderPosts.filter { !existingPostIDs.contains($0.id) }
+            guard !newPosts.isEmpty else { return }
+
+            try? await store.apply(.posts(newPosts))
+            posts = chronological(posts + newPosts)
+            await loadAuthors(for: newPosts)
+            await loadImageAttachments(for: newPosts)
+        } catch {
+            return
+        }
     }
 
     private func loadAuthors(for posts: [MattermostPost]) async {

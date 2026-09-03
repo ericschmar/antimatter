@@ -29,6 +29,18 @@ struct MessageTimeline: View {
                     } else if timeline.posts.isEmpty {
                         TimelineStatus(message: "No messages in this conversation yet.", isError: false)
                     } else {
+                        if timeline.hasEarlierPosts {
+                            ProgressView()
+                                .controlSize(.small)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .accessibilityLabel("Loading earlier messages")
+                                .onAppear {
+                                    Task {
+                                        await timeline.loadEarlierPosts()
+                                    }
+                                }
+                        }
                         ForEach(groups) { group in
                             TimelineDateHeader(date: group.date)
                             ForEach(group.threads) { thread in
