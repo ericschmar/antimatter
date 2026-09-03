@@ -520,13 +520,17 @@ private struct ReactionSummary: View {
                             .foregroundStyle(WorkspaceTheme.primaryText)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
-                            .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+                            .background {
+                                RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+                                    .fill(WorkspaceTheme.raisedSurface)
+                            }
                             .overlay(
                                 RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
                                     .stroke(WorkspaceTheme.divider, lineWidth: 1)
                             )
                             .fixedSize()
                             .offset(y: 30)
+                            .compositingGroup()
                             .zIndex(1)
                     }
                 }
