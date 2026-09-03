@@ -412,6 +412,7 @@ private struct MessageRow: View {
 private struct SocialPoll: View {
     let poll: MattermostPoll
     let vote: (String) -> Void
+    @State private var selectedActionID: String?
 
     private var options: [MattermostPollAction] {
         poll.attachment?.actions.filter(\.isVote) ?? []
@@ -432,17 +433,23 @@ private struct SocialPoll: View {
                 .foregroundStyle(WorkspaceTheme.primaryText)
             ForEach(options) { option in
                 Button {
+                    selectedActionID = option.id
                     vote(option.id)
                 } label: {
                     GeometryReader { geometry in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(WorkspaceTheme.navigationAccent.opacity(0.18))
+                                .fill(isSelected(option) ? WorkspaceTheme.navigationAccent.opacity(0.18) : WorkspaceTheme.primaryText.opacity(0.06))
                                 .frame(width: geometry.size.width * percentage(for: option))
                             HStack(spacing: 6) {
                                 Text(option.option)
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 14, weight: isSelected(option) ? .semibold : .regular))
                                     .foregroundStyle(WorkspaceTheme.primaryText)
+                                if isSelected(option) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(WorkspaceTheme.navigationAccent)
+                                }
                                 Spacer()
                                 Text("\(option.voteCount)")
                                     .font(.system(size: 13, weight: .semibold))
@@ -475,6 +482,10 @@ private struct SocialPoll: View {
     private func percentage(for option: MattermostPollAction) -> CGFloat {
         guard totalVotes > 0 else { return 0 }
         return CGFloat(option.voteCount) / CGFloat(totalVotes)
+    }
+
+    private func isSelected(_ option: MattermostPollAction) -> Bool {
+        selectedActionID == option.id
     }
 }
 

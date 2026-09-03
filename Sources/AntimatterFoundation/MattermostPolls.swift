@@ -73,7 +73,10 @@ public actor MattermostPolls {
     /// Creates a Matterpoll poll by executing its registered `/poll` command.
     public func create(channelID: String, teamID: String, question: String, options: [String]) async throws {
         let quoted = ([question] + options).map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" }
-        let command = "/poll " + quoted.joined(separator: " ")
+        // Matterpoll only includes vote totals in post actions when progress
+        // is enabled. The native card derives its bars and totals from those
+        // action labels, so always request progress for polls created here.
+        let command = "/poll " + quoted.joined(separator: " ") + " --progress"
         let _: MattermostCommandResponse = try await client.post(
             "/api/v4/commands/execute",
             body: MattermostPollCommand(channelID: channelID, teamID: teamID, command: command)
