@@ -278,6 +278,7 @@ private struct InlineReplyThread: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
+    @AppStorage("showTimelineAvatars") private var showAvatars = true
 
     var body: some View {
         HStack(spacing: 0) {
@@ -304,11 +305,21 @@ private struct InlineReplyThread: View {
         }
         .background(WorkspaceTheme.raisedSurface)
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
-        .padding(.leading, 302)
+        .padding(.leading, replyLeadingInset)
         .padding(.trailing, 18)
         .padding(.vertical, 5)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(replies.count) inline replies")
+    }
+
+    private var replyLeadingInset: CGFloat {
+        let timelinePadding: CGFloat = 18
+        let presenceColumn: CGFloat = 15
+        let avatarColumn: CGFloat = showAvatars ? 32 : 0
+        let authorColumn: CGFloat = 122
+        let timeColumn: CGFloat = 60
+        let replyInset: CGFloat = 10
+        return timelinePadding + presenceColumn + avatarColumn + authorColumn + timeColumn + replyInset
     }
 }
 
