@@ -133,29 +133,13 @@ private struct SidebarPlaceholder: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TEAM")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(0.7)
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                    Text(navigation.teams.first?.displayName ?? "No team")
-                        .font(.system(size: 19, weight: .bold))
-                        .foregroundStyle(WorkspaceTheme.primaryText)
-                }
-
-                Spacer(minLength: 0)
-
-                Button {
-                    isSettingsPresented = true
-                } label: {
-                    Image(systemName: "person.crop.circle")
-                        .font(.system(size: 27, weight: .medium))
-                }
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-            }
-            .padding(.horizontal, 16)
-            .frame(height: 72)
+            LargeTitleHeader(
+                teamName: navigation.teams.first?.displayName ?? "No team",
+                avatarData: navigation.currentUserAvatarData,
+                search: search,
+                isSettingsPresented: $isSettingsPresented
+            )
+            .padding(16)
 
             Divider()
                 .overlay(WorkspaceTheme.divider)
@@ -187,6 +171,65 @@ private struct SidebarPlaceholder: View {
             }
         }
         .background(WorkspaceTheme.sidebar)
+    }
+}
+
+private struct LargeTitleHeader: View {
+    let teamName: String
+    let avatarData: Data?
+    @ObservedObject var search: SearchViewModel
+    @Binding var isSettingsPresented: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TEAM")
+                        .font(.system(size: 12, weight: .semibold))
+                        .tracking(0.5)
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                    Text(teamName)
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Button {
+                    isSettingsPresented = true
+                } label: {
+                    Group {
+                        if let avatarData, let image = NSImage(data: avatarData) {
+                            Image(nsImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Image(systemName: "person.crop.circle.fill")
+                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                        }
+                    }
+                    .frame(width: 34, height: 34)
+                    .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open profile and settings")
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                TextField("Search", text: $search.query)
+                    .textFieldStyle(.plain)
+                    .onSubmit { Task { await search.search() } }
+                Spacer(minLength: 0)
+                Image(systemName: "mic.fill")
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .accessibilityHidden(true)
+            }
+            .font(.system(size: 16))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(WorkspaceTheme.raisedSurface, in: Capsule())
+        }
     }
 }
 

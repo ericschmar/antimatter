@@ -6,6 +6,7 @@ final class NavigationViewModel: ObservableObject {
     @Published private(set) var teams: [MattermostTeam] = []
     @Published private(set) var channels: [MattermostChannel] = []
     @Published private(set) var users: [String: MattermostUser] = [:]
+    @Published private(set) var currentUserAvatarData: Data?
     @Published var selectedChannelID: String?
     @Published private(set) var loadError: String?
     @Published private(set) var isLoading = false
@@ -74,6 +75,9 @@ final class NavigationViewModel: ObservableObject {
             currentUserID = snapshot.currentUserID.isEmpty ? nil : snapshot.currentUserID
             try await store.apply(.navigation(teams: teams, channels: channels))
             try await store.apply(.users(snapshot.users))
+            if let currentUserID, currentUserAvatarData == nil {
+                currentUserAvatarData = try? await loader.loadAvatarData(userID: currentUserID)
+            }
             selectedChannelID = preferredChannelID.flatMap { preferredID in
                 channels.contains(where: { $0.id == preferredID }) ? preferredID : nil
             } ?? selectedChannelID ?? publicChannels.first?.id ?? directMessages.first?.id

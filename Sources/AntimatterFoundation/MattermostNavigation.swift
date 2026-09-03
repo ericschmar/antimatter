@@ -93,6 +93,10 @@ public actor MattermostNavigationLoader {
             currentUserID: me?.id ?? ""
         )
     }
+
+    public func loadAvatarData(userID: String) async throws -> Data {
+        try await client.getData("/api/v4/users/\(userID)/image")
+    }
 }
 
 private extension String {
