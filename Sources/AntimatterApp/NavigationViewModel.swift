@@ -243,6 +243,9 @@ final class NavigationViewModel: ObservableObject {
     }
 
     private func restoreSelectedTeam() {
+        // An empty cache is not evidence that the persisted team is invalid.
+        // Keep the selection until a non-empty response can resolve it.
+        guard !teams.isEmpty else { return }
         selectedTeamID = teams.contains(where: { $0.id == selectedTeamID })
             ? selectedTeamID
             : teams.first?.id
