@@ -84,6 +84,7 @@ struct WorkspaceShell: View {
         .tint(accentColor)
         .background(WorkspaceTheme.canvas)
         .frame(minWidth: 900, minHeight: 600)
+        .ignoresSafeArea(.container, edges: .top)
         .preferredColorScheme(.dark)
         .focusedSceneValue(\.workspaceFocusAction, focus)
         .focusedSceneValue(\.workspaceSettingsAction) {
