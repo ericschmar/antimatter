@@ -15,6 +15,7 @@ final class ComposerViewModel: ObservableObject {
     private let polls: MattermostPolls
     private let defaults: UserDefaults
     private var channelID: String?
+    private var teamID = ""
     private let draftsKey = "mattermostComposerDrafts"
     private let heightKey = "mattermostComposerHeight"
 
@@ -26,9 +27,10 @@ final class ComposerViewModel: ObservableObject {
         height = max(80, defaults.double(forKey: heightKey))
     }
 
-    func select(channelID: String?) {
+    func select(channelID: String?, teamID: String? = nil) {
         persistDraft()
         self.channelID = channelID
+        self.teamID = teamID ?? ""
         message = channelID.flatMap { drafts[$0] } ?? ""
         sendError = nil
     }
@@ -60,7 +62,7 @@ final class ComposerViewModel: ObservableObject {
         sendError = nil
         Task {
             do {
-                try await polls.create(channelID: channelID, question: question, options: options)
+                try await polls.create(channelID: channelID, teamID: teamID, question: question, options: options)
             } catch {
                 sendError = error.localizedDescription
             }

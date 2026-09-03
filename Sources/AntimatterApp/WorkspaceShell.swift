@@ -149,7 +149,7 @@ struct WorkspaceShell: View {
             if navigation.selectedChannelID != channelID {
                 navigation.selectedChannelID = channelID
             }
-            composer.select(channelID: channelID)
+            composer.select(channelID: channelID, teamID: navigation.selectedTeamID)
             presence.clearTypingIndicators()
             if let channelID {
                 Task {
@@ -710,7 +710,7 @@ private struct ConversationPlaceholder: View {
                 Divider()
                     .overlay(WorkspaceTheme.divider)
 
-                MessageComposer(composer: composer, channelID: selectedTab?.channelID) { post in
+                MessageComposer(composer: composer, channelID: selectedTab?.channelID, teamID: pollTeamID) { post in
                     Task { await timeline.appendSentPost(post) }
                 } onTyping: {
                     guard let channelID = selectedTab?.channelID else { return }
@@ -728,6 +728,12 @@ private struct ConversationPlaceholder: View {
     private func openSearchResult(_ post: MattermostPost) {
         guard let channel = navigation.channels.first(where: { $0.id == post.channelID }) else { return }
         workspace.openPermanently(channel, title: navigation.displayName(for: channel))
+    }
+
+    private var pollTeamID: String? {
+        guard let channelID = selectedTab?.channelID else { return navigation.selectedTeamID }
+        let channelTeamID = navigation.channels.first(where: { $0.id == channelID })?.teamID ?? ""
+        return channelTeamID.isEmpty ? navigation.selectedTeamID : channelTeamID
     }
 
     private var channelDescription: String? {

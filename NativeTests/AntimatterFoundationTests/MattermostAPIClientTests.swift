@@ -229,7 +229,7 @@ final class MattermostAPIClientTests: XCTestCase {
         )
         let polls = MattermostPolls(client: client)
 
-        try await polls.create(channelID: "channel-1", question: "Ship it?", options: ["Yes", "No"])
+        try await polls.create(channelID: "channel-1", teamID: "team-1", question: "Ship it?", options: ["Yes", "No"])
         try await polls.vote(postID: "post-1", actionID: "0")
 
         XCTAssertEqual(requests.map { $0.url?.path }, [
