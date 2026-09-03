@@ -65,6 +65,14 @@ final class NavigationViewModel: ObservableObject {
         ordered(visibleChannels.filter(isArchived), section: "archived")
     }
 
+    var mentionCount: Int {
+        visibleChannels.reduce(0) { $0 + $1.mentionCount }
+    }
+
+    var unreadChannelCount: Int {
+        visibleChannels.filter { $0.unreadCount > 0 }.count
+    }
+
     var presenceUserIDs: Set<String> {
         var userIDs = Set(directMessages.compactMap(directMessageUserID(for:)))
         if let currentUserID {

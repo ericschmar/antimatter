@@ -159,7 +159,7 @@ private struct SidebarPlaceholder: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LargeTitleHeader(
+            CommandDeckHeader(
                 teams: navigation.teams,
                 selectedTeamID: navigation.selectedTeamID,
                 avatarData: navigation.currentUserAvatarData,
@@ -170,17 +170,18 @@ private struct SidebarPlaceholder: View {
                 onOpenSettings: onOpenSettings,
                 onLogout: disconnect
             )
-            .padding(16)
 
-            Divider()
-                .overlay(WorkspaceTheme.divider)
+            AttentionShelf(
+                mentionCount: navigation.mentionCount,
+                unreadChannelCount: navigation.unreadChannelCount
+            )
 
             SearchPanel(search: search, channels: navigation.channels, users: navigation.users) { post in
                 navigation.selectedChannelID = post.channelID
             }
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 8) {
                     if navigation.isLoading {
                         ProgressView()
                             .controlSize(.small)
@@ -199,7 +200,7 @@ private struct SidebarPlaceholder: View {
                         ChannelSection("ARCHIVED", sectionID: "archived", channels: navigation.archivedChannels, navigation: navigation, presence: presence)
                     }
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, 8)
             }
             .background(OverlayScrollerConfigurator())
         }
@@ -232,7 +233,7 @@ private struct OverlayScrollerConfigurator: NSViewRepresentable {
     }
 }
 
-private struct LargeTitleHeader: View {
+private struct CommandDeckHeader: View {
     let teams: [MattermostTeam]
     let selectedTeamID: String?
     let avatarData: Data?
@@ -250,37 +251,30 @@ private struct LargeTitleHeader: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TEAM")
-                        .font(.system(size: 12, weight: .semibold))
-                        .tracking(0.5)
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                    Button {
-                        isTeamPickerPresented.toggle()
-                    } label: {
-                        HStack(spacing: 7) {
-                            Text(selectedTeam?.displayName ?? "No team")
-                            Image(systemName: isTeamPickerPresented ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 13, weight: .semibold))
-                        }
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(WorkspaceTheme.primaryText)
-                        .lineLimit(1)
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Button {
+                    isTeamPickerPresented.toggle()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(selectedTeam?.displayName ?? "No team")
+                            .lineLimit(1)
+                        Image(systemName: isTeamPickerPresented ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 9, weight: .bold))
                     }
-                    .buttonStyle(.plain)
-                    .popover(isPresented: $isTeamPickerPresented, arrowEdge: .bottom) {
-                        TeamPicker(
-                            teams: teams,
-                            selectedTeamID: selectedTeamID
-                        ) { team in
-                            onSelectTeam(team)
-                            isTeamPickerPresented = false
-                        }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $isTeamPickerPresented, arrowEdge: .bottom) {
+                    TeamPicker(teams: teams, selectedTeamID: selectedTeamID) { team in
+                        onSelectTeam(team)
+                        isTeamPickerPresented = false
                     }
                 }
+
                 Spacer(minLength: 0)
+
                 Button {
                     isAccountMenuPresented.toggle()
                 } label: {
@@ -301,29 +295,76 @@ private struct LargeTitleHeader: View {
                 }
                 .accessibilityLabel("Account menu")
             }
+            .frame(height: 52)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                TextField("Search", text: $search.query)
+                TextField("Search conversations", text: $search.query)
                     .textFieldStyle(.plain)
+                    .font(.system(size: 12))
                     .onSubmit { Task { await search.search() } }
                 Spacer(minLength: 0)
-                Text("⌘ K")
+                Text("⌘K")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .accessibilityHidden(true)
             }
-            .font(.system(size: 16))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .padding(.horizontal, 10)
+            .frame(height: 36)
+            .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
+            .padding(.bottom, 8)
+        }
+        .padding(.horizontal, 14)
+    }
+}
+
+private struct AttentionShelf: View {
+    let mentionCount: Int
+    let unreadChannelCount: Int
+
+    var body: some View {
+        if mentionCount > 0 || unreadChannelCount > 0 {
+            VStack(spacing: 1) {
+                if mentionCount > 0 {
+                    AttentionShelfRow(symbol: "at", title: "Mentions", count: mentionCount, tint: WorkspaceTheme.attention)
+                }
+                if unreadChannelCount > 0 {
+                    AttentionShelfRow(symbol: "circle.fill", title: "Unread", count: unreadChannelCount, tint: WorkspaceTheme.accent)
+                }
+            }
+            .padding(.vertical, 6)
+            .background(WorkspaceTheme.surface.opacity(0.45))
         }
     }
+}
 
+private struct AttentionShelfRow: View {
+    let symbol: String
+    let title: String
+    let count: Int
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 12)
+            Text(title)
+            Spacer(minLength: 0)
+            Text(String(count))
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(tint)
+        }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(WorkspaceTheme.secondaryText)
+        .padding(.horizontal, 16)
+        .frame(height: 24)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(count)")
+    }
 }
 
 private struct LoggedInAvatar: View {
@@ -342,14 +383,14 @@ private struct LoggedInAvatar: View {
                         .foregroundStyle(WorkspaceTheme.secondaryText)
                 }
             }
-            .frame(width: 40, height: 40)
+            .frame(width: 28, height: 28)
             .clipShape(Circle())
             Circle()
                 .fill(statusColor)
-                .frame(width: 18, height: 18)
-                .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 3))
+                .frame(width: 10, height: 10)
+                .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 1.5))
         }
-        .frame(width: 66, height: 66)
+        .frame(width: 28, height: 28)
     }
 
     private var statusColor: Color {

@@ -10,6 +10,7 @@ struct ChannelSection: View {
     @ObservedObject var presence: PresenceViewModel
     @State private var draggedChannelID: String?
     @State private var isCollapsed = false
+    @State private var hoveredChannelID: String?
 
     init(
         _ title: String,
@@ -31,20 +32,20 @@ struct ChannelSection: View {
                 Button {
                     isCollapsed.toggle()
                 } label: {
-                    HStack(spacing: 7) {
+                    HStack(spacing: 6) {
                         Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                            .font(.system(size: 10, weight: .bold))
-                        Image(systemName: sectionIcon)
-                            .font(.system(size: 14))
-                            .foregroundStyle(WorkspaceTheme.accent)
+                            .font(.system(size: 8, weight: .bold))
+                            .frame(width: 10)
                         Text(title)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.8)
                         Spacer(minLength: 0)
                         Text(String(channels.count))
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     }
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                    .padding(.vertical, 9)
+                    .frame(height: 25)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -70,32 +71,44 @@ struct ChannelSection: View {
                                 Text(String(channel.mentionCount))
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                                     .foregroundStyle(WorkspaceTheme.attention)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(WorkspaceTheme.attention.opacity(0.16), in: Capsule())
                             } else if channel.unreadCount > 0 {
                                 Text(String(channel.unreadCount))
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(WorkspaceTheme.accent)
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                            }
+                            if hoveredChannelID == channel.id {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                                    .accessibilityHidden(true)
                             }
                         }
-                        .font(.system(size: 13, weight: navigation.selectedChannelID == channel.id ? .semibold : .regular))
+                        .font(.system(size: 13, weight: channel.unreadCount > 0 || navigation.selectedChannelID == channel.id ? .semibold : .regular))
                         .foregroundStyle(WorkspaceTheme.primaryText)
-                        .padding(.leading, 27)
+                        .padding(.leading, 16)
                         .padding(.trailing, 8)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 29)
+                        .frame(height: 30)
                         .background(
                             navigation.selectedChannelID == channel.id ? WorkspaceTheme.raisedSurface : .clear,
                             in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous)
                         )
                         .overlay(alignment: .leading) {
                             if navigation.selectedChannelID == channel.id {
-                                Capsule()
+                                Rectangle()
                                     .fill(WorkspaceTheme.accent)
-                                    .frame(width: 3, height: 17)
+                                    .frame(width: 2, height: 22)
                             }
                         }
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .onHover { isHovered in
+                        hoveredChannelID = isHovered ? channel.id : nil
+                    }
                     .onDrag {
                         draggedChannelID = channel.id
                         return NSItemProvider(object: channel.id as NSString)
@@ -145,15 +158,6 @@ struct ChannelSection: View {
         }
     }
 
-    private var sectionIcon: String {
-        switch sectionID {
-        case "favorites": "star.fill"
-        case "direct": "person.2.fill"
-        case "group": "person.3.fill"
-        case "archived": "archivebox.fill"
-        default: "folder.fill"
-        }
-    }
 }
 
 private struct DirectMessageAvatar: View {
