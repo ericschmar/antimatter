@@ -43,6 +43,7 @@ struct WorkspaceShell: View {
                         maxHeight: .infinity
                     )
                     .focusable()
+                    .focusEffectDisabled()
                     .focused($focusedRegion, equals: .sidebar)
                     .accessibilityLabel("Workspace sidebar")
                     .accessibilityHint("Contains teams, channels, and direct messages.")
@@ -58,6 +59,7 @@ struct WorkspaceShell: View {
                 )
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
+                    .focusEffectDisabled()
                     .focused($focusedRegion, equals: .conversation)
                     .accessibilityLabel("Conversation workspace")
                     .accessibilityHint("Displays the selected conversation.")
