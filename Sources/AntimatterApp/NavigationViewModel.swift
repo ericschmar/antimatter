@@ -18,6 +18,7 @@ final class NavigationViewModel: ObservableObject {
     private let defaults: UserDefaults
     private let favoritesKey = "favoriteMattermostChannelIDs"
     private let channelOrderKey = "mattermostChannelOrder"
+    private let selectedTeamKey = "selectedMattermostTeamID"
     private(set) var currentUserID: String?
 
     init(session: MattermostSession, defaults: UserDefaults = .standard) {
@@ -25,6 +26,7 @@ final class NavigationViewModel: ObservableObject {
         loader = MattermostNavigationLoader(client: client)
         store = MattermostLocalStore(serverURL: session.serverURL)
         self.defaults = defaults
+        selectedTeamID = defaults.string(forKey: selectedTeamKey)
     }
 
     var favoriteChannels: [MattermostChannel] {
@@ -70,15 +72,13 @@ final class NavigationViewModel: ObservableObject {
             teams = cached.teams
             channels = cached.channels
             users = Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })
-            selectedTeamID = teams.first?.id
+            restoreSelectedTeam()
         }
         do {
             let snapshot = try await loader.load()
             teams = snapshot.teams.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
             channels = snapshot.channels
-            selectedTeamID = teams.contains(where: { $0.id == selectedTeamID })
-                ? selectedTeamID
-                : teams.first?.id
+            restoreSelectedTeam()
             users = Dictionary(uniqueKeysWithValues: snapshot.users.map { ($0.id, $0) })
             currentUserID = snapshot.currentUserID.isEmpty ? nil : snapshot.currentUserID
             try await store.apply(.navigation(teams: teams, channels: channels))
@@ -129,6 +129,7 @@ final class NavigationViewModel: ObservableObject {
     func selectTeam(_ team: MattermostTeam) {
         guard selectedTeamID != team.id else { return }
         selectedTeamID = team.id
+        defaults.set(team.id, forKey: selectedTeamKey)
         selectedChannelID = regularChannels.first?.id ?? directMessages.first?.id
     }
 
@@ -201,6 +202,12 @@ final class NavigationViewModel: ObservableObject {
 
     private var channelOrder: [String: [String]] {
         defaults.dictionary(forKey: channelOrderKey) as? [String: [String]] ?? [:]
+    }
+
+    private func restoreSelectedTeam() {
+        selectedTeamID = teams.contains(where: { $0.id == selectedTeamID })
+            ? selectedTeamID
+            : teams.first?.id
     }
 
     func directMessageUserID(for channel: MattermostChannel) -> String? {
