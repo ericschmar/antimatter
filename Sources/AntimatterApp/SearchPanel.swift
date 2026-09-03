@@ -61,9 +61,10 @@ struct SearchResultsView: View {
                     }
                 }
             }
+                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
             }
-            .frame(maxWidth: 760, alignment: .leading)
-            .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(WorkspaceTheme.canvas)
     }
