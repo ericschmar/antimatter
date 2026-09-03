@@ -45,6 +45,30 @@ final class MattermostAPIClientTests: XCTestCase {
         }
     }
 
+    func testStatusIDsDecodesMattermostStatusList() async throws {
+        URLProtocolStub.handler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v4/users/status/ids")
+            return (
+                try Self.response(for: request, status: 200),
+                Data("[{\"user_id\":\"user-1\",\"status\":\"away\"}]".utf8)
+            )
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+
+        let statuses: [MattermostUserStatus] = try await client.post(
+            "/api/v4/users/status/ids",
+            body: ["user-1"]
+        )
+
+        XCTAssertEqual(statuses.first?.userID, "user-1")
+        XCTAssertEqual(statuses.first?.status, "away")
+    }
+
     func testWebSocketEndpointUsesSecureScheme() throws {
         let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
 

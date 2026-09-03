@@ -16,11 +16,13 @@ final class PresenceViewModel: ObservableObject {
     func refresh(for userIDs: Set<String>) async {
         guard !userIDs.isEmpty else { return }
         do {
-            let refreshedStatuses: [String: String] = try await client.post(
+            let refreshedStatuses: [MattermostUserStatus] = try await client.post(
                 "/api/v4/users/status/ids",
                 body: userIDs.sorted()
             )
-            statuses.merge(refreshedStatuses) { _, new in new }
+            statuses.merge(
+                Dictionary(uniqueKeysWithValues: refreshedStatuses.map { ($0.userID, $0.status) })
+            ) { _, new in new }
         } catch {
             // Real-time status events continue to update indicators if this
             // best-effort initial snapshot is unavailable.
