@@ -205,10 +205,10 @@ private struct ComposerFormattingToolbar: View {
     }
 
     private var toolbarDivider: some View {
-        Divider()
-            .frame(height: 18)
+        Rectangle()
+            .fill(WorkspaceTheme.divider)
+            .frame(width: 1, height: 18)
             .padding(.horizontal, 4)
-            .overlay(WorkspaceTheme.divider)
     }
 
     private func formatButton(_ icon: String, label: String, format: ComposerFormat) -> some View {
