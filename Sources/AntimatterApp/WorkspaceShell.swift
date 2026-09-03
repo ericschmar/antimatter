@@ -430,7 +430,12 @@ private struct ConversationPlaceholder: View {
                 statuses: presence.statuses,
                 currentUserID: navigation.currentUserID,
                 currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
-                channelID: selectedTab?.channelID
+                channelID: selectedTab?.channelID,
+                onStartDirectMessage: { user in
+                    Task {
+                        await navigation.openDirectMessage(with: user)
+                    }
+                }
             ) { post in
                 composer.reply(to: post)
             }

@@ -108,6 +108,10 @@ public actor MattermostNavigationLoader {
     public func loadAvatarData(userID: String) async throws -> Data {
         try await client.getData("/api/v4/users/\(userID)/image")
     }
+
+    public func createDirectChannel(userIDs: [String]) async throws -> MattermostChannel {
+        try await client.post("/api/v4/channels/direct", body: userIDs)
+    }
 }
 
 private extension String {
