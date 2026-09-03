@@ -77,7 +77,8 @@ struct ChannelSection: View {
                         }
                         .font(.system(size: 13))
                         .foregroundStyle(WorkspaceTheme.primaryText)
-                        .padding(.horizontal, 14)
+                        .padding(.leading, channel.type == "D" ? 14 : 22)
+                        .padding(.trailing, 14)
                         .frame(height: 27)
                         .background(navigation.selectedChannelID == channel.id ? WorkspaceTheme.raisedSurface : .clear)
                     }
