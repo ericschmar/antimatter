@@ -41,6 +41,7 @@ struct WorkspaceShell: View {
                     navigation: navigation,
                     presence: presence,
                     search: search,
+                    onOpenSettings: { isSettingsPresented = true },
                     disconnect: disconnect
                 )
                     .frame(
@@ -146,6 +147,7 @@ private struct SidebarPlaceholder: View {
     @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var presence: PresenceViewModel
     @ObservedObject var search: SearchViewModel
+    let onOpenSettings: () -> Void
     let disconnect: () -> Void
 
     var body: some View {
@@ -154,9 +156,11 @@ private struct SidebarPlaceholder: View {
                 teams: navigation.teams,
                 selectedTeamID: navigation.selectedTeamID,
                 avatarData: navigation.currentUserAvatarData,
+                currentUser: navigation.currentUserID.flatMap { navigation.users[$0] },
                 status: navigation.currentUserID.flatMap { presence.statuses[$0] },
                 search: search,
                 onSelectTeam: navigation.selectTeam,
+                onOpenSettings: onOpenSettings,
                 onLogout: disconnect
             )
             .padding(16)
@@ -224,9 +228,11 @@ private struct LargeTitleHeader: View {
     let teams: [MattermostTeam]
     let selectedTeamID: String?
     let avatarData: Data?
+    let currentUser: MattermostUser?
     let status: String?
     @ObservedObject var search: SearchViewModel
     let onSelectTeam: (MattermostTeam) -> Void
+    let onOpenSettings: () -> Void
     let onLogout: () -> Void
     @State private var isTeamPickerPresented = false
     @State private var isAccountMenuPresented = false
@@ -274,7 +280,16 @@ private struct LargeTitleHeader: View {
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $isAccountMenuPresented, arrowEdge: .trailing) {
-                    AccountMenu(onLogout: onLogout)
+                    AccountMenu(
+                        user: currentUser,
+                        avatarData: avatarData,
+                        status: status,
+                        onOpenSettings: {
+                            isAccountMenuPresented = false
+                            onOpenSettings()
+                        },
+                        onLogout: onLogout
+                    )
                 }
                 .accessibilityLabel("Account menu")
             }
@@ -286,7 +301,7 @@ private struct LargeTitleHeader: View {
                     .textFieldStyle(.plain)
                     .onSubmit { Task { await search.search() } }
                 Spacer(minLength: 0)
-                Text("⌘K")
+                Text("⌘ K")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
                     .padding(.horizontal, 6)
@@ -340,15 +355,130 @@ private struct LoggedInAvatar: View {
 }
 
 private struct AccountMenu: View {
+    let user: MattermostUser?
+    let avatarData: Data?
+    let status: String?
+    let onOpenSettings: () -> Void
     let onLogout: () -> Void
 
     var body: some View {
-        Button("Log Out", role: .destructive, action: onLogout)
-            .buttonStyle(.plain)
-            .foregroundStyle(WorkspaceTheme.attention)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .frame(width: 150, alignment: .leading)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                accountAvatar
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(user?.displayName ?? "Signed in")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(statusColor)
+                            .frame(width: 6, height: 6)
+                        Text(statusLabel)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+
+            Divider().overlay(WorkspaceTheme.divider)
+
+            AccountMenuRow("gearshape", title: "Settings", shortcut: "⌘,") {
+                onOpenSettings()
+            }
+
+            Divider().overlay(WorkspaceTheme.divider)
+                .padding(.vertical, 5)
+
+            AccountMenuRow("rectangle.portrait.and.arrow.right", title: "Log Out", tint: WorkspaceTheme.attention, action: onLogout)
+        }
+        .frame(width: 248)
+        .padding(6)
+        .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(WorkspaceTheme.divider, lineWidth: 1)
+        }
+    }
+
+    private var accountAvatar: some View {
+        Group {
+            if let avatarData, let image = NSImage(data: avatarData) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Text(initials)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
+        }
+        .frame(width: 34, height: 34)
+        .background(WorkspaceTheme.raisedSurface)
+        .clipShape(Circle())
+    }
+
+    private var initials: String {
+        String((user?.displayName ?? "Signed in").split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
+    }
+
+    private var statusLabel: String {
+        switch status {
+        case "online": "Online"
+        case "away": "Away"
+        case "dnd": "Do not disturb"
+        default: "Offline"
+        }
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case "online": WorkspaceTheme.accent
+        case "away": .yellow
+        case "dnd": WorkspaceTheme.attention
+        default: WorkspaceTheme.secondaryText.opacity(0.65)
+        }
+    }
+}
+
+private struct AccountMenuRow: View {
+    let symbol: String
+    let title: String
+    var shortcut: String? = nil
+    var tint = WorkspaceTheme.primaryText
+    let action: () -> Void
+
+    init(_ symbol: String, title: String, shortcut: String? = nil, tint: Color = WorkspaceTheme.primaryText, action: @escaping () -> Void) {
+        self.symbol = symbol
+        self.title = title
+        self.shortcut = shortcut
+        self.tint = tint
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 16)
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                Spacer(minLength: 0)
+                if let shortcut {
+                    Text(shortcut)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
+            }
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -358,38 +488,70 @@ private struct TeamPicker: View {
     let onSelect: (MattermostTeam) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(teams) { team in
-                Button {
-                    onSelect(team)
-                } label: {
-                    HStack {
-                        Text(team.displayName)
-                            .font(.system(size: 15))
-                            .foregroundStyle(team.id == selectedTeamID ? WorkspaceTheme.accent : WorkspaceTheme.primaryText)
-                        Spacer()
-                        if team.id == selectedTeamID {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(WorkspaceTheme.accent)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
-                }
-                .buttonStyle(.plain)
-                if team.id != teams.last?.id {
-                    Divider().overlay(WorkspaceTheme.divider)
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Switch team")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                Spacer()
+                Text("\(teams.count)")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(WorkspaceTheme.raisedSurface, in: Capsule())
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider().overlay(WorkspaceTheme.divider)
+
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(teams) { team in
+                        Button {
+                            onSelect(team)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Text(initials(for: team.displayName))
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(team.id == selectedTeamID ? WorkspaceTheme.canvas : WorkspaceTheme.secondaryText)
+                                    .frame(width: 30, height: 30)
+                                    .background(team.id == selectedTeamID ? WorkspaceTheme.navigationAccent : WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                Text(team.displayName)
+                                    .font(.system(size: 13, weight: team.id == selectedTeamID ? .semibold : .regular))
+                                    .foregroundStyle(WorkspaceTheme.primaryText)
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                                if team.id == selectedTeamID {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(WorkspaceTheme.navigationAccent)
+                                }
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(team.id == selectedTeamID ? WorkspaceTheme.hoverSurface : .clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(6)
+            }
+            .frame(maxHeight: 244)
         }
-        .frame(width: 300)
-        .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(width: 292)
+        .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(WorkspaceTheme.divider, lineWidth: 1)
         }
         .padding(6)
+    }
+
+    private func initials(for name: String) -> String {
+        String(name.split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
     }
 }
 

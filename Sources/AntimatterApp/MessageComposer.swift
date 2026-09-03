@@ -71,7 +71,7 @@ struct MessageComposer: View {
                     .help("Attach files")
                     .disabled(channelID == nil || composer.isSending)
 
-                    Text("⌘↩ Send")
+                    Text("⌘ ↩ Send")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(WorkspaceTheme.secondaryText)
                     Spacer()
