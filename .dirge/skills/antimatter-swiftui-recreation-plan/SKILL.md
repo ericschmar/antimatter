@@ -24,6 +24,12 @@ description: Create implementation-ready Markdown planning documentation for a c
 - macOS 14+, Observation, Swift concurrency, URLSession, URLSessionWebSocketTask, Keychain, ASWebAuthenticationSession, UserDefaults/SwiftData for non-secrets.
 - Stage custom WebRTC calls as experimental because current Antimatter calling is exploratory.
 
+## Xcode app icon setup
+
+- The native `Xcode/Antimatter` source directory currently has no `.xcassets` catalog. Create `Assets.xcassets` through **New File → Asset Catalog**, then add an **App Icon** set named `AppIcon`.
+- For macOS, populate the required PNG slots from a square 1024×1024 source: 16×16/32×32, 32×32/64×64, 128×128/256×256, 256×256/512×512, and 512×512/1024×1024.
+- In the app target’s **General → App Icons and Launch Screen**, select `AppIcon` as the app icon source.
+
 ## Verification
 
 ```sh
