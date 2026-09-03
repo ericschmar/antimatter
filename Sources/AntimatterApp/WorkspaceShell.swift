@@ -518,6 +518,7 @@ private struct ChannelParticipantStack: View {
                 .background(WorkspaceTheme.raisedSurface)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
+                .help(memberTooltip)
             }
 
             if participants.count > visibleParticipantCount {
@@ -528,9 +529,9 @@ private struct ChannelParticipantStack: View {
                     .background(WorkspaceTheme.raisedSurface)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
+                    .help(memberTooltip)
             }
         }
-        .help(memberTooltip)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(participants.count) channel participants")
     }
