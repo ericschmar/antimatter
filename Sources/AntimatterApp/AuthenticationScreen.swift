@@ -31,16 +31,25 @@ struct AuthenticationScreen: View {
                 .labelsHidden()
                 .pickerStyle(.segmented)
 
-                Field("Server URL", text: $model.serverURL, prompt: "https://mattermost.example.com")
+                GroupedFormCard {
+                    FormTextField(
+                        "Server URL",
+                        text: $model.serverURL,
+                        prompt: "https://mattermost.example.com"
+                    )
 
-                if model.method == .password {
-                    Field("Email or username", text: $model.loginID, prompt: "you@example.com")
-                    SecureField("Password", text: $model.password)
-                        .textFieldStyle(.roundedBorder)
-                } else if model.method == .personalAccessToken {
-                    SecureField("Personal access token", text: $model.token)
-                        .textFieldStyle(.roundedBorder)
-                } else {
+                    if model.method == .password {
+                        FormDivider()
+                        FormTextField("Email or username", text: $model.loginID, prompt: "you@example.com")
+                        FormDivider()
+                        FormSecureField("Password", text: $model.password)
+                    } else if model.method == .personalAccessToken {
+                        FormDivider()
+                        FormSecureField("Personal access token", text: $model.token)
+                    }
+                }
+
+                if model.method == .saml {
                     Text("Continue in your browser to sign in with your organization’s SAML provider.")
                         .font(.system(size: 13))
                         .foregroundStyle(WorkspaceTheme.secondaryText)
@@ -77,7 +86,35 @@ struct AuthenticationScreen: View {
     }
 }
 
-private struct Field: View {
+private extension View {
+    func formaCard(_ pad: CGFloat = 18) -> some View {
+        padding(pad)
+            .background(Color(NSColor.windowBackgroundColor), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.06), lineWidth: 1))
+            .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
+    }
+}
+
+private struct GroupedFormCard<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+        }
+        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .formaCard(0)
+    }
+}
+
+private struct FormDivider: View {
+    var body: some View {
+        Divider()
+            .padding(.leading, 16)
+    }
+}
+
+private struct FormTextField: View {
     let title: String
     @Binding var text: String
     let prompt: String
@@ -89,12 +126,52 @@ private struct Field: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(WorkspaceTheme.primaryText)
+        FormRow(title) {
             TextField("", text: $text, prompt: Text(prompt))
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                .accessibilityLabel(title)
         }
+    }
+}
+
+private struct FormSecureField: View {
+    let title: String
+    @Binding var text: String
+
+    init(_ title: String, text: Binding<String>) {
+        self.title = title
+        _text = text
+    }
+
+    var body: some View {
+        FormRow(title) {
+            SecureField("", text: $text)
+                .textFieldStyle(.plain)
+                .accessibilityLabel(title)
+        }
+    }
+}
+
+private struct FormRow<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 110, alignment: .leading)
+            content
+                .font(.system(size: 16))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
     }
 }
