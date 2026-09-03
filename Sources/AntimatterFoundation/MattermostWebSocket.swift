@@ -88,11 +88,12 @@ public actor MattermostWebSocket {
     }
 
     public func connect() async throws {
+        // A running connection owns its receive and heartbeat tasks. Replacing it
+        // here races those operations and can make URLSession report a second
+        // "socket is not connected" failure while the original close is pending.
+        guard task == nil else { return }
         reconnectTask?.cancel()
         reconnectTask = nil
-        heartbeatTask?.cancel()
-        heartbeatTask = nil
-        task?.cancel(with: .normalClosure, reason: nil)
         var request = URLRequest(url: Self.endpoint(for: serverURL))
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let task = session.webSocketTask(with: request)
@@ -104,7 +105,6 @@ public actor MattermostWebSocket {
         } catch {
             guard self.task === task else { throw error }
             self.task = nil
-            task.cancel(with: .normalClosure, reason: nil)
             throw error
         }
         reconnectAttempt = 0
@@ -212,7 +212,6 @@ public actor MattermostWebSocket {
         } catch {
             guard task === heartbeatTask else { return }
             task = nil
-            heartbeatTask.cancel(with: .normalClosure, reason: nil)
             stopHeartbeat()
             scheduleReconnect()
         }
