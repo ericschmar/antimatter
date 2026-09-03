@@ -244,12 +244,12 @@ private struct LargeTitleHeader: View {
                                     .foregroundStyle(WorkspaceTheme.secondaryText)
                             }
                         }
-                        .frame(width: 34, height: 34)
+                        .frame(width: 66, height: 66)
                         .clipShape(Circle())
                         Circle()
                             .fill(statusColor)
-                            .frame(width: 10, height: 10)
-                            .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 2))
+                            .frame(width: 18, height: 18)
+                            .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 3))
                     }
                 }
                 .menuStyle(.borderlessButton)
