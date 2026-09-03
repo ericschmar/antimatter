@@ -106,7 +106,7 @@ final class UserColorSettings: ObservableObject {
 
 extension Color {
     init(hex: String) {
-        let value = UInt64(hex.dropFirst()) ?? 0
+        let value = UInt64(hex.dropFirst(), radix: 16) ?? 0
         self.init(
             red: Double((value >> 16) & 0xFF) / 255,
             green: Double((value >> 8) & 0xFF) / 255,
