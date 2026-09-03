@@ -467,16 +467,20 @@ private struct ReactionSummary: View {
                         Text("\(summary.count)")
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     }
-                    .foregroundStyle(color(for: summary.emojiName))
+                    .foregroundStyle(
+                        isUnicodeEmoji(summary.emojiName)
+                            ? WorkspaceTheme.primaryText
+                            : color(for: summary.emojiName)
+                    )
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(color(for: summary.emojiName).opacity(0.16))
+                    .background(WorkspaceTheme.raisedSurface)
                     .clipShape(Capsule())
                     .overlay(
                         Capsule().stroke(
                             summary.userIDs.contains(currentUserID ?? "")
                                 ? WorkspaceTheme.accent
-                                : color(for: summary.emojiName).opacity(0.42),
+                                : WorkspaceTheme.divider,
                             lineWidth: summary.userIDs.contains(currentUserID ?? "") ? 2 : 1
                         )
                     )
