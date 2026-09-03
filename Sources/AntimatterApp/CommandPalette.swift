@@ -6,37 +6,43 @@ struct CommandPalette: View {
     let openSearch: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Image(systemName: "magnifyingglass")
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "command")
+                    .font(.system(size: 15))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                Text("Command palette")
-                    .font(.system(size: 14, weight: .medium))
+                Text("Type a command or search…")
+                    .font(.system(size: 15))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
                 Spacer()
-                Text("esc")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
             }
             .padding(14)
             Divider().overlay(WorkspaceTheme.divider)
 
-            PaletteAction("Search messages", symbol: "magnifyingglass") {
+            PaletteAction(title: "Search messages", symbol: "magnifyingglass") {
                 openSearch()
                 isPresented = false
             }
-            PaletteAction("Focus sidebar", symbol: "sidebar.left") {
+            PaletteAction(title: "Focus sidebar", symbol: "sidebar.left") {
                 focus(.sidebar)
                 isPresented = false
             }
-            PaletteAction("Focus conversation", symbol: "rectangle.split.3x1") {
+            PaletteAction(title: "Focus conversation", symbol: "rectangle.split.3x1") {
                 focus(.conversation)
                 isPresented = false
             }
         }
-        .frame(width: 360)
+        .frame(width: 320)
         .background(WorkspaceTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(WorkspaceTheme.divider, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 12, y: 5)
+        .onExitCommand {
+            isPresented = false
+        }
         .accessibilityIdentifier("command-palette")
     }
 }
@@ -46,20 +52,22 @@ private struct PaletteAction: View {
     let symbol: String
     let action: () -> Void
 
-    init(_ title: String, symbol: String, action: @escaping () -> Void) {
-        self.title = title
-        self.symbol = symbol
-        self.action = action
-    }
-
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: symbol)
-                .font(.system(size: 13))
-                .foregroundStyle(WorkspaceTheme.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.system(size: 15))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                Text(title)
+                    .font(.system(size: 14))
+                Spacer()
+                Image(systemName: "return")
+                    .font(.system(size: 12))
+                    .foregroundStyle(WorkspaceTheme.secondaryText.opacity(0.5))
+            }
+            .foregroundStyle(WorkspaceTheme.primaryText)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
         }
         .buttonStyle(.plain)
     }
