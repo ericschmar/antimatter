@@ -20,6 +20,7 @@ final class TimelineViewModel: ObservableObject {
     private let store: MattermostLocalStore
     private let reactions: MattermostReactions
     private let editor: MattermostPostSender
+    private let polls: MattermostPolls
     private var currentUserID: String?
     private var activeChannelID: String?
     private var nextPageIndex = 1
@@ -30,6 +31,7 @@ final class TimelineViewModel: ObservableObject {
         loader = MattermostTimelineLoader(client: client)
         reactions = MattermostReactions(client: client)
         editor = MattermostPostSender(client: client)
+        polls = MattermostPolls(client: client)
         store = MattermostLocalStore(serverURL: session.serverURL)
     }
 
@@ -171,8 +173,10 @@ final class TimelineViewModel: ObservableObject {
                 message: post.message,
                 createAt: post.createAt,
                 updateAt: post.updateAt,
+                rootID: post.rootID,
                 files: post.files,
-                reactions: updatedReactions
+                reactions: updatedReactions,
+                poll: post.poll
             )
             replace(updatedPost)
             try? await store.apply(.posts([updatedPost]))
@@ -186,6 +190,16 @@ final class TimelineViewModel: ObservableObject {
             } catch {
                 replace(post)
                 try? await store.apply(.posts([post]))
+            }
+        }
+    }
+
+    func vote(on post: MattermostPost, actionID: String) {
+        Task {
+            do {
+                try await polls.vote(postID: post.id, actionID: actionID)
+            } catch {
+                loadError = error.localizedDescription
             }
         }
     }
@@ -217,8 +231,10 @@ final class TimelineViewModel: ObservableObject {
                 message: post.message,
                 createAt: post.createAt,
                 updateAt: post.updateAt,
+                rootID: post.rootID,
                 files: post.files,
-                reactions: updatedReactions
+                reactions: updatedReactions,
+                poll: post.poll
             )
             replace(updatedPost)
             try? await store.apply(.posts([updatedPost]))

@@ -25,3 +25,4 @@ playwright-report/
 
 # Xcode per-user state
 *.xcodeproj/xcuserdata/
+Antimatter.xcodeproj/project.xcworkspace/xcuserdata

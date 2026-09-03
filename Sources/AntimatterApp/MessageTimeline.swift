@@ -13,6 +13,7 @@ struct MessageTimeline: View {
     let channelID: String?
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
+    let onVote: (MattermostPost, String) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
 
@@ -42,26 +43,8 @@ struct MessageTimeline: View {
                         ForEach(groups) { group in
                             TimelineDateHeader(date: group.date)
                             ForEach(group.threads) { thread in
-                                MessageRow(
-                                    post: thread.root,
-                                    users: messageUsers,
-                                    avatarData: timeline.avatarData[thread.root.userID],
-                                    fileData: timeline.fileData,
-                                    status: timeline.statuses[thread.root.userID] ?? statuses[thread.root.userID],
-                                    messageFontSize: messageFontSize,
-                                    currentUserID: currentUserID,
-                                    currentUsername: currentUsername,
-                                    showsMetadata: !messageGrouping.shouldGroup(
-                                        thread.root,
-                                        with: group.previousRoot(of: thread.root)
-                                    ),
-                                    onStartDirectMessage: onStartDirectMessage,
-                                    onReply: onReply,
-                                    onEdit: timeline.beginEditing
-                                ) { post, emojiName in
-                                    timeline.toggleReaction(on: post, emojiName: emojiName)
-                                }
-                                .id(thread.root.id)
+                                messageRow(for: thread.root, in: group)
+                                    .id(thread.root.id)
 
                                 if !thread.replies.isEmpty {
                                     InlineReplyThread(
@@ -75,7 +58,8 @@ struct MessageTimeline: View {
                                         messageFontSize: messageFontSize,
                                         onStartDirectMessage: onStartDirectMessage,
                                         onReply: onReply,
-                                        onEdit: timeline.beginEditing
+                                        onEdit: timeline.beginEditing,
+                                        onVote: onVote
                                     ) { post, emojiName in
                                         timeline.toggleReaction(on: post, emojiName: emojiName)
                                     }
@@ -121,6 +105,27 @@ struct MessageTimeline: View {
 
     private var messageGrouping: MattermostTimelineGrouping {
         MattermostTimelineGrouping(maximumInterval: messageGroupingIntervalMinutes * 60)
+    }
+
+    private func messageRow(for post: MattermostPost, in group: TimelineGroup) -> MessageRow {
+        MessageRow(
+            post: post,
+            users: messageUsers,
+            avatarData: timeline.avatarData[post.userID],
+            fileData: timeline.fileData,
+            status: timeline.statuses[post.userID] ?? statuses[post.userID],
+            messageFontSize: messageFontSize,
+            currentUserID: currentUserID,
+            currentUsername: currentUsername,
+            showsMetadata: !messageGrouping.shouldGroup(post, with: group.previousRoot(of: post)),
+            onStartDirectMessage: onStartDirectMessage,
+            onReply: onReply,
+            onEdit: timeline.beginEditing,
+            onVote: onVote,
+            onToggleReaction: { post, emojiName in
+                timeline.toggleReaction(on: post, emojiName: emojiName)
+            }
+        )
     }
 
     private func scrollToLatest(_ postID: String?, with proxy: ScrollViewProxy) {
@@ -189,6 +194,7 @@ private struct MessageRow: View {
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
+    let onVote: (MattermostPost, String) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var isHovering = false
@@ -242,6 +248,11 @@ private struct MessageRow: View {
                     currentUsername: currentUsername,
                     fileData: fileData
                 )
+                if let poll = post.poll {
+                    SocialPoll(poll: poll) { actionID in
+                        onVote(post, actionID)
+                    }
+                }
                 ReactionSummary(
                     post: post,
                     displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
@@ -337,6 +348,77 @@ private struct MessageRow: View {
     }
 }
 
+/// A native rendering of a Matterpoll post that keeps its interactive options
+/// available outside Mattermost's web client.
+private struct SocialPoll: View {
+    let poll: MattermostPoll
+    let vote: (String) -> Void
+
+    private var options: [MattermostPollAction] {
+        poll.attachment?.actions.filter(\.isVote) ?? []
+    }
+
+    private var totalVotes: Int {
+        options.reduce(0) { $0 + $1.voteCount }
+    }
+
+    private var question: String {
+        poll.attachment?.title ?? poll.attachment?.text ?? "Poll"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(question)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+            ForEach(options) { option in
+                Button {
+                    vote(option.id)
+                } label: {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(WorkspaceTheme.navigationAccent.opacity(0.18))
+                                .frame(width: geometry.size.width * percentage(for: option))
+                            HStack(spacing: 6) {
+                                Text(option.option)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(WorkspaceTheme.primaryText)
+                                Spacer()
+                                Text("\(option.voteCount)")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(WorkspaceTheme.primaryText)
+                            }
+                            .padding(.horizontal, 12)
+                        }
+                    }
+                    .frame(height: 40)
+                    .background(WorkspaceTheme.primaryText.opacity(0.03), in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(option.option), \(option.voteCount) votes")
+                .help("Vote for \(option.option)")
+            }
+            Text("\(totalVotes) \(totalVotes == 1 ? "vote" : "votes")")
+                .font(.system(size: 12))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+        }
+        .padding(16)
+        .frame(maxWidth: 300, alignment: .leading)
+        .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(WorkspaceTheme.primaryText.opacity(0.06), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
+    }
+
+    private func percentage(for option: MattermostPollAction) -> CGFloat {
+        guard totalVotes > 0 else { return 0 }
+        return CGFloat(option.voteCount) / CGFloat(totalVotes)
+    }
+}
+
 private struct InlineReplyThread: View {
     let replies: [MattermostPost]
     let users: [String: MattermostUser]
@@ -349,6 +431,7 @@ private struct InlineReplyThread: View {
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
+    let onVote: (MattermostPost, String) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var isReactionTooltipPresented = false
@@ -373,6 +456,7 @@ private struct InlineReplyThread: View {
                         onStartDirectMessage: onStartDirectMessage,
                         onReply: onReply,
                         onEdit: onEdit,
+                        onVote: onVote,
                         onToggleReaction: onToggleReaction
                     ) { isPresented in
                         isReactionTooltipPresented = isPresented
@@ -414,6 +498,7 @@ private struct InlineReplyRow: View {
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
+    let onVote: (MattermostPost, String) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     let onReactionTooltipVisibilityChange: (Bool) -> Void
     @State private var isReactionTooltipPresented = false
@@ -444,6 +529,11 @@ private struct InlineReplyRow: View {
                 currentUsername: currentUsername,
                 fileData: fileData
             )
+            if let poll = post.poll {
+                SocialPoll(poll: poll) { actionID in
+                    onVote(post, actionID)
+                }
+            }
             ReactionSummary(
                 post: post,
                 displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
