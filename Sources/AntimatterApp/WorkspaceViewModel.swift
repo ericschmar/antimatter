@@ -24,13 +24,15 @@ final class WorkspaceViewModel: ObservableObject {
         selectedChannelID = defaults.string(forKey: selectionKey)
     }
 
-    func preview(_ channel: MattermostChannel) {
-        if tabs.contains(where: { $0.channelID == channel.id }) {
+    func preview(_ channel: MattermostChannel, title: String? = nil) {
+        let tabTitle = title ?? channel.displayName
+        if let existingIndex = tabs.firstIndex(where: { $0.channelID == channel.id }) {
+            tabs[existingIndex].title = tabTitle
             selectedChannelID = channel.id
         } else if let previewIndex = tabs.firstIndex(where: \.isPreview) {
-            tabs[previewIndex] = WorkspaceTab(channelID: channel.id, title: channel.displayName, isPreview: true)
+            tabs[previewIndex] = WorkspaceTab(channelID: channel.id, title: tabTitle, isPreview: true)
         } else {
-            tabs.append(WorkspaceTab(channelID: channel.id, title: channel.displayName, isPreview: true))
+            tabs.append(WorkspaceTab(channelID: channel.id, title: tabTitle, isPreview: true))
         }
         selectedChannelID = channel.id
         persist()

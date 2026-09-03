@@ -114,7 +114,12 @@ struct WorkspaceShell: View {
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in
             guard let channelID, let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
-            workspace.preview(channel)
+            workspace.preview(channel, title: navigation.displayName(for: channel))
+        }
+        .onChange(of: navigation.users) {
+            guard let channelID = workspace.selectedChannelID,
+                  let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
+            workspace.preview(channel, title: navigation.displayName(for: channel))
         }
         .onChange(of: workspace.selectedChannelID, initial: true) { _, channelID in
             composer.select(channelID: channelID)
