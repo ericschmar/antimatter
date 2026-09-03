@@ -305,7 +305,7 @@ private struct MessageRow: View {
         .background(isHovering ? WorkspaceTheme.hoverSurface : .clear)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
-        .zIndex(isReactionTooltipPresented ? 1 : 0)
+        .zIndex(isReactionTooltipPresented ? 100 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .contextMenu {
@@ -478,7 +478,7 @@ private struct InlineReplyThread: View {
         .padding(.leading, replyLeadingInset)
         .padding(.trailing, 18)
         .padding(.vertical, 5)
-        .zIndex(isReactionTooltipPresented ? 1 : 0)
+        .zIndex(isReactionTooltipPresented ? 100 : 0)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(replies.count) inline replies")
     }
@@ -554,7 +554,7 @@ private struct InlineReplyRow: View {
             }
         }
         .contentShape(Rectangle())
-        .zIndex(isReactionTooltipPresented ? 1 : 0)
+        .zIndex(isReactionTooltipPresented ? 100 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(author), \(timestamp), \(post.message)")
         .contextMenu {
@@ -836,10 +836,10 @@ private struct ReactionSummary: View {
                             .fixedSize()
                             .offset(y: 30)
                             .compositingGroup()
-                            .zIndex(1)
+                            .zIndex(100)
                     }
                 }
-                .zIndex(hoveredReactionID == summary.id ? 1 : 0)
+                .zIndex(hoveredReactionID == summary.id ? 100 : 0)
             }
 
         }
