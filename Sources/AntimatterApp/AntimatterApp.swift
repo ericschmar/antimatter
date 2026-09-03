@@ -38,6 +38,7 @@ struct AntimatterApp: App {
             .environmentObject(userColorSettings)
         }
         .defaultSize(width: 1_200, height: 800)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             WorkspaceCommands()
         }

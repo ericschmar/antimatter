@@ -320,6 +320,7 @@ private struct CommandDeckHeader: View {
                 .accessibilityLabel("Account menu")
             }
             .frame(height: 52)
+            .padding(.leading, WorkspaceTheme.titleBarControlInset)
 
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")

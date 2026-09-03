@@ -15,7 +15,8 @@ struct AuthenticationScreen: View {
                 Spacer()
             }
             .foregroundStyle(WorkspaceTheme.primaryText)
-            .padding(.horizontal, 16)
+            .padding(.leading, WorkspaceTheme.titleBarControlInset)
+            .padding(.trailing, 16)
             .frame(height: WorkspaceTheme.titleHeight)
             .background(WorkspaceTheme.sidebar)
 

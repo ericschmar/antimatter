@@ -132,6 +132,7 @@ enum WorkspaceTheme {
     static let treeFolder = Color(red: 0, green: 0.47, blue: 1)
 
     static let titleHeight: CGFloat = 32
+    static let titleBarControlInset: CGFloat = 72
     static let headerHeight: CGFloat = 54
     static let sidebarWidth: CGFloat = 248
     static let compactCornerRadius: CGFloat = 5
