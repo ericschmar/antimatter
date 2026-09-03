@@ -1,5 +1,6 @@
 import AntimatterFoundation
 import AppKit
+import EmojiKit
 import SwiftUI
 import SwiftEmojiPicker
 
@@ -494,20 +495,25 @@ private struct ReactionSummary: View {
     }
 
     private func displayEmoji(for emojiName: String) -> String {
-        switch emojiName {
-        case "heart": "❤️"
-        case "+1", "thumbsup": "👍"
-        case "-1", "thumbsdown": "👎"
-        case "tada": "🎉"
-        case "white_check_mark": "✅"
-        case "thinking_face": "🤔"
-        case "joy": "😂"
-        case "wave": "👋"
-        case "eyes": "👀"
-        case "fire": "🔥"
-        case "rocket": "🚀"
-        default: emojiName
-        }
+        guard !isUnicodeEmoji(emojiName) else { return emojiName }
+
+        let nameTokens = normalizedTokens(in: emojiName)
+        guard !nameTokens.isEmpty else { return emojiName }
+        return Emoji.all.first { emoji in
+            let emojiNameTokens = normalizedTokens(in: emoji.unicodeName)
+            return nameTokens.allSatisfy(emojiNameTokens.contains)
+        }?.char ?? emojiName
+    }
+
+    private func normalizedTokens(in name: String) -> [String] {
+        name
+            .replacingOccurrences(of: "_", with: " ")
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .map { $0.lowercased() }
+    }
+
+    private func isUnicodeEmoji(_ emojiName: String) -> Bool {
+        emojiName.unicodeScalars.contains(where: { $0.properties.isEmoji && !$0.isASCII })
     }
 
     private func readableName(for emojiName: String) -> String {

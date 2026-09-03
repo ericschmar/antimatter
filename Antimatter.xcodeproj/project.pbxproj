@@ -459,7 +459,7 @@
 			repositoryURL = "https://github.com/danielsaidi/EmojiKit.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 3.0.1;
+				minimumVersion = 2.5.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
