@@ -10,10 +10,7 @@ struct RichMessageContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Markdown(post.message)
-                .markdownTheme(.gitHub)
-                .markdownTextStyle(\.text) {
-                    FontSize(fontSize)
-                }
+                .markdownTheme(.gitHub.text { FontSize(fontSize) })
                 .tint(WorkspaceTheme.accent)
                 .foregroundStyle(WorkspaceTheme.primaryText)
                 .textSelection(.enabled)
