@@ -71,6 +71,7 @@ public actor MattermostWebSocket {
     private var reconnectTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
     private var nextSequence = 1
+    private let heartbeatInterval = Duration.seconds(25)
 
     public init(serverURL: URL, token: String, session: URLSession = .shared) {
         self.serverURL = serverURL
@@ -189,12 +190,13 @@ public actor MattermostWebSocket {
 
     private func startHeartbeat(for heartbeatTask: URLSessionWebSocketTask) {
         self.heartbeatTask?.cancel()
+        let interval = heartbeatInterval
         self.heartbeatTask = Task { [weak self, weak heartbeatTask] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(30))
-                guard !Task.isCancelled else { return }
                 guard let heartbeatTask else { return }
                 await self?.sendHeartbeat(to: heartbeatTask)
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled else { return }
             }
         }
     }
