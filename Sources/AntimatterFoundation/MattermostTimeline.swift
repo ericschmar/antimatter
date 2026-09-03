@@ -41,4 +41,19 @@ public actor MattermostTimelineLoader {
     public func loadAvatarData(userID: String) async throws -> Data {
         try await client.getData("/api/v4/users/\(userID)/image")
     }
+
+    public func loadStatuses(userIDs: [String]) async throws -> [MattermostUserStatus] {
+        guard !userIDs.isEmpty else { return [] }
+        return try await client.post("/api/v4/users/status/ids", body: userIDs)
+    }
+}
+
+public struct MattermostUserStatus: Decodable, Sendable {
+    public let userID: String
+    public let status: String
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+        case status
+    }
 }

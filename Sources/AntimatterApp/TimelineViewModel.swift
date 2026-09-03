@@ -6,6 +6,7 @@ final class TimelineViewModel: ObservableObject {
     @Published private(set) var posts: [MattermostPost] = []
     @Published private(set) var users: [String: MattermostUser] = [:]
     @Published private(set) var avatarData: [String: Data] = [:]
+    @Published private(set) var statuses: [String: String] = [:]
     @Published private(set) var isLoading = false
     @Published private(set) var loadError: String?
     @Published private(set) var editingPostID: String?
@@ -37,6 +38,8 @@ final class TimelineViewModel: ObservableObject {
         loadError = nil
         if let cached = try? await store.load() {
             posts = chronological(cached.posts.filter { $0.channelID == channelID })
+            users.merge(Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })) { _, new in new }
+            await loadAuthors(for: posts)
         }
 
         do {
@@ -62,6 +65,10 @@ final class TimelineViewModel: ObservableObject {
             if let cached = try? await store.load() {
                 users.merge(Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })) { _, new in new }
             }
+        }
+
+        if let loadedStatuses = try? await loader.loadStatuses(userIDs: authorIDs) {
+            statuses.merge(Dictionary(uniqueKeysWithValues: loadedStatuses.map { ($0.userID, $0.status) })) { _, new in new }
         }
 
         await withTaskGroup(of: (String, Data?).self) { group in

@@ -30,7 +30,7 @@ struct MessageTimeline: View {
                                     post: post,
                                     user: timeline.users[post.userID] ?? knownUsers[post.userID],
                                     avatarData: timeline.avatarData[post.userID],
-                                    status: statuses[post.userID],
+                                    status: timeline.statuses[post.userID] ?? statuses[post.userID],
                                     onReply: onReply,
                                     onEdit: timeline.beginEditing
                                 ) { post, emojiName in
@@ -117,6 +117,7 @@ private struct MessageRow: View {
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
+    @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @State private var isHovering = false
 
     var body: some View {
@@ -142,14 +143,17 @@ private struct MessageRow: View {
                 .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 6) {
-                RichMessageContent(post: post)
-                ReactionSummary(
-                    post: post,
-                    showsAddReaction: isHovering,
-                    onToggleReaction: onToggleReaction
-                )
+                RichMessageContent(post: post, fontSize: messageFontSize)
+                ReactionSummary(post: post, onToggleReaction: onToggleReaction)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .topTrailing) {
+                if isHovering {
+                    AddReactionButton(post: post, onToggleReaction: onToggleReaction)
+                        .background(WorkspaceTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+                }
+            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 6)
@@ -239,9 +243,7 @@ private struct PresenceDot: View {
 
 private struct ReactionSummary: View {
     let post: MattermostPost
-    let showsAddReaction: Bool
     let onToggleReaction: (MattermostPost, String) -> Void
-    @State private var isPickerPresented = false
 
     var body: some View {
         HStack(spacing: 5) {
@@ -266,25 +268,6 @@ private struct ReactionSummary: View {
                 .accessibilityLabel("\(summary.emojiName) reaction, \(summary.count)")
             }
 
-            if showsAddReaction {
-                Button {
-                    isPickerPresented = true
-                } label: {
-                    Image(systemName: "face.smiling")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                        .padding(5)
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
-                    ReactionPicker { emojiName in
-                        onToggleReaction(post, emojiName)
-                        isPickerPresented = false
-                    }
-                    .padding(10)
-                }
-                .accessibilityLabel("Add reaction")
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -305,6 +288,32 @@ private struct ReactionSummary: View {
         }
     }
 
+}
+
+private struct AddReactionButton: View {
+    let post: MattermostPost
+    let onToggleReaction: (MattermostPost, String) -> Void
+    @State private var isPickerPresented = false
+
+    var body: some View {
+        Button {
+            isPickerPresented = true
+        } label: {
+            Image(systemName: "face.smiling")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+                .padding(5)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
+            ReactionPicker { emojiName in
+                onToggleReaction(post, emojiName)
+                isPickerPresented = false
+            }
+            .padding(10)
+        }
+        .accessibilityLabel("Add reaction")
+    }
 }
 
 private struct ReactionPicker: View {

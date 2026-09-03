@@ -5,11 +5,13 @@ import SwiftUI
 
 struct RichMessageContent: View {
     let post: MattermostPost
+    let fontSize: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Markdown(post.message)
                 .markdownTheme(.gitHub)
+                .font(.system(size: fontSize))
                 .tint(WorkspaceTheme.accent)
                 .foregroundStyle(WorkspaceTheme.primaryText)
                 .textSelection(.enabled)
