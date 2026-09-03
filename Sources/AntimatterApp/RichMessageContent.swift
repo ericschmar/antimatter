@@ -1,5 +1,6 @@
 import AntimatterFoundation
 import AppKit
+import LinkPresentation
 import MarkdownUI
 @preconcurrency import QuickLookUI
 import SwiftUI
@@ -133,31 +134,41 @@ private struct ChatCodeBlock: View {
 
 private struct ChatLinkPreview: View {
     let url: URL
+    @State private var metadata: LPLinkMetadata?
+    @State private var isLoading = true
 
     var body: some View {
-        Link(destination: url) {
-            HStack(spacing: 12) {
-                Image(systemName: "link")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(WorkspaceTheme.accent)
-                    .frame(width: 42, height: 42)
-                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 10))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(url.host ?? url.absoluteString)
-                        .font(.system(size: 14, weight: .semibold))
-                        .lineLimit(2)
-                    Text(url.absoluteString)
-                        .font(.system(size: 11))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
+        Group {
+            if let metadata {
+                LinkPresentationView(metadata: metadata)
+            } else if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 360, height: 88)
+            } else {
+                Link(destination: url) {
+                    Label(url.absoluteString, systemImage: "link")
                         .lineLimit(1)
                 }
-                Spacer(minLength: 0)
             }
-            .padding(12)
-            .frame(maxWidth: 360, alignment: .leading)
-            .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: 360, alignment: .leading)
+        .task(id: url) {
+            metadata = try? await LPMetadataProvider().startFetchingMetadata(for: url)
+            isLoading = false
+        }
+    }
+}
+
+private struct LinkPresentationView: NSViewRepresentable {
+    let metadata: LPLinkMetadata
+
+    func makeNSView(context: Context) -> LPLinkView {
+        LPLinkView(metadata: metadata)
+    }
+
+    func updateNSView(_ linkView: LPLinkView, context: Context) {
+        linkView.metadata = metadata
     }
 }
 
