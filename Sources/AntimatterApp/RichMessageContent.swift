@@ -20,7 +20,13 @@ struct RichMessageContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Markdown(post.message)
-                .markdownTheme(.gitHub.text { FontSize(fontSize) })
+                .markdownTheme(
+                    .gitHub
+                        .text { FontSize(fontSize) }
+                        .codeBlock { configuration in
+                            ChatCodeBlock(configuration: configuration)
+                        }
+                )
                 .tint(WorkspaceTheme.accent)
                 .foregroundStyle(WorkspaceTheme.primaryText)
                 .textSelection(.enabled)
@@ -64,6 +70,64 @@ struct RichMessageContent: View {
 
     private var nonImageFiles: [MattermostFile] {
         post.files.filter { !$0.mimeType.hasPrefix("image/") }
+    }
+}
+
+private struct ChatCodeBlock: View {
+    let configuration: CodeBlockConfiguration
+    @State private var copied = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(language)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                Spacer()
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(configuration.content, forType: .string)
+                    copied = true
+                } label: {
+                    Label(copied ? "Copied" : "Copy", systemImage: "doc.on.doc")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+                .accessibilityLabel("Copy \(language) code")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(WorkspaceTheme.primaryText.opacity(0.05))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                configuration.label
+                    .fixedSize(horizontal: false, vertical: true)
+                    .markdownTextStyle {
+                        FontFamilyVariant(.monospaced)
+                        FontSize(.em(0.85))
+                    }
+                    .padding(14)
+            }
+        }
+        .frame(maxWidth: 420, alignment: .leading)
+        .background(
+            WorkspaceTheme.raisedSurface,
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(WorkspaceTheme.divider, lineWidth: 1)
+        }
+        .markdownMargin(top: 0, bottom: 16)
+    }
+
+    private var language: String {
+        guard let language = configuration.language, !language.isEmpty else {
+            return "code"
+        }
+        return language
     }
 }
 
