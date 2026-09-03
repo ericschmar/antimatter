@@ -190,6 +190,7 @@ private struct MessageRow: View {
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var isHovering = false
+    @State private var isReactionTooltipPresented = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -236,7 +237,9 @@ private struct MessageRow: View {
                     displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
                     currentUserID: currentUserID,
                     onToggleReaction: onToggleReaction
-                )
+                ) { isPresented in
+                    isReactionTooltipPresented = isPresented
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
@@ -251,6 +254,7 @@ private struct MessageRow: View {
         .padding(.vertical, 3)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
+        .zIndex(isReactionTooltipPresented ? 1 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .contextMenu {
@@ -298,6 +302,7 @@ private struct InlineReplyThread: View {
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
+    @State private var isReactionTooltipPresented = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -318,7 +323,9 @@ private struct InlineReplyThread: View {
                         onReply: onReply,
                         onEdit: onEdit,
                         onToggleReaction: onToggleReaction
-                    )
+                    ) { isPresented in
+                        isReactionTooltipPresented = isPresented
+                    }
                 }
             }
             .padding(10)
@@ -328,6 +335,7 @@ private struct InlineReplyThread: View {
         .padding(.leading, replyLeadingInset)
         .padding(.trailing, 18)
         .padding(.vertical, 5)
+        .zIndex(isReactionTooltipPresented ? 1 : 0)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(replies.count) inline replies")
     }
@@ -354,6 +362,8 @@ private struct InlineReplyRow: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
+    let onReactionTooltipVisibilityChange: (Bool) -> Void
+    @State private var isReactionTooltipPresented = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -378,9 +388,13 @@ private struct InlineReplyRow: View {
                 displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
                 currentUserID: currentUserID,
                 onToggleReaction: onToggleReaction
-            )
+            ) { isPresented in
+                isReactionTooltipPresented = isPresented
+                onReactionTooltipVisibilityChange(isPresented)
+            }
         }
         .contentShape(Rectangle())
+        .zIndex(isReactionTooltipPresented ? 1 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(author), \(timestamp), \(post.message)")
         .contextMenu {
@@ -462,6 +476,7 @@ private struct ReactionSummary: View {
     let displayName: (String) -> String
     let currentUserID: String?
     let onToggleReaction: (MattermostPost, String) -> Void
+    let onTooltipVisibilityChange: (Bool) -> Void
     @State private var hoveredReactionID: String?
 
     var body: some View {
@@ -496,6 +511,7 @@ private struct ReactionSummary: View {
                 )
                 .onHover { isHovering in
                     hoveredReactionID = isHovering ? summary.id : nil
+                    onTooltipVisibilityChange(isHovering)
                 }
                 .overlay(alignment: .bottom) {
                     if hoveredReactionID == summary.id {
@@ -514,6 +530,7 @@ private struct ReactionSummary: View {
                             .zIndex(1)
                     }
                 }
+                .zIndex(hoveredReactionID == summary.id ? 1 : 0)
             }
 
         }
