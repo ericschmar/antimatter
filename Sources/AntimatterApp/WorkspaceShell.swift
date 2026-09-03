@@ -112,7 +112,7 @@ struct WorkspaceShell: View {
                 await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 await navigation.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 presence.reconcile(event, channelID: workspace.selectedChannelID)
-                notifications.notify(for: event)
+                notifications.notify(for: event, currentUserID: navigation.currentUserID)
             }
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in
