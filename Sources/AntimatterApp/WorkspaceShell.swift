@@ -62,6 +62,7 @@ struct WorkspaceShell: View {
                     .accessibilityLabel("Workspace sidebar")
                     .accessibilityHint("Contains teams, channels, and direct messages.")
                     .accessibilityIdentifier("workspace-sidebar")
+                    .ignoresSafeArea(.container, edges: .top)
 
                 ConversationPlaceholder(
                     navigation: navigation,
@@ -79,12 +80,12 @@ struct WorkspaceShell: View {
                     .accessibilityLabel("Conversation workspace")
                     .accessibilityHint("Displays the selected conversation.")
                     .accessibilityIdentifier("conversation-workspace")
+                    .ignoresSafeArea(.container, edges: .top)
             }
         }
         .tint(accentColor)
         .background(WorkspaceTheme.canvas)
         .frame(minWidth: 900, minHeight: 600)
-        .ignoresSafeArea(.container, edges: .top)
         .preferredColorScheme(.dark)
         .focusedSceneValue(\.workspaceFocusAction, focus)
         .focusedSceneValue(\.workspaceSettingsAction) {
