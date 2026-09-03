@@ -8,6 +8,7 @@ struct MessageTimeline: View {
     let statuses: [String: String]
     let channelID: String?
     let onReply: (MattermostPost) -> Void
+    @AppStorage("messageFontSize") private var messageFontSize = 12.0
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -31,6 +32,7 @@ struct MessageTimeline: View {
                                     user: timeline.users[post.userID] ?? knownUsers[post.userID],
                                     avatarData: timeline.avatarData[post.userID],
                                     status: timeline.statuses[post.userID] ?? statuses[post.userID],
+                                    messageFontSize: messageFontSize,
                                     onReply: onReply,
                                     onEdit: timeline.beginEditing
                                 ) { post, emojiName in
@@ -42,6 +44,7 @@ struct MessageTimeline: View {
                     }
                 }
                 .padding(.vertical, 14)
+                .id(messageFontSize)
             }
             .onChange(of: newestPostID) { _, postID in
                 scrollToLatest(postID, with: proxy)
@@ -113,11 +116,11 @@ private struct MessageRow: View {
     let user: MattermostUser?
     let avatarData: Data?
     let status: String?
+    let messageFontSize: Double
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
-    @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @State private var isHovering = false
 
     var body: some View {
