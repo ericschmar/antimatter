@@ -1,6 +1,7 @@
 import AntimatterFoundation
 import AppKit
 import SwiftUI
+import SwiftEmojiPicker
 
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
@@ -427,8 +428,13 @@ private struct ReactionSummary: View {
                     onToggleReaction(post, summary.emojiName)
                 } label: {
                     HStack(spacing: 3) {
-                        Image(systemName: symbol(for: summary.emojiName))
-                            .font(.system(size: 11, weight: .semibold))
+                        if isUnicodeEmoji(summary.emojiName) {
+                            Text(summary.emojiName)
+                                .font(.system(size: 12))
+                        } else {
+                            Image(systemName: symbol(for: summary.emojiName))
+                                .font(.system(size: 11, weight: .semibold))
+                        }
                         Text("\(summary.count)")
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     }
@@ -486,12 +492,17 @@ private struct ReactionSummary: View {
         default: WorkspaceTheme.secondaryText
         }
     }
+
+    private func isUnicodeEmoji(_ emojiName: String) -> Bool {
+        emojiName.unicodeScalars.contains(where: { $0.properties.isEmoji && !$0.isASCII })
+    }
 }
 
 private struct AddReactionButton: View {
     let post: MattermostPost
     let onToggleReaction: (MattermostPost, String) -> Void
     @State private var isPickerPresented = false
+    @State private var selectedEmoji = ""
 
     var body: some View {
         Button {
@@ -504,50 +515,19 @@ private struct AddReactionButton: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
-            ReactionPicker { emojiName in
-                onToggleReaction(post, emojiName)
-                isPickerPresented = false
-            }
-            .padding(10)
+            EmojiPickerView(
+                selectedEmoji: $selectedEmoji,
+                selectedEmojiCategoryTintColor: WorkspaceTheme.accent
+            )
+            .frame(width: 360, height: 380)
+        }
+        .onChange(of: selectedEmoji) { _, emoji in
+            guard !emoji.isEmpty else { return }
+            onToggleReaction(post, emoji)
+            selectedEmoji = ""
+            isPickerPresented = false
         }
         .accessibilityLabel("Add reaction")
-    }
-}
-
-private struct ReactionPicker: View {
-    let onSelect: (String) -> Void
-    private let emojiNames = ["+1", "heart", "joy", "tada", "rocket", "eyes", "fire", "white_check_mark", "thinking_face", "wave"]
-
-    var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.fixed(28)), count: 5), spacing: 6) {
-            ForEach(emojiNames, id: \.self) { emojiName in
-                Button {
-                    onSelect(emojiName)
-                } label: {
-                    Text(symbol(for: emojiName))
-                        .font(.system(size: 17))
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(emojiName)
-            }
-        }
-        .frame(width: 164)
-    }
-
-    private func symbol(for emojiName: String) -> String {
-        switch emojiName {
-        case "+1": "👍"
-        case "heart": "❤️"
-        case "joy": "😂"
-        case "tada": "🎉"
-        case "rocket": "🚀"
-        case "eyes": "👀"
-        case "fire": "🔥"
-        case "white_check_mark": "✅"
-        case "thinking_face": "🤔"
-        default: "👋"
-        }
     }
 }
 

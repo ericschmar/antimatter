@@ -21,6 +21,7 @@
 		A10000000000000000000022 /* MattermostTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* MattermostTimeline.swift */; };
 		A10000000000000000000023 /* RichMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* RichMessageContent.swift */; };
 		A10000000000000000000024 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000026 /* MarkdownUI */; };
+		A10000000000000000000037 /* SwiftEmojiPicker in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000042 /* SwiftEmojiPicker */; };
 		A10000000000000000000025 /* RealtimeUpdatesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* RealtimeUpdatesViewModel.swift */; };
 		A10000000000000000000026 /* MattermostReactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* MattermostReactions.swift */; };
 		A10000000000000000000027 /* ComposerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* ComposerViewModel.swift */; };
@@ -102,6 +103,7 @@
 			files = (
 				A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */,
 				A10000000000000000000024 /* MarkdownUI in Frameworks */,
+				A10000000000000000000037 /* SwiftEmojiPicker in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -200,6 +202,7 @@
 			);
 			packageProductDependencies = (
 				A20000000000000000000026 /* MarkdownUI */,
+				A20000000000000000000042 /* SwiftEmojiPicker */,
 			);
 			name = Antimatter;
 			productName = Antimatter;
@@ -251,6 +254,7 @@
 			productRefGroup = A40000000000000000000005 /* Products */;
 			packageReferences = (
 				A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
@@ -318,6 +322,11 @@
 				package = A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 				productName = MarkdownUI;
 			};
+			A20000000000000000000042 /* SwiftEmojiPicker */ = {
+				isa = XCSwiftPackageProductDependency;
+				package = A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */;
+				productName = SwiftEmojiPicker;
+			};
 /* End XCSwiftPackageProductDependency section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -327,6 +336,14 @@
 				requirement = {
 					kind = upToNextMajorVersion;
 					minimumVersion = 2.4.1;
+				};
+			};
+			A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */ = {
+				isa = XCRemoteSwiftPackageReference;
+				repositoryURL = "https://github.com/sergius-la/SwiftEmojiPicker";
+				requirement = {
+					kind = upToNextMajorVersion;
+					minimumVersion = 2.2.1;
 				};
 			};
 /* End XCRemoteSwiftPackageReference section */

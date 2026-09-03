@@ -10,6 +10,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
+        .package(url: "https://github.com/sergius-la/SwiftEmojiPicker", from: "2.2.1"),
     ],
     targets: [
         .target(
@@ -21,6 +22,7 @@ let package = Package(
             dependencies: [
                 "AntimatterFoundation",
                 .product(name: "MarkdownUI", package: "swift-markdown-ui"),
+                .product(name: "SwiftEmojiPicker", package: "SwiftEmojiPicker"),
             ],
             path: "Sources/AntimatterApp"
         ),
