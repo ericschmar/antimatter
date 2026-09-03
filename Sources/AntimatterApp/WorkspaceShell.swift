@@ -86,6 +86,7 @@ struct WorkspaceShell: View {
         .tint(accentColor)
         .background(WorkspaceTheme.canvas)
         .frame(minWidth: 900, minHeight: 600)
+        .background(TitleBarControlAligner())
         .preferredColorScheme(.dark)
         .focusedSceneValue(\.workspaceFocusAction, focus)
         .focusedSceneValue(\.workspaceSettingsAction) {
@@ -267,6 +268,32 @@ private struct OverlayScrollerConfigurator: NSViewRepresentable {
     }
 }
 
+private struct TitleBarControlAligner: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            let controlTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+
+            for controlType in controlTypes {
+                guard let button = window.standardWindowButton(controlType),
+                      let container = button.superview
+                else {
+                    continue
+                }
+
+                let originY = container.bounds.maxY
+                    - WorkspaceTheme.titleBarContentHeight / 2
+                    - button.frame.height / 2
+                button.setFrameOrigin(NSPoint(x: button.frame.minX, y: originY))
+            }
+        }
+    }
+}
+
 private struct CommandDeckHeader: View {
     let teams: [MattermostTeam]
     let selectedTeamID: String?
@@ -330,7 +357,7 @@ private struct CommandDeckHeader: View {
                 }
                 .accessibilityLabel("Account menu")
             }
-            .frame(height: 52)
+            .frame(height: WorkspaceTheme.titleBarContentHeight)
             .padding(.leading, WorkspaceTheme.titleBarControlInset)
 
             HStack(spacing: 7) {
