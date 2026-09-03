@@ -46,6 +46,7 @@ struct WorkspaceShell: View {
                     presence: presence,
                     search: search,
                     onOpenSettings: { isSettingsPresented = true },
+                    onOpenPermanently: openPermanently,
                     disconnect: disconnect
                 )
                     .frame(
@@ -153,6 +154,10 @@ struct WorkspaceShell: View {
     private func focus(_ target: WorkspaceFocusTarget) {
         focusedRegion = target
     }
+
+    private func openPermanently(_ channel: MattermostChannel) {
+        workspace.openPermanently(channel, title: navigation.displayName(for: channel))
+    }
 }
 
 private struct SidebarPlaceholder: View {
@@ -160,6 +165,7 @@ private struct SidebarPlaceholder: View {
     @ObservedObject var presence: PresenceViewModel
     @ObservedObject var search: SearchViewModel
     let onOpenSettings: () -> Void
+    let onOpenPermanently: (MattermostChannel) -> Void
     let disconnect: () -> Void
 
     var body: some View {
@@ -198,11 +204,11 @@ private struct SidebarPlaceholder: View {
                             .foregroundStyle(WorkspaceTheme.attention)
                             .padding(14)
                     } else {
-                        ChannelSection("FAVORITES", sectionID: "favorites", channels: navigation.favoriteChannels, navigation: navigation, presence: presence)
-                        ChannelSection("CHANNELS", sectionID: "channels", channels: navigation.regularChannels, navigation: navigation, presence: presence)
-                        ChannelSection("DIRECT MESSAGES", sectionID: "direct", channels: navigation.directMessages, navigation: navigation, presence: presence)
-                        ChannelSection("GROUP MESSAGES", sectionID: "group", channels: navigation.groupMessages, navigation: navigation, presence: presence)
-                        ChannelSection("ARCHIVED", sectionID: "archived", channels: navigation.archivedChannels, navigation: navigation, presence: presence)
+                        ChannelSection("FAVORITES", sectionID: "favorites", channels: navigation.favoriteChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("CHANNELS", sectionID: "channels", channels: navigation.regularChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("DIRECT MESSAGES", sectionID: "direct", channels: navigation.directMessages, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("GROUP MESSAGES", sectionID: "group", channels: navigation.groupMessages, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("ARCHIVED", sectionID: "archived", channels: navigation.archivedChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
                     }
                 }
                 .padding(.vertical, 8)

@@ -8,6 +8,7 @@ struct ChannelSection: View {
     let channels: [MattermostChannel]
     @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var presence: PresenceViewModel
+    let onOpenPermanently: (MattermostChannel) -> Void
     @State private var draggedChannelID: String?
     @State private var isCollapsed = false
     @State private var hoveredChannelID: String?
@@ -17,13 +18,15 @@ struct ChannelSection: View {
         sectionID: String,
         channels: [MattermostChannel],
         navigation: NavigationViewModel,
-        presence: PresenceViewModel
+        presence: PresenceViewModel,
+        onOpenPermanently: @escaping (MattermostChannel) -> Void = { _ in }
     ) {
         self.title = title
         self.sectionID = sectionID
         self.channels = channels
         self.navigation = navigation
         self.presence = presence
+        self.onOpenPermanently = onOpenPermanently
     }
 
     var body: some View {
@@ -106,6 +109,11 @@ struct ChannelSection: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .simultaneousGesture(
+                        TapGesture(count: 2).onEnded {
+                            onOpenPermanently(channel)
+                        }
+                    )
                     .onHover { isHovered in
                         hoveredChannelID = isHovered ? channel.id : nil
                     }

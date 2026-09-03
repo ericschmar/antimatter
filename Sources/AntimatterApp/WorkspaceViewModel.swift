@@ -38,6 +38,18 @@ final class WorkspaceViewModel: ObservableObject {
         persist()
     }
 
+    func openPermanently(_ channel: MattermostChannel, title: String? = nil) {
+        let tabTitle = title ?? channel.displayName
+        if let existingIndex = tabs.firstIndex(where: { $0.channelID == channel.id }) {
+            tabs[existingIndex].title = tabTitle
+            tabs[existingIndex].isPreview = false
+        } else {
+            tabs.append(WorkspaceTab(channelID: channel.id, title: tabTitle, isPreview: false))
+        }
+        selectedChannelID = channel.id
+        persist()
+    }
+
     func select(_ tab: WorkspaceTab) {
         selectedChannelID = tab.channelID
         persist()

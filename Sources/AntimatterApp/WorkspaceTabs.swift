@@ -49,6 +49,11 @@ private struct WorkspaceTabItem: View {
                 }
             }
             .buttonStyle(.plain)
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded {
+                    workspace.keep(tab)
+                }
+            )
 
             Button {
                 workspace.close(tab)
