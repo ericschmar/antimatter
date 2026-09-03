@@ -402,10 +402,6 @@ private struct ConversationPlaceholder: View {
             WorkspaceTabs(workspace: workspace)
 
             HStack(spacing: 10) {
-                Image(systemName: "number")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-
                 Text(selectedTab?.title ?? "Select a conversation")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(WorkspaceTheme.primaryText)
