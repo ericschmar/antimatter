@@ -405,6 +405,7 @@ private struct ConversationPlaceholder: View {
                 timeline: timeline,
                 knownUsers: navigation.users,
                 statuses: presence.statuses,
+                currentUserID: navigation.currentUserID,
                 currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
                 channelID: selectedTab?.channelID
             ) { post in

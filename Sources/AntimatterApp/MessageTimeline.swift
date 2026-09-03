@@ -7,6 +7,7 @@ struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
     let knownUsers: [String: MattermostUser]
     let statuses: [String: String]
+    let currentUserID: String?
     let currentUsername: String?
     let channelID: String?
     let onReply: (MattermostPost) -> Void
@@ -37,6 +38,7 @@ struct MessageTimeline: View {
                                     fileData: timeline.fileData,
                                     status: timeline.statuses[thread.root.userID] ?? statuses[thread.root.userID],
                                     messageFontSize: messageFontSize,
+                                    currentUserID: currentUserID,
                                     currentUsername: currentUsername,
                                     showsMetadata: !messageGrouping.shouldGroup(
                                         thread.root,
@@ -54,6 +56,7 @@ struct MessageTimeline: View {
                                         replies: thread.replies,
                                         users: messageUsers,
                                         statuses: messageStatuses,
+                                        currentUserID: currentUserID,
                                         currentUsername: currentUsername,
                                         fileData: timeline.fileData,
                                         messageFontSize: messageFontSize,
@@ -166,6 +169,7 @@ private struct MessageRow: View {
     let fileData: [String: Data]
     let status: String?
     let messageFontSize: Double
+    let currentUserID: String?
     let currentUsername: String?
     let showsMetadata: Bool
     let onReply: (MattermostPost) -> Void
@@ -217,6 +221,7 @@ private struct MessageRow: View {
                 ReactionSummary(
                     post: post,
                     displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
+                    currentUserID: currentUserID,
                     onToggleReaction: onToggleReaction
                 )
             }
@@ -272,6 +277,7 @@ private struct InlineReplyThread: View {
     let replies: [MattermostPost]
     let users: [String: MattermostUser]
     let statuses: [String: String]
+    let currentUserID: String?
     let currentUsername: String?
     let fileData: [String: Data]
     let messageFontSize: Double
@@ -292,6 +298,7 @@ private struct InlineReplyThread: View {
                         post: reply,
                         users: users,
                         status: statuses[reply.userID],
+                        currentUserID: currentUserID,
                         currentUsername: currentUsername,
                         fileData: fileData,
                         messageFontSize: messageFontSize,
@@ -327,6 +334,7 @@ private struct InlineReplyRow: View {
     let post: MattermostPost
     let users: [String: MattermostUser]
     let status: String?
+    let currentUserID: String?
     let currentUsername: String?
     let fileData: [String: Data]
     let messageFontSize: Double
@@ -355,6 +363,7 @@ private struct InlineReplyRow: View {
             ReactionSummary(
                 post: post,
                 displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
+                currentUserID: currentUserID,
                 onToggleReaction: onToggleReaction
             )
         }
@@ -438,6 +447,7 @@ private struct PresenceDot: View {
 private struct ReactionSummary: View {
     let post: MattermostPost
     let displayName: (String) -> String
+    let currentUserID: String?
     let onToggleReaction: (MattermostPost, String) -> Void
 
     var body: some View {
@@ -462,10 +472,19 @@ private struct ReactionSummary: View {
                     .padding(.vertical, 4)
                     .background(color(for: summary.emojiName).opacity(0.16))
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(color(for: summary.emojiName).opacity(0.42), lineWidth: 1))
+                    .overlay(
+                        Capsule().stroke(
+                            summary.userIDs.contains(currentUserID ?? "")
+                                ? WorkspaceTheme.accent
+                                : color(for: summary.emojiName).opacity(0.42),
+                            lineWidth: summary.userIDs.contains(currentUserID ?? "") ? 2 : 1
+                        )
+                    )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(summary.emojiName) reaction, \(summary.count)")
+                .accessibilityLabel(
+                    "\(summary.emojiName) reaction, \(summary.count)\(summary.userIDs.contains(currentUserID ?? "") ? ", selected" : "")"
+                )
                 .help("\(readableName(for: summary.emojiName)) reaction by \(summary.userIDs.map(displayName).joined(separator: ", "))")
             }
 
