@@ -9,6 +9,7 @@ struct MessageTimeline: View {
     let channelID: String?
     let onReply: (MattermostPost) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
+    @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -26,13 +27,17 @@ struct MessageTimeline: View {
                     } else {
                         ForEach(groups) { group in
                             TimelineDateHeader(date: group.date)
-                            ForEach(group.posts) { post in
+                            ForEach(Array(group.posts.enumerated()), id: \.element.id) { index, post in
                                 MessageRow(
                                     post: post,
                                     users: messageUsers,
                                     avatarData: timeline.avatarData[post.userID],
                                     status: timeline.statuses[post.userID] ?? statuses[post.userID],
                                     messageFontSize: messageFontSize,
+                                    showsMetadata: !messageGrouping.shouldGroup(
+                                        post,
+                                        with: index == 0 ? nil : group.posts[index - 1]
+                                    ),
                                     onReply: onReply,
                                     onEdit: timeline.beginEditing
                                 ) { post, emojiName in
@@ -72,6 +77,10 @@ struct MessageTimeline: View {
 
     private var messageUsers: [String: MattermostUser] {
         knownUsers.merging(timeline.users) { _, timelineUser in timelineUser }
+    }
+
+    private var messageGrouping: MattermostTimelineGrouping {
+        MattermostTimelineGrouping(maximumInterval: messageGroupingIntervalMinutes * 60)
     }
 
     private func scrollToLatest(_ postID: String?, with proxy: ScrollViewProxy) {
@@ -121,6 +130,7 @@ private struct MessageRow: View {
     let avatarData: Data?
     let status: String?
     let messageFontSize: Double
+    let showsMetadata: Bool
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
@@ -129,25 +139,36 @@ private struct MessageRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            PresenceDot(status: status)
-                .padding(.top, 8)
-
-            if showAvatars {
-                Avatar(data: avatarData, initials: initials)
-                    .accessibilityHidden(true)
+            if showsMetadata {
+                PresenceDot(status: status)
+                    .padding(.top, 8)
+            } else {
+                Color.clear.frame(width: 5, height: 5)
             }
 
-            Text(author)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(WorkspaceTheme.primaryText)
-                .frame(width: 112, alignment: .leading)
-                .padding(.top, 4)
+            if showsMetadata && showAvatars {
+                Avatar(data: avatarData, initials: initials)
+                    .accessibilityHidden(true)
+            } else if showAvatars {
+                Color.clear.frame(width: 22, height: 22)
+            }
 
-            Text(timestamp)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(WorkspaceTheme.secondaryText)
-                .frame(width: 50, alignment: .trailing)
-                .padding(.top, 4)
+            if showsMetadata {
+                Text(author)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .frame(width: 112, alignment: .leading)
+                    .padding(.top, 4)
+
+                Text(timestamp)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .frame(width: 50, alignment: .trailing)
+                    .padding(.top, 4)
+            } else {
+                Color.clear.frame(width: 112, height: 1)
+                Color.clear.frame(width: 50, height: 1)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 RichMessageContent(post: post, fontSize: messageFontSize)
@@ -171,7 +192,7 @@ private struct MessageRow: View {
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(author), \(timestamp), \(post.message)")
+        .accessibilityLabel(accessibilityLabel)
         .contextMenu {
             Button("Reply") { onReply(post) }
             Button("Copy message") {
@@ -198,6 +219,10 @@ private struct MessageRow: View {
     private var timestamp: String {
         Date(timeIntervalSince1970: TimeInterval(post.createAt) / 1_000)
             .formatted(date: .omitted, time: .shortened)
+    }
+
+    private var accessibilityLabel: String {
+        showsMetadata ? "\(author), \(timestamp), \(post.message)" : post.message
     }
 }
 

@@ -1,5 +1,26 @@
 import Foundation
 
+public struct MattermostTimelineGrouping: Sendable {
+    public let maximumInterval: TimeInterval
+
+    public init(maximumInterval: TimeInterval) {
+        self.maximumInterval = maximumInterval
+    }
+
+    public func shouldGroup(_ post: MattermostPost, with previousPost: MattermostPost?) -> Bool {
+        guard
+            maximumInterval > 0,
+            let previousPost,
+            post.userID == previousPost.userID
+        else {
+            return false
+        }
+
+        let interval = TimeInterval(post.createAt - previousPost.createAt) / 1_000
+        return interval >= 0 && interval <= maximumInterval
+    }
+}
+
 public struct MattermostPostList: Decodable, Sendable {
     public let order: [String]
     public let posts: [String: MattermostPost]

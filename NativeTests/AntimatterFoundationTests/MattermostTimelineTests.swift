@@ -24,11 +24,35 @@ final class MattermostTimelineTests: XCTestCase {
         XCTAssertEqual(Set(response.orderedPosts.map(\.id)), Set(["early", "latest"]))
     }
 
-    private func post(id: String, createdAt: Int64) -> MattermostPost {
+    func testGroupingGroupsConsecutiveMessagesFromSameAuthorWithinInterval() {
+        let grouping = MattermostTimelineGrouping(maximumInterval: 300)
+        let previous = post(id: "first", userID: "ada", createdAt: 1_000)
+        let next = post(id: "next", userID: "ada", createdAt: 301_000)
+
+        XCTAssertTrue(grouping.shouldGroup(next, with: previous))
+    }
+
+    func testGroupingDoesNotGroupMessagesOutsideIntervalOrFromDifferentAuthors() {
+        let grouping = MattermostTimelineGrouping(maximumInterval: 300)
+        let previous = post(id: "first", userID: "ada", createdAt: 1_000)
+
+        XCTAssertFalse(grouping.shouldGroup(post(id: "late", userID: "ada", createdAt: 301_001), with: previous))
+        XCTAssertFalse(grouping.shouldGroup(post(id: "other", userID: "grace", createdAt: 2_000), with: previous))
+    }
+
+    func testGroupingCanBeDisabled() {
+        let grouping = MattermostTimelineGrouping(maximumInterval: 0)
+        let previous = post(id: "first", userID: "ada", createdAt: 1_000)
+        let next = post(id: "next", userID: "ada", createdAt: 2_000)
+
+        XCTAssertFalse(grouping.shouldGroup(next, with: previous))
+    }
+
+    private func post(id: String, userID: String = "user", createdAt: Int64) -> MattermostPost {
         MattermostPost(
             id: id,
             channelID: "channel",
-            userID: "user",
+            userID: userID,
             message: "Message",
             createAt: createdAt,
             updateAt: createdAt

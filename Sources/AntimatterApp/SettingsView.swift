@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("compactTimeline") private var compactTimeline = true
     @AppStorage("showTimelineAvatars") private var showTimelineAvatars = true
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
+    @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @AppStorage("followSystemAppearance") private var followSystemAppearance = false
     @AppStorage("workspaceOpenPreviews") private var openPreviews = true
 
@@ -19,6 +20,12 @@ struct SettingsView: View {
                 Toggle("Use compact message timeline", isOn: $compactTimeline)
                 Toggle("Show user avatars", isOn: $showTimelineAvatars)
                 Stepper("Message font size: \(Int(messageFontSize)) pt", value: $messageFontSize, in: 10...20, step: 1)
+                Stepper(
+                    "Group consecutive messages within: \(Int(messageGroupingIntervalMinutes)) min",
+                    value: $messageGroupingIntervalMinutes,
+                    in: 0...60,
+                    step: 1
+                )
             }
             Section("Workspace") {
                 Toggle("Open channels as previews", isOn: $openPreviews)
