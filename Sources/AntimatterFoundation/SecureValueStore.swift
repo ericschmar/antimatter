@@ -72,3 +72,53 @@ public struct KeychainStore: SecureValueStore {
         ]
     }
 }
+
+/// Persists the non-secret server address in user defaults and its corresponding
+/// session token in the Keychain.
+public struct MattermostSessionStore {
+    public static let keychainService = "com.antimatter.desktop.mattermost"
+
+    private static let lastServerURLKey = "lastMattermostServerURL"
+
+    private let secrets: any SecureValueStore
+    private let defaults: UserDefaults
+
+    public init(
+        secrets: any SecureValueStore = KeychainStore(),
+        defaults: UserDefaults = .standard
+    ) {
+        self.secrets = secrets
+        self.defaults = defaults
+    }
+
+    public func save(_ session: MattermostSession) throws {
+        try secrets.save(
+            Data(session.token.utf8),
+            account: session.serverURL.absoluteString,
+            service: Self.keychainService
+        )
+        defaults.set(session.serverURL.absoluteString, forKey: Self.lastServerURLKey)
+    }
+
+    public func restore(serverURL preferredServerURL: URL? = nil) throws -> MattermostSession? {
+        guard
+            let rawURL = preferredServerURL?.absoluteString
+                ?? defaults.string(forKey: Self.lastServerURLKey),
+            let serverURL = URL(string: rawURL),
+            let data = try secrets.value(account: rawURL, service: Self.keychainService),
+            let token = String(data: data, encoding: .utf8),
+            !token.isEmpty
+        else {
+            return nil
+        }
+        return MattermostSession(serverURL: serverURL, token: token)
+    }
+
+    public func remove() throws {
+        guard let rawURL = defaults.string(forKey: Self.lastServerURLKey) else {
+            return
+        }
+        try secrets.removeValue(account: rawURL, service: Self.keychainService)
+        defaults.removeObject(forKey: Self.lastServerURLKey)
+    }
+}

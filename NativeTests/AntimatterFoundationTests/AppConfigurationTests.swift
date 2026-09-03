@@ -73,4 +73,80 @@ final class AppConfigurationTests: XCTestCase {
             XCTAssertEqual(error, .invalidSSOCallback)
         }
     }
+
+    func testSessionStoreRestoresSavedSession() throws {
+        let defaults = makeDefaults()
+        let store = MattermostSessionStore(secrets: InMemorySecureValueStore(), defaults: defaults)
+        let session = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token"
+        )
+
+        try store.save(session)
+
+        XCTAssertEqual(try store.restore(), session)
+    }
+
+    func testSessionStoreRemovalClearsSavedSession() throws {
+        let defaults = makeDefaults()
+        let store = MattermostSessionStore(secrets: InMemorySecureValueStore(), defaults: defaults)
+        let session = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token"
+        )
+        try store.save(session)
+
+        try store.remove()
+
+        XCTAssertNil(try store.restore())
+    }
+
+    func testSessionStoreRestoresConfiguredServerInsteadOfLastServer() throws {
+        let defaults = makeDefaults()
+        let secrets = InMemorySecureValueStore()
+        let store = MattermostSessionStore(secrets: secrets, defaults: defaults)
+        let lastSession = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://last.example.com")),
+            token: "last-token"
+        )
+        let configuredSession = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://configured.example.com")),
+            token: "configured-token"
+        )
+        try store.save(lastSession)
+        try secrets.save(
+            Data(configuredSession.token.utf8),
+            account: configuredSession.serverURL.absoluteString,
+            service: MattermostSessionStore.keychainService
+        )
+
+        XCTAssertEqual(try store.restore(serverURL: configuredSession.serverURL), configuredSession)
+    }
+
+    private func makeDefaults() -> UserDefaults {
+        let suiteName = "MattermostSessionStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+}
+
+private final class InMemorySecureValueStore: SecureValueStore, @unchecked Sendable {
+    private var values: [String: Data] = [:]
+
+    func save(_ value: Data, account: String, service: String) throws {
+        values[key(account: account, service: service)] = value
+    }
+
+    func value(account: String, service: String) throws -> Data? {
+        values[key(account: account, service: service)]
+    }
+
+    func removeValue(account: String, service: String) throws {
+        values.removeValue(forKey: key(account: account, service: service))
+    }
+
+    private func key(account: String, service: String) -> String {
+        "\(service):\(account)"
+    }
 }

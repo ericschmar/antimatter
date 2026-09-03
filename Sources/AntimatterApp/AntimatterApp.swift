@@ -24,7 +24,11 @@ struct AntimatterApp: App {
             if authentication.connectedSession == nil {
                 AuthenticationScreen(model: authentication)
             } else {
-                WorkspaceShell(configuration: configuration, session: authentication.connectedSession!)
+                WorkspaceShell(
+                    configuration: configuration,
+                    session: authentication.connectedSession!,
+                    disconnect: authentication.disconnect
+                )
             }
         }
         .defaultSize(width: 1_200, height: 800)

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct WorkspaceShell: View {
     let configuration: AppConfiguration
+    let disconnect: () -> Void
     @StateObject private var navigation: NavigationViewModel
     @StateObject private var workspace: WorkspaceViewModel
     @StateObject private var timeline: TimelineViewModel
@@ -16,8 +17,13 @@ struct WorkspaceShell: View {
     @State private var isCommandPalettePresented = false
     @State private var isSettingsPresented = false
 
-    init(configuration: AppConfiguration, session: MattermostSession) {
+    init(
+        configuration: AppConfiguration,
+        session: MattermostSession,
+        disconnect: @escaping () -> Void
+    ) {
         self.configuration = configuration
+        self.disconnect = disconnect
         _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
         _workspace = StateObject(wrappedValue: WorkspaceViewModel())
         _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
@@ -79,7 +85,7 @@ struct WorkspaceShell: View {
             .opacity(0)
         }
         .sheet(isPresented: $isSettingsPresented) {
-            SettingsView()
+            SettingsView(disconnect: disconnect)
         }
         .task {
             focusedRegion = .conversation

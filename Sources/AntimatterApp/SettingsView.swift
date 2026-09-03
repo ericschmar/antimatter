@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    let disconnect: () -> Void
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
     @AppStorage("compactTimeline") private var compactTimeline = true
     @AppStorage("showTimelineAvatars") private var showTimelineAvatars = true
@@ -21,6 +22,9 @@ struct SettingsView: View {
             }
             Section("Workspace") {
                 Toggle("Open channels as previews", isOn: $openPreviews)
+            }
+            Section("Account") {
+                Button("Disconnect", role: .destructive, action: disconnect)
             }
         }
         .formStyle(.grouped)
