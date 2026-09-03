@@ -83,7 +83,7 @@ final class AuthenticationViewModel: NSObject, ObservableObject, ASWebAuthentica
 
     func disconnect() {
         do {
-            try sessionStore.remove()
+            try sessionStore.remove(serverURL: connectedSession?.serverURL)
             connectedSession = nil
         } catch {
             fail(error)

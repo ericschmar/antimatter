@@ -114,11 +114,15 @@ public struct MattermostSessionStore {
         return MattermostSession(serverURL: serverURL, token: token)
     }
 
-    public func remove() throws {
-        guard let rawURL = defaults.string(forKey: Self.lastServerURLKey) else {
+    public func remove(serverURL preferredServerURL: URL? = nil) throws {
+        guard let rawURL = preferredServerURL?.absoluteString
+            ?? defaults.string(forKey: Self.lastServerURLKey)
+        else {
             return
         }
         try secrets.removeValue(account: rawURL, service: Self.keychainService)
-        defaults.removeObject(forKey: Self.lastServerURLKey)
+        if defaults.string(forKey: Self.lastServerURLKey) == rawURL {
+            defaults.removeObject(forKey: Self.lastServerURLKey)
+        }
     }
 }

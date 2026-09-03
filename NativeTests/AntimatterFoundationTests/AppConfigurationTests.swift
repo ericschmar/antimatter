@@ -123,6 +123,31 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertEqual(try store.restore(serverURL: configuredSession.serverURL), configuredSession)
     }
 
+    func testSessionStoreRemovesTheSpecifiedSession() throws {
+        let defaults = makeDefaults()
+        let secrets = InMemorySecureValueStore()
+        let store = MattermostSessionStore(secrets: secrets, defaults: defaults)
+        let lastSession = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://last.example.com")),
+            token: "last-token"
+        )
+        let configuredSession = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://configured.example.com")),
+            token: "configured-token"
+        )
+        try store.save(lastSession)
+        try secrets.save(
+            Data(configuredSession.token.utf8),
+            account: configuredSession.serverURL.absoluteString,
+            service: MattermostSessionStore.keychainService
+        )
+
+        try store.remove(serverURL: configuredSession.serverURL)
+
+        XCTAssertNil(try store.restore(serverURL: configuredSession.serverURL))
+        XCTAssertEqual(try store.restore(), lastSession)
+    }
+
     private func makeDefaults() -> UserDefaults {
         let suiteName = "MattermostSessionStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
