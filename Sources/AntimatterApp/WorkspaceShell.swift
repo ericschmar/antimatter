@@ -35,7 +35,12 @@ struct WorkspaceShell: View {
     var body: some View {
         VStack(spacing: 0) {
             HSplitView {
-                SidebarPlaceholder(navigation: navigation, search: search, isSettingsPresented: $isSettingsPresented)
+                SidebarPlaceholder(
+                    navigation: navigation,
+                    presence: presence,
+                    search: search,
+                    disconnect: disconnect
+                )
                     .frame(
                         minWidth: 220,
                         idealWidth: WorkspaceTheme.sidebarWidth,
@@ -70,6 +75,9 @@ struct WorkspaceShell: View {
         .frame(minWidth: 900, minHeight: 600)
         .preferredColorScheme(.dark)
         .focusedSceneValue(\.workspaceFocusAction, focus)
+        .focusedSceneValue(\.workspaceSettingsAction) {
+            isSettingsPresented = true
+        }
         .overlay {
             if isCommandPalettePresented {
                 CommandPalette(
@@ -128,8 +136,9 @@ struct WorkspaceShell: View {
 
 private struct SidebarPlaceholder: View {
     @ObservedObject var navigation: NavigationViewModel
+    @ObservedObject var presence: PresenceViewModel
     @ObservedObject var search: SearchViewModel
-    @Binding var isSettingsPresented: Bool
+    let disconnect: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -137,9 +146,10 @@ private struct SidebarPlaceholder: View {
                 teams: navigation.teams,
                 selectedTeamID: navigation.selectedTeamID,
                 avatarData: navigation.currentUserAvatarData,
+                status: navigation.currentUserID.flatMap { presence.statuses[$0] } ?? "online",
                 search: search,
-                isSettingsPresented: $isSettingsPresented,
-                onSelectTeam: navigation.selectTeam
+                onSelectTeam: navigation.selectTeam,
+                onLogout: disconnect
             )
             .padding(16)
 
@@ -180,9 +190,10 @@ private struct LargeTitleHeader: View {
     let teams: [MattermostTeam]
     let selectedTeamID: String?
     let avatarData: Data?
+    let status: String
     @ObservedObject var search: SearchViewModel
-    @Binding var isSettingsPresented: Bool
     let onSelectTeam: (MattermostTeam) -> Void
+    let onLogout: () -> Void
     @State private var isTeamPickerPresented = false
 
     private var selectedTeam: MattermostTeam? {
@@ -219,24 +230,30 @@ private struct LargeTitleHeader: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Button {
-                    isSettingsPresented = true
+                Menu {
+                    Button("Log Out", role: .destructive, action: onLogout)
                 } label: {
-                    Group {
-                        if let avatarData, let image = NSImage(data: avatarData) {
-                            Image(nsImage: image)
-                                .resizable()
-                                .scaledToFill()
-                        } else {
-                            Image(systemName: "person.crop.circle.fill")
-                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                    ZStack(alignment: .bottomTrailing) {
+                        Group {
+                            if let avatarData, let image = NSImage(data: avatarData) {
+                                Image(nsImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                            } else {
+                                Image(systemName: "person.crop.circle.fill")
+                                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                            }
                         }
+                        .frame(width: 34, height: 34)
+                        .clipShape(Circle())
+                        Circle()
+                            .fill(statusColor)
+                            .frame(width: 10, height: 10)
+                            .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 2))
                     }
-                    .frame(width: 34, height: 34)
-                    .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Open profile and settings")
+                .menuStyle(.borderlessButton)
+                .accessibilityLabel("Account menu")
             }
 
             HStack(spacing: 8) {
@@ -254,6 +271,15 @@ private struct LargeTitleHeader: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
             .background(WorkspaceTheme.raisedSurface, in: Capsule())
+        }
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case "online": WorkspaceTheme.accent
+        case "away": .yellow
+        case "dnd": WorkspaceTheme.attention
+        default: WorkspaceTheme.secondaryText.opacity(0.65)
         }
     }
 }

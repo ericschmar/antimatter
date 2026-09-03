@@ -17,7 +17,7 @@ final class NavigationViewModel: ObservableObject {
     private let defaults: UserDefaults
     private let favoritesKey = "favoriteMattermostChannelIDs"
     private let channelOrderKey = "mattermostChannelOrder"
-    private var currentUserID: String?
+    private(set) var currentUserID: String?
 
     init(session: MattermostSession, defaults: UserDefaults = .standard) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
