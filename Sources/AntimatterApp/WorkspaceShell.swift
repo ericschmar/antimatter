@@ -1,4 +1,5 @@
 import AntimatterFoundation
+import AppKit
 import SwiftUI
 
 struct WorkspaceShell: View {
@@ -188,8 +189,34 @@ private struct SidebarPlaceholder: View {
                 }
                 .padding(.vertical, 12)
             }
+            .background(OverlayScrollerConfigurator())
         }
         .background(WorkspaceTheme.sidebar)
+    }
+}
+
+private struct OverlayScrollerConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let scrollView = enclosingScrollView(for: view) else { return }
+            scrollView.scrollerStyle = .overlay
+            scrollView.autohidesScrollers = true
+        }
+    }
+
+    private func enclosingScrollView(for view: NSView) -> NSScrollView? {
+        var ancestor: NSView? = view
+        while let current = ancestor {
+            if let scrollView = current as? NSScrollView {
+                return scrollView
+            }
+            ancestor = current.superview
+        }
+        return nil
     }
 }
 
