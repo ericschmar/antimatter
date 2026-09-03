@@ -825,10 +825,10 @@ private struct ReactionSummary: View {
                             .foregroundStyle(WorkspaceTheme.primaryText)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
-                            .background {
-                                RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
-                                    .fill(WorkspaceTheme.raisedSurface)
-                            }
+                            .background(
+                                WorkspaceTheme.surface,
+                                in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+                            )
                             .overlay(
                                 RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
                                     .stroke(WorkspaceTheme.divider, lineWidth: 1)
