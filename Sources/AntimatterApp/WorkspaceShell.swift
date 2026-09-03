@@ -177,6 +177,7 @@ private struct SidebarPlaceholder: View {
                     if navigation.isLoading {
                         ProgressView()
                             .controlSize(.small)
+                            .frame(maxWidth: .infinity)
                             .padding(14)
                     } else if let error = navigation.loadError {
                         Text(error)
