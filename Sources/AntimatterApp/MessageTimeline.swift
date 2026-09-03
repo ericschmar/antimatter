@@ -244,7 +244,9 @@ private struct MessageRow: View {
                     .padding(.top, 4)
             } else {
                 Color.clear.frame(width: 112, height: 1)
-                Color.clear.frame(width: 50, height: 1)
+                if authorUser == nil {
+                    Color.clear.frame(width: 50, height: 1)
+                }
             }
 
             VStack(alignment: .leading, spacing: 6) {
