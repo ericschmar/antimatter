@@ -62,6 +62,7 @@ struct MessageTimeline: View {
                                         onReply: onReply,
                                         onEdit: timeline.beginEditing,
                                         onVote: onVote,
+                                        onEndPoll: timeline.endPoll,
                                         onReactionTooltipChange: updateReactionTooltip
                                     ) { post, emojiName in
                                         timeline.toggleReaction(on: post, emojiName: emojiName)
@@ -141,6 +142,7 @@ struct MessageTimeline: View {
             onReply: onReply,
             onEdit: timeline.beginEditing,
             onVote: onVote,
+            onEndPoll: timeline.endPoll,
             onReactionTooltipChange: updateReactionTooltip,
             onToggleReaction: { post, emojiName in
                 timeline.toggleReaction(on: post, emojiName: emojiName)
@@ -253,6 +255,7 @@ private struct MessageRow: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
+    let onEndPoll: (MattermostPost) -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
@@ -310,9 +313,12 @@ private struct MessageRow: View {
                     fileData: fileData
                 )
                 if let poll = post.poll {
-                    SocialPoll(poll: poll) { actionID in
-                        onVote(post, actionID)
-                    }
+                    SocialPoll(
+                        poll: poll,
+                        canEnd: post.userID == currentUserID,
+                        vote: { actionID in onVote(post, actionID) },
+                        end: { onEndPoll(post) }
+                    )
                 }
                 ReactionSummary(
                     post: post,
@@ -411,8 +417,11 @@ private struct MessageRow: View {
 /// available outside Mattermost's web client.
 private struct SocialPoll: View {
     let poll: MattermostPoll
+    let canEnd: Bool
     let vote: (String) -> Void
+    let end: () -> Void
     @State private var selectedActionID: String?
+    @State private var isEndConfirmationPresented = false
 
     private var options: [MattermostPollAction] {
         poll.attachment?.actions.filter(\.isVote) ?? []
@@ -474,6 +483,14 @@ private struct SocialPoll: View {
             Text(voteSummary)
                 .font(.system(size: 12))
                 .foregroundStyle(WorkspaceTheme.secondaryText)
+            if canEnd {
+                Button("End poll") {
+                    isEndConfirmationPresented = true
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.attention)
+            }
         }
         .padding(16)
         .frame(maxWidth: 300, alignment: .leading)
@@ -483,6 +500,12 @@ private struct SocialPoll: View {
                 .stroke(WorkspaceTheme.primaryText.opacity(0.06), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
+        .alert("End this poll?", isPresented: $isEndConfirmationPresented) {
+            Button("Cancel", role: .cancel) {}
+            Button("End poll", role: .destructive, action: end)
+        } message: {
+            Text("Voting will close and the final results will be posted.")
+        }
     }
 
     private func percentage(for option: MattermostPollAction) -> CGFloat {
@@ -515,6 +538,7 @@ private struct InlineReplyThread: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
+    let onEndPoll: (MattermostPost) -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
@@ -540,6 +564,7 @@ private struct InlineReplyThread: View {
                         onReply: onReply,
                         onEdit: onEdit,
                         onVote: onVote,
+                        onEndPoll: onEndPoll,
                         onReactionTooltipChange: onReactionTooltipChange,
                         onToggleReaction: onToggleReaction
                     )
@@ -580,6 +605,7 @@ private struct InlineReplyRow: View {
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
+    let onEndPoll: (MattermostPost) -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
@@ -611,9 +637,12 @@ private struct InlineReplyRow: View {
                 fileData: fileData
             )
             if let poll = post.poll {
-                SocialPoll(poll: poll) { actionID in
-                    onVote(post, actionID)
-                }
+                SocialPoll(
+                    poll: poll,
+                    canEnd: post.userID == currentUserID,
+                    vote: { actionID in onVote(post, actionID) },
+                    end: { onEndPoll(post) }
+                )
             }
             ReactionSummary(
                 post: post,

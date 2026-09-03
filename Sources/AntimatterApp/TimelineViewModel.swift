@@ -201,6 +201,19 @@ final class TimelineViewModel: ObservableObject {
         }
     }
 
+    func endPoll(_ post: MattermostPost) {
+        guard let pollID = post.poll?.pollID else { return }
+        Task {
+            do {
+                let updatedPost = try await polls.end(postID: post.id, channelID: post.channelID, pollID: pollID)
+                replace(updatedPost)
+                try? await store.apply(.posts([updatedPost]))
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
+    }
+
     func reconcile(_ event: MattermostWebSocketEvent, activeChannelID: String?) async {
         try? await store.reconcile(event)
         guard let activeChannelID else { return }

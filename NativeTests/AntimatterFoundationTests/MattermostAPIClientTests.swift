@@ -237,13 +237,18 @@ final class MattermostAPIClientTests: XCTestCase {
 
         try await polls.create(channelID: "channel-1", teamID: "team-1", question: "Ship it?", options: ["Yes", "No"])
         let post = try await polls.vote(postID: "post-1", actionID: "vote0")
+        let endedPost = try await polls.end(postID: "post-1", channelID: "channel-1", pollID: "poll-1")
 
         XCTAssertEqual(requests.map { $0.url?.path }, [
             "/api/v4/commands/execute",
             "/api/v4/posts/post-1/actions/vote0",
             "/api/v4/posts/post-1",
+            "/api/v4/posts/post-1/actions/endPoll",
+            "/api/v4/actions/dialogs/submit",
+            "/api/v4/posts/post-1",
         ])
         XCTAssertEqual(post.id, "post-1")
+        XCTAssertEqual(endedPost.id, "post-1")
         XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
     }
 

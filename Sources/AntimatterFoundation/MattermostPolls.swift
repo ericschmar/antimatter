@@ -63,6 +63,20 @@ public struct MattermostCommandResponse: Decodable, Sendable {
     }
 }
 
+private struct MattermostDialogSubmission: Encodable, Sendable {
+    let url: String
+    let callbackID: String
+    let channelID: String
+    let submission: [String: String]
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case callbackID = "callback_id"
+        case channelID = "channel_id"
+        case submission
+    }
+}
+
 public actor MattermostPolls {
     private let client: MattermostAPIClient
 
@@ -91,6 +105,25 @@ public actor MattermostPolls {
         let _: MattermostCommandResponse = try await client.post(
             "/api/v4/posts/\(postID)/actions/\(actionID)",
             body: EmptyRequest()
+        )
+        let post: MattermostPost = try await client.get("/api/v4/posts/\(postID)")
+        return post
+    }
+
+    /// Ends a creator-managed Matterpoll after the native confirmation UI.
+    public func end(postID: String, channelID: String, pollID: String) async throws -> MattermostPost {
+        let _: MattermostCommandResponse = try await client.post(
+            "/api/v4/posts/\(postID)/actions/endPoll",
+            body: EmptyRequest()
+        )
+        let _: MattermostCommandResponse = try await client.post(
+            "/api/v4/actions/dialogs/submit",
+            body: MattermostDialogSubmission(
+                url: "/plugins/com.github.matterpoll.matterpoll/api/v1/polls/\(pollID)/end/confirm",
+                callbackID: postID,
+                channelID: channelID,
+                submission: [:]
+            )
         )
         let post: MattermostPost = try await client.get("/api/v4/posts/\(postID)")
         return post
