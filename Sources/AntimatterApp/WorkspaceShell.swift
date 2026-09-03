@@ -390,6 +390,7 @@ private struct ConversationPlaceholder: View {
                 }
 
                 Spacer(minLength: 0)
+                ChannelParticipantStack(participants: channelParticipants)
             }
             .padding(.horizontal, 18)
             .frame(height: WorkspaceTheme.headerHeight)
@@ -444,5 +445,67 @@ private struct ConversationPlaceholder: View {
             return nil
         }
         return description
+    }
+
+    private var channelParticipants: [ChannelParticipant] {
+        let users = navigation.users.merging(timeline.users) { _, timelineUser in timelineUser }
+        var seenUserIDs = Set<String>()
+        return timeline.posts.reversed().compactMap { post in
+            guard seenUserIDs.insert(post.userID).inserted else { return nil }
+            let user = users[post.userID]
+            return ChannelParticipant(
+                id: post.userID,
+                displayName: user?.displayName ?? "Unknown member",
+                avatarData: timeline.avatarData[post.userID]
+            )
+        }
+    }
+}
+
+private struct ChannelParticipant: Identifiable {
+    let id: String
+    let displayName: String
+    let avatarData: Data?
+}
+
+private struct ChannelParticipantStack: View {
+    let participants: [ChannelParticipant]
+    private let visibleParticipantCount = 4
+
+    var body: some View {
+        HStack(spacing: -9) {
+            ForEach(participants.prefix(visibleParticipantCount)) { participant in
+                Group {
+                    if let data = participant.avatarData, let image = NSImage(data: data) {
+                        Image(nsImage: image).resizable().scaledToFill()
+                    } else {
+                        Text(initials(for: participant.displayName))
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(WorkspaceTheme.secondaryText)
+                    }
+                }
+                .frame(width: 28, height: 28)
+                .background(WorkspaceTheme.raisedSurface)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
+                .help(participant.displayName)
+            }
+
+            if participants.count > visibleParticipantCount {
+                Text("+\(participants.count - visibleParticipantCount)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .frame(width: 28, height: 28)
+                    .background(WorkspaceTheme.raisedSurface)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(participants.count) channel participants")
+    }
+
+    private func initials(for name: String) -> String {
+        String(name.split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
     }
 }
