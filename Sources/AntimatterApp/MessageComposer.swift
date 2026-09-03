@@ -8,6 +8,7 @@ struct MessageComposer: View {
     let onSent: (MattermostPost) -> Void
     let onTyping: () -> Void
     @State private var isImportingFiles = false
+    @State private var isCreatingPoll = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -71,6 +72,19 @@ struct MessageComposer: View {
                     .help("Attach files")
                     .disabled(channelID == nil || composer.isSending)
 
+                    Button {
+                        isCreatingPoll = true
+                    } label: {
+                        Image(systemName: "chart.bar")
+                            .font(.system(size: 13, weight: .medium))
+                            .frame(width: 28, height: 26)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .help("Create poll")
+                    .accessibilityLabel("Create poll")
+                    .disabled(channelID == nil || composer.isSending)
+
                     Text("⌘ ↩ Send")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(WorkspaceTheme.secondaryText)
@@ -110,6 +124,12 @@ struct MessageComposer: View {
             guard case let .success(urls) = result else { return }
             composer.addAttachments(urls)
         }
+        .sheet(isPresented: $isCreatingPoll) {
+            PollComposer { question, options in
+                composer.createPoll(question: question, options: options)
+                isCreatingPoll = false
+            }
+        }
         .onChange(of: channelID) { _, channelID in
             composer.select(channelID: channelID)
         }
@@ -124,6 +144,67 @@ struct MessageComposer: View {
             Task { @MainActor in composer.message += text }
         }
         return true
+    }
+}
+
+private struct PollComposer: View {
+    let create: (String, [String]) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var question = ""
+    @State private var options = ["", ""]
+
+    private var cleanedOptions: [String] {
+        options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
+
+    private var canCreate: Bool {
+        !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && cleanedOptions.count >= 2
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Create a poll")
+                .font(.system(size: 20, weight: .semibold))
+            TextField("Question", text: $question)
+                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Options")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                ForEach(options.indices, id: \.self) { index in
+                    HStack {
+                        TextField("Option \(index + 1)", text: $options[index])
+                            .textFieldStyle(.roundedBorder)
+                        if options.count > 2 {
+                            Button {
+                                options.remove(at: index)
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove option \(index + 1)")
+                        }
+                    }
+                }
+                if options.count < 10 {
+                    Button("Add option", systemImage: "plus") {
+                        options.append("")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Create poll") {
+                    create(question.trimmingCharacters(in: .whitespacesAndNewlines), cleanedOptions)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canCreate)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
     }
 }
 

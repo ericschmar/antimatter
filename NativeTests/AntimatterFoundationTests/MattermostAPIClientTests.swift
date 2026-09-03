@@ -178,6 +178,49 @@ final class MattermostAPIClientTests: XCTestCase {
         ])
     }
 
+    func testPollsUseMatterpollCommandAndMattermostPostActions() async throws {
+        var requests: [URLRequest] = []
+        URLProtocolStub.handler = { request in
+            requests.append(request)
+            return (try Self.response(for: request, status: 200), Data("{}".utf8))
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let polls = MattermostPolls(client: client)
+
+        try await polls.create(channelID: "channel-1", question: "Ship it?", options: ["Yes", "No"])
+        try await polls.vote(postID: "post-1", actionID: "0")
+
+        XCTAssertEqual(requests.map { $0.url?.path }, [
+            "/api/v4/commands/execute",
+            "/api/v4/posts/post-1/actions/0",
+        ])
+        XCTAssertEqual(requests.first?.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
+    }
+
+    func testPostDecodesMatterpollOptionsAndVoteCounts() throws {
+        let post = try JSONDecoder().decode(MattermostPost.self, from: Data("""
+        {
+          "id":"post-1", "channel_id":"channel-1", "user_id":"user-1",
+          "type":"custom_matterpoll", "create_at":1, "update_at":1,
+          "props":{"poll_id":"poll-1","attachments":[{"title":"Ship it?","actions":[
+            {"id":"0","name":"Yes (12)","type":"button"},
+            {"id":"addOption","name":"Add Option","type":"button"}
+          ]}]}
+        }
+        """.utf8))
+
+        let option = try XCTUnwrap(post.poll?.attachment?.actions.first)
+        XCTAssertEqual(post.poll?.pollID, "poll-1")
+        XCTAssertEqual(option.option, "Yes")
+        XCTAssertEqual(option.voteCount, 12)
+        XCTAssertTrue(option.isVote)
+        XCTAssertFalse(post.poll?.attachment?.actions[1].isVote ?? true)
+    }
+
     func testTimelineIdentityRequestsAreAuthenticated() async throws {
         var requestedPaths: [String] = []
         URLProtocolStub.handler = { request in

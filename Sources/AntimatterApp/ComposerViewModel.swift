@@ -12,15 +12,16 @@ final class ComposerViewModel: ObservableObject {
     @Published private(set) var replyPost: MattermostPost?
 
     private let sender: MattermostPostSender
+    private let polls: MattermostPolls
     private let defaults: UserDefaults
     private var channelID: String?
     private let draftsKey = "mattermostComposerDrafts"
     private let heightKey = "mattermostComposerHeight"
 
     init(session: MattermostSession, defaults: UserDefaults = .standard) {
-        sender = MattermostPostSender(
-            client: MattermostAPIClient(serverURL: session.serverURL, token: session.token)
-        )
+        let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
+        sender = MattermostPostSender(client: client)
+        polls = MattermostPolls(client: client)
         self.defaults = defaults
         height = max(80, defaults.double(forKey: heightKey))
     }
@@ -46,6 +47,20 @@ final class ComposerViewModel: ObservableObject {
                 replyRootID = nil
                 replyPost = nil
                 onSent(post)
+            } catch {
+                sendError = error.localizedDescription
+            }
+            isSending = false
+        }
+    }
+
+    func createPoll(question: String, options: [String]) {
+        guard let channelID, !isSending else { return }
+        isSending = true
+        sendError = nil
+        Task {
+            do {
+                try await polls.create(channelID: channelID, question: question, options: options)
             } catch {
                 sendError = error.localizedDescription
             }

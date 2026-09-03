@@ -605,6 +605,8 @@ private struct ConversationPlaceholder: View {
                 }
             ) { post in
                 composer.reply(to: post)
+            } onVote: { post, actionID in
+                timeline.vote(on: post, actionID: actionID)
             }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 

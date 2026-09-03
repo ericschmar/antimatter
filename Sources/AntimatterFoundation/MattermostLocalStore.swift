@@ -54,6 +54,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
     public let rootID: String
     public let files: [MattermostFile]
     public let reactions: [MattermostReaction]
+    public let poll: MattermostPoll?
 
     public init(
         id: String,
@@ -64,7 +65,8 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         updateAt: Int64,
         rootID: String = "",
         files: [MattermostFile] = [],
-        reactions: [MattermostReaction] = []
+        reactions: [MattermostReaction] = [],
+        poll: MattermostPoll? = nil
     ) {
         self.id = id
         self.channelID = channelID
@@ -75,6 +77,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         self.rootID = rootID
         self.files = files
         self.reactions = reactions
+        self.poll = poll
     }
 
     enum CodingKeys: String, CodingKey {
@@ -85,6 +88,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         case updateAt = "update_at"
         case rootID = "root_id"
         case metadata
+        case props, type
     }
 
     private enum MetadataCodingKeys: String, CodingKey {
@@ -100,6 +104,10 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         createAt = try values.decodeIfPresent(Int64.self, forKey: .createAt) ?? 0
         updateAt = try values.decodeIfPresent(Int64.self, forKey: .updateAt) ?? createAt
         rootID = try values.decodeIfPresent(String.self, forKey: .rootID) ?? ""
+        let type = try values.decodeIfPresent(String.self, forKey: .type)
+        poll = type == MattermostPoll.postType
+            ? try values.decodeIfPresent(MattermostPoll.self, forKey: .props)
+            : nil
         if values.contains(.metadata) {
             let metadata = try values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
             files = try metadata.decodeIfPresent([MattermostFile].self, forKey: .files) ?? []
@@ -119,6 +127,10 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         try values.encode(createAt, forKey: .createAt)
         try values.encode(updateAt, forKey: .updateAt)
         try values.encode(rootID, forKey: .rootID)
+        if let poll {
+            try values.encode(MattermostPoll.postType, forKey: .type)
+            try values.encode(poll, forKey: .props)
+        }
         var metadata = values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
         try metadata.encode(files, forKey: .files)
         try metadata.encode(reactions, forKey: .reactions)
@@ -282,8 +294,10 @@ public actor MattermostLocalStore {
                 message: post.message,
                 createAt: post.createAt,
                 updateAt: post.updateAt,
+                rootID: post.rootID,
                 files: post.files,
-                reactions: reactions
+                reactions: reactions,
+                poll: post.poll
             )]))
         default:
             return
