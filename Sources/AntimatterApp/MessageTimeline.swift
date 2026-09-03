@@ -29,7 +29,7 @@ struct MessageTimeline: View {
                             ForEach(group.posts) { post in
                                 MessageRow(
                                     post: post,
-                                    user: timeline.users[post.userID] ?? knownUsers[post.userID],
+                                    users: messageUsers,
                                     avatarData: timeline.avatarData[post.userID],
                                     status: timeline.statuses[post.userID] ?? statuses[post.userID],
                                     messageFontSize: messageFontSize,
@@ -43,7 +43,7 @@ struct MessageTimeline: View {
                         }
                     }
                 }
-                .padding(.vertical, 14)
+                .padding(.vertical, 10)
                 .id(messageFontSize)
             }
             .onChange(of: newestPostID) { _, postID in
@@ -68,6 +68,10 @@ struct MessageTimeline: View {
 
     private var newestPostID: String? {
         timeline.posts.last?.id
+    }
+
+    private var messageUsers: [String: MattermostUser] {
+        knownUsers.merging(timeline.users) { _, timelineUser in timelineUser }
     }
 
     private func scrollToLatest(_ postID: String?, with proxy: ScrollViewProxy) {
@@ -113,7 +117,7 @@ private struct TimelineDateHeader: View {
 
 private struct MessageRow: View {
     let post: MattermostPost
-    let user: MattermostUser?
+    let users: [String: MattermostUser]
     let avatarData: Data?
     let status: String?
     let messageFontSize: Double
@@ -142,12 +146,16 @@ private struct MessageRow: View {
             Text(timestamp)
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(WorkspaceTheme.secondaryText)
-                .frame(width: 44, alignment: .trailing)
+                .frame(width: 50, alignment: .trailing)
                 .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 6) {
                 RichMessageContent(post: post, fontSize: messageFontSize)
-                ReactionSummary(post: post, onToggleReaction: onToggleReaction)
+                ReactionSummary(
+                    post: post,
+                    displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
+                    onToggleReaction: onToggleReaction
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
@@ -178,7 +186,7 @@ private struct MessageRow: View {
     }
 
     private var author: String {
-        user?.displayName ?? user?.username ?? "Unknown member"
+        users[post.userID]?.displayName ?? "Unknown member"
     }
 
     private var initials: String {
@@ -246,6 +254,7 @@ private struct PresenceDot: View {
 
 private struct ReactionSummary: View {
     let post: MattermostPost
+    let displayName: (String) -> String
     let onToggleReaction: (MattermostPost, String) -> Void
 
     var body: some View {
@@ -269,6 +278,7 @@ private struct ReactionSummary: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(summary.emojiName) reaction, \(summary.count)")
+                .help("\(summary.emojiName): \(summary.userIDs.map(displayName).joined(separator: ", "))")
             }
 
         }
@@ -277,7 +287,7 @@ private struct ReactionSummary: View {
 
     private var summaries: [ReactionCount] {
         Dictionary(grouping: post.reactions, by: \.emojiName)
-            .map { ReactionCount(emojiName: $0.key, count: $0.value.count) }
+            .map { ReactionCount(emojiName: $0.key, userIDs: $0.value.map(\.userID)) }
             .sorted { $0.emojiName < $1.emojiName }
     }
 
@@ -358,9 +368,10 @@ private struct ReactionPicker: View {
 
 private struct ReactionCount: Identifiable {
     let emojiName: String
-    let count: Int
+    let userIDs: [String]
 
     var id: String { emojiName }
+    var count: Int { userIDs.count }
 }
 
 private struct TimelineStatus: View {

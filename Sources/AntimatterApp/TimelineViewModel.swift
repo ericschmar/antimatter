@@ -56,9 +56,11 @@ final class TimelineViewModel: ObservableObject {
     }
 
     private func loadAuthors(for posts: [MattermostPost]) async {
-        let authorIDs = Array(Set(posts.map(\.userID)))
+        let userIDs = Array(Set(posts.flatMap { post in
+            [post.userID] + post.reactions.map(\.userID)
+        }))
         do {
-            let fetchedUsers = try await loader.loadUsers(ids: authorIDs)
+            let fetchedUsers = try await loader.loadUsers(ids: userIDs)
             users.merge(Dictionary(uniqueKeysWithValues: fetchedUsers.map { ($0.id, $0) })) { _, new in new }
             try? await store.apply(.users(fetchedUsers))
         } catch {
@@ -67,12 +69,12 @@ final class TimelineViewModel: ObservableObject {
             }
         }
 
-        if let loadedStatuses = try? await loader.loadStatuses(userIDs: authorIDs) {
+        if let loadedStatuses = try? await loader.loadStatuses(userIDs: userIDs) {
             statuses.merge(Dictionary(uniqueKeysWithValues: loadedStatuses.map { ($0.userID, $0.status) })) { _, new in new }
         }
 
         await withTaskGroup(of: (String, Data?).self) { group in
-            for userID in authorIDs where avatarData[userID] == nil {
+            for userID in userIDs where avatarData[userID] == nil {
                 group.addTask { [loader] in
                     (userID, try? await loader.loadAvatarData(userID: userID))
                 }
