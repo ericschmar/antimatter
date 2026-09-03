@@ -422,6 +422,12 @@ private struct SocialPoll: View {
         options.reduce(0) { $0 + $1.voteCount }
     }
 
+    /// Matterpoll omits counts unless the poll was created with `--progress`.
+    /// Treat omitted counts as unavailable, not as zero votes.
+    private var hasVoteCounts: Bool {
+        options.contains { $0.name.range(of: #" \([0-9]+\)$"#, options: .regularExpression) != nil }
+    }
+
     private var question: String {
         poll.attachment?.title ?? poll.attachment?.text ?? "Poll"
     }
@@ -465,7 +471,7 @@ private struct SocialPoll: View {
                 .accessibilityLabel("\(option.option), \(option.voteCount) votes")
                 .help("Vote for \(option.option)")
             }
-            Text("\(totalVotes) \(totalVotes == 1 ? "vote" : "votes")")
+            Text(voteSummary)
                 .font(.system(size: 12))
                 .foregroundStyle(WorkspaceTheme.secondaryText)
         }
@@ -480,12 +486,19 @@ private struct SocialPoll: View {
     }
 
     private func percentage(for option: MattermostPollAction) -> CGFloat {
-        guard totalVotes > 0 else { return 0 }
+        guard hasVoteCounts, totalVotes > 0 else { return isSelected(option) ? 1 : 0 }
         return CGFloat(option.voteCount) / CGFloat(totalVotes)
     }
 
     private func isSelected(_ option: MattermostPollAction) -> Bool {
         selectedActionID == option.id
+    }
+
+    private var voteSummary: String {
+        guard hasVoteCounts else {
+            return selectedActionID == nil ? "Results are hidden until the poll ends." : "Your vote was recorded. Results are hidden until the poll ends."
+        }
+        return "\(totalVotes) \(totalVotes == 1 ? "vote" : "votes")"
     }
 }
 
