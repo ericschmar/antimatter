@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct MessageComposer: View {
     @ObservedObject var composer: ComposerViewModel
     let channelID: String?
+    let teamID: String?
     let onSent: (MattermostPost) -> Void
     let onTyping: () -> Void
     @State private var isImportingFiles = false
@@ -131,7 +132,7 @@ struct MessageComposer: View {
             }
         }
         .onChange(of: channelID) { _, channelID in
-            composer.select(channelID: channelID)
+            composer.select(channelID: channelID, teamID: teamID)
         }
         .onChange(of: composer.height) { _, _ in composer.persistHeight() }
     }

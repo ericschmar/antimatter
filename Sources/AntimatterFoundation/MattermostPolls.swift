@@ -43,10 +43,12 @@ public struct MattermostPollAction: Codable, Equatable, Identifiable, Sendable {
 
 public struct MattermostPollCommand: Codable, Sendable {
     public let channelID: String
+    public let teamID: String
     public let command: String
 
     enum CodingKeys: String, CodingKey {
         case channelID = "channel_id"
+        case teamID = "team_id"
         case command
     }
 }
@@ -67,12 +69,12 @@ public actor MattermostPolls {
     }
 
     /// Creates a Matterpoll poll by executing its registered `/poll` command.
-    public func create(channelID: String, question: String, options: [String]) async throws {
+    public func create(channelID: String, teamID: String, question: String, options: [String]) async throws {
         let quoted = ([question] + options).map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" }
         let command = "/poll " + quoted.joined(separator: " ")
         let _: MattermostCommandResponse = try await client.post(
             "/api/v4/commands/execute",
-            body: MattermostPollCommand(channelID: channelID, command: command)
+            body: MattermostPollCommand(channelID: channelID, teamID: teamID, command: command)
         )
     }
 
