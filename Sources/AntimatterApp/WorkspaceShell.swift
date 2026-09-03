@@ -6,6 +6,7 @@ struct WorkspaceShell: View {
     let configuration: AppConfiguration
     let disconnect: () -> Void
     @EnvironmentObject private var accentColorSettings: AccentColorSettings
+    @EnvironmentObject private var userColorSettings: UserColorSettings
     @StateObject private var navigation: NavigationViewModel
     @StateObject private var workspace: WorkspaceViewModel
     @StateObject private var timeline: TimelineViewModel
@@ -107,6 +108,7 @@ struct WorkspaceShell: View {
         .task {
             focusedRegion = .conversation
             await navigation.load(preferredChannelID: workspace.selectedChannelID)
+            userColorSettings.assignColors(to: navigation.users.keys)
             await presence.refresh(for: navigation.presenceUserIDs)
             await realtime.start()
             await notifications.requestPermission()

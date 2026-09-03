@@ -6,6 +6,7 @@ import SwiftEmojiPicker
 
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
+    @EnvironmentObject private var userColorSettings: UserColorSettings
     let knownUsers: [String: MattermostUser]
     let statuses: [String: String]
     let currentUserID: String?
@@ -76,7 +77,11 @@ struct MessageTimeline: View {
             }
             .task(id: channelID) {
                 await timeline.load(channelID: channelID)
+                userColorSettings.assignColors(to: messageUsers.keys)
                 scrollToLatest(newestPostID, with: proxy)
+            }
+            .onChange(of: timeline.users) {
+                userColorSettings.assignColors(to: messageUsers.keys)
             }
         }
         .accessibilityLabel("Message timeline")
@@ -196,6 +201,7 @@ private struct MessageRow: View {
     let onEdit: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
+    @EnvironmentObject private var userColorSettings: UserColorSettings
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var isHovering = false
     @State private var isReactionTooltipPresented = false
@@ -227,7 +233,7 @@ private struct MessageRow: View {
             } else if showsMetadata {
                 Text(author)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .foregroundStyle(userColorSettings.color(for: post.userID))
                     .frame(width: 112, alignment: .leading)
                     .padding(.top, 4)
 
@@ -501,6 +507,7 @@ private struct InlineReplyRow: View {
     let onVote: (MattermostPost, String) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     let onReactionTooltipVisibilityChange: (Bool) -> Void
+    @EnvironmentObject private var userColorSettings: UserColorSettings
     @State private var isReactionTooltipPresented = false
 
     var body: some View {
@@ -516,7 +523,7 @@ private struct InlineReplyRow: View {
                 } else {
                     Text(author)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(WorkspaceTheme.primaryText)
+                        .foregroundStyle(userColorSettings.color(for: post.userID))
                 }
                 Text(timestamp)
                     .font(.system(size: 10, design: .monospaced))
@@ -579,6 +586,7 @@ private struct UserProfileButton: View {
     let user: MattermostUser
     let avatarData: Data?
     let onStartDirectMessage: (MattermostUser) -> Void
+    @EnvironmentObject private var userColorSettings: UserColorSettings
     @State private var isProfilePresented = false
 
     var body: some View {
@@ -587,7 +595,7 @@ private struct UserProfileButton: View {
         } label: {
             Text(user.displayName)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(WorkspaceTheme.primaryText)
+                .foregroundStyle(userColorSettings.color(for: user.id))
         }
         .buttonStyle(.plain)
         .popover(isPresented: $isProfilePresented) {
@@ -603,6 +611,7 @@ private struct UserProfileCard: View {
     let user: MattermostUser
     let avatarData: Data?
     let onStartDirectMessage: () -> Void
+    @EnvironmentObject private var userColorSettings: UserColorSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -612,11 +621,18 @@ private struct UserProfileCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(user.displayName)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(WorkspaceTheme.primaryText)
+                        .foregroundStyle(userColorSettings.color(for: user.id))
                     Text("@\(user.username)")
                         .font(.system(size: 12))
                         .foregroundStyle(WorkspaceTheme.secondaryText)
                 }
+            }
+
+            UserNameColorPicker(
+                selectedColor: userColorSettings.hexColor(for: user.id),
+                userDisplayName: user.displayName
+            ) { color in
+                userColorSettings.setColor(color, for: user.id)
             }
 
             Button("Message", action: onStartDirectMessage)
@@ -639,6 +655,49 @@ private struct UserProfileCard: View {
 
     private var initials: String {
         String(user.displayName.split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
+    }
+}
+
+private struct UserNameColorPicker: View {
+    let selectedColor: String
+    let userDisplayName: String
+    let selectColor: (String) -> Void
+
+    private let columns = Array(repeating: GridItem(.fixed(22), spacing: 8), count: 8)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Name color")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(UserColorSettings.palette, id: \.self) { color in
+                    Button {
+                        selectColor(color)
+                    } label: {
+                        Circle()
+                            .fill(Color(hex: color))
+                            .frame(width: 18, height: 18)
+                            .overlay {
+                                if selectedColor == color {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                            .padding(2)
+                            .overlay {
+                                Circle()
+                                    .stroke(selectedColor == color ? Color.white : Color.clear, lineWidth: 1.5)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Use \(color) for \(userDisplayName)")
+                    .accessibilityAddTraits(selectedColor == color ? .isSelected : [])
+                }
+            }
+        }
     }
 }
 

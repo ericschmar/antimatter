@@ -7,6 +7,7 @@ struct AntimatterApp: App {
     private let configuration: AppConfiguration
     @StateObject private var authentication: AuthenticationViewModel
     @StateObject private var accentColorSettings = AccentColorSettings()
+    @StateObject private var userColorSettings = UserColorSettings()
 
     init() {
         let loadedConfiguration: AppConfiguration
@@ -34,6 +35,7 @@ struct AntimatterApp: App {
                 }
             }
             .environmentObject(accentColorSettings)
+            .environmentObject(userColorSettings)
         }
         .defaultSize(width: 1_200, height: 800)
         .commands {
