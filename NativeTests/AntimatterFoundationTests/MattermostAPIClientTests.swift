@@ -52,6 +52,7 @@ final class MattermostAPIClientTests: XCTestCase {
             MattermostWebSocket.endpoint(for: serverURL).absoluteString,
             "wss://chat.example.com/api/v4/websocket"
         )
+        XCTAssertNil(MattermostWebSocket.upgradeRequest(for: serverURL).value(forHTTPHeaderField: "Authorization"))
     }
 
     func testWebSocketReconnectDelayUsesBoundedExponentialBackoff() {

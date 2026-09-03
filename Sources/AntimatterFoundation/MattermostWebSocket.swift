@@ -95,9 +95,7 @@ public actor MattermostWebSocket {
         guard task == nil else { return }
         reconnectTask?.cancel()
         reconnectTask = nil
-        var request = URLRequest(url: Self.endpoint(for: serverURL))
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let task = session.webSocketTask(with: request)
+        let task = session.webSocketTask(with: Self.upgradeRequest(for: serverURL))
         self.task = task
         task.resume()
         do {
@@ -141,6 +139,10 @@ public actor MattermostWebSocket {
         var components = URLComponents(url: URL(string: "/api/v4/websocket", relativeTo: serverURL)!.absoluteURL, resolvingAgainstBaseURL: false)!
         components.scheme = serverURL.scheme == "https" ? "wss" : "ws"
         return components.url!
+    }
+
+    static func upgradeRequest(for serverURL: URL) -> URLRequest {
+        URLRequest(url: endpoint(for: serverURL))
     }
 
     private func receiveLoop(_ receivingTask: URLSessionWebSocketTask) async {
