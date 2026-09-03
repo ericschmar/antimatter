@@ -11,6 +11,10 @@ struct MessageComposer: View {
     @State private var isImportingFiles = false
     @State private var isCreatingPoll = false
 
+    private var composerDisabled: Bool {
+        channelID == nil || composer.isSending
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let replyPost = composer.replyPost {
@@ -61,30 +65,12 @@ struct MessageComposer: View {
                 Divider().overlay(WorkspaceTheme.divider)
 
                 HStack(spacing: 8) {
-                    Button {
-                        isImportingFiles = true
-                    } label: {
-                        Image(systemName: "paperclip")
-                            .font(.system(size: 13, weight: .medium))
-                            .frame(width: 28, height: 26)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-                    .help("Attach files")
-                    .disabled(channelID == nil || composer.isSending)
-
-                    Button {
-                        isCreatingPoll = true
-                    } label: {
-                        Image(systemName: "chart.bar")
-                            .font(.system(size: 13, weight: .medium))
-                            .frame(width: 28, height: 26)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-                    .help("Create poll")
-                    .accessibilityLabel("Create poll")
-                    .disabled(channelID == nil || composer.isSending)
+                    ComposerFormattingToolbar(
+                        insert: insertFormatting,
+                        attachFiles: { isImportingFiles = true },
+                        createPoll: { isCreatingPoll = true }
+                    )
+                    .disabled(composerDisabled)
 
                     Text("⌘ ↩ Send")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -145,6 +131,103 @@ struct MessageComposer: View {
             Task { @MainActor in composer.message += text }
         }
         return true
+    }
+
+    private func insertFormatting(_ format: ComposerFormat) {
+        composer.message = format.apply(to: composer.message)
+        composer.persistDraft()
+        onTyping()
+    }
+}
+
+private enum ComposerFormat {
+    case bold
+    case italic
+    case underline
+    case bulletedList
+    case numberedList
+    case quote
+    case link
+
+    func apply(to message: String) -> String {
+        switch self {
+        case .bold:
+            wrapped(message, prefix: "**", suffix: "**", placeholder: "bold text")
+        case .italic:
+            wrapped(message, prefix: "*", suffix: "*", placeholder: "italic text")
+        case .underline:
+            wrapped(message, prefix: "<u>", suffix: "</u>", placeholder: "underlined text")
+        case .bulletedList:
+            appended(to: message, text: "- ")
+        case .numberedList:
+            appended(to: message, text: "1. ")
+        case .quote:
+            appended(to: message, text: "> ")
+        case .link:
+            appended(to: message, text: "[link text](https://)")
+        }
+    }
+
+    private func wrapped(_ message: String, prefix: String, suffix: String, placeholder: String) -> String {
+        let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedMessage.isEmpty else { return prefix + placeholder + suffix }
+        return prefix + message + suffix
+    }
+
+    private func appended(to message: String, text: String) -> String {
+        message.isEmpty || message.hasSuffix("\n") ? message + text : message + "\n" + text
+    }
+}
+
+private struct ComposerFormattingToolbar: View {
+    let insert: (ComposerFormat) -> Void
+    let attachFiles: () -> Void
+    let createPoll: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            formatButton("bold", label: "Bold", format: .bold)
+            formatButton("italic", label: "Italic", format: .italic)
+            formatButton("underline", label: "Underline", format: .underline)
+            toolbarDivider
+            formatButton("list.bullet", label: "Bulleted list", format: .bulletedList)
+            formatButton("list.number", label: "Numbered list", format: .numberedList)
+            toolbarDivider
+            formatButton("text.quote", label: "Quote", format: .quote)
+            formatButton("link", label: "Insert link", format: .link)
+            toolbarDivider
+            actionButton("paperclip", label: "Attach files", action: attachFiles)
+            actionButton("chart.bar", label: "Create poll", action: createPoll)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 3)
+        .background(WorkspaceTheme.canvas.opacity(0.55), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+
+    private var toolbarDivider: some View {
+        Divider()
+            .frame(height: 18)
+            .padding(.horizontal, 4)
+            .overlay(WorkspaceTheme.divider)
+    }
+
+    private func formatButton(_ icon: String, label: String, format: ComposerFormat) -> some View {
+        actionButton(icon, label: label) {
+            insert(format)
+        }
+    }
+
+    private func actionButton(_ icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 28, height: 26)
+                .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(WorkspaceTheme.secondaryText)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 
