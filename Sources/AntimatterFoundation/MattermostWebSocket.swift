@@ -69,6 +69,8 @@ public actor MattermostWebSocket {
     private var continuation: AsyncStream<MattermostWebSocketEvent>.Continuation?
     private var reconnectAttempt = 0
     private var reconnectTask: Task<Void, Never>?
+    private var heartbeatTask: Task<Void, Never>?
+    private var nextSequence = 1
 
     public init(serverURL: URL, token: String, session: URLSession = .shared) {
         self.serverURL = serverURL
@@ -88,12 +90,15 @@ public actor MattermostWebSocket {
     public func connect() async throws {
         reconnectTask?.cancel()
         reconnectTask = nil
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
         task?.cancel(with: .normalClosure, reason: nil)
         let task = session.webSocketTask(with: Self.endpoint(for: serverURL))
         self.task = task
         task.resume()
         do {
-            try await task.send(.data(try JSONEncoder().encode(AuthenticationChallenge(token: token))))
+            try await task.send(.data(try JSONEncoder().encode(AuthenticationChallenge(token: token, sequence: nextSequence))))
+            nextSequence += 1
         } catch {
             guard self.task === task else { throw error }
             self.task = nil
@@ -101,6 +106,7 @@ public actor MattermostWebSocket {
             throw error
         }
         reconnectAttempt = 0
+        startHeartbeat(for: task)
         Task { [weak self, weak task] in
             guard let self, let task else { return }
             await self.receiveLoop(task)
@@ -110,6 +116,8 @@ public actor MattermostWebSocket {
     public func disconnect() {
         reconnectTask?.cancel()
         reconnectTask = nil
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
         task?.cancel(with: .normalClosure, reason: nil)
         task = nil
         continuation?.finish()
@@ -118,7 +126,13 @@ public actor MattermostWebSocket {
 
     public func send<Action: Encodable>(_ action: Action) async throws {
         guard let task else { throw MattermostAPIError.invalidResponse }
-        try await task.send(.data(try JSONEncoder().encode(action)))
+        let actionData = try JSONEncoder().encode(action)
+        guard var payload = try JSONSerialization.jsonObject(with: actionData) as? [String: Any] else {
+            throw MattermostAPIError.invalidResponse
+        }
+        payload["seq"] = nextSequence
+        nextSequence += 1
+        try await task.send(.data(try JSONSerialization.data(withJSONObject: payload)))
     }
 
     public static func endpoint(for serverURL: URL) -> URL {
@@ -144,6 +158,7 @@ public actor MattermostWebSocket {
             } catch {
                 guard task === receivingTask else { return }
                 task = nil
+                stopHeartbeat()
                 scheduleReconnect()
                 return
             }
@@ -169,14 +184,56 @@ public actor MattermostWebSocket {
     private func clearReconnectTask() {
         reconnectTask = nil
     }
+
+    private func startHeartbeat(for heartbeatTask: URLSessionWebSocketTask) {
+        self.heartbeatTask?.cancel()
+        self.heartbeatTask = Task { [weak self, weak heartbeatTask] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled else { return }
+                guard let heartbeatTask else { return }
+                await self?.sendHeartbeat(to: heartbeatTask)
+            }
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+    }
+
+    private func sendHeartbeat(to heartbeatTask: URLSessionWebSocketTask) async {
+        guard task === heartbeatTask else { return }
+        do {
+            try await heartbeatTask.send(.data(try JSONEncoder().encode(WebSocketPing(sequence: nextSequence))))
+            nextSequence += 1
+        } catch {
+            guard task === heartbeatTask else { return }
+            task = nil
+            heartbeatTask.cancel(with: .normalClosure, reason: nil)
+            stopHeartbeat()
+            scheduleReconnect()
+        }
+    }
 }
 
 private struct AuthenticationChallenge: Encodable {
+    let seq: Int
     let action = "authentication_challenge"
     let data: [String: String]
 
-    init(token: String) {
+    init(token: String, sequence: Int) {
+        seq = sequence
         data = ["token": token]
+    }
+}
+
+private struct WebSocketPing: Encodable {
+    let seq: Int
+    let action = "ping"
+
+    init(sequence: Int) {
+        seq = sequence
     }
 }
 
