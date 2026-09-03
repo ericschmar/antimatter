@@ -491,7 +491,6 @@ private struct ChannelParticipantStack: View {
                 .background(WorkspaceTheme.raisedSurface)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
-                .help(participant.displayName)
             }
 
             if participants.count > visibleParticipantCount {
@@ -504,8 +503,13 @@ private struct ChannelParticipantStack: View {
                     .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
             }
         }
+        .help(memberTooltip)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(participants.count) channel participants")
+    }
+
+    private var memberTooltip: String {
+        "Channel members:\n" + participants.map(\.displayName).joined(separator: "\n")
     }
 
     private func initials(for name: String) -> String {
