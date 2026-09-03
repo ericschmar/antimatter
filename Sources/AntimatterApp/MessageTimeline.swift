@@ -450,6 +450,7 @@ private struct ReactionSummary: View {
     let displayName: (String) -> String
     let currentUserID: String?
     let onToggleReaction: (MattermostPost, String) -> Void
+    @State private var hoveredReactionID: String?
 
     var body: some View {
         HStack(spacing: 5) {
@@ -481,7 +482,26 @@ private struct ReactionSummary: View {
                 .accessibilityLabel(
                     "\(summary.emojiName) reaction, \(summary.count)\(summary.userIDs.contains(currentUserID ?? "") ? ", selected" : "")"
                 )
-                .help("\(readableName(for: summary.emojiName)) reaction by \(summary.userIDs.map(displayName).joined(separator: ", "))")
+                .onHover { isHovering in
+                    hoveredReactionID = isHovering ? summary.id : nil
+                }
+                .overlay(alignment: .bottom) {
+                    if hoveredReactionID == summary.id {
+                        Text("\(readableName(for: summary.emojiName)) · \(summary.userIDs.map(displayName).joined(separator: ", "))")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(WorkspaceTheme.primaryText)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+                                    .stroke(WorkspaceTheme.divider, lineWidth: 1)
+                            )
+                            .fixedSize()
+                            .offset(y: 30)
+                            .zIndex(1)
+                    }
+                }
             }
 
         }
