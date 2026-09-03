@@ -21,6 +21,53 @@ public struct MattermostTimelineGrouping: Sendable {
     }
 }
 
+public enum MattermostMentionMatcher {
+    public static func containsHighlightableMention(in message: String, username: String?) -> Bool {
+        let usernames = ["here"] + (username.map { [$0] } ?? [])
+        return usernames.contains { username in
+            containsMention(in: message, username: username)
+        }
+    }
+
+    private static func containsMention(in message: String, username: String) -> Bool {
+        guard !username.isEmpty else { return false }
+
+        let mention = "@\(username)"
+        var searchRange = message.startIndex..<message.endIndex
+        while let range = message.range(
+            of: mention,
+            options: [.caseInsensitive],
+            range: searchRange
+        ) {
+            let precedingCharacter = range.lowerBound > message.startIndex
+                ? message[message.index(before: range.lowerBound)]
+                : nil
+
+            if !isMentionIdentifierCharacter(precedingCharacter),
+               isMentionTerminator(in: message, after: range.upperBound) {
+                return true
+            }
+            searchRange = range.upperBound..<message.endIndex
+        }
+        return false
+    }
+
+    private static func isMentionIdentifierCharacter(_ character: Character?) -> Bool {
+        guard let character else { return false }
+        return character.isLetter || character.isNumber || character == "_" || character == "-" || character == "."
+    }
+
+    private static func isMentionTerminator(in message: String, after index: String.Index) -> Bool {
+        guard index < message.endIndex else { return true }
+        guard message[index] == "." else {
+            return !isMentionIdentifierCharacter(message[index])
+        }
+
+        let nextIndex = message.index(after: index)
+        return nextIndex == message.endIndex || !isMentionIdentifierCharacter(message[nextIndex])
+    }
+}
+
 public struct MattermostPostList: Decodable, Sendable {
     public let order: [String]
     public let posts: [String: MattermostPost]

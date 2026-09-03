@@ -6,6 +6,7 @@ struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
     let knownUsers: [String: MattermostUser]
     let statuses: [String: String]
+    let currentUsername: String?
     let channelID: String?
     let onReply: (MattermostPost) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
@@ -34,6 +35,7 @@ struct MessageTimeline: View {
                                     avatarData: timeline.avatarData[post.userID],
                                     status: timeline.statuses[post.userID] ?? statuses[post.userID],
                                     messageFontSize: messageFontSize,
+                                    currentUsername: currentUsername,
                                     showsMetadata: !messageGrouping.shouldGroup(
                                         post,
                                         with: index == 0 ? nil : group.posts[index - 1]
@@ -130,6 +132,7 @@ private struct MessageRow: View {
     let avatarData: Data?
     let status: String?
     let messageFontSize: Double
+    let currentUsername: String?
     let showsMetadata: Bool
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
@@ -171,7 +174,11 @@ private struct MessageRow: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                RichMessageContent(post: post, fontSize: messageFontSize)
+                RichMessageContent(
+                    post: post,
+                    fontSize: messageFontSize,
+                    currentUsername: currentUsername
+                )
                 ReactionSummary(
                     post: post,
                     displayName: { userID in users[userID]?.displayName ?? "Unknown member" },

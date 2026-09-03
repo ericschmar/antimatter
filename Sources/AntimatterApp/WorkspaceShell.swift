@@ -402,6 +402,7 @@ private struct ConversationPlaceholder: View {
                 timeline: timeline,
                 knownUsers: navigation.users,
                 statuses: presence.statuses,
+                currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
                 channelID: selectedTab?.channelID
             ) { post in
                 composer.reply(to: post)

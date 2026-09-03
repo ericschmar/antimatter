@@ -48,6 +48,18 @@ final class MattermostTimelineTests: XCTestCase {
         XCTAssertFalse(grouping.shouldGroup(next, with: previous))
     }
 
+    func testMentionMatcherFindsHereAndLoggedInUserMentions() {
+        XCTAssertTrue(MattermostMentionMatcher.containsHighlightableMention(in: "Heads up, @here.", username: "ada"))
+        XCTAssertTrue(MattermostMentionMatcher.containsHighlightableMention(in: "Thanks, @Ada!", username: "ada"))
+    }
+
+    func testMentionMatcherDoesNotHighlightPartialOrMissingUsernames() {
+        XCTAssertFalse(MattermostMentionMatcher.containsHighlightableMention(in: "@hereabouts", username: "ada"))
+        XCTAssertFalse(MattermostMentionMatcher.containsHighlightableMention(in: "@adam", username: "ada"))
+        XCTAssertFalse(MattermostMentionMatcher.containsHighlightableMention(in: "email@ada.com", username: "ada"))
+        XCTAssertFalse(MattermostMentionMatcher.containsHighlightableMention(in: "Hello", username: nil))
+    }
+
     private func post(id: String, userID: String = "user", createdAt: Int64) -> MattermostPost {
         MattermostPost(
             id: id,

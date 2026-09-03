@@ -6,6 +6,14 @@ import SwiftUI
 struct RichMessageContent: View {
     let post: MattermostPost
     let fontSize: Double
+    let currentUsername: String?
+
+    private var containsHighlightableMention: Bool {
+        MattermostMentionMatcher.containsHighlightableMention(
+            in: post.message,
+            username: currentUsername
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -23,6 +31,14 @@ struct RichMessageContent: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(containsHighlightableMention ? 5 : 0)
+        .background {
+            if containsHighlightableMention {
+                RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+                    .fill(WorkspaceTheme.attention.opacity(0.18))
+            }
+        }
+        .accessibilityHint(containsHighlightableMention ? "Contains a channel or personal mention." : "")
     }
 }
 
