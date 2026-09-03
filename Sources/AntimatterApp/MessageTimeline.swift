@@ -34,6 +34,7 @@ struct MessageTimeline: View {
                                     post: thread.root,
                                     users: messageUsers,
                                     avatarData: timeline.avatarData[thread.root.userID],
+                                    fileData: timeline.fileData,
                                     status: timeline.statuses[thread.root.userID] ?? statuses[thread.root.userID],
                                     messageFontSize: messageFontSize,
                                     currentUsername: currentUsername,
@@ -54,6 +55,7 @@ struct MessageTimeline: View {
                                         users: messageUsers,
                                         statuses: messageStatuses,
                                         currentUsername: currentUsername,
+                                        fileData: timeline.fileData,
                                         messageFontSize: messageFontSize,
                                         onReply: onReply,
                                         onEdit: timeline.beginEditing
@@ -161,6 +163,7 @@ private struct MessageRow: View {
     let post: MattermostPost
     let users: [String: MattermostUser]
     let avatarData: Data?
+    let fileData: [String: Data]
     let status: String?
     let messageFontSize: Double
     let currentUsername: String?
@@ -208,7 +211,8 @@ private struct MessageRow: View {
                 RichMessageContent(
                     post: post,
                     fontSize: messageFontSize,
-                    currentUsername: currentUsername
+                    currentUsername: currentUsername,
+                    fileData: fileData
                 )
                 ReactionSummary(
                     post: post,
@@ -269,6 +273,7 @@ private struct InlineReplyThread: View {
     let users: [String: MattermostUser]
     let statuses: [String: String]
     let currentUsername: String?
+    let fileData: [String: Data]
     let messageFontSize: Double
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
@@ -287,6 +292,7 @@ private struct InlineReplyThread: View {
                         users: users,
                         status: statuses[reply.userID],
                         currentUsername: currentUsername,
+                        fileData: fileData,
                         messageFontSize: messageFontSize,
                         onReply: onReply,
                         onEdit: onEdit,
@@ -311,6 +317,7 @@ private struct InlineReplyRow: View {
     let users: [String: MattermostUser]
     let status: String?
     let currentUsername: String?
+    let fileData: [String: Data]
     let messageFontSize: Double
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
@@ -331,7 +338,8 @@ private struct InlineReplyRow: View {
             RichMessageContent(
                 post: post,
                 fontSize: messageFontSize,
-                currentUsername: currentUsername
+                currentUsername: currentUsername,
+                fileData: fileData
             )
             ReactionSummary(
                 post: post,

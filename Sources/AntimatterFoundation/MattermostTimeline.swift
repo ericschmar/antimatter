@@ -143,6 +143,10 @@ public actor MattermostTimelineLoader {
         try await client.getData("/api/v4/users/\(userID)/image")
     }
 
+    public func loadFileData(fileID: String) async throws -> Data {
+        try await client.getData("/api/v4/files/\(fileID)")
+    }
+
     public func loadStatuses(userIDs: [String]) async throws -> [MattermostUserStatus] {
         guard !userIDs.isEmpty else { return [] }
         return try await client.post("/api/v4/users/status/ids", body: userIDs)

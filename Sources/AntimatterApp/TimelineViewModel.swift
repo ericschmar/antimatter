@@ -6,6 +6,7 @@ final class TimelineViewModel: ObservableObject {
     @Published private(set) var posts: [MattermostPost] = []
     @Published private(set) var users: [String: MattermostUser] = [:]
     @Published private(set) var avatarData: [String: Data] = [:]
+    @Published private(set) var fileData: [String: Data] = [:]
     @Published private(set) var statuses: [String: String] = [:]
     @Published private(set) var isLoading = false
     @Published private(set) var loadError: String?
@@ -40,6 +41,7 @@ final class TimelineViewModel: ObservableObject {
             posts = chronological(cached.posts.filter { $0.channelID == channelID })
             users.merge(Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })) { _, new in new }
             await loadAuthors(for: posts)
+            await loadImageAttachments(for: posts)
         }
 
         do {
@@ -47,6 +49,7 @@ final class TimelineViewModel: ObservableObject {
             try await store.apply(.posts(recentPosts))
             posts = chronological(recentPosts)
             await loadAuthors(for: recentPosts)
+            await loadImageAttachments(for: recentPosts)
         } catch {
             if posts.isEmpty {
                 loadError = error.localizedDescription
@@ -81,6 +84,25 @@ final class TimelineViewModel: ObservableObject {
             }
             for await (userID, data) in group where data != nil {
                 avatarData[userID] = data
+            }
+        }
+    }
+
+    private func loadImageAttachments(for posts: [MattermostPost]) async {
+        let imageFileIDs = Set(
+            posts
+                .flatMap(\.files)
+                .filter { $0.mimeType.hasPrefix("image/") }
+                .map(\.id)
+        )
+        await withTaskGroup(of: (String, Data?).self) { group in
+            for fileID in imageFileIDs where fileData[fileID] == nil {
+                group.addTask { [loader] in
+                    (fileID, try? await loader.loadFileData(fileID: fileID))
+                }
+            }
+            for await (fileID, data) in group where data != nil {
+                fileData[fileID] = data
             }
         }
     }
@@ -133,6 +155,7 @@ final class TimelineViewModel: ObservableObject {
             guard let post = event.decodedData(MattermostPost.self, forKey: "post"),
                   post.channelID == activeChannelID else { return }
             posts = chronological(posts.filter { $0.id != post.id } + [post])
+            await loadImageAttachments(for: [post])
         case "post_deleted":
             guard let postID = event.data?["post_id"]?.stringValue else { return }
             posts.removeAll { $0.id == postID }
@@ -170,6 +193,7 @@ final class TimelineViewModel: ObservableObject {
     func appendSentPost(_ post: MattermostPost) async {
         replace(post)
         try? await store.apply(.posts([post]))
+        await loadImageAttachments(for: [post])
     }
 
     func beginEditing(_ post: MattermostPost) {
