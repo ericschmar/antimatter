@@ -120,21 +120,27 @@ private struct MessageRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
+            PresenceDot(status: status)
+                .padding(.top, 8)
+
             if showAvatars {
                 Avatar(data: avatarData, initials: initials)
                     .accessibilityHidden(true)
             }
 
+            Text(author)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+                .frame(width: 112, alignment: .leading)
+                .padding(.top, 4)
+
+            Text(timestamp)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+                .frame(width: 44, alignment: .trailing)
+                .padding(.top, 4)
+
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 5) {
-                    Text(author)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(WorkspaceTheme.primaryText)
-                    PresenceDot(status: status)
-                    Text(timestamp)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                }
                 RichMessageContent(post: post)
                 ReactionSummary(
                     post: post,
