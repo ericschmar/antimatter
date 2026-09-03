@@ -457,21 +457,12 @@ private struct ReactionSummary: View {
                     onToggleReaction(post, summary.emojiName)
                 } label: {
                     HStack(spacing: 3) {
-                        if isUnicodeEmoji(summary.emojiName) {
-                            Text(summary.emojiName)
-                                .font(.system(size: 12))
-                        } else {
-                            Image(systemName: symbol(for: summary.emojiName))
-                                .font(.system(size: 11, weight: .semibold))
-                        }
+                        Text(displayEmoji(for: summary.emojiName))
+                            .font(.system(size: 14))
                         Text("\(summary.count)")
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     }
-                    .foregroundStyle(
-                        isUnicodeEmoji(summary.emojiName)
-                            ? WorkspaceTheme.primaryText
-                            : color(for: summary.emojiName)
-                    )
+                    .foregroundStyle(WorkspaceTheme.primaryText)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
                     .background(WorkspaceTheme.raisedSurface)
@@ -502,13 +493,20 @@ private struct ReactionSummary: View {
             .sorted { $0.emojiName < $1.emojiName }
     }
 
-    private func symbol(for emojiName: String) -> String {
+    private func displayEmoji(for emojiName: String) -> String {
         switch emojiName {
-        case "heart": "heart.fill"
-        case "+1", "thumbsup": "hand.thumbsup.fill"
-        case "-1", "thumbsdown": "hand.thumbsdown.fill"
-        case "tada": "sparkles"
-        default: "face.smiling"
+        case "heart": "❤️"
+        case "+1", "thumbsup": "👍"
+        case "-1", "thumbsdown": "👎"
+        case "tada": "🎉"
+        case "white_check_mark": "✅"
+        case "thinking_face": "🤔"
+        case "joy": "😂"
+        case "wave": "👋"
+        case "eyes": "👀"
+        case "fire": "🔥"
+        case "rocket": "🚀"
+        default: emojiName
         }
     }
 
@@ -522,22 +520,6 @@ private struct ReactionSummary: View {
         }
     }
 
-    private func color(for emojiName: String) -> Color {
-        switch emojiName {
-        case "heart": .pink
-        case "+1", "thumbsup", "white_check_mark": WorkspaceTheme.accent
-        case "-1", "thumbsdown": .orange
-        case "tada", "rocket": .purple
-        case "joy", "wave": .yellow
-        case "eyes", "thinking_face": .cyan
-        case "fire": .red
-        default: WorkspaceTheme.secondaryText
-        }
-    }
-
-    private func isUnicodeEmoji(_ emojiName: String) -> Bool {
-        emojiName.unicodeScalars.contains(where: { $0.properties.isEmoji && !$0.isASCII })
-    }
 }
 
 private struct AddReactionButton: View {
