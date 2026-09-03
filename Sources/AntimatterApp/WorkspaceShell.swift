@@ -191,33 +191,31 @@ private struct LargeTitleHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TEAM")
-                        .font(.system(size: 12, weight: .semibold))
-                        .tracking(0.5)
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                    Button {
-                        isTeamPickerPresented.toggle()
-                    } label: {
-                        HStack(spacing: 7) {
-                            Text(selectedTeam?.displayName ?? "No team")
-                            Image(systemName: isTeamPickerPresented ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 13, weight: .semibold))
-                        }
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(WorkspaceTheme.primaryText)
-                        .lineLimit(1)
+            HStack(alignment: .center, spacing: 10) {
+                Text("TEAM")
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(0.5)
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                Button {
+                    isTeamPickerPresented.toggle()
+                } label: {
+                    HStack(spacing: 7) {
+                        Text(selectedTeam?.displayName ?? "No team")
+                        Image(systemName: isTeamPickerPresented ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
                     }
-                    .buttonStyle(.plain)
-                    .popover(isPresented: $isTeamPickerPresented, arrowEdge: .bottom) {
-                        TeamPicker(
-                            teams: teams,
-                            selectedTeamID: selectedTeamID
-                        ) { team in
-                            onSelectTeam(team)
-                            isTeamPickerPresented = false
-                        }
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $isTeamPickerPresented, arrowEdge: .bottom) {
+                    TeamPicker(
+                        teams: teams,
+                        selectedTeamID: selectedTeamID
+                    ) { team in
+                        onSelectTeam(team)
+                        isTeamPickerPresented = false
                     }
                 }
                 Spacer(minLength: 0)
