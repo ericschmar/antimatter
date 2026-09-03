@@ -1,6 +1,7 @@
 import AntimatterFoundation
 import AppKit
 import MarkdownUI
+@preconcurrency import QuickLookUI
 import SwiftUI
 
 struct RichMessageContent: View {
@@ -35,7 +36,7 @@ struct RichMessageContent: View {
 
             if !nonImageFiles.isEmpty {
                 ForEach(nonImageFiles) { file in
-                    FileAttachmentRow(file: file)
+                    FileAttachmentRow(file: file, data: fileData[file.id])
                 }
             }
         }
@@ -103,22 +104,28 @@ private struct ChatImageAttachment: View {
     var body: some View {
         Group {
             if let first = files.first, let data = data[first.id], let image = NSImage(data: data) {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: 300, maxHeight: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(alignment: .bottomTrailing) {
-                        if files.count > 1 {
-                            Label("\(files.count) images", systemImage: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(.black.opacity(0.5), in: Capsule())
-                                .padding(12)
+                Button {
+                    openQuickLookPreview(for: first, data: data)
+                } label: {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: 300, maxHeight: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(alignment: .bottomTrailing) {
+                            if files.count > 1 {
+                                Label("\(files.count) images", systemImage: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(.black.opacity(0.5), in: Capsule())
+                                    .padding(12)
+                            }
                         }
-                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Preview image \(first.name)")
             } else {
                 ProgressView()
                     .controlSize(.small)
@@ -131,37 +138,80 @@ private struct ChatImageAttachment: View {
 
 private struct FileAttachmentRow: View {
     let file: MattermostFile
+    let data: Data?
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "doc.fill")
-                .font(.system(size: 20))
-                .foregroundStyle(WorkspaceTheme.attention)
-                .frame(width: 44, height: 44)
-                .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 10))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(file.name)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                Text(detail)
-                    .font(.system(size: 10, design: .monospaced))
+        Button {
+            if let data {
+                openQuickLookPreview(for: file, data: data)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(WorkspaceTheme.attention)
+                    .frame(width: 44, height: 44)
+                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 10))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(file.name)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                    Text(detail)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: data == nil ? "arrow.down.circle" : "eye")
+                    .font(.system(size: 20))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
             }
-            Spacer(minLength: 0)
-            Image(systemName: "arrow.down.circle")
-                .font(.system(size: 20))
-                .foregroundStyle(WorkspaceTheme.secondaryText)
+            .padding(12)
+            .frame(maxWidth: 360, alignment: .leading)
+            .background(WorkspaceTheme.raisedSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .padding(12)
-        .frame(maxWidth: 360, alignment: .leading)
-        .background(WorkspaceTheme.raisedSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Attached file \(file.name), \(detail)")
+        .buttonStyle(.plain)
+        .disabled(data == nil)
+        .accessibilityLabel("Preview attached file \(file.name), \(detail)")
     }
 
     private var detail: String {
         "\(file.mimeType) · \(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))"
     }
+}
 
+private final class AttachmentQuickLookPreview: NSObject, QLPreviewPanelDataSource, @unchecked Sendable {
+    static let shared = AttachmentQuickLookPreview()
+    private var url: URL?
+
+    @MainActor
+    func show(url: URL) {
+        self.url = url
+        guard let panel = QLPreviewPanel.shared() else { return }
+        panel.dataSource = self
+        panel.reloadData()
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+        url == nil ? 0 : 1
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+        url as NSURL?
+    }
+}
+
+@MainActor
+private func openQuickLookPreview(for file: MattermostFile, data: Data) {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AntimatterAttachments", isDirectory: true)
+    let filename = "\(file.id)-\(URL(fileURLWithPath: file.name).lastPathComponent)"
+    let url = directory.appendingPathComponent(filename)
+    do {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+        AttachmentQuickLookPreview.shared.show(url: url)
+    } catch {
+        return
+    }
 }
