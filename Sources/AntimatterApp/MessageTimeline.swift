@@ -269,16 +269,16 @@ private struct ReactionSummary: View {
                         Text("\(summary.count)")
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     }
-                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .foregroundStyle(color(for: summary.emojiName))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(WorkspaceTheme.raisedSurface)
+                    .background(color(for: summary.emojiName).opacity(0.16))
                     .clipShape(Capsule())
-                    .overlay(Capsule().stroke(WorkspaceTheme.divider, lineWidth: 1))
+                    .overlay(Capsule().stroke(color(for: summary.emojiName).opacity(0.42), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(summary.emojiName) reaction, \(summary.count)")
-                .help("\(summary.emojiName): \(summary.userIDs.map(displayName).joined(separator: ", "))")
+                .help("\(readableName(for: summary.emojiName)) reaction by \(summary.userIDs.map(displayName).joined(separator: ", "))")
             }
 
         }
@@ -301,6 +301,28 @@ private struct ReactionSummary: View {
         }
     }
 
+    private func readableName(for emojiName: String) -> String {
+        switch emojiName {
+        case "+1", "thumbsup": "Thumbs up"
+        case "-1", "thumbsdown": "Thumbs down"
+        case "white_check_mark": "Check mark"
+        case "thinking_face": "Thinking face"
+        default: emojiName.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    private func color(for emojiName: String) -> Color {
+        switch emojiName {
+        case "heart": .pink
+        case "+1", "thumbsup", "white_check_mark": WorkspaceTheme.accent
+        case "-1", "thumbsdown": .orange
+        case "tada", "rocket": .purple
+        case "joy", "wave": .yellow
+        case "eyes", "thinking_face": .cyan
+        case "fire": .red
+        default: WorkspaceTheme.secondaryText
+        }
+    }
 }
 
 private struct AddReactionButton: View {

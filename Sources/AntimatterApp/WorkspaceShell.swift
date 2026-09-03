@@ -381,6 +381,14 @@ private struct ConversationPlaceholder: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(WorkspaceTheme.primaryText)
 
+                if let channelDescription {
+                    Text(channelDescription)
+                        .font(.system(size: 12))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 18)
@@ -424,5 +432,16 @@ private struct ConversationPlaceholder: View {
 
     private var selectedTab: WorkspaceTab? {
         workspace.tabs.first(where: { $0.channelID == workspace.selectedChannelID })
+    }
+
+    private var channelDescription: String? {
+        guard
+            let channelID = selectedTab?.channelID,
+            let description = navigation.channels.first(where: { $0.id == channelID })?.description,
+            !description.isEmpty
+        else {
+            return nil
+        }
+        return description
     }
 }

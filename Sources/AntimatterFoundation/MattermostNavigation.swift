@@ -16,6 +16,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public let teamID: String
     public let name: String
     public let displayName: String
+    public let description: String
     public let type: String
     public let deleteAt: Int64
     public let lastPostAt: Int64
@@ -23,7 +24,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
     public var mentionCount: Int
 
     enum CodingKeys: String, CodingKey {
-        case id, name, type
+        case id, name, type, description
         case teamID = "team_id"
         case displayName = "display_name"
         case deleteAt = "delete_at"
@@ -38,6 +39,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
         teamID = try values.decodeIfPresent(String.self, forKey: .teamID) ?? ""
         name = try values.decode(String.self, forKey: .name)
         displayName = (try values.decodeIfPresent(String.self, forKey: .displayName))?.nonEmpty ?? name
+        description = try values.decodeIfPresent(String.self, forKey: .description) ?? ""
         type = try values.decode(String.self, forKey: .type)
         deleteAt = try values.decodeIfPresent(Int64.self, forKey: .deleteAt) ?? 0
         lastPostAt = try values.decodeIfPresent(Int64.self, forKey: .lastPostAt) ?? 0
@@ -51,6 +53,7 @@ public struct MattermostChannel: Codable, Identifiable, Equatable, Sendable {
         try values.encode(teamID, forKey: .teamID)
         try values.encode(name, forKey: .name)
         try values.encode(displayName, forKey: .displayName)
+        try values.encode(description, forKey: .description)
         try values.encode(type, forKey: .type)
         try values.encode(deleteAt, forKey: .deleteAt)
         try values.encode(lastPostAt, forKey: .lastPostAt)
