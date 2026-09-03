@@ -36,7 +36,7 @@ struct ChannelSection: View {
                             .font(.system(size: 10, weight: .bold))
                         Image(systemName: sectionIcon)
                             .font(.system(size: 14))
-                            .foregroundStyle(WorkspaceTheme.treeFolder)
+                            .foregroundStyle(WorkspaceTheme.accent)
                         Text(title)
                             .font(.system(size: 14, weight: .medium))
                         Spacer(minLength: 0)
