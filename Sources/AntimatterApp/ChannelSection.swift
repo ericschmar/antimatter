@@ -112,6 +112,17 @@ struct ChannelSection: View {
                         Button(navigation.isFavorite(channel) ? "Remove from Favorites" : "Add to Favorites") {
                             navigation.toggleFavorite(channel)
                         }
+                        Divider()
+                        Button(
+                            navigation.isArchived(channel) ? "Unarchive chat" : "Archive chat",
+                            role: navigation.isArchived(channel) ? nil : .destructive
+                        ) {
+                            if navigation.isArchived(channel) {
+                                navigation.unarchive(channel)
+                            } else {
+                                navigation.archive(channel)
+                            }
+                        }
                     }
                     }
                 }

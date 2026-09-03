@@ -233,24 +233,7 @@ private struct LargeTitleHeader: View {
                 Menu {
                     Button("Log Out", role: .destructive, action: onLogout)
                 } label: {
-                    ZStack(alignment: .bottomTrailing) {
-                        Group {
-                            if let avatarData, let image = NSImage(data: avatarData) {
-                                Image(nsImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                            } else {
-                                Image(systemName: "person.crop.circle.fill")
-                                    .foregroundStyle(WorkspaceTheme.secondaryText)
-                            }
-                        }
-                        .frame(width: 66, height: 66)
-                        .clipShape(Circle())
-                        Circle()
-                            .fill(statusColor)
-                            .frame(width: 18, height: 18)
-                            .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 3))
-                    }
+                    LoggedInAvatar(data: avatarData, status: status)
                 }
                 .menuStyle(.borderlessButton)
                 .accessibilityLabel("Account menu")
@@ -271,6 +254,33 @@ private struct LargeTitleHeader: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
             .background(WorkspaceTheme.raisedSurface, in: Capsule())
+        }
+    }
+
+}
+
+private struct LoggedInAvatar: View {
+    let data: Data?
+    let status: String
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Group {
+                if let data, let image = NSImage(data: data) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
+            }
+            .frame(width: 66, height: 66)
+            .clipShape(Circle())
+            Circle()
+                .fill(statusColor)
+                .frame(width: 18, height: 18)
+                .overlay(Circle().stroke(WorkspaceTheme.sidebar, lineWidth: 3))
         }
     }
 

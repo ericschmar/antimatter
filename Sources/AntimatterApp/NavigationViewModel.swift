@@ -19,6 +19,7 @@ final class NavigationViewModel: ObservableObject {
     private let favoritesKey = "favoriteMattermostChannelIDs"
     private let channelOrderKey = "mattermostChannelOrder"
     private let selectedTeamKey = "selectedMattermostTeamID"
+    private let archivedChannelKey = "archivedMattermostChannelIDs"
     private(set) var currentUserID: String?
 
     init(session: MattermostSession, defaults: UserDefaults = .standard) {
@@ -30,38 +31,38 @@ final class NavigationViewModel: ObservableObject {
     }
 
     var favoriteChannels: [MattermostChannel] {
-        ordered(visibleChannels.filter { favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "favorites")
+        ordered(visibleChannels.filter { favoriteIDs.contains($0.id) && !isArchived($0) }, section: "favorites")
     }
 
     var publicChannels: [MattermostChannel] {
-        ordered(visibleChannels.filter { $0.type == "O" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "channels")
+        ordered(visibleChannels.filter { $0.type == "O" && !favoriteIDs.contains($0.id) && !isArchived($0) }, section: "channels")
     }
 
     var regularChannels: [MattermostChannel] {
         ordered(
             visibleChannels.filter {
-                ($0.type == "O" || $0.type == "P") && !favoriteIDs.contains($0.id) && $0.deleteAt == 0
+                ($0.type == "O" || $0.type == "P") && !favoriteIDs.contains($0.id) && !isArchived($0)
             },
             section: "channels"
         )
     }
 
     var privateChannels: [MattermostChannel] {
-        ordered(visibleChannels.filter { $0.type == "P" && !favoriteIDs.contains($0.id) && $0.deleteAt == 0 }, section: "private")
+        ordered(visibleChannels.filter { $0.type == "P" && !favoriteIDs.contains($0.id) && !isArchived($0) }, section: "private")
     }
 
     var directMessages: [MattermostChannel] {
         visibleChannels
-            .filter { $0.type == "D" && $0.deleteAt == 0 }
+            .filter { $0.type == "D" && !isArchived($0) }
             .sorted { $0.lastPostAt > $1.lastPostAt }
     }
 
     var groupMessages: [MattermostChannel] {
-        ordered(visibleChannels.filter { $0.type == "G" && $0.deleteAt == 0 }, section: "group")
+        ordered(visibleChannels.filter { $0.type == "G" && !isArchived($0) }, section: "group")
     }
 
     var archivedChannels: [MattermostChannel] {
-        ordered(visibleChannels.filter { $0.deleteAt != 0 }, section: "archived")
+        ordered(visibleChannels.filter(isArchived), section: "archived")
     }
 
     func load(preferredChannelID: String? = nil) async {
@@ -126,6 +127,27 @@ final class NavigationViewModel: ObservableObject {
         favoriteIDs.contains(channel.id)
     }
 
+    func archive(_ channel: MattermostChannel) {
+        var updated = archivedChannelIDs
+        updated.insert(channel.id)
+        defaults.set(Array(updated), forKey: archivedChannelKey)
+        if selectedChannelID == channel.id {
+            selectedChannelID = regularChannels.first?.id ?? directMessages.first?.id
+        }
+        objectWillChange.send()
+    }
+
+    func unarchive(_ channel: MattermostChannel) {
+        var updated = archivedChannelIDs
+        updated.remove(channel.id)
+        defaults.set(Array(updated), forKey: archivedChannelKey)
+        objectWillChange.send()
+    }
+
+    func isArchived(_ channel: MattermostChannel) -> Bool {
+        channel.deleteAt != 0 || archivedChannelIDs.contains(channel.id)
+    }
+
     func selectTeam(_ team: MattermostTeam) {
         guard selectedTeamID != team.id else { return }
         selectedTeamID = team.id
@@ -135,7 +157,7 @@ final class NavigationViewModel: ObservableObject {
 
     func displayName(for channel: MattermostChannel) -> String {
         guard channel.type == "D" else { return channel.displayName }
-        guard let userID = directMessageUserID(for: channel) else { return channel.displayName }
+        guard let userID = directMessageUserID(for: channel) else { return "You" }
         return users[userID]?.displayName ?? channel.displayName
     }
 
@@ -182,6 +204,10 @@ final class NavigationViewModel: ObservableObject {
 
     private var favoriteIDs: Set<String> {
         Set(defaults.stringArray(forKey: favoritesKey) ?? [])
+    }
+
+    private var archivedChannelIDs: Set<String> {
+        Set(defaults.stringArray(forKey: archivedChannelKey) ?? [])
     }
 
     private var visibleChannels: [MattermostChannel] {
