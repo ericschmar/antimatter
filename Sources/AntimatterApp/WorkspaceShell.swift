@@ -9,7 +9,7 @@ struct WorkspaceShell: View {
     @StateObject private var timeline: TimelineViewModel
     @StateObject private var realtime: RealtimeUpdatesViewModel
     @StateObject private var composer: ComposerViewModel
-    @StateObject private var presence = PresenceViewModel()
+    @StateObject private var presence: PresenceViewModel
     @StateObject private var search: SearchViewModel
     @StateObject private var notifications = NotificationManager()
     @Environment(\.scenePhase) private var scenePhase
@@ -29,6 +29,7 @@ struct WorkspaceShell: View {
         _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
         _realtime = StateObject(wrappedValue: RealtimeUpdatesViewModel(session: session))
         _composer = StateObject(wrappedValue: ComposerViewModel(session: session))
+        _presence = StateObject(wrappedValue: PresenceViewModel(session: session))
         _search = StateObject(wrappedValue: SearchViewModel(session: session))
     }
 
@@ -100,6 +101,7 @@ struct WorkspaceShell: View {
         .task {
             focusedRegion = .conversation
             await navigation.load(preferredChannelID: workspace.selectedChannelID)
+            await presence.refresh(for: navigation.presenceUserIDs)
             await realtime.start()
             await notifications.requestPermission()
         }
@@ -151,7 +153,7 @@ private struct SidebarPlaceholder: View {
                 teams: navigation.teams,
                 selectedTeamID: navigation.selectedTeamID,
                 avatarData: navigation.currentUserAvatarData,
-                status: navigation.currentUserID.flatMap { presence.statuses[$0] } ?? "online",
+                status: navigation.currentUserID.flatMap { presence.statuses[$0] },
                 search: search,
                 onSelectTeam: navigation.selectTeam,
                 onLogout: disconnect
@@ -195,7 +197,7 @@ private struct LargeTitleHeader: View {
     let teams: [MattermostTeam]
     let selectedTeamID: String?
     let avatarData: Data?
-    let status: String
+    let status: String?
     @ObservedObject var search: SearchViewModel
     let onSelectTeam: (MattermostTeam) -> Void
     let onLogout: () -> Void
@@ -272,7 +274,7 @@ private struct LargeTitleHeader: View {
 
 private struct LoggedInAvatar: View {
     let data: Data?
-    let status: String
+    let status: String?
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {

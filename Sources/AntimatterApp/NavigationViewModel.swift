@@ -65,6 +65,14 @@ final class NavigationViewModel: ObservableObject {
         ordered(visibleChannels.filter(isArchived), section: "archived")
     }
 
+    var presenceUserIDs: Set<String> {
+        var userIDs = Set(directMessages.compactMap(directMessageUserID(for:)))
+        if let currentUserID {
+            userIDs.insert(currentUserID)
+        }
+        return userIDs
+    }
+
     func load(preferredChannelID: String? = nil) async {
         guard !isLoading else { return }
         isLoading = true

@@ -6,7 +6,26 @@ final class PresenceViewModel: ObservableObject {
     @Published private(set) var typingUserIDs: Set<String> = []
     @Published private(set) var statuses: [String: String] = [:]
 
+    private let client: MattermostAPIClient
     private var expiryTasks: [String: Task<Void, Never>] = [:]
+
+    init(session: MattermostSession) {
+        client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
+    }
+
+    func refresh(for userIDs: Set<String>) async {
+        guard !userIDs.isEmpty else { return }
+        do {
+            let refreshedStatuses: [String: String] = try await client.post(
+                "/api/v4/users/status/ids",
+                body: userIDs.sorted()
+            )
+            statuses.merge(refreshedStatuses) { _, new in new }
+        } catch {
+            // Real-time status events continue to update indicators if this
+            // best-effort initial snapshot is unavailable.
+        }
+    }
 
     func reconcile(_ event: MattermostWebSocketEvent, channelID: String?) {
         switch event.event {
