@@ -80,6 +80,7 @@ struct ChannelSection: View {
                         .foregroundStyle(WorkspaceTheme.primaryText)
                         .padding(.leading, 27)
                         .padding(.trailing, 8)
+                        .frame(maxWidth: .infinity)
                         .frame(height: 29)
                         .background(
                             navigation.selectedChannelID == channel.id ? WorkspaceTheme.raisedSurface : .clear,
@@ -92,6 +93,7 @@ struct ChannelSection: View {
                                     .frame(width: 3, height: 17)
                             }
                         }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .onDrag {
