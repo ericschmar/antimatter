@@ -120,7 +120,17 @@ struct WorkspaceShell: View {
                 await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 await navigation.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 presence.reconcile(event, channelID: workspace.selectedChannelID)
-                notifications.notify(for: event, currentUserID: navigation.currentUserID)
+                let notificationPost = event.decodedData(MattermostPost.self, forKey: "post")
+                let senderName = notificationPost.flatMap { navigation.users[$0.userID]?.displayName }
+                let channelName = notificationPost
+                    .flatMap { post in navigation.channels.first { $0.id == post.channelID } }
+                    .map(navigation.displayName)
+                notifications.notify(
+                    for: event,
+                    currentUserID: navigation.currentUserID,
+                    senderName: senderName,
+                    channelName: channelName
+                )
             }
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in

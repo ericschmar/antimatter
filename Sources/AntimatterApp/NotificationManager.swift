@@ -12,14 +12,19 @@ final class NotificationManager: ObservableObject {
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 
-    func notify(for event: MattermostWebSocketEvent, currentUserID: String?) {
+    func notify(
+        for event: MattermostWebSocketEvent,
+        currentUserID: String?,
+        senderName: String?,
+        channelName: String?
+    ) {
         guard event.event == "posted",
               let post = event.decodedData(MattermostPost.self, forKey: "post"),
               post.userID != currentUserID,
               notificationsAreEnabled,
               !NSApplication.shared.isActive else { return }
         let content = UNMutableNotificationContent()
-        content.title = "New Mattermost message"
+        content.title = "\(senderName ?? post.userID) in \(channelName ?? post.channelID)"
         content.body = post.message
         content.sound = notificationSoundsAreEnabled ? .default : nil
         content.userInfo = ["channelID": post.channelID]
