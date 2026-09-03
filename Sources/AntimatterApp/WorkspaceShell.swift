@@ -501,6 +501,7 @@ private struct ChannelParticipant: Identifiable {
 private struct ChannelParticipantStack: View {
     let participants: [ChannelParticipant]
     private let visibleParticipantCount = 4
+    @State private var isHovering = false
 
     var body: some View {
         HStack(spacing: -9) {
@@ -518,7 +519,6 @@ private struct ChannelParticipantStack: View {
                 .background(WorkspaceTheme.raisedSurface)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
-                .help(memberTooltip)
             }
 
             if participants.count > visibleParticipantCount {
@@ -529,9 +529,28 @@ private struct ChannelParticipantStack: View {
                     .background(WorkspaceTheme.raisedSurface)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
-                    .help(memberTooltip)
             }
         }
+        .onHover { isHovering = $0 }
+        .overlay(alignment: .bottomTrailing) {
+            if isHovering {
+                Text(memberTooltip)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .multilineTextAlignment(.leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius)
+                            .stroke(WorkspaceTheme.divider, lineWidth: 1)
+                    )
+                    .fixedSize()
+                    .offset(y: 34)
+                    .allowsHitTesting(false)
+            }
+        }
+        .zIndex(isHovering ? 1 : 0)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(participants.count) channel participants")
     }
