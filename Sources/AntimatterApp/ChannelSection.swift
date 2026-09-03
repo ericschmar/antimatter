@@ -34,16 +34,17 @@ struct ChannelSection: View {
                     HStack(spacing: 7) {
                         Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
                             .font(.system(size: 10, weight: .bold))
+                        Image(systemName: sectionIcon)
+                            .font(.system(size: 14))
+                            .foregroundStyle(WorkspaceTheme.treeFolder)
                         Text(title)
-                            .font(.system(size: 10, weight: .semibold))
-                            .tracking(0.7)
+                            .font(.system(size: 14, weight: .medium))
                         Spacer(minLength: 0)
                         Text(String(channels.count))
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     }
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 3)
+                    .padding(.vertical, 9)
                 }
                 .buttonStyle(.plain)
 
@@ -77,10 +78,12 @@ struct ChannelSection: View {
                         }
                         .font(.system(size: 13))
                         .foregroundStyle(WorkspaceTheme.primaryText)
-                        .padding(.leading, channel.type == "D" ? 14 : 22)
-                        .padding(.trailing, 14)
+                        .padding(.leading, 27)
                         .frame(height: 27)
-                        .background(navigation.selectedChannelID == channel.id ? WorkspaceTheme.raisedSurface : .clear)
+                        .background(
+                            navigation.selectedChannelID == channel.id ? WorkspaceTheme.raisedSurface : .clear,
+                            in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous)
+                        )
                     }
                     .buttonStyle(.plain)
                     .onDrag {
@@ -128,6 +131,17 @@ struct ChannelSection: View {
                     }
                 }
             }
+            .sidebarTreeCard()
+        }
+    }
+
+    private var sectionIcon: String {
+        switch sectionID {
+        case "favorites": "star.fill"
+        case "direct": "person.2.fill"
+        case "group": "person.3.fill"
+        case "archived": "archivebox.fill"
+        default: "folder.fill"
         }
     }
 }

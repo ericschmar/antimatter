@@ -10,9 +10,26 @@ enum WorkspaceTheme {
     static let secondaryText = Color(red: 0.55, green: 0.60, blue: 0.65)
     static let accent = Color(red: 0.24, green: 0.65, blue: 0.42)
     static let attention = Color(red: 0.83, green: 0.58, blue: 0.22)
+    static let treeFolder = Color(red: 0, green: 0.47, blue: 1)
 
     static let titleHeight: CGFloat = 32
     static let headerHeight: CGFloat = 54
     static let sidebarWidth: CGFloat = 248
     static let compactCornerRadius: CGFloat = 5
+}
+
+extension View {
+    func sidebarTreeCard(_ padding: CGFloat = 16) -> some View {
+        self
+            .padding(padding)
+            .background(
+                WorkspaceTheme.surface,
+                in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.05), radius: 14, x: 0, y: 6)
+    }
 }
