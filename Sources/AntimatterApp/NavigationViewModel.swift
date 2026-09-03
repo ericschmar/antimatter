@@ -173,6 +173,26 @@ final class NavigationViewModel: ObservableObject {
         return users[userID]?.displayName ?? channel.displayName
     }
 
+    func openDirectMessage(with user: MattermostUser) async {
+        guard let currentUserID, currentUserID != user.id else { return }
+
+        if let existingChannel = directMessages.first(where: { directMessageUserID(for: $0) == user.id }) {
+            selectedChannelID = existingChannel.id
+            return
+        }
+
+        do {
+            let channel = try await loader.createDirectChannel(userIDs: [currentUserID, user.id])
+            if !channels.contains(channel) {
+                channels.append(channel)
+                try? await store.apply(.navigation(teams: teams, channels: channels))
+            }
+            selectedChannelID = channel.id
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
     func reorderChannels(
         _ channels: [MattermostChannel],
         from source: IndexSet,

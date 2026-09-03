@@ -11,6 +11,7 @@ struct MessageTimeline: View {
     let currentUserID: String?
     let currentUsername: String?
     let channelID: String?
+    let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
@@ -54,6 +55,7 @@ struct MessageTimeline: View {
                                         thread.root,
                                         with: group.previousRoot(of: thread.root)
                                     ),
+                                    onStartDirectMessage: onStartDirectMessage,
                                     onReply: onReply,
                                     onEdit: timeline.beginEditing
                                 ) { post, emojiName in
@@ -69,7 +71,9 @@ struct MessageTimeline: View {
                                         currentUserID: currentUserID,
                                         currentUsername: currentUsername,
                                         fileData: timeline.fileData,
+                                        avatarData: timeline.avatarData,
                                         messageFontSize: messageFontSize,
+                                        onStartDirectMessage: onStartDirectMessage,
                                         onReply: onReply,
                                         onEdit: timeline.beginEditing
                                     ) { post, emojiName in
@@ -182,6 +186,7 @@ private struct MessageRow: View {
     let currentUserID: String?
     let currentUsername: String?
     let showsMetadata: Bool
+    let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
@@ -205,7 +210,15 @@ private struct MessageRow: View {
                 Color.clear.frame(width: 22, height: 22)
             }
 
-            if showsMetadata {
+            if showsMetadata, let authorUser {
+                UserProfileButton(
+                    user: authorUser,
+                    avatarData: avatarData,
+                    onStartDirectMessage: onStartDirectMessage
+                )
+                .frame(width: 112, alignment: .leading)
+                .padding(.top, 4)
+            } else if showsMetadata {
                 Text(author)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(WorkspaceTheme.primaryText)
@@ -304,6 +317,10 @@ private struct MessageRow: View {
         users[post.userID]?.displayName ?? "Unknown member"
     }
 
+    private var authorUser: MattermostUser? {
+        users[post.userID]
+    }
+
     private var initials: String {
         let components = author.split(separator: " ")
         let initials = components.prefix(2).compactMap(\.first)
@@ -327,7 +344,9 @@ private struct InlineReplyThread: View {
     let currentUserID: String?
     let currentUsername: String?
     let fileData: [String: Data]
+    let avatarData: [String: Data]
     let messageFontSize: Double
+    let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
@@ -349,7 +368,9 @@ private struct InlineReplyThread: View {
                         currentUserID: currentUserID,
                         currentUsername: currentUsername,
                         fileData: fileData,
+                        avatarData: avatarData[reply.userID],
                         messageFontSize: messageFontSize,
+                        onStartDirectMessage: onStartDirectMessage,
                         onReply: onReply,
                         onEdit: onEdit,
                         onToggleReaction: onToggleReaction
@@ -388,7 +409,9 @@ private struct InlineReplyRow: View {
     let currentUserID: String?
     let currentUsername: String?
     let fileData: [String: Data]
+    let avatarData: Data?
     let messageFontSize: Double
+    let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
@@ -399,9 +422,17 @@ private struct InlineReplyRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 PresenceDot(status: status)
-                Text(author)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
+                if let authorUser {
+                    UserProfileButton(
+                        user: authorUser,
+                        avatarData: avatarData,
+                        onStartDirectMessage: onStartDirectMessage
+                    )
+                } else {
+                    Text(author)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                }
                 Text(timestamp)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
@@ -444,9 +475,102 @@ private struct InlineReplyRow: View {
         users[post.userID]?.displayName ?? "Unknown member"
     }
 
+    private var authorUser: MattermostUser? {
+        users[post.userID]
+    }
+
     private var timestamp: String {
         Date(timeIntervalSince1970: TimeInterval(post.createAt) / 1_000)
             .formatted(date: .omitted, time: .shortened)
+    }
+}
+
+private struct UserProfileButton: View {
+    let user: MattermostUser
+    let avatarData: Data?
+    let onStartDirectMessage: (MattermostUser) -> Void
+    @State private var isProfilePresented = false
+
+    var body: some View {
+        Button {
+            isProfilePresented = true
+        } label: {
+            Text(user.displayName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isProfilePresented) {
+            UserProfileCard(user: user, avatarData: avatarData) {
+                isProfilePresented = false
+                onStartDirectMessage(user)
+            }
+        }
+    }
+}
+
+private struct UserProfileCard: View {
+    let user: MattermostUser
+    let avatarData: Data?
+    let onStartDirectMessage: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                ProfileAvatar(data: avatarData, initials: initials)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(user.displayName)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                    Text("@\(user.username)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
+            }
+
+            Button("Message", action: onStartDirectMessage)
+                .buttonStyle(.plain)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.canvas)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(WorkspaceTheme.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .padding(16)
+        .frame(width: 300)
+        .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(WorkspaceTheme.divider, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.2), radius: 14, x: 0, y: 6)
+    }
+
+    private var initials: String {
+        String(user.displayName.split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
+    }
+}
+
+private struct ProfileAvatar: View {
+    let data: Data?
+    let initials: String
+
+    var body: some View {
+        Group {
+            if let data, let image = NSImage(data: data) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Text(initials)
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
+        }
+        .frame(width: 56, height: 56)
+        .background(WorkspaceTheme.raisedSurface)
+        .clipShape(Circle())
     }
 }
 

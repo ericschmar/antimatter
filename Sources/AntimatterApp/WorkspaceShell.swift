@@ -112,7 +112,7 @@ struct WorkspaceShell: View {
                 await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 await navigation.reconcile(event, activeChannelID: workspace.selectedChannelID)
                 presence.reconcile(event, channelID: workspace.selectedChannelID)
-                notifications.notify(for: event)
+                notifications.notify(for: event, currentUserID: navigation.currentUserID)
             }
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in
@@ -434,7 +434,12 @@ private struct ConversationPlaceholder: View {
                 statuses: presence.statuses,
                 currentUserID: navigation.currentUserID,
                 currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
-                channelID: selectedTab?.channelID
+                channelID: selectedTab?.channelID,
+                onStartDirectMessage: { user in
+                    Task {
+                        await navigation.openDirectMessage(with: user)
+                    }
+                }
             ) { post in
                 composer.reply(to: post)
             }
