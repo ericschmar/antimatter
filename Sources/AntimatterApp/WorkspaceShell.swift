@@ -12,6 +12,7 @@ struct WorkspaceShell: View {
     @StateObject private var timeline: TimelineViewModel
     @StateObject private var realtime: RealtimeUpdatesViewModel
     @StateObject private var composer: ComposerViewModel
+    @StateObject private var channelFiles: ChannelFilesViewModel
     @StateObject private var presence: PresenceViewModel
     @StateObject private var search: SearchViewModel
     @StateObject private var notifications = NotificationManager()
@@ -35,6 +36,7 @@ struct WorkspaceShell: View {
             session: session,
             giphyAPIKey: configuration.giphyAPIKey
         ))
+        _channelFiles = StateObject(wrappedValue: ChannelFilesViewModel(session: session))
         _presence = StateObject(wrappedValue: PresenceViewModel(session: session))
         _search = StateObject(wrappedValue: SearchViewModel(session: session))
     }
@@ -72,6 +74,7 @@ struct WorkspaceShell: View {
                     workspace: workspace,
                     timeline: timeline,
                     composer: composer,
+                    channelFiles: channelFiles,
                     presence: presence,
                     realtime: realtime,
                     search: search
@@ -719,10 +722,12 @@ private struct ConversationPlaceholder: View {
     @ObservedObject var workspace: WorkspaceViewModel
     @ObservedObject var timeline: TimelineViewModel
     @ObservedObject var composer: ComposerViewModel
+    @ObservedObject var channelFiles: ChannelFilesViewModel
     @ObservedObject var presence: PresenceViewModel
     @ObservedObject var realtime: RealtimeUpdatesViewModel
     @ObservedObject var search: SearchViewModel
     @State private var isAddMemberPresented = false
+    @State private var isChannelFilesPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -758,6 +763,21 @@ private struct ConversationPlaceholder: View {
                         .accessibilityLabel("Add member to chat")
                         .accessibilityHint("Choose a teammate to add to this chat.")
                     }
+                    Button {
+                        isChannelFilesPresented.toggle()
+                        if isChannelFilesPresented, let channelID = selectedTab?.channelID {
+                            channelFiles.load(channelID: channelID)
+                        }
+                    } label: {
+                        Image(systemName: "folder")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(isChannelFilesPresented ? WorkspaceTheme.accent : WorkspaceTheme.secondaryText)
+                    .accessibilityLabel(isChannelFilesPresented ? "Close channel files" : "Show channel files")
+                    .accessibilityHint("Shows files shared in this channel.")
                 }
             }
             .padding(.horizontal, 18)
@@ -775,37 +795,53 @@ private struct ConversationPlaceholder: View {
                     onSelect: openSearchResult
                 )
             } else {
-                MessageTimeline(
-                    timeline: timeline,
-                    knownUsers: navigation.users,
-                    statuses: presence.statuses,
-                    currentUserID: navigation.currentUserID,
-                    currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
-                    channelID: selectedTab?.channelID,
-                    onStartDirectMessage: { user in
-                        Task {
-                            await navigation.openDirectMessage(with: user)
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        MessageTimeline(
+                            timeline: timeline,
+                            knownUsers: navigation.users,
+                            statuses: presence.statuses,
+                            currentUserID: navigation.currentUserID,
+                            currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
+                            channelID: selectedTab?.channelID,
+                            onStartDirectMessage: { user in
+                                Task {
+                                    await navigation.openDirectMessage(with: user)
+                                }
+                            }
+                        ) { post in
+                            composer.reply(to: post)
+                        } onVote: { post, actionID in
+                            timeline.vote(on: post, actionID: actionID)
+                        }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        if presence.hasTypingUsers {
+                            ChatTypingIndicator()
+                        }
+
+                        Divider()
+                            .overlay(WorkspaceTheme.divider)
+
+                        MessageComposer(composer: composer, channelID: selectedTab?.channelID, teamID: pollTeamID) { post in
+                            Task { await timeline.appendSentPost(post) }
+                        } onTyping: {
+                            guard let channelID = selectedTab?.channelID else { return }
+                            Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
                         }
                     }
-                ) { post in
-                    composer.reply(to: post)
-                } onVote: { post, actionID in
-                    timeline.vote(on: post, actionID: actionID)
-                }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if presence.hasTypingUsers {
-                    ChatTypingIndicator()
-                }
-
-                Divider()
-                    .overlay(WorkspaceTheme.divider)
-
-                MessageComposer(composer: composer, channelID: selectedTab?.channelID, teamID: pollTeamID) { post in
-                    Task { await timeline.appendSentPost(post) }
-                } onTyping: {
-                    guard let channelID = selectedTab?.channelID else { return }
-                    Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
+                    if isChannelFilesPresented {
+                        Divider()
+                            .overlay(WorkspaceTheme.divider)
+                        ChannelFilesAside(
+                            files: channelFiles.files,
+                            isLoading: channelFiles.isLoading,
+                            error: channelFiles.error,
+                            close: { isChannelFilesPresented = false }
+                        )
+                    }
                 }
             }
         }
@@ -819,6 +855,10 @@ private struct ConversationPlaceholder: View {
                 guard let channelID = selectedTab?.channelID else { return }
                 Task { await navigation.addMember(user, to: channelID) }
             }
+        }
+        .onChange(of: selectedTab?.channelID) { _, channelID in
+            guard isChannelFilesPresented, let channelID else { return }
+            channelFiles.load(channelID: channelID)
         }
     }
 

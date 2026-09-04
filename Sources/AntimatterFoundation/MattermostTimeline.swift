@@ -147,6 +147,13 @@ public actor MattermostTimelineLoader {
         try await client.getData("/api/v4/files/\(fileID)")
     }
 
+    public func loadChannelFiles(
+        channelID: String,
+        page: MattermostPage = MattermostPage()
+    ) async throws -> [MattermostFile] {
+        try await client.getPage("/api/v4/channels/\(channelID)/files", page: page)
+    }
+
     public func loadStatuses(userIDs: [String]) async throws -> [MattermostUserStatus] {
         guard !userIDs.isEmpty else { return [] }
         return try await client.post("/api/v4/users/status/ids", body: userIDs)

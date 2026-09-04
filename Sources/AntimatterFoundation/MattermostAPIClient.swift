@@ -89,6 +89,34 @@ public actor MattermostAPIClient {
         try await request(path, method: "POST", queryItems: [], body: try JSONEncoder().encode(body))
     }
 
+    /// Posts a multipart form while retaining the client's authenticated, memory-only session.
+    public func postMultipart<Response: Decodable & Sendable>(
+        _ path: String,
+        body: Data,
+        boundary: String
+    ) async throws -> Response {
+        var request = URLRequest(url: URL(string: path, relativeTo: serverURL)!.absoluteURL)
+        request.httpMethod = "POST"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+
+        cachedResponses.removeAll()
+        let (data, response) = try await session.data(for: request)
+        guard let response = response as? HTTPURLResponse else {
+            throw MattermostAPIError.invalidResponse
+        }
+        guard (200 ..< 300).contains(response.statusCode) else {
+            throw MattermostAPIError.rejected(
+                status: response.statusCode,
+                message: try? JSONDecoder().decode(ServerError.self, from: data).message
+            )
+        }
+        return try decode(Response.self, from: data)
+    }
+
     public func delete<Response: Decodable & Sendable>(_ path: String) async throws -> Response {
         try await request(path, method: "DELETE", queryItems: [], body: Optional<Data>.none)
     }

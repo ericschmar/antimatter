@@ -13,6 +13,7 @@ final class ComposerViewModel: ObservableObject {
     @Published private(set) var mentionableUsers: [MattermostUser] = []
 
     private let sender: MattermostPostSender
+    private let fileUploader: MattermostFileUploader
     private let polls: MattermostPolls
     private let navigation: MattermostNavigationLoader
     let giphyClient: GiphyClient?
@@ -29,6 +30,7 @@ final class ComposerViewModel: ObservableObject {
     ) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
         sender = MattermostPostSender(client: client)
+        fileUploader = MattermostFileUploader(client: client)
         polls = MattermostPolls(client: client)
         navigation = MattermostNavigationLoader(client: client)
         giphyClient = giphyAPIKey.map { GiphyClient(apiKey: $0) }
@@ -53,12 +55,19 @@ final class ComposerViewModel: ObservableObject {
 
     func send(onSent: @escaping (MattermostPost) -> Void) {
         guard let channelID, hasContent, !isSending else { return }
-        let draft = messageWithAttachmentReferences
+        let draft = message
+        let attachments = attachmentURLs
         isSending = true
         sendError = nil
         Task {
             do {
-                let post = try await sender.send(MattermostPostRequest(channelID: channelID, message: draft, rootID: replyRootID ?? ""))
+                let fileIDs = try await fileUploader.upload(channelID: channelID, fileURLs: attachments).map(\.id)
+                let post = try await sender.send(MattermostPostRequest(
+                    channelID: channelID,
+                    message: draft,
+                    fileIDs: fileIDs,
+                    rootID: replyRootID ?? ""
+                ))
                 message = ""
                 attachmentURLs = []
                 removeDraft(for: channelID)
@@ -132,15 +141,6 @@ final class ComposerViewModel: ObservableObject {
 
     var hasContent: Bool {
         !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachmentURLs.isEmpty
-    }
-
-    private var messageWithAttachmentReferences: String {
-        let references = attachmentURLs
-            .map { "[\($0.lastPathComponent)](\($0.absoluteString))" }
-            .joined(separator: "\n")
-        guard !references.isEmpty else { return message }
-        guard !message.isEmpty else { return references }
-        return "\(message)\n\(references)"
     }
 
     private func removeDraft(for channelID: String) {

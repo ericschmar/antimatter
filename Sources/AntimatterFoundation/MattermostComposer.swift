@@ -52,3 +52,73 @@ public actor MattermostPostSender {
 }
 
 private struct EmptyResponse: Decodable, Sendable {}
+
+public actor MattermostFileUploader {
+    private let client: MattermostAPIClient
+
+    public init(client: MattermostAPIClient) {
+        self.client = client
+    }
+
+    /// Uploads all files as one Mattermost multipart request and returns their server-assigned IDs.
+    public func upload(channelID: String, fileURLs: [URL]) async throws -> [MattermostFile] {
+        let boundary = "Antimatter-\(UUID().uuidString)"
+        var body = Data()
+        appendField(named: "channel_id", value: channelID, to: &body, boundary: boundary)
+
+        for url in fileURLs {
+            let isAccessingSecurityScopedResource = url.startAccessingSecurityScopedResource()
+            defer {
+                if isAccessingSecurityScopedResource {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let data = try Data(contentsOf: url)
+            appendFile(
+                named: "files",
+                filename: url.lastPathComponent,
+                data: data,
+                to: &body,
+                boundary: boundary
+            )
+        }
+        body.append(Data("--\(boundary)--\r\n".utf8))
+
+        let response: MattermostFileUploadResponse = try await client.postMultipart(
+            "/api/v4/files",
+            body: body,
+            boundary: boundary
+        )
+        return response.fileInfos
+    }
+
+    private func appendField(named name: String, value: String, to body: inout Data, boundary: String) {
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".utf8))
+        body.append(Data("\(value)\r\n".utf8))
+    }
+
+    private func appendFile(
+        named name: String,
+        filename: String,
+        data: Data,
+        to body: inout Data,
+        boundary: String
+    ) {
+        let escapedFilename = filename.replacingOccurrences(of: "\"", with: "%22")
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(escapedFilename)\"\r\n".utf8))
+        body.append(Data("Content-Type: application/octet-stream\r\n\r\n".utf8))
+        body.append(data)
+        body.append(Data("\r\n".utf8))
+    }
+}
+
+private struct MattermostFileUploadResponse: Decodable, Sendable {
+    let fileInfos: [MattermostFile]
+
+    enum CodingKeys: String, CodingKey {
+        case fileInfos = "file_infos"
+    }
+}

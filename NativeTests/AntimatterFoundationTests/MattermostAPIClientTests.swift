@@ -82,6 +82,58 @@ final class MattermostAPIClientTests: XCTestCase {
         try await sender.delete(postID: "post-1")
     }
 
+    func testFileUploadPostsMultipartDataAndDecodesFileInfos() async throws {
+        let fileURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("antimatter-upload-test.txt")
+        try Data("attachment contents".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        URLProtocolStub.handler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.url?.path, "/api/v4/files")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
+            let contentType = try XCTUnwrap(request.value(forHTTPHeaderField: "Content-Type"))
+            XCTAssertTrue(contentType.hasPrefix("multipart/form-data; boundary=Antimatter-"))
+            return (
+                try Self.response(for: request, status: 201),
+                Data(#"{"file_infos":[{"id":"file-1","name":"antimatter-upload-test.txt","mime_type":"text/plain","size":19}]}"#.utf8)
+            )
+        }
+
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let uploader = MattermostFileUploader(client: client)
+
+        let files = try await uploader.upload(channelID: "channel-1", fileURLs: [fileURL])
+
+        XCTAssertEqual(files.map(\.id), ["file-1"])
+    }
+
+    func testLoadChannelFilesUsesMattermostFilesEndpoint() async throws {
+        URLProtocolStub.handler = { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/api/v4/channels/channel-1/files")
+            XCTAssertEqual(request.url?.query, "page=0&per_page=60")
+            return (
+                try Self.response(for: request, status: 200),
+                Data(#"[{"id":"file-1","name":"notes.pdf","mime_type":"application/pdf","size":42}]"#.utf8)
+            )
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let loader = MattermostTimelineLoader(client: client)
+
+        let files = try await loader.loadChannelFiles(channelID: "channel-1")
+
+        XCTAssertEqual(files.map(\.name), ["notes.pdf"])
+    }
+
     func testGetPageSendsAuthorizationAndPagination() async throws {
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
