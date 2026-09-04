@@ -186,7 +186,7 @@ struct MessageTimeline: View {
     }
 }
 
-private struct ReactionTooltip: Identifiable {
+struct ReactionTooltip: Identifiable {
     let id: String
     let text: String
 }
@@ -263,7 +263,7 @@ private struct TimelineDateHeader: View {
     }
 }
 
-private struct MessageRow: View {
+struct MessageRow: View {
     let post: MattermostPost
     let users: [String: MattermostUser]
     let avatarData: Data?
