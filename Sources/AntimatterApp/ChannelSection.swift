@@ -73,14 +73,14 @@ struct ChannelSection: View {
                             if channel.mentionCount > 0 {
                                 Text(String(channel.mentionCount))
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(WorkspaceTheme.attention)
+                                    .foregroundStyle(WorkspaceTheme.accent)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 2)
-                                    .background(WorkspaceTheme.attention.opacity(0.16), in: Capsule())
+                                    .background(WorkspaceTheme.accent.opacity(0.16), in: Capsule())
                             } else if channel.unreadCount > 0 {
                                 Text(String(channel.unreadCount))
                                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                                    .foregroundStyle(WorkspaceTheme.accent)
                             }
                             if hoveredChannelID == channel.id {
                                 Image(systemName: "ellipsis")
