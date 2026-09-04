@@ -47,6 +47,7 @@
 		AC7AC2663049E3C400B4461D /* EmojiKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC7AC2653049E3C400B4461D /* EmojiKit */; };
 		AC7AC2673049E3C400B4461D /* MattermostPolls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2683049E3C400B4461D /* MattermostPolls.swift */; };
 		AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */; };
+		ACBFE47B304B58860040FD59 /* EmojiData in Frameworks */ = {isa = PBXBuildFile; productRef = ACBFE47A304B58860040FD59 /* EmojiData */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -109,6 +110,7 @@
 			files = (
 				AC7AC2663049E3C400B4461D /* EmojiKit in Frameworks */,
 				A10000000000000000000007 /* libAntimatterFoundation.a in Frameworks */,
+				ACBFE47B304B58860040FD59 /* EmojiData in Frameworks */,
 				A10000000000000000000024 /* MarkdownUI in Frameworks */,
 				A10000000000000000000037 /* SwiftEmojiPicker in Frameworks */,
 			);
@@ -215,6 +217,7 @@
 				A20000000000000000000026 /* MarkdownUI */,
 				A20000000000000000000042 /* SwiftEmojiPicker */,
 				AC7AC2653049E3C400B4461D /* EmojiKit */,
+				ACBFE47A304B58860040FD59 /* EmojiData */,
 			);
 			productName = Antimatter;
 			productReference = A20000000000000000000009 /* Antimatter.app */;
@@ -265,6 +268,7 @@
 				A20000000000000000000027 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				A20000000000000000000043 /* XCRemoteSwiftPackageReference "SwiftEmojiPicker" */,
 				AC7AC2643049E3C400B4461D /* XCRemoteSwiftPackageReference "EmojiKit" */,
+				ACBFE479304B58860040FD59 /* XCRemoteSwiftPackageReference "swift-emoji" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A40000000000000000000005 /* Products */;
@@ -478,6 +482,14 @@
 				minimumVersion = 2.5.0;
 			};
 		};
+		ACBFE479304B58860040FD59 /* XCRemoteSwiftPackageReference "swift-emoji" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/klaaspieter/swift-emoji";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -495,6 +507,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AC7AC2643049E3C400B4461D /* XCRemoteSwiftPackageReference "EmojiKit" */;
 			productName = EmojiKit;
+		};
+		ACBFE47A304B58860040FD59 /* EmojiData */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = ACBFE479304B58860040FD59 /* XCRemoteSwiftPackageReference "swift-emoji" */;
+			productName = EmojiData;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
