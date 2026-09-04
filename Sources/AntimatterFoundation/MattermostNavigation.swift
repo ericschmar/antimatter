@@ -143,6 +143,36 @@ public actor MattermostNavigationLoader {
         )
     }
 
+    public func loadMembers(channelID: String) async throws -> [MattermostUser] {
+        var memberIDs: [String] = []
+        var page = 0
+
+        while true {
+            let members: [MattermostChannelMember] = try await client.getPage(
+                "/api/v4/channels/\(channelID)/members",
+                page: MattermostPage(index: page, size: 200)
+            )
+            memberIDs.append(contentsOf: members.map(\.userID))
+            guard members.count == 200 else { break }
+            page += 1
+        }
+
+        return try await withThrowingTaskGroup(of: [MattermostUser].self, returning: [MattermostUser].self) { group in
+            for userIDs in memberIDs.chunked(into: 200) {
+                group.addTask {
+                    try await self.client.post("/api/v4/users/ids", body: userIDs)
+                }
+            }
+            var users: [MattermostUser] = []
+            for try await batch in group {
+                users.append(contentsOf: batch)
+            }
+            return users.sorted {
+                $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+            }
+        }
+    }
+
     public func viewChannel(channelID: String, previousChannelID: String?) async throws {
         let _: EmptyResponse = try await client.post(
             "/api/v4/channels/\(channelID)/view",
@@ -183,10 +213,26 @@ private struct ChannelViewRequest: Encodable, Sendable {
     }
 }
 
+private struct MattermostChannelMember: Decodable, Sendable {
+    let userID: String
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
+    }
+}
+
 private struct EmptyResponse: Decodable, Sendable {}
 
 private extension String {
     var nonEmpty: String? {
         isEmpty ? nil : self
+    }
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        stride(from: 0, to: count, by: size).map {
+            Array(self[$0 ..< Swift.min($0 + size, count)])
+        }
     }
 }

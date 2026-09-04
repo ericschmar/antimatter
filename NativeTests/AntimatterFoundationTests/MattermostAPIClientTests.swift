@@ -99,6 +99,43 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(channel.type, "D")
     }
 
+    func testLoadMembersFetchesAllChannelMembersAndTheirProfiles() async throws {
+        var requestedPaths: [String] = []
+        URLProtocolStub.handler = { request in
+            requestedPaths.append(request.url!.path)
+            switch request.url!.path {
+            case "/api/v4/channels/channel-1/members":
+                XCTAssertEqual(request.url?.query, "page=0&per_page=200")
+                return (
+                    try Self.response(for: request, status: 200),
+                    Data(#"[{"user_id":"user-2"},{"user_id":"user-1"}]"#.utf8)
+                )
+            case "/api/v4/users/ids":
+                XCTAssertEqual(request.httpMethod, "POST")
+                return (
+                    try Self.response(for: request, status: 200),
+                    Data(#"[{"id":"user-2","username":"zoe","first_name":"Zoe"},{"id":"user-1","username":"alex","first_name":"Alex"}]"#.utf8)
+                )
+            default:
+                return (try Self.response(for: request, status: 404), Data())
+            }
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let loader = MattermostNavigationLoader(client: client)
+
+        let users = try await loader.loadMembers(channelID: "channel-1")
+
+        XCTAssertEqual(requestedPaths, [
+            "/api/v4/channels/channel-1/members",
+            "/api/v4/users/ids",
+        ])
+        XCTAssertEqual(users.map(\.username), ["alex", "zoe"])
+    }
+
     func testViewChannelUsesMattermostChannelViewEndpoint() async throws {
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.httpMethod, "POST")

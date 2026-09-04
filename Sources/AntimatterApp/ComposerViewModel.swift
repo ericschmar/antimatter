@@ -10,9 +10,11 @@ final class ComposerViewModel: ObservableObject {
     @Published private(set) var sendError: String?
     @Published private(set) var replyRootID: String?
     @Published private(set) var replyPost: MattermostPost?
+    @Published private(set) var mentionableUsers: [MattermostUser] = []
 
     private let sender: MattermostPostSender
     private let polls: MattermostPolls
+    private let navigation: MattermostNavigationLoader
     private let defaults: UserDefaults
     private var channelID: String?
     private var teamID = ""
@@ -23,6 +25,7 @@ final class ComposerViewModel: ObservableObject {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
         sender = MattermostPostSender(client: client)
         polls = MattermostPolls(client: client)
+        navigation = MattermostNavigationLoader(client: client)
         self.defaults = defaults
         height = max(80, defaults.double(forKey: heightKey))
     }
@@ -33,6 +36,13 @@ final class ComposerViewModel: ObservableObject {
         self.teamID = teamID ?? ""
         message = channelID.flatMap { drafts[$0] } ?? ""
         sendError = nil
+        mentionableUsers = []
+        guard let channelID else { return }
+        Task {
+            let users = (try? await navigation.loadMembers(channelID: channelID)) ?? []
+            guard self.channelID == channelID else { return }
+            mentionableUsers = users
+        }
     }
 
     func send(onSent: @escaping (MattermostPost) -> Void) {
@@ -101,6 +111,17 @@ final class ComposerViewModel: ObservableObject {
         attachmentURLs.removeAll { $0 == url }
         message = message.replacingOccurrences(of: "[\(url.lastPathComponent)](\(url.absoluteString))", with: "")
             .trimmingCharacters(in: .newlines)
+    }
+
+    func insertMention(_ username: String) {
+        let mention = "@\(username) "
+        let start = message.lastIndex(where: \.isWhitespace)
+            .map { message.index(after: $0) } ?? message.startIndex
+        guard message[start...].hasPrefix("@") else {
+            message += mention
+            return
+        }
+        message.replaceSubrange(start..., with: mention)
     }
 
     private var drafts: [String: String] {

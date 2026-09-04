@@ -10,6 +10,7 @@ struct MessageComposer: View {
     let onTyping: () -> Void
     @State private var isImportingFiles = false
     @State private var isCreatingPoll = false
+    @State private var isMentionPickerPresented = false
 
     private var composerDisabled: Bool {
         channelID == nil || composer.isSending
@@ -17,6 +18,28 @@ struct MessageComposer: View {
 
     private var canSendMessage: Bool {
         !composerDisabled && !composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var mentionQuery: String? {
+        let start = composer.message.lastIndex(where: \.isWhitespace)
+            .map { composer.message.index(after: $0) } ?? composer.message.startIndex
+        let token = composer.message[start...]
+        guard token.hasPrefix("@") else { return nil }
+
+        let query = String(token.dropFirst())
+        guard query.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" || $0 == "." }) else {
+            return nil
+        }
+        return query
+    }
+
+    private var mentionMatches: [MattermostUser] {
+        guard let mentionQuery else { return [] }
+        return composer.mentionableUsers.filter {
+            mentionQuery.isEmpty
+                || $0.username.localizedCaseInsensitiveContains(mentionQuery)
+                || $0.displayName.localizedCaseInsensitiveContains(mentionQuery)
+        }
     }
 
     var body: some View {
@@ -61,6 +84,7 @@ struct MessageComposer: View {
                     .onChange(of: composer.message) { _, _ in
                         composer.persistDraft()
                         onTyping()
+                        isMentionPickerPresented = mentionQuery != nil
                     }
                     .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
                         loadDroppedText(from: providers)
@@ -70,6 +94,14 @@ struct MessageComposer: View {
                         guard !isShiftPressed else { return .ignored }
                         sendMessage()
                         return .handled
+                    }
+                    .popover(isPresented: $isMentionPickerPresented, arrowEdge: .bottom) {
+                        MentionPicker(users: mentionMatches) { user in
+                            composer.insertMention(user.username)
+                            composer.persistDraft()
+                            onTyping()
+                            isMentionPickerPresented = false
+                        }
                     }
 
                 Divider().overlay(WorkspaceTheme.divider)
@@ -146,6 +178,65 @@ struct MessageComposer: View {
     private func sendMessage() {
         guard canSendMessage else { return }
         composer.send(onSent: onSent)
+    }
+}
+
+private struct MentionPicker: View {
+    let users: [MattermostUser]
+    let select: (MattermostUser) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Mention someone")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+                .padding(12)
+            Divider().overlay(WorkspaceTheme.divider)
+            if users.isEmpty {
+                Text("No matching channel members")
+                    .font(.system(size: 12))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .padding(12)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(users) { user in
+                            Button {
+                                select(user)
+                            } label: {
+                                HStack(spacing: 9) {
+                                    Text(initials(for: user.displayName))
+                                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                                        .frame(width: 24, height: 24)
+                                        .background(WorkspaceTheme.raisedSurface, in: Circle())
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(user.displayName)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundStyle(WorkspaceTheme.primaryText)
+                                        Text("@\(user.username)")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(WorkspaceTheme.secondaryText)
+                                    }
+                                    Spacer()
+                                }
+                                .contentShape(Rectangle())
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .frame(maxHeight: 260)
+            }
+        }
+        .frame(width: 300)
+        .background(WorkspaceTheme.surface)
+    }
+
+    private func initials(for name: String) -> String {
+        String(name.split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
     }
 }
 
