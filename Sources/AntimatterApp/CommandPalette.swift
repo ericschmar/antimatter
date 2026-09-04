@@ -27,6 +27,16 @@ struct CommandPalette: View {
                 .foregroundStyle(WorkspaceTheme.primaryText)
                 .focused($isQueryFocused)
                 .onSubmit(performSubmitAction)
+                .onKeyPress(.upArrow) {
+                    guard selectedCommand == nil else { return .ignored }
+                    moveHighlight(.up)
+                    return .handled
+                }
+                .onKeyPress(.downArrow) {
+                    guard selectedCommand == nil else { return .ignored }
+                    moveHighlight(.down)
+                    return .handled
+                }
             }
             .padding(14)
             Divider().overlay(WorkspaceTheme.divider)
@@ -42,7 +52,7 @@ struct CommandPalette: View {
                 }
             }
         }
-        .frame(width: 320)
+        .frame(width: 400)
         .background(WorkspaceTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
@@ -150,6 +160,7 @@ private struct CommandChip: View {
         HStack(spacing: 5) {
             Image(systemName: command.symbol)
             Text(command.title)
+                .lineLimit(1)
             Button(action: remove) {
                 Image(systemName: "xmark.circle.fill")
             }
