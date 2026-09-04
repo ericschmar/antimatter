@@ -369,7 +369,7 @@ private struct CommandDeckHeader: View {
                     .font(.system(size: 12))
                     .onSubmit(onSearch)
                 Spacer(minLength: 0)
-                Text("⌘K")
+                Text("⌘ K")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
                     .accessibilityHidden(true)

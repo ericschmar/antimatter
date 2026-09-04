@@ -111,7 +111,7 @@ private struct ChatCodeBlock: View {
                     .padding(14)
             }
         }
-        .frame(maxWidth: 420, alignment: .leading)
+        .frame(maxWidth: 800, alignment: .leading)
         .background(
             WorkspaceTheme.raisedSurface,
             in: RoundedRectangle(cornerRadius: 14, style: .continuous)
