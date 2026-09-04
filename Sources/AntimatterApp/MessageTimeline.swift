@@ -331,30 +331,13 @@ private struct MessageRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
                 if isHovering {
-                    HStack(spacing: 2) {
-                        AddReactionButton(post: post, onToggleReaction: onToggleReaction)
-                        messageActionButton("arrowshape.turn.up.left", label: "Reply") { onReply(post) }
-                        if post.userID == currentUserID {
-                            messageActionButton("pencil", label: "Edit message") { onEdit(post) }
-                        }
-                        Menu {
-                            Button("Copy message") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(post.message, forType: .string)
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 12, weight: .medium))
-                                .frame(width: 26, height: 26)
-                        }
-                        .menuStyle(.borderlessButton)
-                    }
-                    .foregroundStyle(WorkspaceTheme.secondaryText)
-                    .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous)
-                            .stroke(WorkspaceTheme.divider, lineWidth: 1)
-                    }
+                    MessageActionBar(
+                        post: post,
+                        currentUserID: currentUserID,
+                        onReply: onReply,
+                        onEdit: onEdit,
+                        onToggleReaction: onToggleReaction
+                    )
                 }
             }
         }
@@ -376,17 +359,6 @@ private struct MessageRow: View {
                 onEdit(post)
             }
         }
-    }
-
-    private func messageActionButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .medium))
-                .frame(width: 26, height: 26)
-        }
-        .buttonStyle(.plain)
-        .help(label)
-        .accessibilityLabel(label)
     }
 
     private var author: String {
@@ -609,6 +581,7 @@ private struct InlineReplyRow: View {
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
+    @State private var isHovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -652,7 +625,20 @@ private struct InlineReplyRow: View {
                 onTooltipChange: onReactionTooltipChange
             )
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .topTrailing) {
+            if isHovering {
+                MessageActionBar(
+                    post: post,
+                    currentUserID: currentUserID,
+                    onReply: onReply,
+                    onEdit: onEdit,
+                    onToggleReaction: onToggleReaction
+                )
+            }
+        }
         .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(author), \(timestamp), \(post.message)")
         .contextMenu {
@@ -679,6 +665,52 @@ private struct InlineReplyRow: View {
     private var timestamp: String {
         Date(timeIntervalSince1970: TimeInterval(post.createAt) / 1_000)
             .formatted(date: .omitted, time: .shortened)
+    }
+}
+
+private struct MessageActionBar: View {
+    let post: MattermostPost
+    let currentUserID: String?
+    let onReply: (MattermostPost) -> Void
+    let onEdit: (MattermostPost) -> Void
+    let onToggleReaction: (MattermostPost, String) -> Void
+
+    var body: some View {
+        HStack(spacing: 2) {
+            AddReactionButton(post: post, onToggleReaction: onToggleReaction)
+            actionButton("arrowshape.turn.up.left", label: "Reply") { onReply(post) }
+            if post.userID == currentUserID {
+                actionButton("pencil", label: "Edit message") { onEdit(post) }
+            }
+            Menu {
+                Button("Copy message") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(post.message, forType: .string)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 26, height: 26)
+            }
+            .menuStyle(.borderlessButton)
+        }
+        .foregroundStyle(WorkspaceTheme.secondaryText)
+        .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous)
+                .stroke(WorkspaceTheme.divider, lineWidth: 1)
+        }
+    }
+
+    private func actionButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 26, height: 26)
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 
