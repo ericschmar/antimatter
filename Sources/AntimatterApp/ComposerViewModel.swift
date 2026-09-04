@@ -15,17 +15,23 @@ final class ComposerViewModel: ObservableObject {
     private let sender: MattermostPostSender
     private let polls: MattermostPolls
     private let navigation: MattermostNavigationLoader
+    let giphyClient: GiphyClient?
     private let defaults: UserDefaults
     private var channelID: String?
     private var teamID = ""
     private let draftsKey = "mattermostComposerDrafts"
     private let heightKey = "mattermostComposerHeight"
 
-    init(session: MattermostSession, defaults: UserDefaults = .standard) {
+    init(
+        session: MattermostSession,
+        giphyAPIKey: String? = nil,
+        defaults: UserDefaults = .standard
+    ) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
         sender = MattermostPostSender(client: client)
         polls = MattermostPolls(client: client)
         navigation = MattermostNavigationLoader(client: client)
+        giphyClient = giphyAPIKey.map { GiphyClient(apiKey: $0) }
         self.defaults = defaults
         height = max(80, defaults.double(forKey: heightKey))
     }

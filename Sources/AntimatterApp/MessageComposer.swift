@@ -12,6 +12,7 @@ struct MessageComposer: View {
     let onTyping: () -> Void
     @State private var isImportingFiles = false
     @State private var isCreatingPoll = false
+    @State private var isGiphyPickerPresented = false
     @State private var isMentionPickerPresented = false
     @State private var isEmojiPickerPresented = false
     @State private var selectedEmoji = ""
@@ -138,7 +139,9 @@ struct MessageComposer: View {
                         insert: insertFormatting,
                         chooseEmoji: showEmojiPicker,
                         attachFiles: { isImportingFiles = true },
-                        createPoll: { isCreatingPoll = true }
+                        createPoll: { isCreatingPoll = true },
+                        openGiphy: { isGiphyPickerPresented = true },
+                        giphyAvailable: composer.giphyClient != nil
                     )
                     .disabled(composerDisabled)
 
@@ -204,6 +207,14 @@ struct MessageComposer: View {
                 isCreatingPoll = false
             }
         }
+        .sheet(isPresented: $isGiphyPickerPresented) {
+            if let giphyClient = composer.giphyClient {
+                GiphyPicker(client: giphyClient) { gif in
+                    insertGIF(gif)
+                    isGiphyPickerPresented = false
+                }
+            }
+        }
         .onChange(of: channelID) { _, channelID in
             composer.select(channelID: channelID, teamID: teamID)
         }
@@ -237,6 +248,15 @@ struct MessageComposer: View {
 
     private func insertEmoji(_ emoji: String) {
         composer.message += emoji
+        composer.persistDraft()
+        onTyping()
+    }
+
+    private func insertGIF(_ gif: GiphyGIF) {
+        let markdown = "![\(gif.title.isEmpty ? "GIF" : gif.title)](\(gif.mediaURL.absoluteString))"
+        composer.message += composer.message.isEmpty || composer.message.hasSuffix("\n")
+            ? markdown
+            : "\n\(markdown)"
         composer.persistDraft()
         onTyping()
     }
@@ -355,6 +375,8 @@ private struct ComposerFormattingToolbar: View {
     let chooseEmoji: () -> Void
     let attachFiles: () -> Void
     let createPoll: () -> Void
+    let openGiphy: () -> Void
+    let giphyAvailable: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -371,6 +393,12 @@ private struct ComposerFormattingToolbar: View {
             actionButton("face.smiling", label: "Add emoji", action: chooseEmoji)
             actionButton("paperclip", label: "Attach files", action: attachFiles)
             actionButton("chart.bar", label: "Create poll", action: createPoll)
+            actionButton(
+                "gif",
+                label: giphyAvailable ? "Search Giphy" : "Giphy API key is not configured",
+                action: openGiphy
+            )
+            .disabled(!giphyAvailable)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 3)

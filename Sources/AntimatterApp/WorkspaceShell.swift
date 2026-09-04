@@ -31,7 +31,10 @@ struct WorkspaceShell: View {
         _workspace = StateObject(wrappedValue: WorkspaceViewModel())
         _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
         _realtime = StateObject(wrappedValue: RealtimeUpdatesViewModel(session: session))
-        _composer = StateObject(wrappedValue: ComposerViewModel(session: session))
+        _composer = StateObject(wrappedValue: ComposerViewModel(
+            session: session,
+            giphyAPIKey: configuration.giphyAPIKey
+        ))
         _presence = StateObject(wrappedValue: PresenceViewModel(session: session))
         _search = StateObject(wrappedValue: SearchViewModel(session: session))
     }

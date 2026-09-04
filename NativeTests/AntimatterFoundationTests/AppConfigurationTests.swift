@@ -7,6 +7,7 @@ final class AppConfigurationTests: XCTestCase {
 
         XCTAssertEqual(configuration.environment, .production)
         XCTAssertNil(configuration.initialServerURL)
+        XCTAssertNil(configuration.giphyAPIKey)
     }
 
     func testLoadReadsDevelopmentServerURL() throws {
@@ -17,6 +18,14 @@ final class AppConfigurationTests: XCTestCase {
 
         XCTAssertEqual(configuration.environment, .development)
         XCTAssertEqual(configuration.initialServerURL, URL(string: "https://chat.example.com"))
+    }
+
+    func testLoadReadsGiphyAPIKeyWithoutPersistingIt() throws {
+        let configuration = try AppConfiguration.load(environment: [
+            "GIPHY_API_KEY": "  public-giphy-key  ",
+        ])
+
+        XCTAssertEqual(configuration.giphyAPIKey, "public-giphy-key")
     }
 
     func testLoadRejectsUnsupportedServerURL() {
