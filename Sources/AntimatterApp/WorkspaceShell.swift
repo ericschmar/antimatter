@@ -728,6 +728,7 @@ private struct ConversationPlaceholder: View {
     @ObservedObject var search: SearchViewModel
     @State private var isAddMemberPresented = false
     @State private var isChannelFilesPresented = false
+    @State private var selectedThreadRootID: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -809,9 +810,8 @@ private struct ConversationPlaceholder: View {
                                 Task {
                                     await navigation.openDirectMessage(with: user)
                                 }
-                            }
-                        ) { post in
-                            composer.reply(to: post)
+                            },
+                            onOpenThread: openThread
                         } onVote: { post, actionID in
                             timeline.vote(on: post, actionID: actionID)
                         } onFocusedPostDisplayed: { postID in
@@ -823,14 +823,25 @@ private struct ConversationPlaceholder: View {
                             ChatTypingIndicator()
                         }
 
-                        Divider()
-                            .overlay(WorkspaceTheme.divider)
+                        if selectedThreadRootID == nil {
+                            Divider().overlay(WorkspaceTheme.divider)
+                            messageComposer
+                        }
+                    }
 
-                        MessageComposer(composer: composer, channelID: selectedTab?.channelID, teamID: pollTeamID) { post in
-                            Task { await timeline.appendSentPost(post) }
-                        } onTyping: {
-                            guard let channelID = selectedTab?.channelID else { return }
-                            Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
+                    if let selectedThreadRootID {
+                        Divider().overlay(WorkspaceTheme.divider)
+                        VStack(spacing: 0) {
+                            ThreadSidebar(
+                                timeline: timeline,
+                                rootID: selectedThreadRootID,
+                                users: navigation.users.merging(timeline.users) { _, new in new },
+                                currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
+                                dismiss: closeThread
+                            )
+                            .frame(maxHeight: .infinity)
+                            Divider().overlay(WorkspaceTheme.divider)
+                            messageComposer
                         }
                     }
 
@@ -859,6 +870,7 @@ private struct ConversationPlaceholder: View {
             }
         }
         .onChange(of: selectedTab?.channelID) { _, channelID in
+            closeThread()
             guard isChannelFilesPresented, let channelID else { return }
             channelFiles.load(channelID: channelID)
         }
@@ -875,6 +887,32 @@ private struct ConversationPlaceholder: View {
             title: navigation.displayName(for: channel),
             focusedPostID: post.id
         )
+    }
+
+    private func openThread(_ post: MattermostPost) {
+        let rootID = post.rootID.isEmpty ? post.id : post.rootID
+        selectedThreadRootID = rootID
+        composer.reply(to: timeline.posts.first(where: { $0.id == rootID }) ?? post)
+    }
+
+    private func closeThread() {
+        selectedThreadRootID = nil
+        composer.cancelReply()
+    }
+
+    private var messageComposer: some View {
+        MessageComposer(composer: composer, channelID: selectedTab?.channelID, teamID: pollTeamID) { post in
+            Task {
+                await timeline.appendSentPost(post)
+                if let selectedThreadRootID,
+                   let root = timeline.posts.first(where: { $0.id == selectedThreadRootID }) {
+                    composer.reply(to: root)
+                }
+            }
+        } onTyping: {
+            guard let channelID = selectedTab?.channelID else { return }
+            Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
+        }
     }
 
     private var pollTeamID: String? {

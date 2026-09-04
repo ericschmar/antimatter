@@ -14,7 +14,7 @@ struct MessageTimeline: View {
     let channelID: String?
     let focusedPostID: String?
     let onStartDirectMessage: (MattermostUser) -> Void
-    let onReply: (MattermostPost) -> Void
+    let onOpenThread: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onFocusedPostDisplayed: (String) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
@@ -50,28 +50,6 @@ struct MessageTimeline: View {
                                 messageRow(for: thread.root, in: group)
                                     .id(thread.root.id)
 
-                                if !thread.replies.isEmpty {
-                                    InlineReplyThread(
-                                        replies: thread.replies,
-                                        users: messageUsers,
-                                        statuses: messageStatuses,
-                                        currentUserID: currentUserID,
-                                        currentUsername: currentUsername,
-                                        fileData: timeline.fileData,
-                                        avatarData: timeline.avatarData,
-                                        customEmojiData: timeline.customEmojiData,
-                                        messageFontSize: messageFontSize,
-                                        onStartDirectMessage: onStartDirectMessage,
-                                        onReply: onReply,
-                                        onEdit: timeline.beginEditing,
-                                        onDelete: timeline.delete,
-                                        onVote: onVote,
-                                        onEndPoll: timeline.endPoll,
-                                        onReactionTooltipChange: updateReactionTooltip
-                                    ) { post, emojiName in
-                                        timeline.toggleReaction(on: post, emojiName: emojiName)
-                                    }
-                                }
                             }
                         }
                     }
@@ -150,7 +128,7 @@ struct MessageTimeline: View {
             currentUsername: currentUsername,
             showsMetadata: !messageGrouping.shouldGroup(post, with: group.previousRoot(of: post)),
             onStartDirectMessage: onStartDirectMessage,
-            onReply: onReply,
+            onReply: onOpenThread,
             onEdit: timeline.beginEditing,
             onDelete: timeline.delete,
             onVote: onVote,
