@@ -48,6 +48,7 @@
 		AC7AC2673049E3C400B4461D /* MattermostPolls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2683049E3C400B4461D /* MattermostPolls.swift */; };
 		AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */; };
 		ACBFE47B304B58860040FD59 /* EmojiData in Frameworks */ = {isa = PBXBuildFile; productRef = ACBFE47A304B58860040FD59 /* EmojiData */; };
+		ACBFE481304C00000040FD59 /* MattermostCustomEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE480304C00000040FD59 /* MattermostCustomEmoji.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 		AC7AC2683049E3C400B4461D /* MattermostPolls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostPolls.swift; sourceTree = "<group>"; };
 		AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTypingIndicator.swift; sourceTree = "<group>"; };
 		ACBFE475304A0B030040FD59 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		ACBFE480304C00000040FD59 /* MattermostCustomEmoji.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostCustomEmoji.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -176,6 +178,7 @@
 				A20000000000000000000036 /* MattermostSearch.swift */,
 				A20000000000000000000024 /* MattermostTimeline.swift */,
 				AC7AC2683049E3C400B4461D /* MattermostPolls.swift */,
+				ACBFE480304C00000040FD59 /* MattermostCustomEmoji.swift */,
 			);
 			path = Sources/AntimatterFoundation;
 			sourceTree = SOURCE_ROOT;
@@ -329,6 +332,7 @@
 				A10000000000000000000033 /* MattermostSearch.swift in Sources */,
 				A10000000000000000000022 /* MattermostTimeline.swift in Sources */,
 				AC7AC2673049E3C400B4461D /* MattermostPolls.swift in Sources */,
+				ACBFE481304C00000040FD59 /* MattermostCustomEmoji.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
