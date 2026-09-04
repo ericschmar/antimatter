@@ -5,8 +5,18 @@ enum WorkspaceFocusTarget: Hashable {
     case conversation
 }
 
+enum WorkspaceTabAction: Hashable {
+    case closeSelected
+    case selectPrevious
+    case selectNext
+}
+
 private struct WorkspaceFocusActionKey: FocusedValueKey {
     typealias Value = (WorkspaceFocusTarget) -> Void
+}
+
+private struct WorkspaceTabActionKey: FocusedValueKey {
+    typealias Value = (WorkspaceTabAction) -> Void
 }
 
 private struct WorkspaceSettingsActionKey: FocusedValueKey {
@@ -19,6 +29,11 @@ extension FocusedValues {
         set { self[WorkspaceFocusActionKey.self] = newValue }
     }
 
+    var workspaceTabAction: ((WorkspaceTabAction) -> Void)? {
+        get { self[WorkspaceTabActionKey.self] }
+        set { self[WorkspaceTabActionKey.self] = newValue }
+    }
+
     var workspaceSettingsAction: (() -> Void)? {
         get { self[WorkspaceSettingsActionKey.self] }
         set { self[WorkspaceSettingsActionKey.self] = newValue }
@@ -28,6 +43,7 @@ extension FocusedValues {
 struct WorkspaceCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.workspaceFocusAction) private var focusWorkspace
+    @FocusedValue(\.workspaceTabAction) private var performTabAction
     @FocusedValue(\.workspaceSettingsAction) private var showSettings
 
     var body: some Commands {
@@ -44,6 +60,12 @@ struct WorkspaceCommands: Commands {
                 openWindow(id: "workspace")
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
+
+            Button("Close Chat") {
+                performTabAction?(.closeSelected)
+            }
+            .keyboardShortcut("w", modifiers: [.command])
+            .disabled(performTabAction == nil)
         }
 
         CommandMenu("Workspace") {
@@ -58,6 +80,20 @@ struct WorkspaceCommands: Commands {
             }
             .keyboardShortcut("2", modifiers: [.command, .option])
             .disabled(focusWorkspace == nil)
+
+            Divider()
+
+            Button("Previous Chat") {
+                performTabAction?(.selectPrevious)
+            }
+            .keyboardShortcut("[", modifiers: [.command])
+            .disabled(performTabAction == nil)
+
+            Button("Next Chat") {
+                performTabAction?(.selectNext)
+            }
+            .keyboardShortcut("]", modifiers: [.command])
+            .disabled(performTabAction == nil)
         }
     }
 }

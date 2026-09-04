@@ -92,8 +92,29 @@ final class WorkspaceViewModel: ObservableObject {
         persist()
     }
 
+    func closeSelected() {
+        guard let selectedTab = tabs.first(where: { $0.channelID == selectedChannelID }) else { return }
+        close(selectedTab)
+    }
+
+    func selectPrevious() {
+        selectRelative(to: -1)
+    }
+
+    func selectNext() {
+        selectRelative(to: 1)
+    }
+
     var isSearchResultsSelected: Bool {
         tabs.first(where: { $0.channelID == selectedChannelID })?.isSearchResults ?? false
+    }
+
+    private func selectRelative(to offset: Int) {
+        guard !tabs.isEmpty else { return }
+
+        let selectedIndex = tabs.firstIndex(where: { $0.channelID == selectedChannelID }) ?? 0
+        let nextIndex = (selectedIndex + offset + tabs.count) % tabs.count
+        select(tabs[nextIndex])
     }
 
     private func persist() {

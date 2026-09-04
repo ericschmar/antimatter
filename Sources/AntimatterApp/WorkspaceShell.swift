@@ -89,6 +89,7 @@ struct WorkspaceShell: View {
         .background(TitleBarControlAligner())
         .preferredColorScheme(.dark)
         .focusedSceneValue(\.workspaceFocusAction, focus)
+        .focusedSceneValue(\.workspaceTabAction, performTabAction)
         .focusedSceneValue(\.workspaceSettingsAction) {
             isSettingsPresented = true
         }
@@ -172,6 +173,17 @@ struct WorkspaceShell: View {
 
     private func focus(_ target: WorkspaceFocusTarget) {
         focusedRegion = target
+    }
+
+    private func performTabAction(_ action: WorkspaceTabAction) {
+        switch action {
+        case .closeSelected:
+            workspace.closeSelected()
+        case .selectPrevious:
+            workspace.selectPrevious()
+        case .selectNext:
+            workspace.selectNext()
+        }
     }
 
     private func openPermanently(_ channel: MattermostChannel) {
