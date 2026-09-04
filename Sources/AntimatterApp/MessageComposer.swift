@@ -1,4 +1,5 @@
 import AntimatterFoundation
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -11,6 +12,7 @@ struct MessageComposer: View {
     @State private var isImportingFiles = false
     @State private var isCreatingPoll = false
     @State private var isMentionPickerPresented = false
+    @State private var composerWidth: CGFloat = 300
 
     private var composerDisabled: Bool {
         channelID == nil || composer.isSending
@@ -40,6 +42,35 @@ struct MessageComposer: View {
                 || $0.username.localizedCaseInsensitiveContains(mentionQuery)
                 || $0.displayName.localizedCaseInsensitiveContains(mentionQuery)
         }
+    }
+
+    private var mentionStart: String.Index? {
+        let start = composer.message.lastIndex(where: \.isWhitespace)
+            .map { composer.message.index(after: $0) } ?? composer.message.startIndex
+        return composer.message[start...].hasPrefix("@") ? start : nil
+    }
+
+    private var mentionPickerX: CGFloat {
+        guard let mentionStart else { return 0 }
+        let textStorage = NSTextStorage(
+            string: composer.message,
+            attributes: [.font: NSFont.systemFont(ofSize: 13)]
+        )
+        let layoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(
+            size: NSSize(width: max(1, composerWidth - 16), height: .greatestFiniteMagnitude)
+        )
+        textContainer.lineFragmentPadding = 0
+        layoutManager.addTextContainer(textContainer)
+        textStorage.addLayoutManager(layoutManager)
+
+        let characterIndex = composer.message.utf16.distance(
+            from: composer.message.startIndex,
+            to: mentionStart
+        )
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterIndex)
+        let tokenX = layoutManager.location(forGlyphAt: glyphIndex).x + 8
+        return min(max(0, tokenX), max(0, composerWidth - 300))
     }
 
     var body: some View {
@@ -143,12 +174,22 @@ struct MessageComposer: View {
                     .alignmentGuide(.top) { dimensions in
                         dimensions[.bottom]
                     }
+                    .alignmentGuide(.leading) { dimensions in
+                        dimensions[.leading] - mentionPickerX
+                    }
                 }
             }
-            .zIndex(isMentionPickerPresented ? 1 : 0)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { composerWidth = proxy.size.width }
+                        .onChange(of: proxy.size.width) { _, width in composerWidth = width }
+                }
+            }
         }
         .padding(12)
         .background(WorkspaceTheme.surface)
+        .zIndex(isMentionPickerPresented ? 1 : 0)
         .fileImporter(isPresented: $isImportingFiles, allowedContentTypes: [.data], allowsMultipleSelection: true) { result in
             guard case let .success(urls) = result else { return }
             composer.addAttachments(urls)
