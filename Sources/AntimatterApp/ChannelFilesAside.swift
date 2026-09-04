@@ -25,17 +25,20 @@ struct ChannelFilesAside: View {
             }
             .padding(.horizontal, 14)
             .frame(height: WorkspaceTheme.headerHeight)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Divider().overlay(WorkspaceTheme.divider)
 
             Group {
                 if isLoading {
                     ProgressView("Loading files")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else if let error {
                     ContentUnavailableView("Couldn’t load files", systemImage: "exclamationmark.triangle", description: Text(error))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else if files.isEmpty {
                     ContentUnavailableView("No files yet", systemImage: "folder", description: Text("Files shared in this channel appear here."))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     List(files) { file in
                         ChannelFileRow(file: file)
@@ -44,7 +47,7 @@ struct ChannelFilesAside: View {
                 }
             }
         }
-        .frame(minWidth: 240, idealWidth: 280, maxWidth: 360, maxHeight: .infinity)
+        .frame(minWidth: 240, idealWidth: 280, maxWidth: 360, maxHeight: .infinity, alignment: .topLeading)
         .background(WorkspaceTheme.surface)
         .accessibilityIdentifier("channel-files-aside")
     }

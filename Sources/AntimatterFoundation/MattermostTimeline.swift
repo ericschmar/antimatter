@@ -174,9 +174,11 @@ public actor MattermostTimelineLoader {
 
     public func loadChannelFiles(
         channelID: String,
-        page: MattermostPage = MattermostPage()
+        page: MattermostPage = MattermostPage(size: 200)
     ) async throws -> [MattermostFile] {
-        try await client.getPage("/api/v4/channels/\(channelID)/files", page: page)
+        let posts = try await loadRecentPosts(channelID: channelID, page: page)
+        var fileIDs = Set<String>()
+        return posts.flatMap(\.files).filter { fileIDs.insert($0.id).inserted }
     }
 
     public func loadStatuses(userIDs: [String]) async throws -> [MattermostUserStatus] {

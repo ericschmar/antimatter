@@ -112,14 +112,26 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(files.map(\.id), ["file-1"])
     }
 
-    func testLoadChannelFilesUsesMattermostFilesEndpoint() async throws {
+    func testLoadChannelFilesExtractsFilesFromRecentChannelPosts() async throws {
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.httpMethod, "GET")
-            XCTAssertEqual(request.url?.path, "/api/v4/channels/channel-1/files")
-            XCTAssertEqual(request.url?.query, "page=0&per_page=60")
+            XCTAssertEqual(request.url?.path, "/api/v4/channels/channel-1/posts")
+            XCTAssertEqual(request.url?.query, "page=0&per_page=200")
             return (
                 try Self.response(for: request, status: 200),
-                Data(#"[{"id":"file-1","name":"notes.pdf","mime_type":"application/pdf","size":42}]"#.utf8)
+                Data(#"""
+                {
+                  "order":["post-1"],
+                  "posts":{
+                    "post-1":{
+                      "id":"post-1","channel_id":"channel-1","user_id":"user-1",
+                      "metadata":{"files":[
+                        {"id":"file-1","name":"notes.pdf","mime_type":"application/pdf","size":42}
+                      ]}
+                    }
+                  }
+                }
+                """#.utf8)
             )
         }
         let client = MattermostAPIClient(
