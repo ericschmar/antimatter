@@ -134,6 +134,31 @@ public actor MattermostTimelineLoader {
         return response.orderedPosts
     }
 
+    /// Loads enough posts on either side of `postID` to display it in channel context.
+    public func loadPostsAround(channelID: String, postID: String, pageSize: Int = 30) async throws -> [MattermostPost] {
+        let pageSize = min(max(1, pageSize), 200)
+        let path = "/api/v4/channels/\(channelID)/posts"
+        async let postsBefore: MattermostPostList = client.get(
+            path,
+            queryItems: [
+                URLQueryItem(name: "before", value: postID),
+                URLQueryItem(name: "per_page", value: String(pageSize)),
+            ]
+        )
+        async let postsAfter: MattermostPostList = client.get(
+            path,
+            queryItems: [
+                URLQueryItem(name: "after", value: postID),
+                URLQueryItem(name: "per_page", value: String(pageSize)),
+            ]
+        )
+        async let focusedPost: MattermostPost = client.get("/api/v4/posts/\(postID)")
+
+        let nearbyPosts = try await postsBefore.orderedPosts + postsAfter.orderedPosts + [focusedPost]
+        let postsByID = Dictionary(uniqueKeysWithValues: nearbyPosts.map { ($0.id, $0) })
+        return postsByID.values.sorted { $0.createAt < $1.createAt }
+    }
+
     public func loadUsers(ids: [String]) async throws -> [MattermostUser] {
         guard !ids.isEmpty else { return [] }
         return try await client.post("/api/v4/users/ids", body: ids)

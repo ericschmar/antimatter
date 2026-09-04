@@ -24,6 +24,7 @@ struct WorkspaceTab: Codable, Identifiable, Equatable {
 final class WorkspaceViewModel: ObservableObject {
     @Published private(set) var tabs: [WorkspaceTab]
     @Published private(set) var selectedChannelID: String?
+    @Published private(set) var focusedPostID: String?
 
     private let defaults: UserDefaults
     private let tabsKey = "workspaceTabs"
@@ -49,7 +50,7 @@ final class WorkspaceViewModel: ObservableObject {
         persist()
     }
 
-    func openPermanently(_ channel: MattermostChannel, title: String? = nil) {
+    func openPermanently(_ channel: MattermostChannel, title: String? = nil, focusedPostID: String? = nil) {
         let tabTitle = title ?? channel.displayName
         if let existingIndex = tabs.firstIndex(where: { $0.channelID == channel.id }) {
             tabs[existingIndex].title = tabTitle
@@ -58,7 +59,13 @@ final class WorkspaceViewModel: ObservableObject {
             tabs.append(WorkspaceTab(channelID: channel.id, title: tabTitle, isPreview: false))
         }
         selectedChannelID = channel.id
+        self.focusedPostID = focusedPostID
         persist()
+    }
+
+    func clearFocusedPost(id: String) {
+        guard focusedPostID == id else { return }
+        focusedPostID = nil
     }
 
     func openSearchResults(for query: String) {

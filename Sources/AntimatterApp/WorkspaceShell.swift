@@ -804,6 +804,7 @@ private struct ConversationPlaceholder: View {
                             currentUserID: navigation.currentUserID,
                             currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
                             channelID: selectedTab?.channelID,
+                            focusedPostID: workspace.focusedPostID,
                             onStartDirectMessage: { user in
                                 Task {
                                     await navigation.openDirectMessage(with: user)
@@ -813,8 +814,10 @@ private struct ConversationPlaceholder: View {
                             composer.reply(to: post)
                         } onVote: { post, actionID in
                             timeline.vote(on: post, actionID: actionID)
+                        } onFocusedPostDisplayed: { postID in
+                            workspace.clearFocusedPost(id: postID)
                         }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         if presence.hasTypingUsers {
                             ChatTypingIndicator()
@@ -830,7 +833,6 @@ private struct ConversationPlaceholder: View {
                             Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     if isChannelFilesPresented {
                         Divider()
@@ -868,7 +870,11 @@ private struct ConversationPlaceholder: View {
 
     private func openSearchResult(_ post: MattermostPost) {
         guard let channel = navigation.channels.first(where: { $0.id == post.channelID }) else { return }
-        workspace.openPermanently(channel, title: navigation.displayName(for: channel))
+        workspace.openPermanently(
+            channel,
+            title: navigation.displayName(for: channel),
+            focusedPostID: post.id
+        )
     }
 
     private var pollTeamID: String? {

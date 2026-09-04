@@ -12,9 +12,11 @@ struct MessageTimeline: View {
     let currentUserID: String?
     let currentUsername: String?
     let channelID: String?
+    let focusedPostID: String?
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
+    let onFocusedPostDisplayed: (String) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @State private var reactionTooltip: ReactionTooltip?
@@ -90,12 +92,18 @@ struct MessageTimeline: View {
                 }
             }
             .onChange(of: newestPostID) { _, postID in
+                guard focusedPostID == nil else { return }
                 scrollToLatest(postID, with: proxy)
             }
             .task(id: channelID) {
-                await timeline.load(channelID: channelID)
+                await timeline.load(channelID: channelID, aroundPostID: focusedPostID)
                 userColorSettings.assignColors(to: messageUsers.keys)
-                scrollToLatest(newestPostID, with: proxy)
+                if let focusedPostID {
+                    scrollTo(focusedPostID, with: proxy)
+                    onFocusedPostDisplayed(focusedPostID)
+                } else {
+                    scrollToLatest(newestPostID, with: proxy)
+                }
             }
             .onChange(of: timeline.users) {
                 userColorSettings.assignColors(to: messageUsers.keys)
@@ -163,6 +171,14 @@ struct MessageTimeline: View {
         DispatchQueue.main.async {
             withAnimation(.easeOut(duration: 0.15)) {
                 proxy.scrollTo(postID, anchor: .bottom)
+            }
+        }
+    }
+
+    private func scrollTo(_ postID: String, with proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.15)) {
+                proxy.scrollTo(postID, anchor: .center)
             }
         }
     }
@@ -566,6 +582,7 @@ private struct InlineReplyThread: View {
                         onReactionTooltipChange: onReactionTooltipChange,
                         onToggleReaction: onToggleReaction
                     )
+                    .id(reply.id)
                 }
             }
             .padding(10)

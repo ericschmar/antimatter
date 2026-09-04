@@ -507,6 +507,45 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(requestedPaths, ["/api/v4/users/ids", "/api/v4/users/user-1/image"])
     }
 
+    func testTimelineLoaderFetchesPostsOnBothSidesOfSearchResult() async throws {
+        var requestedURLs: [URL] = []
+        URLProtocolStub.handler = { request in
+            let url = try XCTUnwrap(request.url)
+            requestedURLs.append(url)
+            let body: String
+            switch url.path {
+            case "/api/v4/channels/channel-1/posts":
+                let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+                if query.contains(URLQueryItem(name: "before", value: "post-2")) {
+                    body = #"{"order":["post-1"],"posts":{"post-1":{"id":"post-1","channel_id":"channel-1","user_id":"user-1","create_at":1,"update_at":1}}}"#
+                } else {
+                    body = #"{"order":["post-3"],"posts":{"post-3":{"id":"post-3","channel_id":"channel-1","user_id":"user-1","create_at":3,"update_at":3}}}"#
+                }
+            case "/api/v4/posts/post-2":
+                body = #"{"id":"post-2","channel_id":"channel-1","user_id":"user-1","create_at":2,"update_at":2}"#
+            default:
+                return (try Self.response(for: request, status: 404), Data())
+            }
+            return (try Self.response(for: request, status: 200), Data(body.utf8))
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+
+        let posts = try await MattermostTimelineLoader(client: client).loadPostsAround(
+            channelID: "channel-1",
+            postID: "post-2"
+        )
+
+        XCTAssertEqual(posts.map(\.id), ["post-1", "post-2", "post-3"])
+        let channelQueries = requestedURLs
+            .filter { $0.path == "/api/v4/channels/channel-1/posts" }
+            .compactMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.query }
+        XCTAssertEqual(Set(channelQueries), ["before=post-2&per_page=30", "after=post-2&per_page=30"])
+    }
+
     private func stubbedSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]

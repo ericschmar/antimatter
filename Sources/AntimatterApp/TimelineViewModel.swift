@@ -39,7 +39,7 @@ final class TimelineViewModel: ObservableObject {
         store = MattermostLocalStore(serverURL: session.serverURL)
     }
 
-    func load(channelID: String?) async {
+    func load(channelID: String?, aroundPostID: String? = nil) async {
         guard let channelID else {
             posts = []
             loadError = nil
@@ -63,7 +63,11 @@ final class TimelineViewModel: ObservableObject {
         }
 
         do {
-            let recentPosts = try await loader.loadRecentPosts(channelID: channelID)
+            let recentPosts = if let aroundPostID {
+                try await loader.loadPostsAround(channelID: channelID, postID: aroundPostID)
+            } else {
+                try await loader.loadRecentPosts(channelID: channelID)
+            }
             try await store.apply(.posts(recentPosts))
             posts = chronological(recentPosts)
             await loadAuthors(for: recentPosts)
