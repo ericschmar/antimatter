@@ -7,6 +7,7 @@ struct SettingsView: View {
         case appearance
         case notifications
         case workspace
+        case keyboardShortcuts
         case account
 
         var id: Self { self }
@@ -17,6 +18,7 @@ struct SettingsView: View {
             case .appearance: "Appearance"
             case .notifications: "Notifications"
             case .workspace: "Workspace"
+            case .keyboardShortcuts: "Keyboard Shortcuts"
             case .account: "Account"
             }
         }
@@ -27,6 +29,7 @@ struct SettingsView: View {
             case .appearance: "paintbrush"
             case .notifications: "bell"
             case .workspace: "rectangle.3.group"
+            case .keyboardShortcuts: "keyboard"
             case .account: "person.crop.circle"
             }
         }
@@ -111,6 +114,26 @@ struct SettingsView: View {
             SettingsPageHeader("Workspace", subtitle: "Choose how conversations open in your workspace.")
             SettingsGroup {
                 SettingsToggleRow("Open channels as previews", isOn: $openPreviews)
+            }
+
+        case .keyboardShortcuts:
+            SettingsPageHeader("Keyboard Shortcuts", subtitle: "Use these shortcuts to move quickly around Antimatter.")
+            SettingsGroup {
+                SettingsShortcutRow("Open command palette", shortcut: "⌘K")
+                SettingsDivider()
+                SettingsShortcutRow("Close active chat", shortcut: "⌘W")
+                SettingsDivider()
+                SettingsShortcutRow("Previous chat tab", shortcut: "⌘[")
+                SettingsDivider()
+                SettingsShortcutRow("Next chat tab", shortcut: "⌘]")
+                SettingsDivider()
+                SettingsShortcutRow("Focus sidebar", shortcut: "⌥⌘1")
+                SettingsDivider()
+                SettingsShortcutRow("Focus conversation", shortcut: "⌥⌘2")
+                SettingsDivider()
+                SettingsShortcutRow("New workspace window", shortcut: "⇧⌘N")
+                SettingsDivider()
+                SettingsShortcutRow("Open settings", shortcut: "⌘,")
             }
 
         case .account:
@@ -305,6 +328,35 @@ private struct SettingsValueRow<Control: View>: View {
                 .frame(minWidth: 42, alignment: .trailing)
             control
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct SettingsShortcutRow: View {
+    let title: String
+    let shortcut: String
+
+    init(_ title: String, shortcut: String) {
+        self.title = title
+        self.shortcut = shortcut
+    }
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 13))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+            Spacer(minLength: 20)
+            Text(shortcut)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(shortcut)")
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
     }
