@@ -40,6 +40,7 @@ public struct AppConfiguration: Equatable, Sendable {
 
     public static func load() throws -> AppConfiguration {
         var values = dotenvValues()
+        values.merge(dotenvValues(fileName: ".env.local")) { _, localValue in localValue }
         values.merge(ProcessInfo.processInfo.environment) { _, environmentValue in environmentValue }
         return try load(environment: values)
     }
@@ -72,9 +73,10 @@ public struct AppConfiguration: Equatable, Sendable {
     }
 
     private static func dotenvValues(
-        fileURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent(".env")
+        fileName: String = ".env"
     ) -> [String: String] {
+        let fileURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent(fileName)
         guard let contents = try? String(contentsOf: fileURL, encoding: .utf8) else { return [:] }
         return contents
             .split(whereSeparator: \.isNewline)
