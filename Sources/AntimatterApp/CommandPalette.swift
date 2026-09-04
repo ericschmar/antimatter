@@ -3,8 +3,10 @@ import SwiftUI
 struct CommandPalette: View {
     @Binding var isPresented: Bool
     let focus: (WorkspaceFocusTarget) -> Void
-    let openSearch: () -> Void
+    let openSearch: (String) -> Void
     @State private var query = ""
+    @State private var selectedCommand: PaletteCommand?
+    @State private var highlightedCommandIndex = 0
     @FocusState private var isQueryFocused: Bool
 
     var body: some View {
@@ -13,32 +15,30 @@ struct CommandPalette: View {
                 Image(systemName: "command")
                     .font(.system(size: 15))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                TextField("Type a command or search…", text: $query)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 15))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                    .focused($isQueryFocused)
-                    .onSubmit(performFirstMatchingAction)
+                if let selectedCommand {
+                    CommandChip(command: selectedCommand, remove: clearSelectedCommand)
+                }
+                TextField(
+                    selectedCommand == nil ? "Type a command…" : "Type a query…",
+                    text: $query
+                )
+                .textFieldStyle(.plain)
+                .font(.system(size: 15))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+                .focused($isQueryFocused)
+                .onSubmit(performSubmitAction)
             }
             .padding(14)
             Divider().overlay(WorkspaceTheme.divider)
 
-            if matches("Search messages") {
-                PaletteAction(title: "Search messages", symbol: "magnifyingglass") {
-                    openSearch()
-                    isPresented = false
-                }
-            }
-            if matches("Focus sidebar") {
-                PaletteAction(title: "Focus sidebar", symbol: "sidebar.left") {
-                    focus(.sidebar)
-                    isPresented = false
-                }
-            }
-            if matches("Focus conversation") {
-                PaletteAction(title: "Focus conversation", symbol: "rectangle.split.3x1") {
-                    focus(.conversation)
-                    isPresented = false
+            if selectedCommand == nil {
+                ForEach(Array(matchingCommands.enumerated()), id: \.element) { index, command in
+                    PaletteAction(
+                        command: command,
+                        isHighlighted: index == highlightedCommandIndex
+                    ) {
+                        select(command)
+                    }
                 }
             }
         }
@@ -53,6 +53,10 @@ struct CommandPalette: View {
         .onExitCommand {
             isPresented = false
         }
+        .onMoveCommand(perform: moveHighlight)
+        .onChange(of: query) {
+            highlightedCommandIndex = 0
+        }
         .onAppear {
             DispatchQueue.main.async {
                 isQueryFocused = true
@@ -61,36 +65,119 @@ struct CommandPalette: View {
         .accessibilityIdentifier("command-palette")
     }
 
-    private func matches(_ title: String) -> Bool {
-        query.isEmpty || title.localizedCaseInsensitiveContains(query)
+    private var matchingCommands: [PaletteCommand] {
+        PaletteCommand.allCases.filter {
+            query.isEmpty || $0.title.localizedCaseInsensitiveContains(query)
+        }
     }
 
-    private func performFirstMatchingAction() {
-        if matches("Search messages") {
-            openSearch()
-            isPresented = false
-        } else if matches("Focus sidebar") {
+    private func moveHighlight(_ direction: MoveCommandDirection) {
+        guard selectedCommand == nil, !matchingCommands.isEmpty else { return }
+
+        switch direction {
+        case .up:
+            highlightedCommandIndex = (highlightedCommandIndex - 1 + matchingCommands.count) % matchingCommands.count
+        case .down:
+            highlightedCommandIndex = (highlightedCommandIndex + 1) % matchingCommands.count
+        default:
+            break
+        }
+    }
+
+    private func performSubmitAction() {
+        if let selectedCommand {
+            run(selectedCommand)
+        } else if matchingCommands.indices.contains(highlightedCommandIndex) {
+            select(matchingCommands[highlightedCommandIndex])
+        }
+    }
+
+    private func select(_ command: PaletteCommand) {
+        selectedCommand = command
+        query = ""
+        isQueryFocused = true
+    }
+
+    private func clearSelectedCommand() {
+        selectedCommand = nil
+        query = ""
+        highlightedCommandIndex = 0
+        isQueryFocused = true
+    }
+
+    private func run(_ command: PaletteCommand) {
+        switch command {
+        case .searchMessages:
+            openSearch(query)
+        case .focusSidebar:
             focus(.sidebar)
-            isPresented = false
-        } else if matches("Focus conversation") {
+        case .focusConversation:
             focus(.conversation)
-            isPresented = false
+        }
+        isPresented = false
+    }
+}
+
+private enum PaletteCommand: String, CaseIterable, Identifiable {
+    case searchMessages
+    case focusSidebar
+    case focusConversation
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .searchMessages: "Search messages"
+        case .focusSidebar: "Focus sidebar"
+        case .focusConversation: "Focus conversation"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .searchMessages: "magnifyingglass"
+        case .focusSidebar: "sidebar.left"
+        case .focusConversation: "rectangle.split.3x1"
         }
     }
 }
 
+private struct CommandChip: View {
+    let command: PaletteCommand
+    let remove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: command.symbol)
+            Text(command.title)
+            Button(action: remove) {
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(command.title)")
+        }
+        .font(.system(size: 13, weight: .medium))
+        .foregroundStyle(WorkspaceTheme.primaryText)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(WorkspaceTheme.divider)
+        .clipShape(Capsule())
+        .accessibilityIdentifier("command-palette-chip")
+    }
+}
+
 private struct PaletteAction: View {
-    let title: String
-    let symbol: String
+    let command: PaletteCommand
+    let isHighlighted: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: symbol)
+                Image(systemName: command.symbol)
                     .font(.system(size: 15))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
-                Text(title)
+                Text(command.title)
                     .font(.system(size: 14))
                 Spacer()
                 Image(systemName: "return")
@@ -102,5 +189,7 @@ private struct PaletteAction: View {
             .padding(.vertical, 11)
         }
         .buttonStyle(.plain)
+        .background(isHighlighted ? WorkspaceTheme.divider : .clear)
+        .accessibilityIdentifier("command-palette-\(command.rawValue)")
     }
 }

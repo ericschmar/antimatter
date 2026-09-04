@@ -98,7 +98,7 @@ struct WorkspaceShell: View {
                 CommandPalette(
                     isPresented: $isCommandPalettePresented,
                     focus: focus,
-                    openSearch: { focusedRegion = .sidebar }
+                    openSearch: runPaletteSearch
                 )
             }
         }
@@ -195,6 +195,12 @@ struct WorkspaceShell: View {
         guard !query.isEmpty else { return }
         workspace.openSearchResults(for: query)
         Task { await search.search() }
+    }
+
+    private func runPaletteSearch(_ query: String) {
+        search.query = query
+        focusedRegion = .sidebar
+        performSearch()
     }
 }
 
