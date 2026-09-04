@@ -8,11 +8,70 @@ final class MattermostAPIClientTests: XCTestCase {
         super.tearDown()
     }
 
+    func testCacheableGetResponseIsReusedWhileFresh() async throws {
+        var requestCount = 0
+        URLProtocolStub.handler = { request in
+            requestCount += 1
+            let response = try XCTUnwrap(HTTPURLResponse(
+                url: XCTUnwrap(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Cache-Control": "max-age=60"]
+            ))
+            return (response, Data("[{\"id\":\"team-\(requestCount)\"}]".utf8))
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: MattermostAPIClient.cachingSession(configuration: configuration)
+        )
+
+        let first: [Team] = try await client.get("/api/v4/teams")
+        let second: [Team] = try await client.get("/api/v4/teams")
+
+        XCTAssertEqual(first, [Team(id: "team-1")])
+        XCTAssertEqual(second, first)
+        XCTAssertEqual(requestCount, 1)
+    }
+
+    func testMutationInvalidatesCachedGetResponses() async throws {
+        var getRequestCount = 0
+        URLProtocolStub.handler = { request in
+            if request.httpMethod == "POST" {
+                return (try Self.response(for: request, status: 200), Data("{\"id\":\"team-new\"}".utf8))
+            }
+            getRequestCount += 1
+            let response = try XCTUnwrap(HTTPURLResponse(
+                url: XCTUnwrap(request.url),
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Cache-Control": "max-age=60"]
+            ))
+            return (response, Data("[{\"id\":\"team-\(getRequestCount)\"}]".utf8))
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+
+        let first: [Team] = try await client.get("/api/v4/teams")
+        let _: Team = try await client.post("/api/v4/teams", body: Team(id: "team-new"))
+        let second: [Team] = try await client.get("/api/v4/teams")
+
+        XCTAssertEqual(first, [Team(id: "team-1")])
+        XCTAssertEqual(second, [Team(id: "team-2")])
+        XCTAssertEqual(getRequestCount, 2)
+    }
+
     func testGetPageSendsAuthorizationAndPagination() async throws {
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
             XCTAssertEqual(request.url?.path, "/api/v4/teams")
             XCTAssertEqual(request.url?.query, "page=2&per_page=60")
+            XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalCacheData)
             return (try Self.response(for: request, status: 200), Data("[{\"id\":\"team-1\"}]".utf8))
         }
 
@@ -49,6 +108,7 @@ final class MattermostAPIClientTests: XCTestCase {
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.url?.path, "/api/v4/users/status/ids")
+            XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalCacheData)
             return (
                 try Self.response(for: request, status: 200),
                 Data("[{\"user_id\":\"user-1\",\"status\":\"away\"}]".utf8)

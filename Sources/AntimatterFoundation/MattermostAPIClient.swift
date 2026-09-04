@@ -35,11 +35,16 @@ public actor MattermostAPIClient {
     private let serverURL: URL
     private let token: String
     private let session: URLSession
+    private var cachedResponses: [URL: CachedResponse] = [:]
+    private let maximumCachedResponses = 20
+    private let maximumCachedResponseSize = 1_024 * 1_024
 
-    public init(serverURL: URL, token: String, session: URLSession = .shared) {
+    /// Uses a private, memory-only response cache so authenticated responses are never
+    /// shared between accounts or persisted to disk. Cache freshness remains server-controlled.
+    public init(serverURL: URL, token: String, session: URLSession? = nil) {
         self.serverURL = serverURL
         self.token = token
-        self.session = session
+        self.session = session ?? Self.cachingSession()
     }
 
     public func get<Response: Decodable & Sendable>(
@@ -59,9 +64,13 @@ public actor MattermostAPIClient {
     /// Fetches a non-JSON resource using the same authenticated session as the API.
     public func getData(_ path: String) async throws -> Data {
         var request = URLRequest(url: URL(string: path, relativeTo: serverURL)!.absoluteURL)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("image/*", forHTTPHeaderField: "Accept")
 
+        if let cached = cachedData(for: request.url!) {
+            return cached
+        }
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else {
             throw MattermostAPIError.invalidResponse
@@ -69,6 +78,7 @@ public actor MattermostAPIClient {
         guard (200 ..< 300).contains(response.statusCode) else {
             throw MattermostAPIError.rejected(status: response.statusCode, message: nil)
         }
+        cache(data, for: request.url!, response: response)
         return data
     }
 
@@ -100,6 +110,7 @@ public actor MattermostAPIClient {
         components.queryItems = queryItems.isEmpty ? nil : queryItems
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
@@ -107,6 +118,12 @@ public actor MattermostAPIClient {
             request.httpBody = body
         }
 
+        if method == "GET", let cached = cachedData(for: request.url!) {
+            return try decode(Response.self, from: cached)
+        }
+        if method != "GET" {
+            cachedResponses.removeAll()
+        }
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse else {
             throw MattermostAPIError.invalidResponse
@@ -117,12 +134,68 @@ public actor MattermostAPIClient {
                 message: try? JSONDecoder().decode(ServerError.self, from: data).message
             )
         }
+        if method == "GET" {
+            cache(data, for: request.url!, response: response)
+        }
+        return try decode(Response.self, from: data)
+    }
+
+    static func cachingSession(configuration: URLSessionConfiguration = .ephemeral) -> URLSession {
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        return URLSession(configuration: configuration)
+    }
+
+    private func cachedData(for url: URL) -> Data? {
+        guard let cached = cachedResponses[url] else { return nil }
+        guard cached.expiresAt > Date() else {
+            cachedResponses.removeValue(forKey: url)
+            return nil
+        }
+        return cached.data
+    }
+
+    private func cache(_ data: Data, for url: URL, response: HTTPURLResponse) {
+        guard data.count <= maximumCachedResponseSize,
+              let maxAge = maxAge(from: response),
+              maxAge > 0
+        else { return }
+        if cachedResponses[url] == nil, cachedResponses.count >= maximumCachedResponses,
+           let oldestURL = cachedResponses.min(by: { $0.value.expiresAt < $1.value.expiresAt })?.key {
+            cachedResponses.removeValue(forKey: oldestURL)
+        }
+        cachedResponses[url] = CachedResponse(
+            data: data,
+            expiresAt: Date().addingTimeInterval(TimeInterval(maxAge))
+        )
+    }
+
+    private func maxAge(from response: HTTPURLResponse) -> Int? {
+        let directives = response.value(forHTTPHeaderField: "Cache-Control")?
+            .lowercased()
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) } ?? []
+        guard !directives.contains("no-cache"), !directives.contains("no-store") else { return nil }
+        return directives
+            .first(where: { $0.hasPrefix("max-age=") })
+            .flatMap { Int($0.dropFirst("max-age=".count).trimmingCharacters(in: CharacterSet(charactersIn: "\""))) }
+    }
+
+    private func decode<Response: Decodable & Sendable>(
+        _ type: Response.Type,
+        from data: Data
+    ) throws -> Response {
         do {
             return try JSONDecoder().decode(Response.self, from: data)
         } catch {
             throw MattermostAPIError.decoding
         }
     }
+}
+
+private struct CachedResponse {
+    let data: Data
+    let expiresAt: Date
 }
 
 private struct ServerError: Decodable {
