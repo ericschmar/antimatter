@@ -811,12 +811,14 @@ private struct ConversationPlaceholder: View {
                                     await navigation.openDirectMessage(with: user)
                                 }
                             },
-                            onOpenThread: openThread
-                        } onVote: { post, actionID in
-                            timeline.vote(on: post, actionID: actionID)
-                        } onFocusedPostDisplayed: { postID in
-                            workspace.clearFocusedPost(id: postID)
-                        }
+                            onOpenThread: openThread,
+                            onVote: { post, actionID in
+                                timeline.vote(on: post, actionID: actionID)
+                            },
+                            onFocusedPostDisplayed: { postID in
+                                workspace.clearFocusedPost(id: postID)
+                            }
+                        )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         if presence.hasTypingUsers {
