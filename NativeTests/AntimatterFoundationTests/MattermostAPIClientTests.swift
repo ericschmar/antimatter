@@ -253,6 +253,52 @@ final class MattermostAPIClientTests: XCTestCase {
         ])
     }
 
+    func testCustomEmojiLoaderFetchesAllPagesAndEmojiImages() async throws {
+        var requestedURLs: [URL] = []
+        URLProtocolStub.handler = { request in
+            requestedURLs.append(try XCTUnwrap(request.url))
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
+            switch request.url!.path {
+            case "/api/v4/emoji":
+                let page = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?
+                    .queryItems?.first(where: { $0.name == "page" })?.value
+                let emojis: String
+                if page == "0" {
+                    emojis = "["
+                        + (0 ..< 200).map { #"{"id":"emoji-\#($0)","name":"emoji_\#($0)"}"# }.joined(separator: ",")
+                        + "]"
+                } else if page == "1" {
+                    emojis = #"[{"id":"emoji-200","name":"party_parrot"}]"#
+                } else {
+                    emojis = "[]"
+                }
+                return (try Self.response(for: request, status: 200), Data(emojis.utf8))
+            case "/api/v4/emoji/emoji-1/image":
+                return (try Self.response(for: request, status: 200), Data([0x89, 0x50, 0x4E, 0x47]))
+            default:
+                return (try Self.response(for: request, status: 404), Data())
+            }
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let emojis = try await MattermostCustomEmojiLoader(client: client).loadAll()
+        let image = try await MattermostCustomEmojiLoader(client: client).loadImageData(emojiID: "emoji-1")
+
+        XCTAssertEqual(emojis.count, 201)
+        XCTAssertEqual(emojis.last, MattermostCustomEmoji(id: "emoji-200", name: "party_parrot"))
+        XCTAssertEqual(image, Data([0x89, 0x50, 0x4E, 0x47]))
+        XCTAssertEqual(requestedURLs.map(\.path), [
+            "/api/v4/emoji",
+            "/api/v4/emoji",
+            "/api/v4/emoji/emoji-1/image",
+        ])
+        XCTAssertEqual(requestedURLs[0].query, "page=0&per_page=200")
+        XCTAssertEqual(requestedURLs[1].query, "page=1&per_page=200")
+    }
+
     func testPollsUseMatterpollCommandAndMattermostPostActions() async throws {
         var requests: [URLRequest] = []
         URLProtocolStub.handler = { request in

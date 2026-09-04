@@ -1,6 +1,6 @@
 import AntimatterFoundation
 import AppKit
-import EmojiKit
+import EmojiData
 import SwiftUI
 import SwiftEmojiPicker
 
@@ -57,6 +57,7 @@ struct MessageTimeline: View {
                                         currentUsername: currentUsername,
                                         fileData: timeline.fileData,
                                         avatarData: timeline.avatarData,
+                                        customEmojiData: timeline.customEmojiData,
                                         messageFontSize: messageFontSize,
                                         onStartDirectMessage: onStartDirectMessage,
                                         onReply: onReply,
@@ -133,6 +134,7 @@ struct MessageTimeline: View {
             users: messageUsers,
             avatarData: timeline.avatarData[post.userID],
             fileData: timeline.fileData,
+            customEmojiData: timeline.customEmojiData,
             status: timeline.statuses[post.userID] ?? statuses[post.userID],
             messageFontSize: messageFontSize,
             currentUserID: currentUserID,
@@ -246,6 +248,7 @@ private struct MessageRow: View {
     let users: [String: MattermostUser]
     let avatarData: Data?
     let fileData: [String: Data]
+    let customEmojiData: [String: Data]
     let status: String?
     let messageFontSize: Double
     let currentUserID: String?
@@ -325,6 +328,7 @@ private struct MessageRow: View {
                     post: post,
                     displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
                     currentUserID: currentUserID,
+                    customEmojiData: customEmojiData,
                     onToggleReaction: onToggleReaction,
                     onTooltipChange: onReactionTooltipChange
                 )
@@ -507,6 +511,7 @@ private struct InlineReplyThread: View {
     let currentUsername: String?
     let fileData: [String: Data]
     let avatarData: [String: Data]
+    let customEmojiData: [String: Data]
     let messageFontSize: Double
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
@@ -533,6 +538,7 @@ private struct InlineReplyThread: View {
                         currentUsername: currentUsername,
                         fileData: fileData,
                         avatarData: avatarData[reply.userID],
+                        customEmojiData: customEmojiData,
                         messageFontSize: messageFontSize,
                         onStartDirectMessage: onStartDirectMessage,
                         onReply: onReply,
@@ -574,6 +580,7 @@ private struct InlineReplyRow: View {
     let currentUsername: String?
     let fileData: [String: Data]
     let avatarData: Data?
+    let customEmojiData: [String: Data]
     let messageFontSize: Double
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
@@ -624,6 +631,7 @@ private struct InlineReplyRow: View {
                 post: post,
                 displayName: { userID in users[userID]?.displayName ?? "Unknown member" },
                 currentUserID: currentUserID,
+                customEmojiData: customEmojiData,
                 onToggleReaction: onToggleReaction,
                 onTooltipChange: onReactionTooltipChange
             )
@@ -919,6 +927,7 @@ private struct ReactionSummary: View {
     let post: MattermostPost
     let displayName: (String) -> String
     let currentUserID: String?
+    let customEmojiData: [String: Data]
     let onToggleReaction: (MattermostPost, String) -> Void
     let onTooltipChange: (ReactionTooltip?) -> Void
 
@@ -929,8 +938,16 @@ private struct ReactionSummary: View {
                     onToggleReaction(post, summary.emojiName)
                 } label: {
                     HStack(spacing: 3) {
-                        Text(displayEmoji(for: summary.emojiName))
-                            .font(.system(size: 14))
+                        if let data = customEmojiData[summary.emojiName],
+                           let image = NSImage(data: data) {
+                            Image(nsImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 14, height: 14)
+                        } else {
+                            Text(displayEmoji(for: summary.emojiName))
+                                .font(.system(size: 14))
+                        }
                         Text("\(summary.count)")
                             .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     }
@@ -973,40 +990,22 @@ private struct ReactionSummary: View {
 
     private var summaries: [ReactionCount] {
         Dictionary(grouping: post.reactions, by: \.emojiName)
-            .map { ReactionCount(emojiName: $0.key, userIDs: $0.value.map(\.userID)) }
+            .map {
+                ReactionCount(
+                    postID: post.id,
+                    emojiName: $0.key,
+                    userIDs: $0.value.map(\.userID)
+                )
+            }
             .sorted { $0.emojiName < $1.emojiName }
     }
 
     private func displayEmoji(for emojiName: String) -> String {
-        guard !isUnicodeEmoji(emojiName) else { return emojiName }
-
-        let nameTokens = normalizedTokens(in: emojiName)
-        guard !nameTokens.isEmpty else { return emojiName }
-        return Emoji.all.first { emoji in
-            let emojiNameTokens = normalizedTokens(in: emoji.unicodeName)
-            return nameTokens.allSatisfy(emojiNameTokens.contains)
-        }?.char ?? emojiName
-    }
-
-    private func normalizedTokens(in name: String) -> [String] {
-        name
-            .replacingOccurrences(of: "_", with: " ")
-            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
-            .map { $0.lowercased() }
-    }
-
-    private func isUnicodeEmoji(_ emojiName: String) -> Bool {
-        emojiName.unicodeScalars.contains(where: { $0.properties.isEmoji && !$0.isASCII })
+        EmojiData.emoji(fromShortName: emojiName)?.character ?? emojiName
     }
 
     private func readableName(for emojiName: String) -> String {
-        switch emojiName {
-        case "+1", "thumbsup": "Thumbs up"
-        case "-1", "thumbsdown": "Thumbs down"
-        case "white_check_mark": "Check mark"
-        case "thinking_face": "Thinking face"
-        default: emojiName.replacingOccurrences(of: "_", with: " ").capitalized
-        }
+        emojiName.replacingOccurrences(of: "_", with: " ").capitalized
     }
 
 }
@@ -1045,10 +1044,11 @@ private struct AddReactionButton: View {
 }
 
 private struct ReactionCount: Identifiable {
+    let postID: String
     let emojiName: String
     let userIDs: [String]
 
-    var id: String { emojiName }
+    var id: String { "\(postID):\(emojiName)" }
     var count: Int { userIDs.count }
 }
 

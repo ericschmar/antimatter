@@ -7,6 +7,7 @@ final class TimelineViewModel: ObservableObject {
     @Published private(set) var users: [String: MattermostUser] = [:]
     @Published private(set) var avatarData: [String: Data] = [:]
     @Published private(set) var fileData: [String: Data] = [:]
+    @Published private(set) var customEmojiData: [String: Data] = [:]
     @Published private(set) var statuses: [String: String] = [:]
     @Published private(set) var isLoading = false
     @Published private(set) var isLoadingEarlierPosts = false
@@ -19,17 +20,20 @@ final class TimelineViewModel: ObservableObject {
     private let loader: MattermostTimelineLoader
     private let store: MattermostLocalStore
     private let reactions: MattermostReactions
+    private let customEmojis: MattermostCustomEmojiLoader
     private let editor: MattermostPostSender
     private let polls: MattermostPolls
     private var currentUserID: String?
     private var activeChannelID: String?
     private var nextPageIndex = 1
     private let pageSize = MattermostPage().size
+    private var customEmojiIDs: [String: String]?
 
     init(session: MattermostSession) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
         loader = MattermostTimelineLoader(client: client)
         reactions = MattermostReactions(client: client)
+        customEmojis = MattermostCustomEmojiLoader(client: client)
         editor = MattermostPostSender(client: client)
         polls = MattermostPolls(client: client)
         store = MattermostLocalStore(serverURL: session.serverURL)
@@ -55,6 +59,7 @@ final class TimelineViewModel: ObservableObject {
             users.merge(Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })) { _, new in new }
             await loadAuthors(for: posts)
             await loadAttachments(for: posts)
+            await loadCustomEmoji(for: posts)
         }
 
         do {
@@ -63,6 +68,7 @@ final class TimelineViewModel: ObservableObject {
             posts = chronological(recentPosts)
             await loadAuthors(for: recentPosts)
             await loadAttachments(for: recentPosts)
+            await loadCustomEmoji(for: recentPosts)
         } catch {
             if posts.isEmpty {
                 loadError = error.localizedDescription
@@ -99,6 +105,7 @@ final class TimelineViewModel: ObservableObject {
             posts = chronological(posts + newPosts)
             await loadAuthors(for: newPosts)
             await loadAttachments(for: newPosts)
+            await loadCustomEmoji(for: newPosts)
         } catch {
             return
         }
@@ -144,6 +151,27 @@ final class TimelineViewModel: ObservableObject {
             }
             for await (fileID, data) in group where data != nil {
                 fileData[fileID] = data
+            }
+        }
+    }
+
+    private func loadCustomEmoji(for posts: [MattermostPost]) async {
+        if customEmojiIDs == nil {
+            guard let emojis = try? await customEmojis.loadAll() else { return }
+            customEmojiIDs = Dictionary(uniqueKeysWithValues: emojis.map { ($0.name, $0.id) })
+        }
+
+        guard let customEmojiIDs else { return }
+        let reactionNames = Set(posts.flatMap(\.reactions).map(\.emojiName))
+        await withTaskGroup(of: (String, Data?).self) { group in
+            for name in reactionNames where customEmojiData[name] == nil {
+                guard let emojiID = customEmojiIDs[name] else { continue }
+                group.addTask { [customEmojis] in
+                    (name, try? await customEmojis.loadImageData(emojiID: emojiID))
+                }
+            }
+            for await (name, data) in group where data != nil {
+                customEmojiData[name] = data
             }
         }
     }

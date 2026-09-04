@@ -1,5 +1,5 @@
 {
-  "originHash" : "4150bbf817966fbb2591f89f43650cb83f89ea963d90ec4b573df7f267ff6616",
+  "originHash" : "6d69c295a8428fa60fc0610e4a3ab5533c1e1ee5be061ebf17c55a7f0215629b",
   "pins" : [
     {
       "identity" : "emojikit",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "924936d0427cb25a61169739a7660230bffa6ea6",
         "version" : "0.8.0"
+      }
+    },
+    {
+      "identity" : "swift-emoji",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/klaaspieter/swift-emoji",
+      "state" : {
+        "revision" : "cef202ae049dda659821523fc28e7ef94ce0b630",
+        "version" : "0.1.1"
       }
     },
     {
