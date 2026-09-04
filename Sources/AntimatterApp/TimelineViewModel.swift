@@ -242,6 +242,18 @@ final class TimelineViewModel: ObservableObject {
         }
     }
 
+    func delete(_ post: MattermostPost) {
+        Task {
+            do {
+                try await editor.delete(postID: post.id)
+                posts.removeAll { $0.id == post.id }
+                try? await store.apply(.removePost(id: post.id))
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
+    }
+
     func reconcile(_ event: MattermostWebSocketEvent, activeChannelID: String?) async {
         try? await store.reconcile(event)
         guard let activeChannelID else { return }

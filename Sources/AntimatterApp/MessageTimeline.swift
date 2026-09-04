@@ -62,6 +62,7 @@ struct MessageTimeline: View {
                                         onStartDirectMessage: onStartDirectMessage,
                                         onReply: onReply,
                                         onEdit: timeline.beginEditing,
+                                        onDelete: timeline.delete,
                                         onVote: onVote,
                                         onEndPoll: timeline.endPoll,
                                         onReactionTooltipChange: updateReactionTooltip
@@ -143,6 +144,7 @@ struct MessageTimeline: View {
             onStartDirectMessage: onStartDirectMessage,
             onReply: onReply,
             onEdit: timeline.beginEditing,
+            onDelete: timeline.delete,
             onVote: onVote,
             onEndPoll: timeline.endPoll,
             onReactionTooltipChange: updateReactionTooltip,
@@ -257,6 +259,7 @@ private struct MessageRow: View {
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
+    let onDelete: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onEndPoll: (MattermostPost) -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
@@ -265,6 +268,7 @@ private struct MessageRow: View {
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var isHovering = false
     @State private var isReactionPickerPresented = false
+    @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -342,6 +346,7 @@ private struct MessageRow: View {
                         isReactionPickerPresented: $isReactionPickerPresented,
                         onReply: onReply,
                         onEdit: onEdit,
+                        onDelete: { isDeleteConfirmationPresented = true },
                         onToggleReaction: onToggleReaction
                     )
                 }
@@ -361,9 +366,20 @@ private struct MessageRow: View {
                 NSPasteboard.general.setString(post.message, forType: .string)
             }
             Divider()
-            Button("Edit message") {
-                onEdit(post)
+            if post.userID == currentUserID {
+                Button("Edit message") {
+                    onEdit(post)
+                }
+                Button("Delete message", role: .destructive) {
+                    isDeleteConfirmationPresented = true
+                }
             }
+        }
+        .alert("Delete this message?", isPresented: $isDeleteConfirmationPresented) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) { onDelete(post) }
+        } message: {
+            Text("This cannot be undone.")
         }
     }
 
@@ -516,6 +532,7 @@ private struct InlineReplyThread: View {
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
+    let onDelete: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onEndPoll: (MattermostPost) -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
@@ -543,6 +560,7 @@ private struct InlineReplyThread: View {
                         onStartDirectMessage: onStartDirectMessage,
                         onReply: onReply,
                         onEdit: onEdit,
+                        onDelete: onDelete,
                         onVote: onVote,
                         onEndPoll: onEndPoll,
                         onReactionTooltipChange: onReactionTooltipChange,
@@ -585,6 +603,7 @@ private struct InlineReplyRow: View {
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
+    let onDelete: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onEndPoll: (MattermostPost) -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
@@ -592,6 +611,7 @@ private struct InlineReplyRow: View {
     @EnvironmentObject private var userColorSettings: UserColorSettings
     @State private var isHovering = false
     @State private var isReactionPickerPresented = false
+    @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -645,6 +665,7 @@ private struct InlineReplyRow: View {
                     isReactionPickerPresented: $isReactionPickerPresented,
                     onReply: onReply,
                     onEdit: onEdit,
+                    onDelete: { isDeleteConfirmationPresented = true },
                     onToggleReaction: onToggleReaction
                 )
             }
@@ -660,9 +681,20 @@ private struct InlineReplyRow: View {
                 NSPasteboard.general.setString(post.message, forType: .string)
             }
             Divider()
-            Button("Edit message") {
-                onEdit(post)
+            if post.userID == currentUserID {
+                Button("Edit message") {
+                    onEdit(post)
+                }
+                Button("Delete message", role: .destructive) {
+                    isDeleteConfirmationPresented = true
+                }
             }
+        }
+        .alert("Delete this message?", isPresented: $isDeleteConfirmationPresented) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) { onDelete(post) }
+        } message: {
+            Text("This cannot be undone.")
         }
     }
 
@@ -686,6 +718,7 @@ private struct MessageActionBar: View {
     @Binding var isReactionPickerPresented: Bool
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
+    let onDelete: () -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
 
     var body: some View {
@@ -703,6 +736,9 @@ private struct MessageActionBar: View {
                 Button("Copy message") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(post.message, forType: .string)
+                }
+                if post.userID == currentUserID {
+                    Button("Delete message", role: .destructive, action: onDelete)
                 }
             } label: {
                 Image(systemName: "ellipsis")

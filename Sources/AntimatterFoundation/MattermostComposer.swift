@@ -45,4 +45,10 @@ public actor MattermostPostSender {
     public func update(_ update: MattermostPostUpdate) async throws -> MattermostPost {
         try await client.put("/api/v4/posts/\(update.id)", body: update)
     }
+
+    public func delete(postID: String) async throws {
+        let _: EmptyResponse = try await client.delete("/api/v4/posts/\(postID)")
+    }
 }
+
+private struct EmptyResponse: Decodable, Sendable {}
