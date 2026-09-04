@@ -13,6 +13,7 @@ struct MessageComposer: View {
     @State private var isCreatingPoll = false
     @State private var isMentionPickerPresented = false
     @State private var composerWidth: CGFloat = 300
+    private let mentionPickerHeight: CGFloat = 300
 
     private var composerDisabled: Bool {
         channelID == nil || composer.isSending
@@ -171,12 +172,11 @@ struct MessageComposer: View {
                         onTyping()
                         isMentionPickerPresented = false
                     }
-                    .alignmentGuide(.top) { dimensions in
-                        dimensions[.bottom]
-                    }
+                    .frame(height: mentionPickerHeight, alignment: .top)
                     .alignmentGuide(.leading) { dimensions in
                         dimensions[.leading] - mentionPickerX
                     }
+                    .offset(y: -(mentionPickerHeight + 8))
                 }
             }
             .background {
