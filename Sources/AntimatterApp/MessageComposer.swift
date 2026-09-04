@@ -95,12 +95,18 @@ struct MessageComposer: View {
                         sendMessage()
                         return .handled
                     }
-                    .popover(isPresented: $isMentionPickerPresented, arrowEdge: .bottom) {
-                        MentionPicker(users: mentionMatches) { user in
-                            composer.insertMention(user.username)
-                            composer.persistDraft()
-                            onTyping()
-                            isMentionPickerPresented = false
+                    .overlay(alignment: .topLeading) {
+                        if isMentionPickerPresented {
+                            MentionPicker(users: mentionMatches) { user in
+                                composer.insertMention(user.username)
+                                composer.persistDraft()
+                                onTyping()
+                                isMentionPickerPresented = false
+                            }
+                            .alignmentGuide(.top) { dimensions in
+                                dimensions[.bottom]
+                            }
+                            .zIndex(1)
                         }
                     }
 
