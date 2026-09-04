@@ -23,7 +23,7 @@ struct MessageComposer: View {
     }
 
     private var canSendMessage: Bool {
-        !composerDisabled && !composer.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !composerDisabled && composer.hasContent
     }
 
     private var mentionQuery: String? {

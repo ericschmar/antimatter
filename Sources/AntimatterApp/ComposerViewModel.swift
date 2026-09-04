@@ -46,8 +46,8 @@ final class ComposerViewModel: ObservableObject {
     }
 
     func send(onSent: @escaping (MattermostPost) -> Void) {
-        guard let channelID, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !isSending else { return }
-        let draft = message
+        guard let channelID, hasContent, !isSending else { return }
+        let draft = messageWithAttachmentReferences
         isSending = true
         sendError = nil
         Task {
@@ -103,14 +103,10 @@ final class ComposerViewModel: ObservableObject {
 
     func addAttachments(_ urls: [URL]) {
         attachmentURLs += urls.filter { url in !attachmentURLs.contains(url) }
-        let references = urls.map { "[\($0.lastPathComponent)](\($0.absoluteString))" }.joined(separator: "\n")
-        message += message.isEmpty ? references : "\n\(references)"
     }
 
     func removeAttachment(_ url: URL) {
         attachmentURLs.removeAll { $0 == url }
-        message = message.replacingOccurrences(of: "[\(url.lastPathComponent)](\(url.absoluteString))", with: "")
-            .trimmingCharacters(in: .newlines)
     }
 
     func insertMention(_ username: String) {
@@ -126,6 +122,19 @@ final class ComposerViewModel: ObservableObject {
 
     private var drafts: [String: String] {
         defaults.dictionary(forKey: draftsKey) as? [String: String] ?? [:]
+    }
+
+    var hasContent: Bool {
+        !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachmentURLs.isEmpty
+    }
+
+    private var messageWithAttachmentReferences: String {
+        let references = attachmentURLs
+            .map { "[\($0.lastPathComponent)](\($0.absoluteString))" }
+            .joined(separator: "\n")
+        guard !references.isEmpty else { return message }
+        guard !message.isEmpty else { return references }
+        return "\(message)\n\(references)"
     }
 
     private func removeDraft(for channelID: String) {
