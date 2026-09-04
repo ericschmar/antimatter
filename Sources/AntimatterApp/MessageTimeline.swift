@@ -261,6 +261,7 @@ private struct MessageRow: View {
     @EnvironmentObject private var userColorSettings: UserColorSettings
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var isHovering = false
+    @State private var isReactionPickerPresented = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -330,10 +331,11 @@ private struct MessageRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
-                if isHovering {
+                if isHovering || isReactionPickerPresented {
                     MessageActionBar(
                         post: post,
                         currentUserID: currentUserID,
+                        isReactionPickerPresented: $isReactionPickerPresented,
                         onReply: onReply,
                         onEdit: onEdit,
                         onToggleReaction: onToggleReaction
@@ -582,6 +584,7 @@ private struct InlineReplyRow: View {
     let onToggleReaction: (MattermostPost, String) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
     @State private var isHovering = false
+    @State private var isReactionPickerPresented = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -627,10 +630,11 @@ private struct InlineReplyRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .topTrailing) {
-            if isHovering {
+            if isHovering || isReactionPickerPresented {
                 MessageActionBar(
                     post: post,
                     currentUserID: currentUserID,
+                    isReactionPickerPresented: $isReactionPickerPresented,
                     onReply: onReply,
                     onEdit: onEdit,
                     onToggleReaction: onToggleReaction
@@ -671,13 +675,18 @@ private struct InlineReplyRow: View {
 private struct MessageActionBar: View {
     let post: MattermostPost
     let currentUserID: String?
+    @Binding var isReactionPickerPresented: Bool
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
 
     var body: some View {
         HStack(spacing: 2) {
-            AddReactionButton(post: post, onToggleReaction: onToggleReaction)
+            AddReactionButton(
+                post: post,
+                isPickerPresented: $isReactionPickerPresented,
+                onToggleReaction: onToggleReaction
+            )
             actionButton("arrowshape.turn.up.left", label: "Reply") { onReply(post) }
             if post.userID == currentUserID {
                 actionButton("pencil", label: "Edit message") { onEdit(post) }
@@ -1004,8 +1013,8 @@ private struct ReactionSummary: View {
 
 private struct AddReactionButton: View {
     let post: MattermostPost
+    @Binding var isPickerPresented: Bool
     let onToggleReaction: (MattermostPost, String) -> Void
-    @State private var isPickerPresented = false
     @State private var selectedEmoji = ""
 
     var body: some View {
