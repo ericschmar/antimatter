@@ -1,6 +1,7 @@
 import AntimatterFoundation
 import AppKit
 import SwiftUI
+import SwiftEmojiPicker
 import UniformTypeIdentifiers
 
 struct MessageComposer: View {
@@ -12,6 +13,8 @@ struct MessageComposer: View {
     @State private var isImportingFiles = false
     @State private var isCreatingPoll = false
     @State private var isMentionPickerPresented = false
+    @State private var isEmojiPickerPresented = false
+    @State private var selectedEmoji = ""
     @State private var composerWidth: CGFloat = 300
     private let mentionPickerHeight: CGFloat = 300
 
@@ -133,6 +136,7 @@ struct MessageComposer: View {
                 HStack(spacing: 8) {
                     ComposerFormattingToolbar(
                         insert: insertFormatting,
+                        chooseEmoji: showEmojiPicker,
                         attachFiles: { isImportingFiles = true },
                         createPoll: { isCreatingPoll = true }
                     )
@@ -204,6 +208,15 @@ struct MessageComposer: View {
             composer.select(channelID: channelID, teamID: teamID)
         }
         .onChange(of: composer.height) { _, _ in composer.persistHeight() }
+        .emojiPicker(
+            isPresented: $isEmojiPickerPresented,
+            selectedEmoji: $selectedEmoji,
+            selectedEmojiCategoryTintColor: WorkspaceTheme.accent
+        )
+        .onChange(of: selectedEmoji) { _, emoji in
+            guard !emoji.isEmpty else { return }
+            insertEmoji(emoji)
+        }
     }
 
     private func loadDroppedText(from providers: [NSItemProvider]) -> Bool {
@@ -220,6 +233,17 @@ struct MessageComposer: View {
         composer.message = format.apply(to: composer.message)
         composer.persistDraft()
         onTyping()
+    }
+
+    private func insertEmoji(_ emoji: String) {
+        composer.message += emoji
+        composer.persistDraft()
+        onTyping()
+    }
+
+    private func showEmojiPicker() {
+        selectedEmoji = ""
+        isEmojiPickerPresented = true
     }
 
     private func sendMessage() {
@@ -328,6 +352,7 @@ private enum ComposerFormat {
 
 private struct ComposerFormattingToolbar: View {
     let insert: (ComposerFormat) -> Void
+    let chooseEmoji: () -> Void
     let attachFiles: () -> Void
     let createPoll: () -> Void
 
@@ -343,6 +368,7 @@ private struct ComposerFormattingToolbar: View {
             formatButton("text.quote", label: "Quote", format: .quote)
             formatButton("link", label: "Insert link", format: .link)
             toolbarDivider
+            actionButton("face.smiling", label: "Add emoji", action: chooseEmoji)
             actionButton("paperclip", label: "Attach files", action: attachFiles)
             actionButton("chart.bar", label: "Create poll", action: createPoll)
         }
