@@ -95,20 +95,6 @@ struct MessageComposer: View {
                         sendMessage()
                         return .handled
                     }
-                    .overlay(alignment: .topLeading) {
-                        if isMentionPickerPresented {
-                            MentionPicker(users: mentionMatches) { user in
-                                composer.insertMention(user.username)
-                                composer.persistDraft()
-                                onTyping()
-                                isMentionPickerPresented = false
-                            }
-                            .alignmentGuide(.top) { dimensions in
-                                dimensions[.bottom]
-                            }
-                            .zIndex(1)
-                        }
-                    }
 
                 Divider().overlay(WorkspaceTheme.divider)
 
@@ -146,6 +132,20 @@ struct MessageComposer: View {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .stroke(WorkspaceTheme.divider, lineWidth: 1)
             }
+            .overlay(alignment: .topLeading) {
+                if isMentionPickerPresented {
+                    MentionPicker(users: mentionMatches) { user in
+                        composer.insertMention(user.username)
+                        composer.persistDraft()
+                        onTyping()
+                        isMentionPickerPresented = false
+                    }
+                    .alignmentGuide(.top) { dimensions in
+                        dimensions[.bottom]
+                    }
+                }
+            }
+            .zIndex(isMentionPickerPresented ? 1 : 0)
         }
         .padding(12)
         .background(WorkspaceTheme.surface)
