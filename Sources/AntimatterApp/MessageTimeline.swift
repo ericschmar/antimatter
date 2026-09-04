@@ -14,6 +14,7 @@ struct MessageTimeline: View {
     let channelID: String?
     let focusedPostID: String?
     let onStartDirectMessage: (MattermostUser) -> Void
+    let onReply: (MattermostPost) -> Void
     let onOpenThread: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onFocusedPostDisplayed: (String) -> Void
@@ -50,6 +51,28 @@ struct MessageTimeline: View {
                                 messageRow(for: thread.root, in: group)
                                     .id(thread.root.id)
 
+                                if !thread.replies.isEmpty {
+                                    InlineReplyThread(
+                                        replies: thread.replies,
+                                        users: messageUsers,
+                                        statuses: messageStatuses,
+                                        currentUserID: currentUserID,
+                                        currentUsername: currentUsername,
+                                        fileData: timeline.fileData,
+                                        avatarData: timeline.avatarData,
+                                        customEmojiData: timeline.customEmojiData,
+                                        messageFontSize: messageFontSize,
+                                        onStartDirectMessage: onStartDirectMessage,
+                                        onReply: onReply,
+                                        onEdit: timeline.beginEditing,
+                                        onDelete: timeline.delete,
+                                        onVote: onVote,
+                                        onEndPoll: timeline.endPoll,
+                                        onReactionTooltipChange: updateReactionTooltip
+                                    ) { post, emojiName in
+                                        timeline.toggleReaction(on: post, emojiName: emojiName)
+                                    }
+                                }
                             }
                         }
                     }
@@ -128,7 +151,8 @@ struct MessageTimeline: View {
             currentUsername: currentUsername,
             showsMetadata: !messageGrouping.shouldGroup(post, with: group.previousRoot(of: post)),
             onStartDirectMessage: onStartDirectMessage,
-            onReply: onOpenThread,
+            onReply: onReply,
+            onOpenThread: onOpenThread,
             onEdit: timeline.beginEditing,
             onDelete: timeline.delete,
             onVote: onVote,
@@ -252,6 +276,7 @@ private struct MessageRow: View {
     let showsMetadata: Bool
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
+    let onOpenThread: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onDelete: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
@@ -339,6 +364,7 @@ private struct MessageRow: View {
                         currentUserID: currentUserID,
                         isReactionPickerPresented: $isReactionPickerPresented,
                         onReply: onReply,
+                        onOpenThread: onOpenThread,
                         onEdit: onEdit,
                         onDelete: { isDeleteConfirmationPresented = true },
                         onToggleReaction: onToggleReaction
@@ -659,6 +685,7 @@ private struct InlineReplyRow: View {
                     currentUserID: currentUserID,
                     isReactionPickerPresented: $isReactionPickerPresented,
                     onReply: onReply,
+                    onOpenThread: { _ in },
                     onEdit: onEdit,
                     onDelete: { isDeleteConfirmationPresented = true },
                     onToggleReaction: onToggleReaction
@@ -712,6 +739,7 @@ private struct MessageActionBar: View {
     let currentUserID: String?
     @Binding var isReactionPickerPresented: Bool
     let onReply: (MattermostPost) -> Void
+    let onOpenThread: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
     let onDelete: () -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
@@ -728,6 +756,7 @@ private struct MessageActionBar: View {
                 actionButton("pencil", label: "Edit message") { onEdit(post) }
             }
             Menu {
+                Button("Open thread") { onOpenThread(post) }
                 Button("Copy message") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(post.message, forType: .string)

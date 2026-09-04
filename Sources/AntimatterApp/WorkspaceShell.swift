@@ -811,6 +811,7 @@ private struct ConversationPlaceholder: View {
                                     await navigation.openDirectMessage(with: user)
                                 }
                             },
+                            onReply: composer.reply,
                             onOpenThread: openThread,
                             onVote: { post, actionID in
                                 timeline.vote(on: post, actionID: actionID)
