@@ -113,11 +113,63 @@ public actor MattermostNavigationLoader {
         try await client.post("/api/v4/channels/direct", body: userIDs)
     }
 
+    public func loadTeamUsers(teamID: String) async throws -> [MattermostUser] {
+        try await client.get("/api/v4/teams/\(teamID)/users?page=0&per_page=200")
+    }
+
+    public func createChannel(
+        teamID: String,
+        name: String,
+        displayName: String,
+        purpose: String,
+        type: String
+    ) async throws -> MattermostChannel {
+        try await client.post(
+            "/api/v4/channels",
+            body: CreateChannelRequest(
+                teamID: teamID,
+                name: name,
+                displayName: displayName,
+                purpose: purpose,
+                type: type
+            )
+        )
+    }
+
+    public func addMember(userID: String, to channelID: String) async throws {
+        let _: EmptyResponse = try await client.post(
+            "/api/v4/channels/\(channelID)/members",
+            body: AddChannelMemberRequest(userID: userID)
+        )
+    }
+
     public func viewChannel(channelID: String, previousChannelID: String?) async throws {
         let _: EmptyResponse = try await client.post(
             "/api/v4/channels/\(channelID)/view",
             body: ChannelViewRequest(channelID: channelID, previousChannelID: previousChannelID)
         )
+    }
+}
+
+private struct CreateChannelRequest: Encodable, Sendable {
+    let teamID: String
+    let name: String
+    let displayName: String
+    let purpose: String
+    let type: String
+
+    enum CodingKeys: String, CodingKey {
+        case name, purpose, type
+        case teamID = "team_id"
+        case displayName = "display_name"
+    }
+}
+
+private struct AddChannelMemberRequest: Encodable, Sendable {
+    let userID: String
+
+    enum CodingKeys: String, CodingKey {
+        case userID = "user_id"
     }
 }
 

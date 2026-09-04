@@ -9,6 +9,7 @@ struct ChannelSection: View {
     @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var presence: PresenceViewModel
     let onOpenPermanently: (MattermostChannel) -> Void
+    let creationAction: (() -> Void)?
     @State private var draggedChannelID: String?
     @State private var isCollapsed = false
     @State private var hoveredChannelID: String?
@@ -19,7 +20,8 @@ struct ChannelSection: View {
         channels: [MattermostChannel],
         navigation: NavigationViewModel,
         presence: PresenceViewModel,
-        onOpenPermanently: @escaping (MattermostChannel) -> Void = { _ in }
+        onOpenPermanently: @escaping (MattermostChannel) -> Void = { _ in },
+        creationAction: (() -> Void)? = nil
     ) {
         self.title = title
         self.sectionID = sectionID
@@ -27,10 +29,11 @@ struct ChannelSection: View {
         self.navigation = navigation
         self.presence = presence
         self.onOpenPermanently = onOpenPermanently
+        self.creationAction = creationAction
     }
 
     var body: some View {
-        if !channels.isEmpty {
+        if !channels.isEmpty || creationAction != nil {
             VStack(alignment: .leading, spacing: 2) {
                 Button {
                     isCollapsed.toggle()
@@ -53,6 +56,19 @@ struct ChannelSection: View {
                 .buttonStyle(.plain)
 
                 if !isCollapsed {
+                    if let creationAction {
+                        Button(action: creationAction) {
+                            Label(title == "DIRECT MESSAGES" ? "Start a direct message" : "Create a channel", systemImage: "plus")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                                .padding(.leading, 16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(height: 30)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint(title == "DIRECT MESSAGES" ? "Choose a teammate to message." : "Set up a new channel.")
+                    }
                     ForEach(channels) { channel in
                     Button {
                         navigation.selectedChannelID = channel.id

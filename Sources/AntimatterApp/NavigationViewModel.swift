@@ -99,8 +99,11 @@ final class NavigationViewModel: ObservableObject {
             restoreSelectedTeam()
             users = Dictionary(uniqueKeysWithValues: snapshot.users.map { ($0.id, $0) })
             currentUserID = snapshot.currentUserID.isEmpty ? nil : snapshot.currentUserID
+            if let selectedTeamID, let teamUsers = try? await loader.loadTeamUsers(teamID: selectedTeamID) {
+                users.merge(Dictionary(uniqueKeysWithValues: teamUsers.map { ($0.id, $0) })) { _, new in new }
+            }
             try await store.apply(.navigation(teams: teams, channels: channels))
-            try await store.apply(.users(snapshot.users))
+            try await store.apply(.users(Array(users.values)))
             if let currentUserID, currentUserAvatarData == nil {
                 currentUserAvatarData = try? await loader.loadAvatarData(userID: currentUserID)
             }
@@ -196,6 +199,49 @@ final class NavigationViewModel: ObservableObject {
                 try? await store.apply(.navigation(teams: teams, channels: channels))
             }
             selectedChannelID = channel.id
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    func createChannel(displayName: String, purpose: String, isPrivate: Bool) async {
+        guard let teamID = selectedTeamID else {
+            loadError = "Select a team before creating a channel."
+            return
+        }
+
+        let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        let channelName = trimmedName
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        guard !channelName.isEmpty else {
+            loadError = "Channel names need at least one letter or number."
+            return
+        }
+
+        do {
+            let channel = try await loader.createChannel(
+                teamID: teamID,
+                name: channelName,
+                displayName: trimmedName,
+                purpose: purpose.trimmingCharacters(in: .whitespacesAndNewlines),
+                type: isPrivate ? "P" : "O"
+            )
+            channels.removeAll { $0.id == channel.id }
+            channels.append(channel)
+            try? await store.apply(.navigation(teams: teams, channels: channels))
+            selectedChannelID = channel.id
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    func addMember(_ user: MattermostUser, to channelID: String) async {
+        do {
+            try await loader.addMember(userID: user.id, to: channelID)
         } catch {
             loadError = error.localizedDescription
         }

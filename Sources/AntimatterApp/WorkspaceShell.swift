@@ -206,6 +206,8 @@ private struct SidebarPlaceholder: View {
     let onOpenSettings: () -> Void
     let onOpenPermanently: (MattermostChannel) -> Void
     let disconnect: () -> Void
+    @State private var isCreateChannelPresented = false
+    @State private var isNewDirectMessagePresented = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -241,8 +243,12 @@ private struct SidebarPlaceholder: View {
                             .padding(14)
                     } else {
                         ChannelSection("FAVORITES", sectionID: "favorites", channels: navigation.favoriteChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
-                        ChannelSection("CHANNELS", sectionID: "channels", channels: navigation.regularChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
-                        ChannelSection("DIRECT MESSAGES", sectionID: "direct", channels: navigation.directMessages, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("CHANNELS", sectionID: "channels", channels: navigation.regularChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently) {
+                            isCreateChannelPresented = true
+                        }
+                        ChannelSection("DIRECT MESSAGES", sectionID: "direct", channels: navigation.directMessages, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently) {
+                            isNewDirectMessagePresented = true
+                        }
                         ChannelSection("GROUP MESSAGES", sectionID: "group", channels: navigation.groupMessages, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
                         ChannelSection("ARCHIVED", sectionID: "archived", channels: navigation.archivedChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
                     }
@@ -252,6 +258,26 @@ private struct SidebarPlaceholder: View {
             .background(OverlayScrollerConfigurator())
         }
         .background(WorkspaceTheme.sidebar)
+        .sheet(isPresented: $isCreateChannelPresented) {
+            CreateChannelSheet { name, purpose, isPrivate in
+                Task { await navigation.createChannel(displayName: name, purpose: purpose, isPrivate: isPrivate) }
+            }
+        }
+        .sheet(isPresented: $isNewDirectMessagePresented) {
+            UserPickerSheet(
+                title: "Start a direct message",
+                users: availableUsers,
+                actionTitle: "Message"
+            ) { user in
+                Task { await navigation.openDirectMessage(with: user) }
+            }
+        }
+    }
+
+    private var availableUsers: [MattermostUser] {
+        navigation.users.values
+            .filter { $0.id != navigation.currentUserID }
+            .sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
     }
 }
 
@@ -687,6 +713,7 @@ private struct ConversationPlaceholder: View {
     @ObservedObject var presence: PresenceViewModel
     @ObservedObject var realtime: RealtimeUpdatesViewModel
     @ObservedObject var search: SearchViewModel
+    @State private var isAddMemberPresented = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -708,6 +735,20 @@ private struct ConversationPlaceholder: View {
                 Spacer(minLength: 0)
                 if selectedTab?.isSearchResults != true {
                     ChannelParticipantStack(participants: channelParticipants)
+                    if canAddMembers {
+                        Button {
+                            isAddMemberPresented = true
+                        } label: {
+                            Image(systemName: "person.badge.plus")
+                                .font(.system(size: 14, weight: .semibold))
+                                .frame(width: 28, height: 28)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .accessibilityLabel("Add member to chat")
+                        .accessibilityHint("Choose a teammate to add to this chat.")
+                    }
                 }
             }
             .padding(.horizontal, 18)
@@ -760,6 +801,16 @@ private struct ConversationPlaceholder: View {
             }
         }
         .background(WorkspaceTheme.canvas)
+        .sheet(isPresented: $isAddMemberPresented) {
+            UserPickerSheet(
+                title: "Add a member",
+                users: availableMembers,
+                actionTitle: "Add to chat"
+            ) { user in
+                guard let channelID = selectedTab?.channelID else { return }
+                Task { await navigation.addMember(user, to: channelID) }
+            }
+        }
     }
 
     private var selectedTab: WorkspaceTab? {
@@ -801,12 +852,113 @@ private struct ConversationPlaceholder: View {
             )
         }
     }
+
+    private var selectedChannel: MattermostChannel? {
+        guard let channelID = selectedTab?.channelID else { return nil }
+        return navigation.channels.first { $0.id == channelID }
+    }
+
+    private var canAddMembers: Bool {
+        guard let selectedChannel else { return false }
+        return selectedChannel.type == "O" || selectedChannel.type == "P" || selectedChannel.type == "G"
+    }
+
+    private var availableMembers: [MattermostUser] {
+        let participantIDs = Set(channelParticipants.map(\.id))
+        return navigation.users.values
+            .filter { !participantIDs.contains($0.id) && $0.id != navigation.currentUserID }
+            .sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+    }
 }
 
 private struct ChannelParticipant: Identifiable {
     let id: String
     let displayName: String
     let avatarData: Data?
+}
+
+private struct CreateChannelSheet: View {
+    let create: (String, String, Bool) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var purpose = ""
+    @State private var isPrivate = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Create a channel")
+                .font(.system(size: 18, weight: .semibold))
+            TextField("Channel name", text: $name)
+                .textFieldStyle(.roundedBorder)
+            TextField("Purpose (optional)", text: $purpose)
+                .textFieldStyle(.roundedBorder)
+            Toggle("Private channel", isOn: $isPrivate)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Create") {
+                    create(name, purpose, isPrivate)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 360)
+        .background(WorkspaceTheme.surface)
+    }
+}
+
+private struct UserPickerSheet: View {
+    let title: String
+    let users: [MattermostUser]
+    let actionTitle: String
+    let select: (MattermostUser) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.system(size: 18, weight: .semibold))
+            TextField("Search people", text: $query)
+                .textFieldStyle(.roundedBorder)
+            List(filteredUsers) { user in
+                Button {
+                    select(user)
+                    dismiss()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(user.displayName)
+                        Text("@\(user.username)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(WorkspaceTheme.secondaryText)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(actionTitle) \(user.displayName)")
+            }
+            .listStyle(.inset)
+            .frame(height: 260)
+            Button("Cancel") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(24)
+        .frame(width: 360)
+        .background(WorkspaceTheme.surface)
+    }
+
+    private var filteredUsers: [MattermostUser] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return users }
+        return users.filter {
+            $0.displayName.localizedCaseInsensitiveContains(trimmedQuery) ||
+                $0.username.localizedCaseInsensitiveContains(trimmedQuery)
+        }
+    }
 }
 
 private struct ChannelParticipantStack: View {
