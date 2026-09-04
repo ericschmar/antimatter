@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 final class SearchViewModel: ObservableObject {
     @Published var query = ""
+    @Published var filters = MattermostPostSearchFilters()
     @Published private(set) var posts: [MattermostPost] = []
     @Published private(set) var isSearching = false
     @Published private(set) var hasSearched = false
@@ -19,7 +20,7 @@ final class SearchViewModel: ObservableObject {
 
     func search() async {
         let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !terms.isEmpty else {
+        guard !terms.isEmpty || filters.hasActiveFilters else {
             posts = []
             hasSearched = false
             return
@@ -29,7 +30,7 @@ final class SearchViewModel: ObservableObject {
         posts = []
         error = nil
         do {
-            posts = try await loader.searchPosts(terms: terms)
+            posts = try await loader.searchPosts(terms: terms, filters: filters)
         } catch {
             self.error = error.localizedDescription
         }
