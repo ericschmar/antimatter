@@ -605,7 +605,7 @@ private struct InlineReplyThread: View {
     private var replyLeadingInset: CGFloat {
         // Keep a visual thread relationship without placing replies beyond
         // the channel message content column.
-        128
+        144
     }
 }
 
