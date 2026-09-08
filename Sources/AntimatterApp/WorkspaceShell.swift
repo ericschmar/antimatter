@@ -865,12 +865,6 @@ private struct ConversationPlaceholder: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .blur(radius: selectedThreadRootID == nil ? 0 : 2)
-                    .overlay {
-                        if selectedThreadRootID != nil {
-                            WorkspaceTheme.canvas.opacity(0.12)
-                        }
-                    }
                     .allowsHitTesting(selectedThreadRootID == nil)
 
                     if let selectedThreadRootID {
