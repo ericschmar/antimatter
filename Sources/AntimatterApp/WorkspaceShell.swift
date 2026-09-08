@@ -830,6 +830,7 @@ private struct ConversationPlaceholder: View {
                                     await navigation.openDirectMessage(with: user)
                                 }
                             },
+                            onReply: composer.reply,
                             onOpenThread: openThread,
                             onVote: { post, actionID in
                                 timeline.vote(on: post, actionID: actionID)
@@ -857,7 +858,12 @@ private struct ConversationPlaceholder: View {
                                 timeline: timeline,
                                 rootID: selectedThreadRootID,
                                 users: navigation.users.merging(timeline.users) { _, new in new },
+                                statuses: presence.statuses.merging(timeline.statuses) { _, new in new },
+                                currentUserID: navigation.currentUserID,
                                 currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
+                                onStartDirectMessage: { user in
+                                    Task { await navigation.openDirectMessage(with: user) }
+                                },
                                 dismiss: closeThread
                             )
                             .frame(maxHeight: .infinity)

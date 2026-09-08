@@ -5,7 +5,10 @@ struct ThreadSidebar: View {
     @ObservedObject var timeline: TimelineViewModel
     let rootID: String
     let users: [String: MattermostUser]
+    let statuses: [String: String]
+    let currentUserID: String?
     let currentUsername: String?
+    let onStartDirectMessage: (MattermostUser) -> Void
     let dismiss: () -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
 
@@ -46,18 +49,27 @@ struct ThreadSidebar: View {
     private var replies: [MattermostPost] { thread?.replies ?? [] }
 
     private func postView(_ post: MattermostPost, isRoot: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(users[post.userID]?.displayName ?? "Unknown member")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(WorkspaceTheme.primaryText)
-            RichMessageContent(
-                post: post,
-                fontSize: messageFontSize,
-                currentUsername: currentUsername,
-                fileData: timeline.fileData
-            )
-        }
-        .padding(10)
+        MessageRow(
+            post: post,
+            users: users,
+            avatarData: timeline.avatarData[post.userID],
+            fileData: timeline.fileData,
+            customEmojiData: timeline.customEmojiData,
+            status: statuses[post.userID],
+            messageFontSize: messageFontSize,
+            currentUserID: currentUserID,
+            currentUsername: currentUsername,
+            showsMetadata: true,
+            onStartDirectMessage: onStartDirectMessage,
+            onReply: { _ in },
+            onOpenThread: { _ in },
+            onEdit: timeline.beginEditing,
+            onDelete: timeline.delete,
+            onVote: timeline.vote,
+            onEndPoll: timeline.endPoll,
+            onReactionTooltipChange: { _ in },
+            onToggleReaction: timeline.toggleReaction
+        )
         .background(isRoot ? WorkspaceTheme.raisedSurface : .clear)
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
     }
