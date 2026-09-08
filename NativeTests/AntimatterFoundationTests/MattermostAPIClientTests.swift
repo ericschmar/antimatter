@@ -279,7 +279,7 @@ final class MattermostAPIClientTests: XCTestCase {
     func testViewChannelUsesMattermostChannelViewEndpoint() async throws {
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.httpMethod, "POST")
-            XCTAssertEqual(request.url?.path, "/api/v4/channels/channel-2/view")
+            XCTAssertEqual(request.url?.path, "/api/v4/channels/members/user-1/view")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
             return (try Self.response(for: request, status: 200), Data("{}".utf8))
         }
@@ -290,7 +290,7 @@ final class MattermostAPIClientTests: XCTestCase {
         )
         let loader = MattermostNavigationLoader(client: client)
 
-        try await loader.viewChannel(channelID: "channel-2", previousChannelID: "channel-1")
+        try await loader.viewChannel(userID: "user-1", channelID: "channel-2", previousChannelID: "channel-1")
     }
 
     func testLoadUnreadFetchesServerReadMarkersForEveryChannel() async throws {

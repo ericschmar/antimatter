@@ -259,13 +259,18 @@ final class NavigationViewModel: ObservableObject {
     }
 
     func markChannelAsRead(_ channelID: String, previousChannelID: String?) async {
-        if let index = channels.firstIndex(where: { $0.id == channelID }),
-           channels[index].unreadCount > 0 || channels[index].mentionCount > 0 {
-            channels[index].unreadCount = 0
-            channels[index].mentionCount = 0
+        guard let currentUserID else { return }
+        do {
+            try await loader.viewChannel(
+                userID: currentUserID,
+                channelID: channelID,
+                previousChannelID: previousChannelID
+            )
+            applyUnread(try await loader.loadUnread(for: channels.filter { $0.id == channelID }))
             try? await store.apply(.navigation(teams: teams, channels: channels))
+        } catch {
+            loadError = error.localizedDescription
         }
-        try? await loader.viewChannel(channelID: channelID, previousChannelID: previousChannelID)
     }
 
     func reorderChannels(

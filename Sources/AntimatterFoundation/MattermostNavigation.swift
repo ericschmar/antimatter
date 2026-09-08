@@ -209,9 +209,9 @@ public actor MattermostNavigationLoader {
         }
     }
 
-    public func viewChannel(channelID: String, previousChannelID: String?) async throws {
+    public func viewChannel(userID: String, channelID: String, previousChannelID: String?) async throws {
         let _: EmptyResponse = try await client.post(
-            "/api/v4/channels/\(channelID)/view",
+            "/api/v4/channels/members/\(userID)/view",
             body: ChannelViewRequest(channelID: channelID, previousChannelID: previousChannelID)
         )
     }
