@@ -96,6 +96,31 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertEqual(try store.restore(), session)
     }
 
+    func testSessionStoreListsAndSwitchesSavedSessions() throws {
+        let defaults = makeDefaults()
+        let store = MattermostSessionStore(secrets: InMemorySecureValueStore(), defaults: defaults)
+        let firstSession = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://first.example.com")),
+            token: "first-token"
+        )
+        let secondSession = MattermostSession(
+            serverURL: try XCTUnwrap(URL(string: "https://second.example.com")),
+            token: "second-token"
+        )
+
+        try store.save(firstSession)
+        try store.save(secondSession)
+        try store.select(secondSession.serverURL)
+
+        XCTAssertEqual(try store.sessions(), [secondSession, firstSession])
+        XCTAssertEqual(try store.restore(), secondSession)
+
+        try store.remove(serverURL: secondSession.serverURL)
+
+        XCTAssertEqual(try store.sessions(), [firstSession])
+        XCTAssertEqual(try store.restore(), firstSession)
+    }
+
     func testSessionStoreRemovalClearsSavedSession() throws {
         let defaults = makeDefaults()
         let store = MattermostSessionStore(secrets: InMemorySecureValueStore(), defaults: defaults)

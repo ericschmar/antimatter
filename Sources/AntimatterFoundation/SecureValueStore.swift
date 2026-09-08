@@ -79,6 +79,7 @@ public struct MattermostSessionStore {
     public static let keychainService = "com.antimatter.desktop.mattermost"
 
     private static let lastServerURLKey = "lastMattermostServerURL"
+    private static let savedServerURLsKey = "savedMattermostServerURLs"
 
     private let secrets: any SecureValueStore
     private let defaults: UserDefaults
@@ -97,7 +98,23 @@ public struct MattermostSessionStore {
             account: session.serverURL.absoluteString,
             service: Self.keychainService
         )
+        saveServerURLs([session.serverURL.absoluteString] + savedServerURLs().filter { $0 != session.serverURL.absoluteString })
         defaults.set(session.serverURL.absoluteString, forKey: Self.lastServerURLKey)
+    }
+
+    public func sessions() throws -> [MattermostSession] {
+        var savedSessions: [MattermostSession] = []
+        for rawURL in savedServerURLs() {
+            guard let session = try restore(serverURL: URL(string: rawURL)) else { continue }
+            savedSessions.append(session)
+        }
+        return savedSessions
+    }
+
+    public func select(_ serverURL: URL) throws {
+        guard try restore(serverURL: serverURL) != nil else { return }
+        defaults.set(serverURL.absoluteString, forKey: Self.lastServerURLKey)
+        saveServerURLs([serverURL.absoluteString] + savedServerURLs().filter { $0 != serverURL.absoluteString })
     }
 
     public func restore(serverURL preferredServerURL: URL? = nil) throws -> MattermostSession? {
@@ -121,8 +138,26 @@ public struct MattermostSessionStore {
             return
         }
         try secrets.removeValue(account: rawURL, service: Self.keychainService)
+        let remainingURLs = savedServerURLs().filter { $0 != rawURL }
+        saveServerURLs(remainingURLs)
         if defaults.string(forKey: Self.lastServerURLKey) == rawURL {
-            defaults.removeObject(forKey: Self.lastServerURLKey)
+            if let nextURL = remainingURLs.first {
+                defaults.set(nextURL, forKey: Self.lastServerURLKey)
+            } else {
+                defaults.removeObject(forKey: Self.lastServerURLKey)
+            }
         }
+    }
+
+    private func savedServerURLs() -> [String] {
+        let savedURLs = defaults.stringArray(forKey: Self.savedServerURLsKey) ?? []
+        if savedURLs.isEmpty, let lastURL = defaults.string(forKey: Self.lastServerURLKey) {
+            return [lastURL]
+        }
+        return savedURLs
+    }
+
+    private func saveServerURLs(_ serverURLs: [String]) {
+        defaults.set(serverURLs, forKey: Self.savedServerURLsKey)
     }
 }

@@ -1,3 +1,4 @@
+import AntimatterFoundation
 import AppKit
 import SwiftUI
 
@@ -8,6 +9,7 @@ struct SettingsView: View {
         case notifications
         case workspace
         case keyboardShortcuts
+        case profile
         case account
 
         var id: Self { self }
@@ -19,7 +21,8 @@ struct SettingsView: View {
             case .notifications: "Notifications"
             case .workspace: "Workspace"
             case .keyboardShortcuts: "Keyboard Shortcuts"
-            case .account: "Account"
+            case .profile: "Profile"
+            case .account: "Accounts"
             }
         }
 
@@ -30,14 +33,38 @@ struct SettingsView: View {
             case .notifications: "bell"
             case .workspace: "rectangle.3.group"
             case .keyboardShortcuts: "keyboard"
-            case .account: "person.crop.circle"
+            case .profile: "person.text.rectangle"
+            case .account: "person.2"
             }
         }
     }
 
-    let disconnect: () -> Void
+    let session: MattermostSession
+    let channels: [MattermostChannel]
+    let savedSessions: [MattermostSession]
+    let selectSession: (MattermostSession) -> Void
+    let addAccount: () -> Void
+    let disconnect: (MattermostSession?) -> Void
     @EnvironmentObject private var accentColorSettings: AccentColorSettings
+    @StateObject private var accountSettings: AccountSettingsViewModel
     @State private var selection: Section? = .general
+
+    init(
+        session: MattermostSession,
+        channels: [MattermostChannel],
+        savedSessions: [MattermostSession],
+        selectSession: @escaping (MattermostSession) -> Void,
+        addAccount: @escaping () -> Void,
+        disconnect: @escaping (MattermostSession?) -> Void
+    ) {
+        self.session = session
+        self.channels = channels
+        self.savedSessions = savedSessions
+        self.selectSession = selectSession
+        self.addAccount = addAccount
+        self.disconnect = disconnect
+        _accountSettings = StateObject(wrappedValue: AccountSettingsViewModel(session: session))
+    }
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
     @AppStorage("notificationSoundsEnabled") private var notificationSoundsEnabled = true
     @AppStorage("compactTimeline") private var compactTimeline = true
@@ -102,12 +129,51 @@ struct SettingsView: View {
             }
 
         case .notifications:
-            SettingsPageHeader("Notifications", subtitle: "Choose whether Antimatter can alert you about activity.")
+            SettingsPageHeader("Notifications", subtitle: "Control local delivery and Mattermost preferences for this account.")
             SettingsGroup {
                 SettingsToggleRow("Enable notifications", isOn: $notificationsEnabled)
                 SettingsDivider()
                 SettingsToggleRow("Play notification sounds", isOn: $notificationSoundsEnabled)
                     .disabled(!notificationsEnabled)
+            }
+            SettingsGroup {
+                SettingsToggleRow("Desktop notifications", isOn: accountSettings.notificationEnabled("desktop"))
+                SettingsDivider()
+                SettingsToggleRow("Email notifications", isOn: accountSettings.notificationEnabled("email"))
+                SettingsDivider()
+                SettingsToggleRow("Push notifications", isOn: accountSettings.notificationEnabled("push"))
+                SettingsDivider()
+                SettingsToggleRow("Mention notifications", isOn: accountSettings.notificationEnabled("mention"))
+                SettingsDivider()
+                SettingsToggleRow("Thread reply notifications", isOn: accountSettings.notificationEnabled("thread"))
+            }
+            .task { await accountSettings.load() }
+            if !channels.isEmpty {
+                Text("Channel notification levels")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                SettingsGroup {
+                    ForEach(channels) { channel in
+                        HStack {
+                            Text(channel.displayName)
+                                .font(.system(size: 13))
+                            Spacer()
+                            Picker("Notification level", selection: accountSettings.channelNotificationLevel(channel.id)) {
+                                Text("Default").tag("default")
+                                Text("All messages").tag("all")
+                                Text("Mentions").tag("mention")
+                                Text("Muted").tag("none")
+                            }
+                            .labelsHidden()
+                            .frame(width: 130)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        if channel.id != channels.last?.id {
+                            SettingsDivider()
+                        }
+                    }
+                }
             }
 
         case .workspace:
@@ -136,26 +202,47 @@ struct SettingsView: View {
                 SettingsShortcutRow("Open settings", shortcut: "⌘,")
             }
 
+        case .profile:
+            SettingsPageHeader("Profile", subtitle: "Manage the identity visible to people in this Mattermost server.")
+            ProfileSettingsForm(model: accountSettings)
+                .task { await accountSettings.load() }
+
         case .account:
-            SettingsPageHeader("Account", subtitle: "Manage your current Mattermost connection.")
+            SettingsPageHeader("Accounts", subtitle: "Switch between signed-in Mattermost servers or add another account.")
             SettingsGroup {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Mattermost account")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(WorkspaceTheme.primaryText)
-                        Text("Disconnecting removes this account from Antimatter.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(WorkspaceTheme.secondaryText)
+                ForEach(savedSessions, id: \.serverURL) { savedSession in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(savedSession.serverURL.host() ?? savedSession.serverURL.absoluteString)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(WorkspaceTheme.primaryText)
+                            Text(savedSession.serverURL.absoluteString)
+                                .font(.system(size: 12))
+                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                        }
+                        Spacer(minLength: 20)
+                        if savedSession.serverURL == session.serverURL {
+                            Text("Active")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(accentColorSettings.selected.color)
+                        } else {
+                            Button("Switch") { selectSession(savedSession) }
+                                .buttonStyle(.bordered)
+                        }
+                        Button("Disconnect", role: .destructive) { disconnect(savedSession) }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
                     }
-                    Spacer(minLength: 20)
-                    Button("Disconnect", role: .destructive, action: disconnect)
-                        .buttonStyle(.bordered)
-                        .tint(.red)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    if savedSession.serverURL != savedSessions.last?.serverURL {
+                        SettingsDivider()
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 13)
             }
+            Button("Add account", action: addAccount)
+                .buttonStyle(.borderedProminent)
+                .tint(accentColorSettings.selected.color)
         }
     }
 
@@ -264,7 +351,7 @@ private struct SettingsPageHeader: View {
     }
 }
 
-private struct SettingsGroup<Content: View>: View {
+struct SettingsGroup<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -362,7 +449,7 @@ private struct SettingsShortcutRow: View {
     }
 }
 
-private struct SettingsDivider: View {
+struct SettingsDivider: View {
     var body: some View {
         Divider()
             .overlay(WorkspaceTheme.divider)

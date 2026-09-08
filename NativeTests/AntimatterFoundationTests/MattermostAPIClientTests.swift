@@ -555,6 +555,57 @@ final class MattermostAPIClientTests: XCTestCase {
     private static func response(for request: URLRequest, status: Int) throws -> HTTPURLResponse {
         try XCTUnwrap(HTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: status, httpVersion: nil, headerFields: nil))
     }
+    func testAccountSettingsLoadsAndSavesProfileAndNotificationPreferences() async throws {
+        var requestedPaths: [String] = []
+        URLProtocolStub.handler = { request in
+            let path = try XCTUnwrap(request.url?.path)
+            requestedPaths.append(path)
+            switch path {
+            case "/api/v4/users/me":
+                XCTAssertEqual(request.httpMethod, "GET")
+                return (try Self.response(for: request, status: 200), Data(#"{"id":"user-1","username":"ada","email":"ada@example.com","first_name":"Ada","last_name":"Lovelace","nickname":"Countess"}"#.utf8))
+            case "/api/v4/users/user-1/patch":
+                XCTAssertEqual(request.httpMethod, "PUT")
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+                return (try Self.response(for: request, status: 200), Data(#"{"id":"user-1","username":"ada","email":"ada@example.com"}"#.utf8))
+            case "/api/v4/users/user-1/preferences":
+                if request.httpMethod == "GET" {
+                    return (try Self.response(for: request, status: 200), Data(#"[{"user_id":"user-1","category":"notifications","name":"email","value":"true"}]"#.utf8))
+                }
+                XCTAssertEqual(request.httpMethod, "PUT")
+                return (try Self.response(for: request, status: 200), Data(#"[{"user_id":"user-1","category":"notifications","name":"email","value":"false"}]"#.utf8))
+            default:
+                return (try Self.response(for: request, status: 404), Data())
+            }
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let settings = MattermostAccountSettings(client: client)
+
+        let profile = try await settings.loadProfile()
+        let updatedProfile = try await settings.updateProfile(
+            profile.id,
+            patch: MattermostProfilePatch(nickname: "Ada")
+        )
+        let preferences = try await settings.loadNotificationPreferences(userID: profile.id)
+        let updatedPreferences = try await settings.saveNotificationPreferences([
+            MattermostPreference(userID: profile.id, category: "notifications", name: "email", value: "false"),
+        ], userID: profile.id)
+
+        XCTAssertEqual(profile.firstName, "Ada")
+        XCTAssertEqual(updatedProfile.username, "ada")
+        XCTAssertEqual(preferences.first?.value, "true")
+        XCTAssertEqual(updatedPreferences.first?.value, "false")
+        XCTAssertEqual(requestedPaths, [
+            "/api/v4/users/me",
+            "/api/v4/users/user-1/patch",
+            "/api/v4/users/user-1/preferences",
+            "/api/v4/users/user-1/preferences",
+        ])
+    }
 }
 
 private struct Team: Codable, Equatable, Sendable {

@@ -30,8 +30,12 @@ struct AntimatterApp: App {
                     WorkspaceShell(
                         configuration: configuration,
                         session: authentication.connectedSession!,
+                        savedSessions: authentication.savedSessions,
+                        selectSession: authentication.select,
+                        addAccount: authentication.addAccount,
                         disconnect: authentication.disconnect
                     )
+                    .id(authentication.connectedSession!.serverURL)
                 }
             }
             .environmentObject(accentColorSettings)

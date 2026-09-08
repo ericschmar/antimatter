@@ -48,7 +48,15 @@
 		AC7AC2673049E3C400B4461D /* MattermostPolls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2683049E3C400B4461D /* MattermostPolls.swift */; };
 		AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */; };
 		ACBFE47B304B58860040FD59 /* EmojiData in Frameworks */ = {isa = PBXBuildFile; productRef = ACBFE47A304B58860040FD59 /* EmojiData */; };
+		ACBFE47D304B690C0040FD59 /* GiphyClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE47C304B690C0040FD59 /* GiphyClient.swift */; };
 		ACBFE481304C00000040FD59 /* MattermostCustomEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE480304C00000040FD59 /* MattermostCustomEmoji.swift */; };
+		ACBFE482304B692A0040FD59 /* GiphyPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE480304B692A0040FD59 /* GiphyPicker.swift */; };
+		ACBFE483304B692A0040FD59 /* ChannelFilesAside.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE47E304B692A0040FD59 /* ChannelFilesAside.swift */; };
+		ACBFE484304B692A0040FD59 /* ChannelFilesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE47F304B692A0040FD59 /* ChannelFilesViewModel.swift */; };
+		ACBFE485304B692A0040FD59 /* ThreadSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE481304B692A0040FD59 /* ThreadSidebar.swift */; };
+		ACBFE489304B692A0040FD59 /* AccountSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE486304B692A0040FD59 /* AccountSettingsViewModel.swift */; };
+		ACBFE48A304B692A0040FD59 /* ProfileSettingsForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE487304B692A0040FD59 /* ProfileSettingsForm.swift */; };
+		ACBFE48B304B692A0040FD59 /* MattermostAccountSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE488304B692A0040FD59 /* MattermostAccountSettings.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,7 +110,15 @@
 		AC7AC2683049E3C400B4461D /* MattermostPolls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostPolls.swift; sourceTree = "<group>"; };
 		AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTypingIndicator.swift; sourceTree = "<group>"; };
 		ACBFE475304A0B030040FD59 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		ACBFE47C304B690C0040FD59 /* GiphyClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GiphyClient.swift; sourceTree = "<group>"; };
+		ACBFE47E304B692A0040FD59 /* ChannelFilesAside.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelFilesAside.swift; sourceTree = "<group>"; };
+		ACBFE47F304B692A0040FD59 /* ChannelFilesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelFilesViewModel.swift; sourceTree = "<group>"; };
+		ACBFE480304B692A0040FD59 /* GiphyPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GiphyPicker.swift; sourceTree = "<group>"; };
 		ACBFE480304C00000040FD59 /* MattermostCustomEmoji.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostCustomEmoji.swift; sourceTree = "<group>"; };
+		ACBFE481304B692A0040FD59 /* ThreadSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSidebar.swift; sourceTree = "<group>"; };
+		ACBFE486304B692A0040FD59 /* AccountSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettingsViewModel.swift; sourceTree = "<group>"; };
+		ACBFE487304B692A0040FD59 /* ProfileSettingsForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSettingsForm.swift; sourceTree = "<group>"; };
+		ACBFE488304B692A0040FD59 /* MattermostAccountSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostAccountSettings.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +151,13 @@
 		A40000000000000000000002 /* Sources/AntimatterApp */ = {
 			isa = PBXGroup;
 			children = (
+				ACBFE47E304B692A0040FD59 /* ChannelFilesAside.swift */,
+				ACBFE47F304B692A0040FD59 /* ChannelFilesViewModel.swift */,
+				ACBFE480304B692A0040FD59 /* GiphyPicker.swift */,
+				ACBFE481304B692A0040FD59 /* ThreadSidebar.swift */,
+				ACBFE486304B692A0040FD59 /* AccountSettingsViewModel.swift */,
+				ACBFE487304B692A0040FD59 /* ProfileSettingsForm.swift */,
+				ACBFE47C304B690C0040FD59 /* GiphyClient.swift */,
 				AC7AC24D3048C65F00B4461D /* AuthenticationScreen.swift */,
 				AC7AC24E3048C65F00B4461D /* AuthenticationViewModel.swift */,
 				AC7AC24F3048C65F00B4461D /* ChannelSection.swift */,
@@ -179,6 +202,7 @@
 				A20000000000000000000024 /* MattermostTimeline.swift */,
 				AC7AC2683049E3C400B4461D /* MattermostPolls.swift */,
 				ACBFE480304C00000040FD59 /* MattermostCustomEmoji.swift */,
+				ACBFE488304B692A0040FD59 /* MattermostAccountSettings.swift */,
 			);
 			path = Sources/AntimatterFoundation;
 			sourceTree = SOURCE_ROOT;
@@ -293,6 +317,7 @@
 				AC7AC2523048C65F00B4461D /* ChannelSection.swift in Sources */,
 				AC7AC2533048C65F00B4461D /* AuthenticationScreen.swift in Sources */,
 				AC7AC2543048C65F00B4461D /* WorkspaceCommands.swift in Sources */,
+				ACBFE47D304B690C0040FD59 /* GiphyClient.swift in Sources */,
 				AC7AC2553048C65F00B4461D /* AuthenticationViewModel.swift in Sources */,
 				AC7AC2563048C65F00B4461D /* NavigationViewModel.swift in Sources */,
 				A10000000000000000000002 /* WorkspaceShell.swift in Sources */,
@@ -307,6 +332,12 @@
 				A10000000000000000000028 /* MessageComposer.swift in Sources */,
 				A10000000000000000000030 /* PresenceViewModel.swift in Sources */,
 				AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */,
+				ACBFE482304B692A0040FD59 /* GiphyPicker.swift in Sources */,
+				ACBFE483304B692A0040FD59 /* ChannelFilesAside.swift in Sources */,
+				ACBFE484304B692A0040FD59 /* ChannelFilesViewModel.swift in Sources */,
+				ACBFE485304B692A0040FD59 /* ThreadSidebar.swift in Sources */,
+				ACBFE489304B692A0040FD59 /* AccountSettingsViewModel.swift in Sources */,
+				ACBFE48A304B692A0040FD59 /* ProfileSettingsForm.swift in Sources */,
 				A10000000000000000000031 /* SearchViewModel.swift in Sources */,
 				A10000000000000000000032 /* SearchPanel.swift in Sources */,
 				A10000000000000000000034 /* CommandPalette.swift in Sources */,
@@ -333,6 +364,7 @@
 				A10000000000000000000022 /* MattermostTimeline.swift in Sources */,
 				AC7AC2673049E3C400B4461D /* MattermostPolls.swift in Sources */,
 				ACBFE481304C00000040FD59 /* MattermostCustomEmoji.swift in Sources */,
+				ACBFE48B304B692A0040FD59 /* MattermostAccountSettings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -4,7 +4,11 @@ import SwiftUI
 
 struct WorkspaceShell: View {
     let configuration: AppConfiguration
-    let disconnect: () -> Void
+    let session: MattermostSession
+    let savedSessions: [MattermostSession]
+    let selectSession: (MattermostSession) -> Void
+    let addAccount: () -> Void
+    let disconnect: (MattermostSession?) -> Void
     @EnvironmentObject private var accentColorSettings: AccentColorSettings
     @EnvironmentObject private var userColorSettings: UserColorSettings
     @StateObject private var navigation: NavigationViewModel
@@ -24,9 +28,16 @@ struct WorkspaceShell: View {
     init(
         configuration: AppConfiguration,
         session: MattermostSession,
-        disconnect: @escaping () -> Void
+        savedSessions: [MattermostSession],
+        selectSession: @escaping (MattermostSession) -> Void,
+        addAccount: @escaping () -> Void,
+        disconnect: @escaping (MattermostSession?) -> Void
     ) {
         self.configuration = configuration
+        self.session = session
+        self.savedSessions = savedSessions
+        self.selectSession = selectSession
+        self.addAccount = addAccount
         self.disconnect = disconnect
         _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
         _workspace = StateObject(wrappedValue: WorkspaceViewModel())
@@ -53,7 +64,7 @@ struct WorkspaceShell: View {
                     onSearch: performSearch,
                     onOpenSettings: { isSettingsPresented = true },
                     onOpenPermanently: openPermanently,
-                    disconnect: disconnect
+                    disconnect: { disconnect(nil) }
                 )
                     .frame(
                         minWidth: 220,
@@ -116,7 +127,14 @@ struct WorkspaceShell: View {
             .opacity(0)
         }
         .sheet(isPresented: $isSettingsPresented) {
-            SettingsView(disconnect: disconnect)
+            SettingsView(
+                session: session,
+                channels: navigation.channels,
+                savedSessions: savedSessions,
+                selectSession: selectSession,
+                addAccount: addAccount,
+                disconnect: disconnect
+            )
         }
         .task {
             focusedRegion = .conversation
@@ -146,7 +164,8 @@ struct WorkspaceShell: View {
             }
         }
         .onChange(of: navigation.selectedChannelID) { _, channelID in
-            guard let channelID, let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
+            guard let channelID else { return }
+            guard let channel = navigation.channels.first(where: { $0.id == channelID }) else { return }
             workspace.preview(channel, title: navigation.displayName(for: channel))
         }
         .onChange(of: navigation.users) {

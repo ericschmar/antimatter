@@ -28,6 +28,7 @@ final class AuthenticationViewModel: NSObject, ObservableObject, ASWebAuthentica
     @Published private(set) var isWorking = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var connectedSession: MattermostSession?
+    @Published private(set) var savedSessions: [MattermostSession] = []
 
     private let authenticator = MattermostAuthenticator()
     private let sessionStore: MattermostSessionStore
@@ -81,10 +82,32 @@ final class AuthenticationViewModel: NSObject, ObservableObject, ASWebAuthentica
         NSApplication.shared.keyWindow ?? NSApplication.shared.windows.first ?? ASPresentationAnchor()
     }
 
-    func disconnect() {
+    func select(_ session: MattermostSession) {
         do {
-            try sessionStore.remove(serverURL: connectedSession?.serverURL)
-            connectedSession = nil
+            try sessionStore.select(session.serverURL)
+            connectedSession = session
+            savedSessions = try sessionStore.sessions()
+        } catch {
+            fail(error)
+        }
+    }
+
+    func addAccount() {
+        connectedSession = nil
+        errorMessage = nil
+        loginID = ""
+        password = ""
+        token = ""
+        method = .personalAccessToken
+        serverURL = ""
+    }
+
+    func disconnect(_ session: MattermostSession? = nil) {
+        do {
+            try sessionStore.remove(serverURL: session?.serverURL ?? connectedSession?.serverURL)
+            savedSessions = try sessionStore.sessions()
+            connectedSession = try sessionStore.restore()
+            serverURL = connectedSession?.serverURL.absoluteString ?? ""
         } catch {
             fail(error)
         }
@@ -132,6 +155,7 @@ final class AuthenticationViewModel: NSObject, ObservableObject, ASWebAuthentica
             password = ""
             token = ""
             connectedSession = session
+            savedSessions = try sessionStore.sessions()
             isWorking = false
             AppLogger.application.info("Authenticated with \(session.serverURL.host() ?? "unknown server", privacy: .public).")
         } catch {
@@ -144,6 +168,7 @@ final class AuthenticationViewModel: NSObject, ObservableObject, ASWebAuthentica
             guard let session = try sessionStore.restore(serverURL: serverURL) else { return }
             self.serverURL = session.serverURL.absoluteString
             connectedSession = session
+            savedSessions = try sessionStore.sessions()
             AppLogger.application.info("Restored session for \(session.serverURL.host() ?? "unknown server", privacy: .public).")
         } catch {
             errorMessage = error.localizedDescription
