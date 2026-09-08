@@ -33,7 +33,7 @@ struct ThreadSidebar: View {
                     if let root { postView(root, isRoot: true) }
                     ForEach(replies) { post in postView(post, isRoot: false) }
                 }
-                .padding(14)
+                .padding(.vertical, 14)
             }
         }
         .frame(minWidth: 320, idealWidth: 380, maxWidth: 440)
@@ -60,7 +60,7 @@ struct ThreadSidebar: View {
             currentUserID: currentUserID,
             currentUsername: currentUsername,
             showsMetadata: true,
-            horizontalInset: 8,
+            horizontalInset: 0,
             onStartDirectMessage: onStartDirectMessage,
             onReply: { _ in },
             onOpenThread: { _ in },
