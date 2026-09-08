@@ -61,6 +61,7 @@ struct ThreadSidebar: View {
             messageFontSize: messageFontSize,
             currentUserID: currentUserID,
             currentUsername: currentUsername,
+            mediaClient: timeline.mediaClient,
             showsMetadata: true,
             horizontalInset: 0,
             onStartDirectMessage: onStartDirectMessage,

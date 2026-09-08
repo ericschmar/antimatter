@@ -23,6 +23,7 @@ final class TimelineViewModel: ObservableObject {
     private let customEmojis: MattermostCustomEmojiLoader
     private let editor: MattermostPostSender
     private let polls: MattermostPolls
+    let mediaClient: MattermostAPIClient
     private var currentUserID: String?
     private var activeChannelID: String?
     private var nextPageIndex = 1
@@ -31,6 +32,7 @@ final class TimelineViewModel: ObservableObject {
 
     init(session: MattermostSession) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
+        mediaClient = client
         loader = MattermostTimelineLoader(client: client)
         reactions = MattermostReactions(client: client)
         customEmojis = MattermostCustomEmojiLoader(client: client)

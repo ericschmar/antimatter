@@ -63,7 +63,16 @@ public actor MattermostAPIClient {
 
     /// Fetches a non-JSON resource using the same authenticated session as the API.
     public func getData(_ path: String) async throws -> Data {
-        var request = URLRequest(url: URL(string: path, relativeTo: serverURL)!.absoluteURL)
+        try await getData(from: URL(string: path, relativeTo: serverURL)!.absoluteURL)
+    }
+
+    /// Fetches an absolute URL from this Mattermost server with the session
+    /// credential. This supports server-proxied external media such as Giphy.
+    public func getData(from url: URL) async throws -> Data {
+        guard url.host == serverURL.host, url.port == serverURL.port else {
+            throw MattermostAPIError.invalidResponse
+        }
+        var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("image/*", forHTTPHeaderField: "Accept")

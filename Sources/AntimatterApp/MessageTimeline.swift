@@ -62,6 +62,7 @@ struct MessageTimeline: View {
                                         avatarData: timeline.avatarData,
                                         customEmojiData: timeline.customEmojiData,
                                         messageFontSize: messageFontSize,
+                                        mediaClient: timeline.mediaClient,
                                         onStartDirectMessage: onStartDirectMessage,
                                         onReply: onReply,
                                         onEdit: timeline.beginEditing,
@@ -149,6 +150,7 @@ struct MessageTimeline: View {
             messageFontSize: messageFontSize,
             currentUserID: currentUserID,
             currentUsername: currentUsername,
+            mediaClient: timeline.mediaClient,
             showsMetadata: !messageGrouping.shouldGroup(post, with: group.previousRoot(of: post)),
             horizontalInset: 18,
             onStartDirectMessage: onStartDirectMessage,
@@ -274,6 +276,7 @@ struct MessageRow: View {
     let messageFontSize: Double
     let currentUserID: String?
     let currentUsername: String?
+    let mediaClient: MattermostAPIClient
     let showsMetadata: Bool
     let horizontalInset: CGFloat
     let onStartDirectMessage: (MattermostUser) -> Void
@@ -339,7 +342,8 @@ struct MessageRow: View {
                     post: post,
                     fontSize: messageFontSize,
                     currentUsername: currentUsername,
-                    fileData: fileData
+                    fileData: fileData,
+                    mediaClient: mediaClient
                 )
                 if let poll = post.poll {
                     SocialPoll(
@@ -551,6 +555,7 @@ private struct InlineReplyThread: View {
     let avatarData: [String: Data]
     let customEmojiData: [String: Data]
     let messageFontSize: Double
+    let mediaClient: MattermostAPIClient
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
@@ -579,6 +584,7 @@ private struct InlineReplyThread: View {
                         avatarData: avatarData[reply.userID],
                         customEmojiData: customEmojiData,
                         messageFontSize: messageFontSize,
+                        mediaClient: mediaClient,
                         onStartDirectMessage: onStartDirectMessage,
                         onReply: onReply,
                         onEdit: onEdit,
@@ -619,6 +625,7 @@ private struct InlineReplyRow: View {
     let avatarData: Data?
     let customEmojiData: [String: Data]
     let messageFontSize: Double
+    let mediaClient: MattermostAPIClient
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onEdit: (MattermostPost) -> Void
@@ -656,7 +663,8 @@ private struct InlineReplyRow: View {
                 post: post,
                 fontSize: messageFontSize,
                 currentUsername: currentUsername,
-                fileData: fileData
+                fileData: fileData,
+                mediaClient: mediaClient
             )
             if let poll = post.poll {
                 SocialPoll(

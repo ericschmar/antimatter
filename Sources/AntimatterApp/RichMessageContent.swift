@@ -10,6 +10,7 @@ struct RichMessageContent: View {
     let fontSize: Double
     let currentUsername: String?
     let fileData: [String: Data]
+    let mediaClient: MattermostAPIClient
 
     private var containsHighlightableMention: Bool {
         MattermostMentionMatcher.containsHighlightableMention(
@@ -36,7 +37,7 @@ struct RichMessageContent: View {
             }
 
             ForEach(embeddedGIFs, id: \.absoluteString) { url in
-                AnimatedGIFImage(url: url)
+                AnimatedGIFImage(url: url, client: mediaClient)
                     .frame(maxWidth: 360, minHeight: 180, maxHeight: 260, alignment: .leading)
             }
 
@@ -114,6 +115,7 @@ struct RichMessageContent: View {
 
 private struct AnimatedGIFImage: NSViewRepresentable {
     let url: URL
+    let client: MattermostAPIClient
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -123,12 +125,12 @@ private struct AnimatedGIFImage: NSViewRepresentable {
         let imageView = NSImageView()
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.animates = true
-        context.coordinator.load(url, into: imageView)
+        context.coordinator.load(url, client: client, into: imageView)
         return imageView
     }
 
     func updateNSView(_ imageView: NSImageView, context: Context) {
-        context.coordinator.load(url, into: imageView)
+        context.coordinator.load(url, client: client, into: imageView)
     }
 
     static func dismantleNSView(_ imageView: NSImageView, coordinator: Coordinator) {
@@ -137,9 +139,9 @@ private struct AnimatedGIFImage: NSViewRepresentable {
 
     final class Coordinator {
         var loadedURL: URL?
-        var task: URLSessionDataTask?
+        var task: Task<Void, Never>?
 
-        func load(_ url: URL, into imageView: NSImageView) {
+        func load(_ url: URL, client: MattermostAPIClient, into imageView: NSImageView) {
             guard loadedURL != url else { return }
             task?.cancel()
             loadedURL = url
@@ -147,33 +149,25 @@ private struct AnimatedGIFImage: NSViewRepresentable {
             AppLogger.networking.notice(
                 "Loading Giphy media from \(url.absoluteString, privacy: .public)"
             )
-            task = URLSession.shared.dataTask(with: url) { [weak imageView] data, response, error in
-                if let error {
-                    AppLogger.networking.error(
-                        "Could not load Giphy GIF from \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                    )
-                    return
-                }
-                if let response = response as? HTTPURLResponse, !(200 ..< 300).contains(response.statusCode) {
-                    AppLogger.networking.error(
-                        "Giphy GIF request returned HTTP \(response.statusCode, privacy: .public) for \(url.absoluteString, privacy: .public)"
-                    )
-                    return
-                }
-                guard let data, let image = NSImage(data: data) else {
-                    AppLogger.networking.error(
-                        "Could not decode Giphy GIF image data from \(url.absoluteString, privacy: .public)"
-                    )
-                    return
-                }
-                DispatchQueue.main.async {
-                    imageView?.image = image
+            task = Task { @MainActor in
+                do {
+                    let data = try await client.getData(from: url)
+                    guard let image = NSImage(data: data) else {
+                        AppLogger.networking.error(
+                            "Could not decode Giphy GIF image data from \(url.absoluteString, privacy: .public)"
+                        )
+                        return
+                    }
+                    imageView.image = image
                     AppLogger.networking.notice(
                         "Loaded Giphy media from \(url.absoluteString, privacy: .public)"
                     )
+                } catch {
+                    AppLogger.networking.error(
+                        "Could not load Giphy media from \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
                 }
             }
-            task?.resume()
         }
     }
 }
