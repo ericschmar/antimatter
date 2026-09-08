@@ -138,8 +138,25 @@ private struct AnimatedGIFImage: NSViewRepresentable {
             task?.cancel()
             loadedURL = url
             imageView.image = nil
-            task = URLSession.shared.dataTask(with: url) { [weak imageView] data, _, _ in
-                guard let data, let image = NSImage(data: data) else { return }
+            task = URLSession.shared.dataTask(with: url) { [weak imageView] data, response, error in
+                if let error {
+                    AppLogger.networking.error(
+                        "Could not load Giphy GIF from \(url.absoluteString, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                    return
+                }
+                if let response = response as? HTTPURLResponse, !(200 ..< 300).contains(response.statusCode) {
+                    AppLogger.networking.error(
+                        "Giphy GIF request returned HTTP \(response.statusCode, privacy: .public) for \(url.absoluteString, privacy: .public)"
+                    )
+                    return
+                }
+                guard let data, let image = NSImage(data: data) else {
+                    AppLogger.networking.error(
+                        "Could not decode Giphy GIF image data from \(url.absoluteString, privacy: .public)"
+                    )
+                    return
+                }
                 DispatchQueue.main.async {
                     imageView?.image = image
                 }

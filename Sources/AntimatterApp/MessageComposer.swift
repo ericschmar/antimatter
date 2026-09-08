@@ -393,7 +393,12 @@ private struct ComposerFormattingToolbar: View {
             actionButton("face.smiling", label: "Add emoji", action: chooseEmoji)
             actionButton("paperclip", label: "Attach files", action: attachFiles)
             actionButton("chart.bar", label: "Create poll", action: createPoll)
-            giphyButton
+            actionButton(
+                "photo.on.rectangle.angled",
+                label: giphyAvailable ? "Search Giphy" : "Giphy API key is not configured",
+                action: openGiphy
+            )
+            .disabled(!giphyAvailable)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 3)
@@ -405,24 +410,6 @@ private struct ComposerFormattingToolbar: View {
             .fill(WorkspaceTheme.divider)
             .frame(width: 1, height: 18)
             .padding(.horizontal, 4)
-    }
-
-    private var giphyButton: some View {
-        Button(action: openGiphy) {
-            Text("GIF")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(giphyAvailable ? WorkspaceTheme.primaryText : WorkspaceTheme.secondaryText)
-                .frame(width: 28, height: 26)
-                .background(
-                    giphyAvailable ? WorkspaceTheme.navigationAccent.opacity(0.45) : .clear,
-                    in: RoundedRectangle(cornerRadius: 5, style: .continuous)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .help(giphyAvailable ? "Search Giphy" : "Giphy API key is not configured")
-        .accessibilityLabel(giphyAvailable ? "Search Giphy" : "Giphy API key is not configured")
-        .disabled(!giphyAvailable)
     }
 
     private func formatButton(_ icon: String, label: String, format: ComposerFormat) -> some View {
