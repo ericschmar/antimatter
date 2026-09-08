@@ -603,13 +603,9 @@ private struct InlineReplyThread: View {
     }
 
     private var replyLeadingInset: CGFloat {
-        let timelinePadding: CGFloat = 18
-        let presenceColumn: CGFloat = 15
-        let avatarColumn: CGFloat = showAvatars ? 32 : 0
-        let authorColumn: CGFloat = 122
-        let timeColumn: CGFloat = 60
-        let replyInset: CGFloat = 10
-        return timelinePadding + presenceColumn + avatarColumn + authorColumn + timeColumn + replyInset
+        // Keep a visual thread relationship without placing replies beyond
+        // the channel message content column.
+        128
     }
 }
 
