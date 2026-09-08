@@ -67,6 +67,19 @@ public struct MattermostNavigationSnapshot: Sendable {
     public let channels: [MattermostChannel]
     public let users: [MattermostUser]
     public let currentUserID: String
+    public let unread: [MattermostChannelUnread]?
+}
+
+public struct MattermostChannelUnread: Decodable, Equatable, Sendable {
+    public let channelID: String
+    public let messageCount: Int
+    public let mentionCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case channelID = "channel_id"
+        case messageCount = "msg_count"
+        case mentionCount = "mention_count"
+    }
 }
 
 public actor MattermostNavigationLoader {
@@ -97,12 +110,35 @@ public actor MattermostNavigationLoader {
                 body: Array(directUserIDs)
             )) ?? []
         }
+        let unread = try? await loadUnread(for: loadedChannels)
         return try await MattermostNavigationSnapshot(
             teams: teams,
             channels: loadedChannels,
             users: (me.map { [$0] } ?? []) + directUsers,
-            currentUserID: me?.id ?? ""
+            currentUserID: me?.id ?? "",
+            unread: unread
         )
+    }
+
+    /// Retrieves the server's read markers so startup accounts for messages
+    /// received while the app was not running.
+    public func loadUnread(for channels: [MattermostChannel]) async throws -> [MattermostChannelUnread] {
+        try await withThrowingTaskGroup(
+            of: MattermostChannelUnread.self,
+            returning: [MattermostChannelUnread].self
+        ) { group in
+            for channel in channels {
+                group.addTask {
+                    try await self.client.get("/api/v4/users/me/channels/\(channel.id)/unread")
+                }
+            }
+
+            var unread: [MattermostChannelUnread] = []
+            for try await state in group {
+                unread.append(state)
+            }
+            return unread
+        }
     }
 
     public func loadAvatarData(userID: String) async throws -> Data {

@@ -293,6 +293,42 @@ final class MattermostAPIClientTests: XCTestCase {
         try await loader.viewChannel(channelID: "channel-2", previousChannelID: "channel-1")
     }
 
+    func testLoadUnreadFetchesServerReadMarkersForEveryChannel() async throws {
+        URLProtocolStub.handler = { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            switch request.url?.path {
+            case "/api/v4/users/me/channels/channel-1/unread":
+                return (
+                    try Self.response(for: request, status: 200),
+                    Data(#"{"channel_id":"channel-1","msg_count":3,"mention_count":1}"#.utf8)
+                )
+            case "/api/v4/users/me/channels/channel-2/unread":
+                return (
+                    try Self.response(for: request, status: 200),
+                    Data(#"{"channel_id":"channel-2","msg_count":0,"mention_count":0}"#.utf8)
+                )
+            default:
+                return (try Self.response(for: request, status: 404), Data())
+            }
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let loader = MattermostNavigationLoader(client: client)
+        let channels = try JSONDecoder().decode(
+            [MattermostChannel].self,
+            from: Data(#"[{"id":"channel-1","name":"one","type":"O"},{"id":"channel-2","name":"two","type":"D"}]"#.utf8)
+        )
+
+        let unread = try await loader.loadUnread(for: channels)
+
+        XCTAssertEqual(Set(unread.map(\.channelID)), ["channel-1", "channel-2"])
+        XCTAssertEqual(unread.first(where: { $0.channelID == "channel-1" })?.messageCount, 3)
+        XCTAssertEqual(unread.first(where: { $0.channelID == "channel-1" })?.mentionCount, 1)
+    }
+
     func testWebSocketEndpointUsesSecureScheme() throws {
         let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
 

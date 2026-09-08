@@ -85,9 +85,15 @@ final class NavigationViewModel: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         loadError = nil
+        var cachedUnread: [String: (messageCount: Int, mentionCount: Int)] = [:]
         if let cached = try? await store.load() {
             teams = cached.teams
             channels = cached.channels
+            cachedUnread = Dictionary(
+                uniqueKeysWithValues: channels.map {
+                    ($0.id, (messageCount: $0.unreadCount, mentionCount: $0.mentionCount))
+                }
+            )
             users = Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })
             selectedTeamID = cached.selectedTeamID ?? selectedTeamID
             restoreSelectedTeam()
@@ -96,6 +102,11 @@ final class NavigationViewModel: ObservableObject {
             let snapshot = try await loader.load()
             teams = snapshot.teams.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
             channels = snapshot.channels
+            if let unread = snapshot.unread {
+                applyUnread(unread)
+            } else {
+                restoreUnread(cachedUnread)
+            }
             restoreSelectedTeam()
             users = Dictionary(uniqueKeysWithValues: snapshot.users.map { ($0.id, $0) })
             currentUserID = snapshot.currentUserID.isEmpty ? nil : snapshot.currentUserID
@@ -318,6 +329,23 @@ final class NavigationViewModel: ObservableObject {
     private var visibleChannels: [MattermostChannel] {
         channels.filter {
             $0.type == "D" || $0.type == "G" || selectedTeamID == nil || $0.teamID == selectedTeamID
+        }
+    }
+
+    private func applyUnread(_ unread: [MattermostChannelUnread]) {
+        let unreadByChannelID = Dictionary(uniqueKeysWithValues: unread.map { ($0.channelID, $0) })
+        for index in channels.indices {
+            guard let state = unreadByChannelID[channels[index].id] else { continue }
+            channels[index].unreadCount = state.messageCount
+            channels[index].mentionCount = state.mentionCount
+        }
+    }
+
+    private func restoreUnread(_ cachedUnread: [String: (messageCount: Int, mentionCount: Int)]) {
+        for index in channels.indices {
+            guard let state = cachedUnread[channels[index].id] else { continue }
+            channels[index].unreadCount = state.messageCount
+            channels[index].mentionCount = state.mentionCount
         }
     }
 
