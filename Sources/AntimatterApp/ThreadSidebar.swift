@@ -34,6 +34,7 @@ struct ThreadSidebar: View {
                     ForEach(replies) { post in postView(post, isRoot: false) }
                 }
                 .padding(.vertical, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(minWidth: 320, idealWidth: 380, maxWidth: 440)
@@ -73,5 +74,6 @@ struct ThreadSidebar: View {
         )
         .background(isRoot ? WorkspaceTheme.raisedSurface : .clear)
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
