@@ -18,6 +18,9 @@ struct AntimatterApp: App {
             loadedConfiguration = AppConfiguration(environment: .production)
         }
         configuration = loadedConfiguration
+        AppLogger.application.notice(
+            "Giphy API key configured: \(loadedConfiguration.giphyAPIKey != nil, privacy: .public)"
+        )
         _authentication = StateObject(wrappedValue: AuthenticationViewModel(configuration: loadedConfiguration))
     }
 
