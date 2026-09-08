@@ -72,7 +72,7 @@ struct RichMessageContent: View {
     }
 
     private var embeddedGIFs: [URL] {
-        let pattern = #"!\[[^\]]*\]\((https?://[^)\s]+\.gif(?:\?[^)\s]*)?)\)"#
+        let pattern = #"!\[[^\]]*\]\((https?://[^)\s]+)\)"#
         guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
         let messageRange = NSRange(post.message.startIndex..., in: post.message)
         return expression.matches(in: post.message, range: messageRange).compactMap { match in
@@ -89,7 +89,7 @@ struct RichMessageContent: View {
     }
 
     private var messageWithoutEmbeddedGIFs: String {
-        let pattern = #"!\[[^\]]*\]\((https?://[^)\s]+\.gif(?:\?[^)\s]*)?)\)"#
+        let pattern = #"!\[[^\]]*\]\((https?://[^)\s]+)\)"#
         guard let expression = try? NSRegularExpression(pattern: pattern) else { return post.message }
         let messageRange = NSRange(post.message.startIndex..., in: post.message)
         return expression
@@ -138,6 +138,9 @@ private struct AnimatedGIFImage: NSViewRepresentable {
             task?.cancel()
             loadedURL = url
             imageView.image = nil
+            AppLogger.networking.notice(
+                "Loading Giphy media from \(url.absoluteString, privacy: .public)"
+            )
             task = URLSession.shared.dataTask(with: url) { [weak imageView] data, response, error in
                 if let error {
                     AppLogger.networking.error(
