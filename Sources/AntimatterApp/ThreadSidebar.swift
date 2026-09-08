@@ -60,6 +60,7 @@ struct ThreadSidebar: View {
             currentUserID: currentUserID,
             currentUsername: currentUsername,
             showsMetadata: true,
+            horizontalInset: 8,
             onStartDirectMessage: onStartDirectMessage,
             onReply: { _ in },
             onOpenThread: { _ in },

@@ -150,6 +150,7 @@ struct MessageTimeline: View {
             currentUserID: currentUserID,
             currentUsername: currentUsername,
             showsMetadata: !messageGrouping.shouldGroup(post, with: group.previousRoot(of: post)),
+            horizontalInset: 18,
             onStartDirectMessage: onStartDirectMessage,
             onReply: onReply,
             onOpenThread: onOpenThread,
@@ -274,6 +275,7 @@ struct MessageRow: View {
     let currentUserID: String?
     let currentUsername: String?
     let showsMetadata: Bool
+    let horizontalInset: CGFloat
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onOpenThread: (MattermostPost) -> Void
@@ -372,7 +374,7 @@ struct MessageRow: View {
                 }
             }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, horizontalInset)
         .padding(.vertical, 3)
         .background(isHovering ? WorkspaceTheme.hoverSurface : .clear)
         .contentShape(Rectangle())
