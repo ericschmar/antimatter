@@ -37,7 +37,7 @@ struct ThreadSidebar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(minWidth: 320, idealWidth: 380, maxWidth: 440)
+        .frame(minWidth: 320, maxWidth: .infinity)
         .background(WorkspaceTheme.canvas)
         .accessibilityIdentifier("thread-sidebar")
     }

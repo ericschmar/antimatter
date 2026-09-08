@@ -865,27 +865,30 @@ private struct ConversationPlaceholder: View {
                     }
 
                     if let selectedThreadRootID {
-                        VStack(spacing: 0) {
-                            ThreadSidebar(
-                                timeline: timeline,
-                                rootID: selectedThreadRootID,
-                                users: navigation.users.merging(timeline.users) { _, new in new },
-                                statuses: presence.statuses.merging(timeline.statuses) { _, new in new },
-                                currentUserID: navigation.currentUserID,
-                                currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
-                                onStartDirectMessage: { user in
-                                    Task { await navigation.openDirectMessage(with: user) }
-                                },
-                                dismiss: closeThread
-                            )
-                            Divider().overlay(WorkspaceTheme.divider)
-                            messageComposer
+                        GeometryReader { geometry in
+                            VStack(spacing: 0) {
+                                ThreadSidebar(
+                                    timeline: timeline,
+                                    rootID: selectedThreadRootID,
+                                    users: navigation.users.merging(timeline.users) { _, new in new },
+                                    statuses: presence.statuses.merging(timeline.statuses) { _, new in new },
+                                    currentUserID: navigation.currentUserID,
+                                    currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
+                                    onStartDirectMessage: { user in
+                                        Task { await navigation.openDirectMessage(with: user) }
+                                    },
+                                    dismiss: closeThread
+                                )
+                                Divider().overlay(WorkspaceTheme.divider)
+                                messageComposer
+                            }
+                            .frame(width: geometry.size.width * 0.5, height: geometry.size.height)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .background(WorkspaceTheme.canvas)
+                            .shadow(color: .black.opacity(0.25), radius: 12, x: -4, y: 0)
+                            .transition(.move(edge: .trailing))
+                            .zIndex(1)
                         }
-                        .frame(maxHeight: .infinity)
-                        .background(WorkspaceTheme.canvas)
-                        .shadow(color: .black.opacity(0.25), radius: 12, x: -4, y: 0)
-                        .transition(.move(edge: .trailing))
-                        .zIndex(1)
                     }
                 }
             }
