@@ -37,6 +37,7 @@ struct RichMessageContent: View {
 
             ForEach(embeddedGIFs, id: \.absoluteString) { url in
                 AnimatedGIFImage(url: url)
+                    .frame(maxWidth: 360, minHeight: 180, maxHeight: 260, alignment: .leading)
             }
 
             if let previewURL {
@@ -62,6 +63,12 @@ struct RichMessageContent: View {
             }
         }
         .accessibilityHint(containsHighlightableMention ? "Contains a channel or personal mention." : "")
+        .onAppear {
+            guard post.message.contains("![") else { return }
+            AppLogger.networking.notice(
+                "Post \(post.id, privacy: .public) has inline image Markdown; matched Giphy media count: \(embeddedGIFs.count, privacy: .public)"
+            )
+        }
     }
 
     private var previewURL: URL? {
@@ -162,6 +169,9 @@ private struct AnimatedGIFImage: NSViewRepresentable {
                 }
                 DispatchQueue.main.async {
                     imageView?.image = image
+                    AppLogger.networking.notice(
+                        "Loaded Giphy media from \(url.absoluteString, privacy: .public)"
+                    )
                 }
             }
             task?.resume()
