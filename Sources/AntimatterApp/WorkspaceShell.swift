@@ -863,6 +863,14 @@ private struct ConversationPlaceholder: View {
                             )
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .blur(radius: selectedThreadRootID == nil ? 0 : 3)
+                    .overlay {
+                        if selectedThreadRootID != nil {
+                            WorkspaceTheme.canvas.opacity(0.22)
+                        }
+                    }
+                    .allowsHitTesting(selectedThreadRootID == nil)
 
                     if let selectedThreadRootID {
                         GeometryReader { geometry in
