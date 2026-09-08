@@ -866,6 +866,7 @@ private struct ConversationPlaceholder: View {
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(selectedThreadRootID == nil)
+                    .blur(radius: selectedThreadRootID == nil ? 0 : 3)
                     .overlay(alignment: .trailing) {
                         if let selectedThreadRootID {
                             VStack(spacing: 0) {
