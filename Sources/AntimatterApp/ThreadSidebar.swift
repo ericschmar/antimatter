@@ -34,6 +34,7 @@ struct ThreadSidebar: View {
                     ForEach(replies) { post in postView(post, isRoot: false) }
                 }
                 .padding(.vertical, 14)
+                .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }

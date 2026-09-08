@@ -851,6 +851,7 @@ private struct ConversationPlaceholder: View {
                                 messageComposer
                             }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         if isChannelFilesPresented {
                             Divider()
@@ -864,10 +865,10 @@ private struct ConversationPlaceholder: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .blur(radius: selectedThreadRootID == nil ? 0 : 3)
+                    .blur(radius: selectedThreadRootID == nil ? 0 : 2)
                     .overlay {
                         if selectedThreadRootID != nil {
-                            WorkspaceTheme.canvas.opacity(0.22)
+                            WorkspaceTheme.canvas.opacity(0.12)
                         }
                     }
                     .allowsHitTesting(selectedThreadRootID == nil)
@@ -893,7 +894,6 @@ private struct ConversationPlaceholder: View {
                             .frame(width: geometry.size.width * 0.5, height: geometry.size.height)
                             .frame(maxWidth: .infinity, alignment: .trailing)
                             .background(WorkspaceTheme.canvas)
-                            .shadow(color: .black.opacity(0.25), radius: 12, x: -4, y: 0)
                             .transition(.move(edge: .trailing))
                             .zIndex(1)
                         }
