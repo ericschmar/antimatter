@@ -20,18 +20,24 @@ struct RichMessageContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Markdown(post.message)
-                .markdownTheme(
-                    .gitHub
-                        .text { FontSize(fontSize) }
-                        .codeBlock { configuration in
-                            ChatCodeBlock(configuration: configuration)
-                        }
-                )
-                .tint(WorkspaceTheme.accent)
-                .foregroundStyle(WorkspaceTheme.primaryText)
-                .textSelection(.enabled)
-                .id(fontSize)
+            if !messageWithoutEmbeddedGIFs.isEmpty {
+                Markdown(messageWithoutEmbeddedGIFs)
+                    .markdownTheme(
+                        .gitHub
+                            .text { FontSize(fontSize) }
+                            .codeBlock { configuration in
+                                ChatCodeBlock(configuration: configuration)
+                            }
+                    )
+                    .tint(WorkspaceTheme.accent)
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .textSelection(.enabled)
+                    .id(fontSize)
+            }
+
+            ForEach(embeddedGIFs, id: \.absoluteString) { url in
+                AnimatedGIFImage(url: url)
+            }
 
             if let previewURL {
                 ChatLinkPreview(url: previewURL)
@@ -65,12 +71,81 @@ struct RichMessageContent: View {
             .first { $0.scheme == "https" || $0.scheme == "http" }
     }
 
+    private var embeddedGIFs: [URL] {
+        let pattern = #"!\[[^\]]*\]\((https?://[^)\s]+\.gif(?:\?[^)\s]*)?)\)"#
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let messageRange = NSRange(post.message.startIndex..., in: post.message)
+        return expression.matches(in: post.message, range: messageRange).compactMap { match in
+            guard
+                let range = Range(match.range(at: 1), in: post.message),
+                let url = URL(string: String(post.message[range])),
+                let host = url.host?.lowercased(),
+                host == "giphy.com" || host.hasSuffix(".giphy.com")
+            else {
+                return nil
+            }
+            return url
+        }
+    }
+
+    private var messageWithoutEmbeddedGIFs: String {
+        let pattern = #"!\[[^\]]*\]\((https?://[^)\s]+\.gif(?:\?[^)\s]*)?)\)"#
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return post.message }
+        let messageRange = NSRange(post.message.startIndex..., in: post.message)
+        return expression
+            .stringByReplacingMatches(in: post.message, range: messageRange, withTemplate: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var imageFiles: [MattermostFile] {
         post.files.filter { $0.mimeType.hasPrefix("image/") }
     }
 
     private var nonImageFiles: [MattermostFile] {
         post.files.filter { !$0.mimeType.hasPrefix("image/") }
+    }
+}
+
+private struct AnimatedGIFImage: NSViewRepresentable {
+    let url: URL
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSImageView {
+        let imageView = NSImageView()
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.animates = true
+        context.coordinator.load(url, into: imageView)
+        return imageView
+    }
+
+    func updateNSView(_ imageView: NSImageView, context: Context) {
+        context.coordinator.load(url, into: imageView)
+    }
+
+    static func dismantleNSView(_ imageView: NSImageView, coordinator: Coordinator) {
+        coordinator.task?.cancel()
+    }
+
+    final class Coordinator {
+        var loadedURL: URL?
+        var task: URLSessionDataTask?
+
+        func load(_ url: URL, into imageView: NSImageView) {
+            guard loadedURL != url else { return }
+            task?.cancel()
+            loadedURL = url
+            imageView.image = nil
+            task = URLSession.shared.dataTask(with: url) { [weak imageView] data, _, _ in
+                guard let data, let image = NSImage(data: data) else { return }
+                DispatchQueue.main.async {
+                    imageView?.image = image
+                }
+            }
+            task?.resume()
+        }
     }
 }
 
