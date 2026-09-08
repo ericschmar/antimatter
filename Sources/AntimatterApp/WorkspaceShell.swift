@@ -815,36 +815,36 @@ private struct ConversationPlaceholder: View {
                     onSelect: openSearchResult
                 )
             } else {
-                ZStack(alignment: .trailing) {
+                GeometryReader { geometry in
                     HStack(spacing: 0) {
                         VStack(spacing: 0) {
-                        MessageTimeline(
-                            timeline: timeline,
-                            knownUsers: navigation.users,
-                            statuses: presence.statuses,
-                            currentUserID: navigation.currentUserID,
-                            currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
-                            channelID: selectedTab?.channelID,
-                            focusedPostID: workspace.focusedPostID,
-                            onStartDirectMessage: { user in
-                                Task {
-                                    await navigation.openDirectMessage(with: user)
+                            MessageTimeline(
+                                timeline: timeline,
+                                knownUsers: navigation.users,
+                                statuses: presence.statuses,
+                                currentUserID: navigation.currentUserID,
+                                currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
+                                channelID: selectedTab?.channelID,
+                                focusedPostID: workspace.focusedPostID,
+                                onStartDirectMessage: { user in
+                                    Task {
+                                        await navigation.openDirectMessage(with: user)
+                                    }
+                                },
+                                onReply: composer.reply,
+                                onOpenThread: openThread,
+                                onVote: { post, actionID in
+                                    timeline.vote(on: post, actionID: actionID)
+                                },
+                                onFocusedPostDisplayed: { postID in
+                                    workspace.clearFocusedPost(id: postID)
                                 }
-                            },
-                            onReply: composer.reply,
-                            onOpenThread: openThread,
-                            onVote: { post, actionID in
-                                timeline.vote(on: post, actionID: actionID)
-                            },
-                            onFocusedPostDisplayed: { postID in
-                                workspace.clearFocusedPost(id: postID)
-                            }
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        if presence.hasTypingUsers {
-                            ChatTypingIndicator()
-                        }
+                            if presence.hasTypingUsers {
+                                ChatTypingIndicator()
+                            }
 
                             if selectedThreadRootID == nil {
                                 Divider().overlay(WorkspaceTheme.divider)
@@ -864,11 +864,10 @@ private struct ConversationPlaceholder: View {
                             )
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(selectedThreadRootID == nil)
-
-                    if let selectedThreadRootID {
-                        GeometryReader { geometry in
+                    .overlay(alignment: .trailing) {
+                        if let selectedThreadRootID {
                             VStack(spacing: 0) {
                                 ThreadSidebar(
                                     timeline: timeline,
@@ -886,7 +885,6 @@ private struct ConversationPlaceholder: View {
                                 messageComposer
                             }
                             .frame(width: geometry.size.width * 0.5, height: geometry.size.height)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
                             .background(WorkspaceTheme.canvas)
                             .transition(.move(edge: .trailing))
                             .zIndex(1)
