@@ -815,8 +815,9 @@ private struct ConversationPlaceholder: View {
                     onSelect: openSearchResult
                 )
             } else {
-                HStack(spacing: 0) {
-                    VStack(spacing: 0) {
+                ZStack(alignment: .trailing) {
+                    HStack(spacing: 0) {
+                        VStack(spacing: 0) {
                         MessageTimeline(
                             timeline: timeline,
                             knownUsers: navigation.users,
@@ -845,14 +846,25 @@ private struct ConversationPlaceholder: View {
                             ChatTypingIndicator()
                         }
 
-                        if selectedThreadRootID == nil {
-                            Divider().overlay(WorkspaceTheme.divider)
-                            messageComposer
+                            if selectedThreadRootID == nil {
+                                Divider().overlay(WorkspaceTheme.divider)
+                                messageComposer
+                            }
+                        }
+
+                        if isChannelFilesPresented {
+                            Divider()
+                                .overlay(WorkspaceTheme.divider)
+                            ChannelFilesAside(
+                                files: channelFiles.files,
+                                isLoading: channelFiles.isLoading,
+                                error: channelFiles.error,
+                                close: { isChannelFilesPresented = false }
+                            )
                         }
                     }
 
                     if let selectedThreadRootID {
-                        Divider().overlay(WorkspaceTheme.divider)
                         VStack(spacing: 0) {
                             ThreadSidebar(
                                 timeline: timeline,
@@ -866,21 +878,14 @@ private struct ConversationPlaceholder: View {
                                 },
                                 dismiss: closeThread
                             )
-                            .frame(maxHeight: .infinity)
                             Divider().overlay(WorkspaceTheme.divider)
                             messageComposer
                         }
-                    }
-
-                    if isChannelFilesPresented {
-                        Divider()
-                            .overlay(WorkspaceTheme.divider)
-                        ChannelFilesAside(
-                            files: channelFiles.files,
-                            isLoading: channelFiles.isLoading,
-                            error: channelFiles.error,
-                            close: { isChannelFilesPresented = false }
-                        )
+                        .frame(maxHeight: .infinity)
+                        .background(WorkspaceTheme.canvas)
+                        .shadow(color: .black.opacity(0.25), radius: 12, x: -4, y: 0)
+                        .transition(.move(edge: .trailing))
+                        .zIndex(1)
                     }
                 }
             }
@@ -918,12 +923,16 @@ private struct ConversationPlaceholder: View {
 
     private func openThread(_ post: MattermostPost) {
         let rootID = post.rootID.isEmpty ? post.id : post.rootID
-        selectedThreadRootID = rootID
+        withAnimation(.easeInOut(duration: 0.2)) {
+            selectedThreadRootID = rootID
+        }
         composer.reply(to: timeline.posts.first(where: { $0.id == rootID }) ?? post)
     }
 
     private func closeThread() {
-        selectedThreadRootID = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            selectedThreadRootID = nil
+        }
         composer.cancelReply()
     }
 
