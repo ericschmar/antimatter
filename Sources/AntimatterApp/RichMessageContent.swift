@@ -86,8 +86,7 @@ struct RichMessageContent: View {
             guard
                 let range = Range(match.range(at: 1), in: post.message),
                 let url = URL(string: String(post.message[range])),
-                let host = url.host?.lowercased(),
-                host == "giphy.com" || host.hasSuffix(".giphy.com")
+                ["http", "https"].contains(url.scheme?.lowercased())
             else {
                 return nil
             }
