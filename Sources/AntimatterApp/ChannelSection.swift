@@ -105,7 +105,7 @@ struct ChannelSection: View {
                                     .accessibilityHidden(true)
                             }
                         }
-                        .font(.system(size: 13, weight: channel.unreadCount > 0 || navigation.selectedChannelID == channel.id ? .semibold : .regular))
+                        .font(.system(size: 13, weight: channel.unreadCount > 0 ? .semibold : .regular))
                         .foregroundStyle(WorkspaceTheme.primaryText)
                         .padding(.leading, 16)
                         .padding(.trailing, 8)
