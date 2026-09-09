@@ -68,14 +68,6 @@ final class UserColorSettings: ObservableObject {
         colors = defaults.dictionary(forKey: Self.storageKey) as? [String: String] ?? [:]
     }
 
-    func assignColors(to userIDs: some Sequence<String>) {
-        var updatedColors = colors
-        for userID in userIDs where updatedColors[userID] == nil {
-            updatedColors[userID] = Self.automaticColor(for: userID)
-        }
-        save(updatedColors)
-    }
-
     func setColor(_ hex: String, for userID: String) {
         var updatedColors = colors
         updatedColors[userID] = hex

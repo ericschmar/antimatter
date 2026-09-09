@@ -6,7 +6,6 @@ import SwiftEmojiPicker
 
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
-    @EnvironmentObject private var userColorSettings: UserColorSettings
     let knownUsers: [String: MattermostUser]
     let statuses: [String: String]
     let currentUserID: String?
@@ -103,16 +102,12 @@ struct MessageTimeline: View {
                 }
                 .task(id: channelID) {
                     await timeline.load(channelID: channelID, aroundPostID: focusedPostID)
-                    userColorSettings.assignColors(to: messageUsers.keys)
                     if let focusedPostID {
                         scrollTo(focusedPostID, with: proxy)
                         onFocusedPostDisplayed(focusedPostID)
                     } else {
                         scrollToLatest(newestPostID, with: proxy)
                     }
-                }
-                .onChange(of: timeline.users) {
-                    userColorSettings.assignColors(to: messageUsers.keys)
                 }
             }
         }
