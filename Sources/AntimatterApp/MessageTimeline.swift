@@ -24,91 +24,96 @@ struct MessageTimeline: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if timeline.isLoading && timeline.posts.isEmpty {
-                        TimelineLoadingState()
-                    } else if let error = timeline.loadError {
-                        TimelineStatus(message: error, isError: true)
-                    } else if timeline.posts.isEmpty {
-                        TimelineEmptyState()
-                    } else {
-                        if timeline.hasEarlierPosts {
-                            ProgressView()
-                                .controlSize(.small)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .accessibilityLabel("Loading earlier messages")
-                                .onAppear {
-                                    Task {
-                                        await timeline.loadEarlierPosts()
+            GeometryReader { geometry in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        if timeline.isLoading && timeline.posts.isEmpty {
+                            TimelineLoadingState()
+                        } else if let error = timeline.loadError {
+                            TimelineStatus(message: error, isError: true)
+                        } else if timeline.posts.isEmpty {
+                            TimelineEmptyState()
+                        } else {
+                            if timeline.hasEarlierPosts {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .accessibilityLabel("Loading earlier messages")
+                                    .onAppear {
+                                        Task {
+                                            await timeline.loadEarlierPosts()
+                                        }
                                     }
-                                }
-                        }
-                        ForEach(groups) { group in
-                            TimelineDateHeader(date: group.date)
-                            ForEach(group.threads) { thread in
-                                messageRow(for: thread.root, in: group)
-                                    .id(thread.root.id)
+                            }
 
-                                if !thread.replies.isEmpty {
-                                    InlineReplyThread(
-                                        replies: thread.replies,
-                                        users: messageUsers,
-                                        statuses: messageStatuses,
-                                        currentUserID: currentUserID,
-                                        currentUsername: currentUsername,
-                                        fileData: timeline.fileData,
-                                        avatarData: timeline.avatarData,
-                                        customEmojiData: timeline.customEmojiData,
-                                        messageFontSize: messageFontSize,
-                                        mediaClient: timeline.mediaClient,
-                                        onStartDirectMessage: onStartDirectMessage,
-                                        onReply: onReply,
-                                        onEdit: timeline.beginEditing,
-                                        onDelete: timeline.delete,
-                                        onVote: onVote,
-                                        onEndPoll: timeline.endPoll,
-                                        onReactionTooltipChange: updateReactionTooltip
-                                    ) { post, emojiName in
-                                        timeline.toggleReaction(on: post, emojiName: emojiName)
+                            ForEach(groups) { group in
+                                TimelineDateHeader(date: group.date)
+                                ForEach(group.threads) { thread in
+                                    messageRow(for: thread.root, in: group)
+                                        .id(thread.root.id)
+
+                                    if !thread.replies.isEmpty {
+                                        InlineReplyThread(
+                                            replies: thread.replies,
+                                            users: messageUsers,
+                                            statuses: messageStatuses,
+                                            currentUserID: currentUserID,
+                                            currentUsername: currentUsername,
+                                            fileData: timeline.fileData,
+                                            avatarData: timeline.avatarData,
+                                            customEmojiData: timeline.customEmojiData,
+                                            messageFontSize: messageFontSize,
+                                            mediaClient: timeline.mediaClient,
+                                            onStartDirectMessage: onStartDirectMessage,
+                                            onReply: onReply,
+                                            onEdit: timeline.beginEditing,
+                                            onDelete: timeline.delete,
+                                            onVote: onVote,
+                                            onEndPoll: timeline.endPoll,
+                                            onReactionTooltipChange: updateReactionTooltip
+                                        ) { post, emojiName in
+                                            timeline.toggleReaction(on: post, emojiName: emojiName)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    .padding(.vertical, 10)
+                    .frame(minHeight: geometry.size.height, alignment: .bottom)
+                    .id(messageFontSize)
                 }
-                .padding(.vertical, 10)
-                .id(messageFontSize)
-            }
-            .overlayPreferenceValue(ReactionTooltipAnchorKey.self) { anchors in
-                GeometryReader { proxy in
-                    if let reactionTooltip, let anchor = anchors[reactionTooltip.id] {
-                        ReactionTooltipView(text: reactionTooltip.text)
-                            .position(
-                                x: proxy[anchor].midX,
-                                y: proxy[anchor].maxY + 18
-                            )
-                            .allowsHitTesting(false)
+                .defaultScrollAnchor(.bottom)
+                .overlayPreferenceValue(ReactionTooltipAnchorKey.self) { anchors in
+                    GeometryReader { proxy in
+                        if let reactionTooltip, let anchor = anchors[reactionTooltip.id] {
+                            ReactionTooltipView(text: reactionTooltip.text)
+                                .position(
+                                    x: proxy[anchor].midX,
+                                    y: proxy[anchor].maxY + 18
+                                )
+                                .allowsHitTesting(false)
+                        }
                     }
                 }
-            }
-            .onChange(of: newestPostID) { _, postID in
-                guard focusedPostID == nil else { return }
-                scrollToLatest(postID, with: proxy)
-            }
-            .task(id: channelID) {
-                await timeline.load(channelID: channelID, aroundPostID: focusedPostID)
-                userColorSettings.assignColors(to: messageUsers.keys)
-                if let focusedPostID {
-                    scrollTo(focusedPostID, with: proxy)
-                    onFocusedPostDisplayed(focusedPostID)
-                } else {
-                    scrollToLatest(newestPostID, with: proxy)
+                .onChange(of: newestPostID) { _, postID in
+                    guard focusedPostID == nil else { return }
+                    scrollToLatest(postID, with: proxy)
                 }
-            }
-            .onChange(of: timeline.users) {
-                userColorSettings.assignColors(to: messageUsers.keys)
+                .task(id: channelID) {
+                    await timeline.load(channelID: channelID, aroundPostID: focusedPostID)
+                    userColorSettings.assignColors(to: messageUsers.keys)
+                    if let focusedPostID {
+                        scrollTo(focusedPostID, with: proxy)
+                        onFocusedPostDisplayed(focusedPostID)
+                    } else {
+                        scrollToLatest(newestPostID, with: proxy)
+                    }
+                }
+                .onChange(of: timeline.users) {
+                    userColorSettings.assignColors(to: messageUsers.keys)
+                }
             }
         }
         .accessibilityLabel("Message timeline")
