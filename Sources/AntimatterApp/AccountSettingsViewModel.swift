@@ -13,8 +13,7 @@ final class AccountSettingsViewModel: ObservableObject {
     @Published var email = ""
     @Published var status = "online"
     @Published var customStatus = ""
-    @Published var currentPassword = ""
-    @Published var newPassword = ""
+    @Published private(set) var avatarData: Data?
     @Published var errorMessage: String?
     @Published private(set) var isSaving = false
 
@@ -33,7 +32,10 @@ final class AccountSettingsViewModel: ObservableObject {
             nickname = profile.nickname
             username = profile.username
             email = profile.email
-            preferences = try await settings.loadNotificationPreferences(userID: profile.id)
+            async let preferences = settings.loadNotificationPreferences(userID: profile.id)
+            async let avatarData = settings.loadProfileImage(userID: profile.id)
+            self.preferences = try await preferences
+            self.avatarData = try? await avatarData
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -43,6 +45,7 @@ final class AccountSettingsViewModel: ObservableObject {
         guard let profile else { return }
         do {
             self.profile = try await settings.uploadProfileImage(data, userID: profile.id)
+            avatarData = data
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -62,22 +65,6 @@ final class AccountSettingsViewModel: ObservableObject {
             ))
             try await settings.updateStatus(status, userID: profile.id)
             try await settings.updateCustomStatus(MattermostCustomStatus(emoji: ":speech_balloon:", text: customStatus), userID: profile.id)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    func changePassword() async {
-        guard let profile, !currentPassword.isEmpty, !newPassword.isEmpty else { return }
-        isSaving = true
-        defer { isSaving = false }
-        do {
-            try await settings.changePassword(
-                MattermostPasswordChange(currentPassword: currentPassword, newPassword: newPassword),
-                userID: profile.id
-            )
-            currentPassword = ""
-            newPassword = ""
         } catch {
             errorMessage = error.localizedDescription
         }

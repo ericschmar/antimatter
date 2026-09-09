@@ -91,21 +91,6 @@ public struct MattermostCustomStatus: Codable, Equatable, Sendable {
     }
 }
 
-public struct MattermostPasswordChange: Encodable, Sendable {
-    public let currentPassword: String
-    public let newPassword: String
-
-    public init(currentPassword: String, newPassword: String) {
-        self.currentPassword = currentPassword
-        self.newPassword = newPassword
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case currentPassword = "current_password"
-        case newPassword = "new_password"
-    }
-}
-
 public struct MattermostPreference: Codable, Equatable, Sendable {
     public let userID: String
     public let category: String
@@ -150,6 +135,10 @@ public actor MattermostAccountSettings {
         return try await client.postMultipart("/api/v4/users/\(userID)/image", body: body, boundary: boundary)
     }
 
+    public func loadProfileImage(userID: String) async throws -> Data {
+        try await client.getData("/api/v4/users/\(userID)/image")
+    }
+
     public func updateStatus(_ status: String, userID: String) async throws {
         let _: EmptyResponse = try await client.put(
             "/api/v4/users/\(userID)/status",
@@ -161,13 +150,6 @@ public actor MattermostAccountSettings {
         let _: EmptyResponse = try await client.put(
             "/api/v4/users/\(userID)/status/custom",
             body: customStatus
-        )
-    }
-
-    public func changePassword(_ password: MattermostPasswordChange, userID: String) async throws {
-        let _: EmptyResponse = try await client.put(
-            "/api/v4/users/\(userID)/password",
-            body: password
         )
     }
 

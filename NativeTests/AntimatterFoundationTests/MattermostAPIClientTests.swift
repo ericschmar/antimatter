@@ -146,6 +146,26 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(files.map(\.name), ["notes.pdf"])
     }
 
+    func testLoadProfileImageUsesAuthenticatedProfileImageEndpoint() async throws {
+        let expectedImage = Data([0x89, 0x50, 0x4E, 0x47])
+        URLProtocolStub.handler = { request in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.url?.path, "/api/v4/users/user-1/image")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
+            return (try Self.response(for: request, status: 200), expectedImage)
+        }
+        let client = MattermostAPIClient(
+            serverURL: try XCTUnwrap(URL(string: "https://chat.example.com")),
+            token: "private-token",
+            session: stubbedSession()
+        )
+        let settings = MattermostAccountSettings(client: client)
+
+        let image = try await settings.loadProfileImage(userID: "user-1")
+
+        XCTAssertEqual(image, expectedImage)
+    }
+
     func testGetPageSendsAuthorizationAndPagination() async throws {
         URLProtocolStub.handler = { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer private-token")
