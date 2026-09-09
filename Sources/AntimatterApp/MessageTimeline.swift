@@ -1101,7 +1101,8 @@ private struct AddReactionButton: View {
         }
         .onChange(of: selectedEmoji) { _, emoji in
             guard !emoji.isEmpty else { return }
-            onToggleReaction(post, emoji)
+            guard let emojiName = EmojiData.emoji(fromCharacter: emoji)?.shortName else { return }
+            onToggleReaction(post, emojiName)
             selectedEmoji = ""
             isPickerPresented = false
         }
