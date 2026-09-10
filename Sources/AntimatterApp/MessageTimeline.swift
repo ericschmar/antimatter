@@ -631,8 +631,8 @@ private struct InlineReplyThread: View {
         let gapCount: CGFloat = showAvatars ? 4 : 3
         let messageContentLeadingInset = 18 + 5 + avatarWidth + 112 + 50 + gapCount * 10
         // The thread divider and its inner padding occupy 12 points before
-        // the reply content, so align that content with root messages.
-        return messageContentLeadingInset - 12
+        // the reply content; indent the thread content an additional 24 points.
+        return messageContentLeadingInset - 12 + 24
     }
 }
 
