@@ -96,7 +96,7 @@ struct MessageTimeline: View {
                         }
                     }
                 }
-                .onChange(of: newestPostID) { _, postID in
+                .onChange(of: newestRootPostID) { _, postID in
                     guard focusedPostID == nil else { return }
                     scrollToLatest(postID, with: proxy)
                 }
@@ -106,7 +106,7 @@ struct MessageTimeline: View {
                         scrollTo(focusedPostID, with: proxy)
                         onFocusedPostDisplayed(focusedPostID)
                     } else {
-                        scrollToLatest(newestPostID, with: proxy)
+                        scrollToLatest(newestRootPostID, with: proxy)
                     }
                 }
             }
@@ -123,8 +123,8 @@ struct MessageTimeline: View {
         .sorted { $0.date < $1.date }
     }
 
-    private var newestPostID: String? {
-        timeline.posts.last?.id
+    private var newestRootPostID: String? {
+        timeline.posts.last(where: \.rootID.isEmpty)?.id
     }
 
     private var messageUsers: [String: MattermostUser] {
