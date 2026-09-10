@@ -144,10 +144,14 @@ struct WorkspaceShell: View {
         }
         .onChange(of: realtime.latestEvent) { _, event in
             guard let event else { return }
+            let activeChannelID = workspace.selectedChannelID
+            // Typing is ephemeral feedback. Reconcile it before the timeline
+            // and navigation work below, both of which can suspend for disk or
+            // network I/O and otherwise delay the indicator until it expires.
+            presence.reconcile(event, channelID: activeChannelID)
             Task {
-                await timeline.reconcile(event, activeChannelID: workspace.selectedChannelID)
-                await navigation.reconcile(event, activeChannelID: workspace.selectedChannelID)
-                presence.reconcile(event, channelID: workspace.selectedChannelID)
+                await timeline.reconcile(event, activeChannelID: activeChannelID)
+                await navigation.reconcile(event, activeChannelID: activeChannelID)
                 let notificationPost = event.decodedData(MattermostPost.self, forKey: "post")
                 let senderName = notificationPost.flatMap { navigation.users[$0.userID]?.displayName }
                 let channelName = notificationPost
