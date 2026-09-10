@@ -349,9 +349,7 @@ struct MessageRow: View {
                     .padding(.top, 4)
             } else {
                 Color.clear.frame(width: 112, height: 1)
-                if authorUser == nil {
-                    Color.clear.frame(width: 50, height: 1)
-                }
+                Color.clear.frame(width: 50, height: 1)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -629,9 +627,12 @@ private struct InlineReplyThread: View {
     }
 
     private var replyLeadingInset: CGFloat {
-        // Keep a visual thread relationship without placing replies beyond
-        // the channel message content column.
-        168
+        let avatarWidth: CGFloat = showAvatars ? 22 : 0
+        let gapCount: CGFloat = showAvatars ? 4 : 3
+        let messageContentLeadingInset = 18 + 5 + avatarWidth + 112 + 50 + gapCount * 10
+        // The thread divider and its inner padding occupy 12 points before
+        // the reply content, so align that content with root messages.
+        return messageContentLeadingInset - 12
     }
 }
 
@@ -671,9 +672,20 @@ private struct InlineReplyRow: View {
                         onStartDirectMessage: onStartDirectMessage
                     )
                 } else {
-                    Text(author)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(userColorSettings.color(for: post.userID))
+                    HStack(spacing: 4) {
+                        Text(author)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(userColorSettings.color(for: post.userID))
+                        if post.overrideUsername != nil {
+                            Text("BOT")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 1)
+                                .background(WorkspaceTheme.raisedSurface, in: Capsule())
+                                .accessibilityLabel("Bot")
+                        }
+                    }
                 }
                 Text(timestamp)
                     .font(.system(size: 10, design: .monospaced))
@@ -749,11 +761,11 @@ private struct InlineReplyRow: View {
     }
 
     private var author: String {
-        users[post.userID]?.displayName ?? "Unknown member"
+        post.overrideUsername ?? users[post.userID]?.displayName ?? "Unknown member"
     }
 
     private var authorUser: MattermostUser? {
-        users[post.userID]
+        post.overrideUsername == nil ? users[post.userID] : nil
     }
 
     private var timestamp: String {
