@@ -145,6 +145,7 @@ private struct AnimatedGIFImage: NSViewRepresentable {
         coordinator.task?.cancel()
     }
 
+    @MainActor
     final class Coordinator {
         var loadedURL: URL?
         var task: Task<Void, Never>?
