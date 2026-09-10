@@ -322,10 +322,22 @@ struct MessageRow: View {
                 .frame(width: 112, alignment: .leading)
                 .padding(.top, 4)
             } else if showsMetadata {
-                Text(author)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(userColorSettings.color(for: post.userID))
-                    .frame(width: 112, alignment: .leading)
+                HStack(spacing: 4) {
+                    Text(author)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(userColorSettings.color(for: post.userID))
+                        .lineLimit(1)
+                    if post.overrideUsername != nil {
+                        Text("BOT")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundStyle(WorkspaceTheme.secondaryText)
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(WorkspaceTheme.raisedSurface, in: Capsule())
+                            .accessibilityLabel("Bot")
+                    }
+                }
+                .frame(width: 112, alignment: .leading)
                     .padding(.top, 4)
 
                 Text(timestamp)

@@ -110,8 +110,17 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         let text: String?
 
         var content: String {
-            [pretext, title, text]
-                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            let pretext = pretext?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let formattedText: String?
+            if let text, !text.isEmpty {
+                formattedText = "```text\n\(text)\n```"
+            } else {
+                formattedText = nil
+            }
+            return [pretext, title.map { "**\($0)**" }, formattedText]
+                .compactMap { $0 }
                 .filter { !$0.isEmpty }
                 .joined(separator: "\n")
         }

@@ -33,7 +33,7 @@ final class MattermostLocalStoreTests: XCTestCase {
         XCTAssertEqual(post.overrideUsername, "livit-appconsole")
         XCTAssertEqual(
             post.message,
-            "Appconsole Deployment Started\nApplication ezid2 3.38.2 deployment to Play Framework (EKS) - DEV initiated by Christopher V Dalisay (dalisay2)"
+            "**Appconsole Deployment Started**\n```text\nApplication ezid2 3.38.2 deployment to Play Framework (EKS) - DEV initiated by Christopher V Dalisay (dalisay2)\n```"
         )
     }
 
