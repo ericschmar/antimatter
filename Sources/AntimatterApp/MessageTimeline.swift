@@ -313,32 +313,34 @@ struct MessageRow: View {
                 Color.clear.frame(width: 22, height: 22)
             }
 
-            if showsMetadata, let authorUser {
-                UserProfileButton(
-                    user: authorUser,
-                    avatarData: avatarData,
-                    onStartDirectMessage: onStartDirectMessage
-                )
-                .frame(width: 112, alignment: .leading)
-                .padding(.top, 4)
-            } else if showsMetadata {
-                HStack(spacing: 4) {
-                    Text(author)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(userColorSettings.color(for: post.userID))
-                        .lineLimit(1)
-                    if post.overrideUsername != nil {
-                        Text("BOT")
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundStyle(WorkspaceTheme.secondaryText)
-                            .padding(.horizontal, 3)
-                            .padding(.vertical, 1)
-                            .background(WorkspaceTheme.raisedSurface, in: Capsule())
-                            .accessibilityLabel("Bot")
-                    }
-                }
-                .frame(width: 112, alignment: .leading)
+            if showsMetadata {
+                if let authorUser {
+                    UserProfileButton(
+                        user: authorUser,
+                        avatarData: avatarData,
+                        onStartDirectMessage: onStartDirectMessage
+                    )
+                    .frame(width: 112, alignment: .leading)
                     .padding(.top, 4)
+                } else {
+                    HStack(spacing: 4) {
+                        Text(author)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(userColorSettings.color(for: post.userID))
+                            .lineLimit(1)
+                        if post.overrideUsername != nil {
+                            Text("BOT")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 1)
+                                .background(WorkspaceTheme.raisedSurface, in: Capsule())
+                                .accessibilityLabel("Bot")
+                        }
+                    }
+                    .frame(width: 112, alignment: .leading)
+                    .padding(.top, 4)
+                }
 
                 Text(timestamp)
                     .font(.system(size: 10, design: .monospaced))
