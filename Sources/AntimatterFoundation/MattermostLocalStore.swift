@@ -55,6 +55,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
     public let files: [MattermostFile]
     public let reactions: [MattermostReaction]
     public let poll: MattermostPoll?
+    public let overrideUsername: String?
 
     public init(
         id: String,
@@ -66,7 +67,8 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         rootID: String = "",
         files: [MattermostFile] = [],
         reactions: [MattermostReaction] = [],
-        poll: MattermostPoll? = nil
+        poll: MattermostPoll? = nil,
+        overrideUsername: String? = nil
     ) {
         self.id = id
         self.channelID = channelID
@@ -78,6 +80,7 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         self.files = files
         self.reactions = reactions
         self.poll = poll
+        self.overrideUsername = overrideUsername
     }
 
     enum CodingKeys: String, CodingKey {
@@ -91,6 +94,29 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         case props, type
     }
 
+    private struct Props: Codable {
+        let attachments: [Attachment]?
+        let overrideUsername: String?
+
+        enum CodingKeys: String, CodingKey {
+            case attachments
+            case overrideUsername = "override_username"
+        }
+    }
+
+    private struct Attachment: Codable {
+        let pretext: String?
+        let title: String?
+        let text: String?
+
+        var content: String {
+            [pretext, title, text]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+        }
+    }
+
     private enum MetadataCodingKeys: String, CodingKey {
         case files, reactions
     }
@@ -100,7 +126,18 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         id = try values.decode(String.self, forKey: .id)
         channelID = try values.decode(String.self, forKey: .channelID)
         userID = try values.decode(String.self, forKey: .userID)
-        message = try values.decodeIfPresent(String.self, forKey: .message) ?? ""
+        let props = try values.decodeIfPresent(Props.self, forKey: .props)
+        overrideUsername = props?.overrideUsername
+        let attachmentContent = props?.attachments?
+            .map(\.content)
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n") ?? ""
+        message = [
+            try values.decodeIfPresent(String.self, forKey: .message) ?? "",
+            attachmentContent,
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n")
         createAt = try values.decodeIfPresent(Int64.self, forKey: .createAt) ?? 0
         updateAt = try values.decodeIfPresent(Int64.self, forKey: .updateAt) ?? createAt
         rootID = try values.decodeIfPresent(String.self, forKey: .rootID) ?? ""
@@ -130,6 +167,8 @@ public struct MattermostPost: Codable, Identifiable, Equatable, Sendable {
         if let poll {
             try values.encode(MattermostPoll.postType, forKey: .type)
             try values.encode(poll, forKey: .props)
+        } else if let overrideUsername {
+            try values.encode(Props(attachments: nil, overrideUsername: overrideUsername), forKey: .props)
         }
         var metadata = values.nestedContainer(keyedBy: MetadataCodingKeys.self, forKey: .metadata)
         try metadata.encode(files, forKey: .files)

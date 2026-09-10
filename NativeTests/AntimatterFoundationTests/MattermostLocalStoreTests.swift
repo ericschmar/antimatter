@@ -11,6 +11,32 @@ final class MattermostLocalStoreTests: XCTestCase {
         XCTAssertEqual(user.displayName, "Ada Lovelace")
     }
 
+    func testPostDecodesWebhookAuthorAndAttachments() throws {
+        let post = try decode(MattermostPost.self, from: """
+        {
+          "id": "post-1",
+          "channel_id": "channel-1",
+          "user_id": "user-1",
+          "message": "",
+          "create_at": 1,
+          "update_at": 1,
+          "props": {
+            "override_username": "livit-appconsole",
+            "attachments": [{
+              "title": "Appconsole Deployment Started",
+              "text": "Application ezid2 3.38.2 deployment to Play Framework (EKS) - DEV initiated by Christopher V Dalisay (dalisay2)"
+            }]
+          }
+        }
+        """)
+
+        XCTAssertEqual(post.overrideUsername, "livit-appconsole")
+        XCTAssertEqual(
+            post.message,
+            "Appconsole Deployment Started\nApplication ezid2 3.38.2 deployment to Play Framework (EKS) - DEV initiated by Christopher V Dalisay (dalisay2)"
+        )
+    }
+
     func testStorePersistsNavigationAndReconcilesUpdatedPosts() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

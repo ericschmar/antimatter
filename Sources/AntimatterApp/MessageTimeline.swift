@@ -414,11 +414,11 @@ struct MessageRow: View {
     }
 
     private var author: String {
-        users[post.userID]?.displayName ?? "Unknown member"
+        post.overrideUsername ?? users[post.userID]?.displayName ?? "Unknown member"
     }
 
     private var authorUser: MattermostUser? {
-        users[post.userID]
+        post.overrideUsername == nil ? users[post.userID] : nil
     }
 
     private var initials: String {
