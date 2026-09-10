@@ -40,4 +40,18 @@ final class ChannelFilesViewModel: ObservableObject {
         error = nil
         isLoading = false
     }
+
+    func view(_ file: MattermostFile) {
+        Task {
+            guard let data = try? await loader.loadFileData(fileID: file.id) else { return }
+            ChannelFileQuickLookPreview.shared.show(file: file, data: data)
+        }
+    }
+
+    func download(_ file: MattermostFile) {
+        Task {
+            guard let data = try? await loader.loadFileData(fileID: file.id) else { return }
+            ChannelFileDownloader.save(file: file, data: data)
+        }
+    }
 }

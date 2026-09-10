@@ -13,21 +13,11 @@ struct ThreadSidebar: View {
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("\(replies.count) \(replies.count == 1 ? "reply" : "replies")")
-                    .font(.system(size: 15, weight: .semibold))
-                Spacer()
-                Button(action: dismiss) {
-                    Image(systemName: "xmark")
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close thread")
-            }
-            .padding(.horizontal, 14)
-            .frame(height: WorkspaceTheme.headerHeight)
-            Divider().overlay(WorkspaceTheme.divider)
+        ConversationDrawer(
+            title: "\(replies.count) \(replies.count == 1 ? "reply" : "replies")",
+            closeLabel: "Close thread",
+            close: dismiss
+        ) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     if let root { postView(root, isRoot: true) }
@@ -38,8 +28,6 @@ struct ThreadSidebar: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(minWidth: 320, maxWidth: .infinity)
-        .background(WorkspaceTheme.canvas)
         .accessibilityIdentifier("thread-sidebar")
     }
 

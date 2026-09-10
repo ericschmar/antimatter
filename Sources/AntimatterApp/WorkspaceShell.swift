@@ -791,7 +791,12 @@ private struct ConversationPlaceholder: View {
                         .accessibilityHint("Choose a teammate to add to this chat.")
                     }
                     Button {
-                        isChannelFilesPresented.toggle()
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isChannelFilesPresented.toggle()
+                            if isChannelFilesPresented {
+                                selectedThreadRootID = nil
+                            }
+                        }
                         if isChannelFilesPresented, let channelID = selectedTab?.channelID {
                             channelFiles.load(channelID: channelID)
                         }
@@ -860,20 +865,10 @@ private struct ConversationPlaceholder: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        if isChannelFilesPresented {
-                            Divider()
-                                .overlay(WorkspaceTheme.divider)
-                            ChannelFilesAside(
-                                files: channelFiles.files,
-                                isLoading: channelFiles.isLoading,
-                                error: channelFiles.error,
-                                close: { isChannelFilesPresented = false }
-                            )
-                        }
                     }
                     .frame(width: geometry.size.width, height: geometry.size.height)
-                    .allowsHitTesting(selectedThreadRootID == nil)
-                    .blur(radius: selectedThreadRootID == nil ? 0 : 3)
+                    .allowsHitTesting(selectedThreadRootID == nil && !isChannelFilesPresented)
+                    .blur(radius: selectedThreadRootID == nil && !isChannelFilesPresented ? 0 : 3)
                     .overlay(alignment: .trailing) {
                         if let selectedThreadRootID {
                             VStack(spacing: 0) {
@@ -894,6 +889,18 @@ private struct ConversationPlaceholder: View {
                             }
                             .frame(width: geometry.size.width * 0.5, height: geometry.size.height)
                             .background(WorkspaceTheme.canvas)
+                            .transition(.move(edge: .trailing))
+                            .zIndex(1)
+                        } else if isChannelFilesPresented {
+                            ChannelFilesAside(
+                                files: channelFiles.files,
+                                isLoading: channelFiles.isLoading,
+                                error: channelFiles.error,
+                                onView: channelFiles.view,
+                                onDownload: channelFiles.download,
+                                close: { withAnimation(.easeInOut(duration: 0.2)) { isChannelFilesPresented = false } }
+                            )
+                            .frame(width: geometry.size.width * 0.5, height: geometry.size.height)
                             .transition(.move(edge: .trailing))
                             .zIndex(1)
                         }
@@ -935,6 +942,7 @@ private struct ConversationPlaceholder: View {
     private func openThread(_ post: MattermostPost) {
         let rootID = post.rootID.isEmpty ? post.id : post.rootID
         withAnimation(.easeInOut(duration: 0.2)) {
+            isChannelFilesPresented = false
             selectedThreadRootID = rootID
         }
         composer.reply(to: timeline.posts.first(where: { $0.id == rootID }) ?? post)
