@@ -11,6 +11,8 @@ struct RichMessageContent: View {
     let currentUsername: String?
     let fileData: [String: Data]
     let mediaClient: MattermostAPIClient
+    let loadContent: () async -> Void
+    @State private var isVisible = false
 
     private var containsHighlightableMention: Bool {
         MattermostMentionMatcher.containsHighlightableMention(
@@ -36,22 +38,24 @@ struct RichMessageContent: View {
                     .id(fontSize)
             }
 
-            ForEach(embeddedGIFs, id: \.absoluteString) { url in
-                AnimatedGIFImage(url: url, client: mediaClient)
-                    .frame(maxWidth: 360, minHeight: 180, maxHeight: 260, alignment: .leading)
-            }
+            if isVisible {
+                ForEach(embeddedGIFs, id: \.absoluteString) { url in
+                    AnimatedGIFImage(url: url, client: mediaClient)
+                        .frame(maxWidth: 360, minHeight: 180, maxHeight: 260, alignment: .leading)
+                }
 
-            if let previewURL {
-                ChatLinkPreview(url: previewURL)
-            }
+                if let previewURL {
+                    ChatLinkPreview(url: previewURL)
+                }
 
-            if !imageFiles.isEmpty {
-                ChatImageAttachment(files: imageFiles, data: fileData)
-            }
+                if !imageFiles.isEmpty {
+                    ChatImageAttachment(files: imageFiles, data: fileData)
+                }
 
-            if !nonImageFiles.isEmpty {
-                ForEach(nonImageFiles) { file in
-                    FileAttachmentRow(file: file, data: fileData[file.id])
+                if !nonImageFiles.isEmpty {
+                    ForEach(nonImageFiles) { file in
+                        FileAttachmentRow(file: file, data: fileData[file.id])
+                    }
                 }
             }
         }
@@ -65,6 +69,10 @@ struct RichMessageContent: View {
         }
         .accessibilityHint(containsHighlightableMention ? "Contains a channel or personal mention." : "")
         .onAppear {
+            isVisible = true
+            Task {
+                await loadContent()
+            }
             guard post.message.contains("![") else { return }
             AppLogger.networking.notice(
                 "Post \(post.id, privacy: .public) has inline image Markdown; matched Giphy media count: \(embeddedGIFs.count, privacy: .public)"

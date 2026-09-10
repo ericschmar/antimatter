@@ -60,8 +60,6 @@ final class TimelineViewModel: ObservableObject {
             posts = chronological(cached.posts.filter { $0.channelID == channelID })
             users.merge(Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })) { _, new in new }
             await loadAuthors(for: posts)
-            await loadAttachments(for: posts)
-            await loadCustomEmoji(for: posts)
         }
 
         do {
@@ -73,8 +71,6 @@ final class TimelineViewModel: ObservableObject {
             try await store.apply(.posts(recentPosts))
             posts = chronological(recentPosts)
             await loadAuthors(for: recentPosts)
-            await loadAttachments(for: recentPosts)
-            await loadCustomEmoji(for: recentPosts)
         } catch {
             if posts.isEmpty {
                 loadError = error.localizedDescription
@@ -110,8 +106,6 @@ final class TimelineViewModel: ObservableObject {
             try? await store.apply(.posts(newPosts))
             posts = chronological(posts + newPosts)
             await loadAuthors(for: newPosts)
-            await loadAttachments(for: newPosts)
-            await loadCustomEmoji(for: newPosts)
         } catch {
             return
         }
@@ -159,6 +153,13 @@ final class TimelineViewModel: ObservableObject {
                 fileData[fileID] = data
             }
         }
+    }
+
+    /// Fetches media and custom reaction artwork only after its message is
+    /// rendered by the lazy timeline.
+    func loadVisibleContent(for posts: [MattermostPost]) async {
+        await loadAttachments(for: posts)
+        await loadCustomEmoji(for: posts)
     }
 
     private func loadCustomEmoji(for posts: [MattermostPost]) async {
@@ -270,7 +271,6 @@ final class TimelineViewModel: ObservableObject {
                   post.channelID == activeChannelID else { return }
             posts = chronological(posts.filter { $0.id != post.id } + [post])
             await loadAuthors(for: [post])
-            await loadAttachments(for: [post])
         case "post_deleted":
             guard let postID = event.data?["post_id"]?.stringValue else { return }
             posts.removeAll { $0.id == postID }
@@ -310,7 +310,6 @@ final class TimelineViewModel: ObservableObject {
     func appendSentPost(_ post: MattermostPost) async {
         replace(post)
         try? await store.apply(.posts([post]))
-        await loadAttachments(for: [post])
     }
 
     func beginEditing(_ post: MattermostPost) {

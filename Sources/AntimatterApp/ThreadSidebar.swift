@@ -59,6 +59,7 @@ struct ThreadSidebar: View {
             onDelete: timeline.delete,
             onVote: timeline.vote,
             onEndPoll: timeline.endPoll,
+            onContentVisible: timeline.loadVisibleContent,
             onReactionTooltipChange: { _ in },
             onToggleReaction: timeline.toggleReaction
         )

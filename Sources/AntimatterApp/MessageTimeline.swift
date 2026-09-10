@@ -70,6 +70,7 @@ struct MessageTimeline: View {
                                             onDelete: timeline.delete,
                                             onVote: onVote,
                                             onEndPoll: timeline.endPoll,
+                                            onContentVisible: timeline.loadVisibleContent,
                                             onReactionTooltipChange: updateReactionTooltip
                                         ) { post, emojiName in
                                             timeline.toggleReaction(on: post, emojiName: emojiName)
@@ -160,6 +161,7 @@ struct MessageTimeline: View {
             onDelete: timeline.delete,
             onVote: onVote,
             onEndPoll: timeline.endPoll,
+            onContentVisible: timeline.loadVisibleContent,
             onReactionTooltipChange: updateReactionTooltip,
             onToggleReaction: { post, emojiName in
                 timeline.toggleReaction(on: post, emojiName: emojiName)
@@ -286,6 +288,7 @@ struct MessageRow: View {
     let onDelete: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onEndPoll: (MattermostPost) -> Void
+    let onContentVisible: ([MattermostPost]) async -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
@@ -343,7 +346,8 @@ struct MessageRow: View {
                     fontSize: messageFontSize,
                     currentUsername: currentUsername,
                     fileData: fileData,
-                    mediaClient: mediaClient
+                    mediaClient: mediaClient,
+                    loadContent: { await onContentVisible([post]) }
                 )
                 if let poll = post.poll {
                     SocialPoll(
@@ -562,6 +566,7 @@ private struct InlineReplyThread: View {
     let onDelete: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onEndPoll: (MattermostPost) -> Void
+    let onContentVisible: ([MattermostPost]) async -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
@@ -572,7 +577,7 @@ private struct InlineReplyThread: View {
                 .fill(WorkspaceTheme.divider)
                 .frame(width: 2)
 
-            VStack(alignment: .leading, spacing: 8) {
+            LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(replies) { reply in
                     InlineReplyRow(
                         post: reply,
@@ -591,6 +596,7 @@ private struct InlineReplyThread: View {
                         onDelete: onDelete,
                         onVote: onVote,
                         onEndPoll: onEndPoll,
+                        onContentVisible: onContentVisible,
                         onReactionTooltipChange: onReactionTooltipChange,
                         onToggleReaction: onToggleReaction
                     )
@@ -632,6 +638,7 @@ private struct InlineReplyRow: View {
     let onDelete: (MattermostPost) -> Void
     let onVote: (MattermostPost, String) -> Void
     let onEndPoll: (MattermostPost) -> Void
+    let onContentVisible: ([MattermostPost]) async -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @EnvironmentObject private var userColorSettings: UserColorSettings
@@ -664,7 +671,8 @@ private struct InlineReplyRow: View {
                 fontSize: messageFontSize,
                 currentUsername: currentUsername,
                 fileData: fileData,
-                mediaClient: mediaClient
+                mediaClient: mediaClient,
+                loadContent: { await onContentVisible([post]) }
             )
             if let poll = post.poll {
                 SocialPoll(
