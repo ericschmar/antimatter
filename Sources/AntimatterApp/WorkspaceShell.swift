@@ -182,17 +182,15 @@ struct WorkspaceShell: View {
             }
             composer.select(channelID: channelID, teamID: navigation.selectedTeamID)
             presence.clearTypingIndicators()
-            if let channelID {
-                Task {
-                    await navigation.markChannelAsRead(channelID, previousChannelID: previousChannelID)
-                }
-            }
+            markSelectedChannelAsRead(previousChannelID: previousChannelID)
         }
         .onChange(of: scenePhase, initial: true) { _, newPhase in
             AppLogger.application.info(
                 "Workspace scene changed to \(String(describing: newPhase), privacy: .public)."
             )
-            if newPhase == .background {
+            if newPhase == .active {
+                markSelectedChannelAsRead()
+            } else if newPhase == .background {
                 Task { await realtime.stop() }
             }
         }
@@ -200,6 +198,13 @@ struct WorkspaceShell: View {
 
     private func focus(_ target: WorkspaceFocusTarget) {
         focusedRegion = target
+    }
+
+    private func markSelectedChannelAsRead(previousChannelID: String? = nil) {
+        guard let channelID = workspace.selectedChannelID else { return }
+        Task {
+            await navigation.markChannelAsRead(channelID, previousChannelID: previousChannelID)
+        }
     }
 
     private func performTabAction(_ action: WorkspaceTabAction) {
