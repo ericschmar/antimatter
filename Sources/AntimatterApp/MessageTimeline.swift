@@ -20,6 +20,7 @@ struct MessageTimeline: View {
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @State private var reactionTooltip: ReactionTooltip?
+    @State private var groups: [TimelineGroup] = []
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -111,17 +112,22 @@ struct MessageTimeline: View {
                     }
                 }
             }
+            .task(id: timeline.posts) {
+                groups = await Self.makeGroups(from: timeline.posts)
+            }
         }
         .accessibilityLabel("Message timeline")
         .accessibilityIdentifier("message-timeline")
     }
 
-    private var groups: [TimelineGroup] {
-        Dictionary(grouping: MattermostTimelineThreading.threads(from: timeline.posts)) { thread in
-            Calendar.current.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(thread.root.createAt) / 1_000))
-        }
-        .map { TimelineGroup(date: $0.key, threads: $0.value) }
-        .sorted { $0.date < $1.date }
+    private static func makeGroups(from posts: [MattermostPost]) async -> [TimelineGroup] {
+        await Task.detached(priority: .userInitiated) {
+            Dictionary(grouping: MattermostTimelineThreading.threads(from: posts)) { thread in
+                Calendar.current.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(thread.root.createAt) / 1_000))
+            }
+            .map { TimelineGroup(date: $0.key, threads: $0.value) }
+            .sorted { $0.date < $1.date }
+        }.value
     }
 
     private var newestRootPostID: String? {
