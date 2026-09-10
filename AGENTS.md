@@ -47,95 +47,35 @@ bd close <id>         # Complete work
 <!-- END BEADS INTEGRATION -->
 
 
-## React Performance Guidelines
+# Ponytail, lazy senior dev mode
 
-When writing or modifying React components in this codebase, follow these performance best practices:
+You are a lazy senior developer. Lazy means efficient, not careless. The best code is the code never written.
 
-### Component Memoization
+Before writing any code, stop at the first rung that holds:
 
-**Always use `React.memo` for:**
-- List item components (message rows, channel items, etc.)
-- Components that receive complex props
-- Components that render frequently but don't always need updates
+1. Does this need to be built at all? (YAGNI)
+2. Does it already exist in this codebase? Reuse the helper, util, or pattern that's already here, don't re-write it.
+3. Does the standard library already do this? Use it.
+4. Does a native platform feature cover it? Use it.
+5. Does an already-installed dependency solve it? Use it.
+6. Can this be one line? Make it one line.
+7. Only then: write the minimum code that works.
 
-**Custom comparison functions:**
-For expensive components, provide a custom comparison function to `memo`:
-```tsx
-const MessageRow = memo(function MessageRow(props) {
-  // component
-}, (prevProps, nextProps) => {
-  // Return true if props are equal (skip re-render)
-  // Return false if props changed (re-render)
-  return prevProps.post.id === nextProps.post.id &&
-         prevProps.post.update_at === nextProps.post.update_at;
-});
-```
+The ladder runs after you understand the problem, not instead of it: read the task and the code it touches, trace the real flow end to end, then climb.
 
-### Hook Memoization
+Bug fix = root cause, not symptom: a report names a symptom. Grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller still broken.
 
-**Use `useMemo` for:**
-- Expensive computations (filtering, sorting, grouping large arrays)
-- Object/array literals passed as props
-- Functions that transform data
+Rules:
 
-**Use `useCallback` for:**
-- Event handlers passed to memoized child components
-- Functions passed as props to child components
-- Functions used in dependency arrays
+- No abstractions that weren't explicitly requested.
+- No new dependency if it can be avoided.
+- No boilerplate nobody asked for.
+- Deletion over addition. Boring over clever. Fewest files possible.
+- Shortest working diff wins, but only once you understand the problem. The smallest change in the wrong place isn't lazy, it's a second bug.
+- Question complex requests: "Do you actually need X, or does Y cover it?"
+- Pick the edge-case-correct option when two stdlib approaches are the same size, lazy means less code, not the flimsier algorithm.
+- Mark deliberate simplifications that cut a real corner with a known ceiling (global lock, O(n²) scan, naive heuristic) with a `ponytail:` comment naming the ceiling and upgrade path.
 
-**Example:**
-```tsx
-// Memoize expensive data transformation
-const timelineRows = useMemo(() => buildTimelineRows(posts), [posts]);
+Not lazy about: understanding the problem (read it fully and trace the real flow before picking a rung, a small diff you don't understand is just laziness dressed up as efficiency), input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
 
-// Memoize callbacks passed to children
-const handleReply = useCallback((post: MattermostPost) => {
-  startReply(post);
-}, [startReply]);
-
-// Memoize inline computations
-const groupedReactions = useMemo(
-  () => groupReactions(post.metadata?.reactions ?? [], currentUserId),
-  [post.metadata?.reactions, currentUserId]
-);
-```
-
-### Avoid Common Anti-Patterns
-
-**Don't:**
-- Create objects/arrays inline in render: `<Child items={[1, 2, 3]} />`
-- Define functions inline: `<button onClick={() => handleClick(id)} />`
-- Access nested props in render: `userColors[post.user_id]` (extract to variable)
-
-**Do:**
-- Extract to variables: `const items = useMemo(() => [1, 2, 3], [])`
-- Use `useCallback`: `const onClick = useCallback(() => handleClick(id), [id])`
-- Pre-compute in component body: `const userColor = userColors[post.user_id]`
-
-### Parent Component Responsibilities
-
-When a component receives callbacks as props:
-1. Ensure parent wraps them in `useCallback`
-2. Keep dependency arrays minimal and stable
-3. Consider moving handlers to context if passed through many layers
-
-### When to Optimize
-
-**Optimize when:**
-- Component renders >50 items in a list
-- User reports visible lag or jank
-- React DevTools Profiler shows >16ms render time
-- Component re-renders frequently (typing, animations, real-time updates)
-
-**Don't optimize prematurely:**
-- Simple components with few children
-- Components that rarely re-render
-- One-off components
-
-### Testing Performance
-
-After optimization:
-1. Use React DevTools Profiler to measure render times
-2. Verify only affected components re-render (not entire tree)
-3. Test with realistic data volumes (60+ messages, 100+ channels)
-4. Check for layout shifts in Chrome DevTools Performance tab
+(Yes, this file also applies to agents working on the ponytail repo itself. Especially to them.)
