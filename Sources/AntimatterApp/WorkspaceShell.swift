@@ -20,6 +20,7 @@ struct WorkspaceShell: View {
     @StateObject private var search: SearchViewModel
     @StateObject private var notifications = NotificationManager()
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("channelSidebarWidth") private var channelSidebarWidth = WorkspaceTheme.sidebarWidth
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
     @State private var isCommandPalettePresented = false
     @State private var isSettingsPresented = false
@@ -71,6 +72,13 @@ struct WorkspaceShell: View {
                         maxWidth: 360,
                         maxHeight: .infinity
                     )
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.width
+                    } action: { width in
+                        guard width >= 220, width <= 360,
+                              abs(channelSidebarWidth - width) > 0.5 else { return }
+                        channelSidebarWidth = width
+                    }
                     .focusable()
                     .focusEffectDisabled()
                     .focused($focusedRegion, equals: .sidebar)
@@ -98,6 +106,7 @@ struct WorkspaceShell: View {
                     .accessibilityIdentifier("conversation-workspace")
                     .ignoresSafeArea(.container, edges: .top)
             }
+            .frame(minWidth: 220, idealWidth: channelSidebarWidth, maxWidth: 360)
         }
         .tint(accentColor)
         .background(WorkspaceTheme.canvas)
