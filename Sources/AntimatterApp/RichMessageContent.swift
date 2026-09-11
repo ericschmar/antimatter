@@ -1,6 +1,6 @@
 import AntimatterFoundation
 import AppKit
-import LinkPresentation
+@preconcurrency import LinkPresentation
 import MarkdownUI
 @preconcurrency import QuickLookUI
 import SwiftUI
@@ -261,9 +261,111 @@ private struct ChatLinkPreview: View {
         }
         .frame(maxWidth: 360, alignment: .leading)
         .task(id: url) {
-            metadata = try? await LPMetadataProvider().startFetchingMetadata(for: url)
+            metadata = (await LinkPreviewCache.shared.metadata(for: url))?.metadata
             isLoading = false
         }
+    }
+}
+
+@MainActor
+private final class LinkPreviewCache {
+    static let shared = LinkPreviewCache()
+
+    private struct Entry {
+        let metadata: LPLinkMetadata?
+        let expiresAt: Date
+    }
+
+    private let ttl: TimeInterval = 600
+    private let timeout: TimeInterval = 8
+    private let maximumConcurrentRequests = 4
+    private var activeRequests = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var entries: [URL: Entry] = [:]
+    private var pending: [URL: [CheckedContinuation<SendableLinkMetadata?, Never>]] = [:]
+
+    func metadata(for url: URL) async -> SendableLinkMetadata? {
+        if let entry = entries[url], entry.expiresAt > Date() {
+            return entry.metadata.map(SendableLinkMetadata.init)
+        }
+        if pending[url] != nil {
+            return await withCheckedContinuation { continuation in
+                pending[url, default: []].append(continuation)
+            }
+        }
+
+        pending[url] = []
+        await acquireSlot()
+        let metadata = await fetch(url)
+        releaseSlot()
+        entries[url] = Entry(metadata: metadata?.metadata, expiresAt: Date().addingTimeInterval(ttl))
+        let waiters = pending.removeValue(forKey: url) ?? []
+        for waiter in waiters {
+            waiter.resume(returning: metadata)
+        }
+        return metadata
+    }
+
+    private func fetch(_ url: URL) async -> SendableLinkMetadata? {
+        await withCheckedContinuation { continuation in
+            let completion = TimeoutCompletion(timeout: timeout) {
+                continuation.resume(returning: $0)
+            }
+            let provider = LPMetadataProvider()
+            provider.startFetchingMetadata(for: url) { metadata, _ in
+                let wrapped = SendableLinkMetadata(metadata)
+                Task { @MainActor in
+                    completion.finish(wrapped)
+                }
+            }
+        }
+    }
+
+    private func acquireSlot() async {
+        if activeRequests < maximumConcurrentRequests {
+            activeRequests += 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+        activeRequests += 1
+    }
+
+    private func releaseSlot() {
+        activeRequests -= 1
+        if let waiter = waiters.first {
+            waiters.removeFirst()
+            waiter.resume()
+        }
+    }
+}
+
+@MainActor
+private final class TimeoutCompletion {
+    private var didFinish = false
+    private let completion: (SendableLinkMetadata?) -> Void
+
+    init(timeout: TimeInterval, completion: @escaping (SendableLinkMetadata?) -> Void) {
+        self.completion = completion
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(timeout))
+            self?.finish(nil)
+        }
+    }
+
+    func finish(_ metadata: SendableLinkMetadata?) {
+        guard !didFinish else { return }
+        didFinish = true
+        completion(metadata)
+    }
+}
+
+private struct SendableLinkMetadata: @unchecked Sendable {
+    let metadata: LPLinkMetadata?
+
+    init(_ metadata: LPLinkMetadata?) {
+        self.metadata = metadata
     }
 }
 

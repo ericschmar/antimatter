@@ -29,6 +29,8 @@ final class TimelineViewModel: ObservableObject {
     private var nextPageIndex = 1
     private let pageSize = MattermostPage().size
     private var customEmojiIDs: [String: String]?
+    private var loadingFileTasks: [String: Task<Data?, Never>] = [:]
+    private var loadingEmojiTasks: [String: Task<Data?, Never>] = [:]
 
     init(session: MattermostSession) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
@@ -145,12 +147,21 @@ final class TimelineViewModel: ObservableObject {
         let fileIDs = Set(posts.flatMap(\.files).map(\.id))
         await withTaskGroup(of: (String, Data?).self) { group in
             for fileID in fileIDs where fileData[fileID] == nil {
-                group.addTask { [loader] in
-                    (fileID, try? await loader.loadFileData(fileID: fileID))
+                if let task = loadingFileTasks[fileID] {
+                    group.addTask { (fileID, await task.value) }
+                } else {
+                    let task = Task { [loader] in
+                        try? await loader.loadFileData(fileID: fileID)
+                    }
+                    loadingFileTasks[fileID] = task
+                    group.addTask { (fileID, await task.value) }
                 }
             }
-            for await (fileID, data) in group where data != nil {
-                fileData[fileID] = data
+            for await (fileID, data) in group {
+                loadingFileTasks[fileID] = nil
+                if let data {
+                    fileData[fileID] = data
+                }
             }
         }
     }
@@ -173,12 +184,21 @@ final class TimelineViewModel: ObservableObject {
         await withTaskGroup(of: (String, Data?).self) { group in
             for name in reactionNames where customEmojiData[name] == nil {
                 guard let emojiID = customEmojiIDs[name] else { continue }
-                group.addTask { [customEmojis] in
-                    (name, try? await customEmojis.loadImageData(emojiID: emojiID))
+                if let task = loadingEmojiTasks[name] {
+                    group.addTask { (name, await task.value) }
+                } else {
+                    let task = Task { [customEmojis] in
+                        try? await customEmojis.loadImageData(emojiID: emojiID)
+                    }
+                    loadingEmojiTasks[name] = task
+                    group.addTask { (name, await task.value) }
                 }
             }
-            for await (name, data) in group where data != nil {
-                customEmojiData[name] = data
+            for await (name, data) in group {
+                loadingEmojiTasks[name] = nil
+                if let data {
+                    customEmojiData[name] = data
+                }
             }
         }
     }
