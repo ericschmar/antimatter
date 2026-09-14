@@ -8,6 +8,7 @@ import SwiftUI
 struct RichMessageContent: View {
     let post: MattermostPost
     let fontSize: Double
+    let fontFamily: AppFontFamily
     let currentUsername: String?
     let fileData: [String: Data]
     let mediaClient: MattermostAPIClient
@@ -27,7 +28,12 @@ struct RichMessageContent: View {
                 Markdown(messageWithoutEmbeddedGIFs)
                     .markdownTheme(
                         .gitHub
-                            .text { FontSize(fontSize) }
+                            .text {
+                                if fontFamily == .monospaced {
+                                    FontFamilyVariant(.monospaced)
+                                }
+                                FontSize(fontSize)
+                            }
                             .codeBlock { configuration in
                                 ChatCodeBlock(configuration: configuration)
                             }
@@ -35,7 +41,7 @@ struct RichMessageContent: View {
                     .tint(WorkspaceTheme.accent)
                     .foregroundStyle(WorkspaceTheme.primaryText)
                     .textSelection(.enabled)
-                    .id(fontSize)
+                    .id("\(fontFamily.rawValue)-\(fontSize)")
             }
 
             if isVisible {
@@ -180,6 +186,7 @@ private struct AnimatedGIFImage: NSViewRepresentable {
         }
     }
 }
+
 
 private struct ChatCodeBlock: View {
     let configuration: CodeBlockConfiguration

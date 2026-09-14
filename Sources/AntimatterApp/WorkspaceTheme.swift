@@ -1,5 +1,32 @@
 import SwiftUI
 
+enum AppFontFamily: String, CaseIterable, Identifiable {
+    case system
+    case rounded
+    case serif
+    case monospaced
+
+    var id: Self { self }
+
+    var name: String {
+        switch self {
+        case .system: "System"
+        case .rounded: "Rounded"
+        case .serif: "Serif"
+        case .monospaced: "Monospaced"
+        }
+    }
+
+    func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        switch self {
+        case .system: .system(size: size, weight: weight)
+        case .rounded: .system(size: size, weight: weight, design: .rounded)
+        case .serif: .system(size: size, weight: weight, design: .serif)
+        case .monospaced: .system(size: size, weight: weight, design: .monospaced)
+        }
+    }
+}
+
 enum AccentColor: String, CaseIterable, Identifiable {
     case onyx
     case coral
@@ -108,6 +135,14 @@ extension Color {
 }
 
 enum WorkspaceTheme {
+    static var fontFamily: AppFontFamily {
+        AppFontFamily(rawValue: UserDefaults.standard.string(forKey: "appFontFamily") ?? "") ?? .system
+    }
+
+    static func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        fontFamily.font(size: size, weight: weight)
+    }
+
     static let canvas = Color(red: 0.075, green: 0.086, blue: 0.102)
     static let sidebar = Color(red: 0.102, green: 0.118, blue: 0.137)
     static let surface = Color(red: 0.118, green: 0.137, blue: 0.157)

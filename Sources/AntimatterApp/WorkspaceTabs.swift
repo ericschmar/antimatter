@@ -2,12 +2,13 @@ import SwiftUI
 
 struct WorkspaceTabs: View {
     @ObservedObject var workspace: WorkspaceViewModel
+    @ObservedObject var navigation: NavigationViewModel
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 3) {
                 ForEach(workspace.tabs) { tab in
-                    WorkspaceTabItem(tab: tab, workspace: workspace)
+                    WorkspaceTabItem(tab: tab, workspace: workspace, navigation: navigation)
                 }
             }
             .padding(.horizontal, 8)
@@ -24,6 +25,7 @@ struct WorkspaceTabs: View {
 private struct WorkspaceTabItem: View {
     let tab: WorkspaceTab
     @ObservedObject var workspace: WorkspaceViewModel
+    @ObservedObject var navigation: NavigationViewModel
     @State private var isHovering = false
 
     private var isSelected: Bool {
@@ -36,6 +38,10 @@ private struct WorkspaceTabItem: View {
                 workspace.select(tab)
             } label: {
                 HStack(spacing: 6) {
+                    if let avatar = directMessageAvatar {
+                        TabAvatar(data: avatar.data, initials: avatar.initials)
+                    }
+
                     if tab.isPreview {
                         Circle()
                             .fill(WorkspaceTheme.secondaryText.opacity(0.7))
@@ -89,5 +95,36 @@ private struct WorkspaceTabItem: View {
             return WorkspaceTheme.raisedSurface
         }
         return isHovering ? WorkspaceTheme.hoverSurface : .clear
+    }
+
+    private var directMessageAvatar: (data: Data?, initials: String)? {
+        guard
+            let channel = navigation.channels.first(where: { $0.id == tab.channelID }),
+            channel.type == "D",
+            let userID = navigation.directMessageUserID(for: channel)
+        else { return nil }
+        return (navigation.avatarData[userID], String(navigation.displayName(for: channel).prefix(2)))
+    }
+}
+
+private struct TabAvatar: View {
+    let data: Data?
+    let initials: String
+
+    var body: some View {
+        Group {
+            if let data, let image = NSImage(data: data) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Text(initials)
+                    .font(.system(size: 7, weight: .bold, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
+        }
+        .frame(width: 14, height: 14)
+        .background(WorkspaceTheme.raisedSurface)
+        .clipShape(Circle())
     }
 }

@@ -11,6 +11,7 @@ struct ThreadSidebar: View {
     let onStartDirectMessage: (MattermostUser) -> Void
     let dismiss: () -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
+    @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
 
     var body: some View {
         ConversationDrawer(
@@ -38,6 +39,10 @@ struct ThreadSidebar: View {
     private var root: MattermostPost? { thread?.root }
     private var replies: [MattermostPost] { thread?.replies ?? [] }
 
+    private var selectedFontFamily: AppFontFamily {
+        AppFontFamily(rawValue: appFontFamily) ?? .system
+    }
+
     private func postView(_ post: MattermostPost, isRoot: Bool) -> some View {
         MessageRow(
             post: post,
@@ -47,6 +52,7 @@ struct ThreadSidebar: View {
             customEmojiData: timeline.customEmojiData,
             status: statuses[post.userID],
             messageFontSize: messageFontSize,
+            fontFamily: selectedFontFamily,
             currentUserID: currentUserID,
             currentUsername: currentUsername,
             mediaClient: timeline.mediaClient,

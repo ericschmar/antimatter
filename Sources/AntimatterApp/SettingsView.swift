@@ -70,6 +70,7 @@ struct SettingsView: View {
     @AppStorage("compactTimeline") private var compactTimeline = true
     @AppStorage("showTimelineAvatars") private var showTimelineAvatars = true
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
+    @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @AppStorage("followSystemAppearance") private var followSystemAppearance = false
     @AppStorage("workspaceOpenPreviews") private var openPreviews = true
@@ -121,6 +122,16 @@ struct SettingsView: View {
             SettingsPageHeader("Appearance", subtitle: "Control the density and visual treatment of your timeline.")
             AccentColorPicker(selection: $accentColorSettings.selected)
             SettingsGroup {
+                SettingsValueRow("Font", value: selectedFontFamily.name) {
+                    Picker("Font", selection: $appFontFamily) {
+                        ForEach(AppFontFamily.allCases) { family in
+                            Text(family.name).tag(family.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 150)
+                }
+                SettingsDivider()
                 SettingsToggleRow("Follow system appearance", isOn: $followSystemAppearance)
                 SettingsDivider()
                 SettingsToggleRow("Use compact message timeline", isOn: $compactTimeline)
@@ -244,6 +255,10 @@ struct SettingsView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(accentColorSettings.selected.color)
         }
+    }
+
+    private var selectedFontFamily: AppFontFamily {
+        AppFontFamily(rawValue: appFontFamily) ?? .system
     }
 
     private var groupingIntervalValue: String {

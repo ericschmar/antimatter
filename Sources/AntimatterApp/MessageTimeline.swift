@@ -18,6 +18,7 @@ struct MessageTimeline: View {
     let onVote: (MattermostPost, String) -> Void
     let onFocusedPostDisplayed: (String) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
+    @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @State private var reactionTooltip: ReactionTooltip?
     @State private var groups: [TimelineGroup] = []
@@ -64,6 +65,7 @@ struct MessageTimeline: View {
                                             avatarData: timeline.avatarData,
                                             customEmojiData: timeline.customEmojiData,
                                             messageFontSize: messageFontSize,
+                                            fontFamily: selectedFontFamily,
                                             mediaClient: timeline.mediaClient,
                                             onStartDirectMessage: onStartDirectMessage,
                                             onReply: onReply,
@@ -83,7 +85,7 @@ struct MessageTimeline: View {
                     }
                     .padding(.vertical, 10)
                     .frame(minHeight: geometry.size.height, alignment: .bottom)
-                    .id(messageFontSize)
+                    .id("\(selectedFontFamily.rawValue)-\(messageFontSize)")
                 }
                 .defaultScrollAnchor(.bottom)
                 .overlayPreferenceValue(ReactionTooltipAnchorKey.self) { anchors in
@@ -142,6 +144,10 @@ struct MessageTimeline: View {
         statuses.merging(timeline.statuses) { _, timelineStatus in timelineStatus }
     }
 
+    private var selectedFontFamily: AppFontFamily {
+        AppFontFamily(rawValue: appFontFamily) ?? .system
+    }
+
     private var messageGrouping: MattermostTimelineGrouping {
         MattermostTimelineGrouping(maximumInterval: messageGroupingIntervalMinutes * 60)
     }
@@ -155,6 +161,7 @@ struct MessageTimeline: View {
             customEmojiData: timeline.customEmojiData,
             status: timeline.statuses[post.userID] ?? statuses[post.userID],
             messageFontSize: messageFontSize,
+            fontFamily: selectedFontFamily,
             currentUserID: currentUserID,
             currentUsername: currentUsername,
             mediaClient: timeline.mediaClient,
@@ -282,6 +289,7 @@ struct MessageRow: View {
     let customEmojiData: [String: Data]
     let status: String?
     let messageFontSize: Double
+    let fontFamily: AppFontFamily
     let currentUserID: String?
     let currentUsername: String?
     let mediaClient: MattermostAPIClient
@@ -362,6 +370,7 @@ struct MessageRow: View {
                 RichMessageContent(
                     post: post,
                     fontSize: messageFontSize,
+                    fontFamily: fontFamily,
                     currentUsername: currentUsername,
                     fileData: fileData,
                     mediaClient: mediaClient,
@@ -577,6 +586,7 @@ private struct InlineReplyThread: View {
     let avatarData: [String: Data]
     let customEmojiData: [String: Data]
     let messageFontSize: Double
+    let fontFamily: AppFontFamily
     let mediaClient: MattermostAPIClient
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
@@ -607,6 +617,7 @@ private struct InlineReplyThread: View {
                         avatarData: avatarData[reply.userID],
                         customEmojiData: customEmojiData,
                         messageFontSize: messageFontSize,
+                        fontFamily: fontFamily,
                         mediaClient: mediaClient,
                         onStartDirectMessage: onStartDirectMessage,
                         onReply: onReply,
@@ -652,6 +663,7 @@ private struct InlineReplyRow: View {
     let avatarData: Data?
     let customEmojiData: [String: Data]
     let messageFontSize: Double
+    let fontFamily: AppFontFamily
     let mediaClient: MattermostAPIClient
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
@@ -701,6 +713,7 @@ private struct InlineReplyRow: View {
             RichMessageContent(
                 post: post,
                 fontSize: messageFontSize,
+                fontFamily: fontFamily,
                 currentUsername: currentUsername,
                 fileData: fileData,
                 mediaClient: mediaClient,

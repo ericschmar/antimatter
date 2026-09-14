@@ -200,6 +200,7 @@ final class NavigationViewModel: ObservableObject {
 
         if let existingChannel = directMessages.first(where: { directMessageUserID(for: $0) == user.id }) {
             selectedChannelID = existingChannel.id
+            await loadAvatarIfMissing(for: user)
             return
         }
 
@@ -210,8 +211,16 @@ final class NavigationViewModel: ObservableObject {
                 try? await store.apply(.navigation(teams: teams, channels: channels))
             }
             selectedChannelID = channel.id
+            await loadAvatarIfMissing(for: user)
         } catch {
             loadError = error.localizedDescription
+        }
+    }
+
+    private func loadAvatarIfMissing(for user: MattermostUser) async {
+        guard avatarData[user.id] == nil else { return }
+        if let data = try? await loader.loadAvatarData(userID: user.id) {
+            avatarData[user.id] = data
         }
     }
 

@@ -68,7 +68,7 @@ struct WorkspaceShell: View {
                 )
                     .frame(
                         minWidth: 220,
-                        idealWidth: WorkspaceTheme.sidebarWidth,
+                        idealWidth: channelSidebarWidth,
                         maxWidth: 360,
                         maxHeight: .infinity
                     )
@@ -106,9 +106,9 @@ struct WorkspaceShell: View {
                     .accessibilityIdentifier("conversation-workspace")
                     .ignoresSafeArea(.container, edges: .top)
             }
-            .frame(minWidth: 220, idealWidth: channelSidebarWidth, maxWidth: 360)
         }
         .tint(accentColor)
+        .font(WorkspaceTheme.font(size: 13))
         .background(WorkspaceTheme.canvas)
         .frame(minWidth: 900, minHeight: 600)
         .background(TitleBarControlAligner())
@@ -767,9 +767,11 @@ private struct ConversationPlaceholder: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            WorkspaceTabs(workspace: workspace)
+            WorkspaceTabs(workspace: workspace, navigation: navigation)
 
             HStack(spacing: 10) {
+                directMessageHeaderAvatar
+
                 Text(selectedTab?.title ?? "Select a conversation")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(WorkspaceTheme.primaryText)
@@ -937,6 +939,30 @@ private struct ConversationPlaceholder: View {
 
     private var selectedTab: WorkspaceTab? {
         workspace.tabs.first(where: { $0.channelID == workspace.selectedChannelID })
+    }
+
+    @ViewBuilder
+    private var directMessageHeaderAvatar: some View {
+        if
+            let channel = selectedChannel,
+            channel.type == "D",
+            let userID = navigation.directMessageUserID(for: channel)
+        {
+            Group {
+                if let data = navigation.avatarData[userID], let image = NSImage(data: data) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Text(String(navigation.displayName(for: channel).prefix(2)))
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                }
+            }
+            .frame(width: 22, height: 22)
+            .background(WorkspaceTheme.raisedSurface)
+            .clipShape(Circle())
+        }
     }
 
     private func openSearchResult(_ post: MattermostPost) {
