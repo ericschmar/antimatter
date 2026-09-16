@@ -539,3 +539,16 @@ private func openQuickLookPreview(for file: MattermostFile, data: Data) {
         return
     }
 }
+
+// ponytail:perf — equality over display inputs only; the media client and load-content
+// closure are stable for the lifetime of a timeline session and are excluded. Lets
+// SwiftUI skip message content re-rendering when the surrounding row has not changed.
+extension RichMessageContent: Equatable {
+    nonisolated static func == (lhs: RichMessageContent, rhs: RichMessageContent) -> Bool {
+        lhs.post == rhs.post
+            && lhs.fontSize == rhs.fontSize
+            && lhs.fontFamily == rhs.fontFamily
+            && lhs.currentUsername == rhs.currentUsername
+            && lhs.fileData == rhs.fileData
+    }
+}

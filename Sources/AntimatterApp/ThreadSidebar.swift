@@ -46,7 +46,7 @@ struct ThreadSidebar: View {
     private func postView(_ post: MattermostPost, isRoot: Bool) -> some View {
         MessageRow(
             post: post,
-            users: users,
+            users: slicedUsers(from: users, userIDs: postUserIDs(post)),
             avatarData: timeline.avatarData[post.userID],
             fileData: slicedFileData(from: timeline.fileData, for: post.files),
             customEmojiData: slicedEmojiData(from: timeline.customEmojiData, reactions: post.reactions),
@@ -69,6 +69,7 @@ struct ThreadSidebar: View {
             onReactionTooltipChange: { _ in },
             onToggleReaction: timeline.toggleReaction
         )
+        .equatable()
         .background(isRoot ? WorkspaceTheme.raisedSurface : .clear)
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
         .frame(maxWidth: .infinity, alignment: .leading)

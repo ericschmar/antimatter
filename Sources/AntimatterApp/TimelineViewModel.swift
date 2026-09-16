@@ -137,6 +137,8 @@ final class TimelineViewModel: ObservableObject {
         let mergeInterval = AppLogger.timeline.beginInterval("Persist and Publish Earlier Posts")
         try? await store.apply(.posts(newPosts))
         posts = chronological(posts + newPosts)
+        // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
+        AppLogger.freeze.notice("Published Earlier Posts: +\(newPosts.count) new, \(posts.count) total loaded")
         AppLogger.timeline.endInterval("Persist and Publish Earlier Posts", mergeInterval)
         AppLogger.timeline.emitEvent(
             "Earlier Posts Published",

@@ -19,6 +19,30 @@ func slicedEmojiData(from all: [String: Data], reactions: [MattermostReaction]) 
     }
 }
 
+/// Narrows row inputs to the users a row can display (author + co-reactors).
+func slicedUsers(from all: [String: MattermostUser], userIDs: Set<String>) -> [String: MattermostUser] {
+    userIDs.reduce(into: [String: MattermostUser]()) { slice, userID in
+        if let user = all[userID] { slice[userID] = user }
+    }
+}
+
+/// Narrows row inputs to the presence statuses of the users a thread can display.
+func slicedStatuses(from all: [String: String], userIDs: Set<String>) -> [String: String] {
+    userIDs.reduce(into: [String: String]()) { slice, userID in
+        if let status = all[userID] { slice[userID] = status }
+    }
+}
+
+/// The userIDs visible within one post's row: its author plus everyone who reacted.
+func postUserIDs(_ post: MattermostPost) -> Set<String> {
+    Set([post.userID] + post.reactions.map(\.userID))
+}
+
+/// The userIDs visible within an inline reply thread: reply authors plus everyone who reacted.
+func threadUserIDs(_ replies: [MattermostPost]) -> Set<String> {
+    Set(replies.flatMap { [$0.userID] + $0.reactions.map(\.userID) })
+}
+
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
     let knownUsers: [String: MattermostUser]
@@ -77,8 +101,8 @@ struct MessageTimeline: View {
                                     if Self.rendersInlineReplyThreads && !thread.replies.isEmpty {
                                         InlineReplyThread(
                                             replies: thread.replies,
-                                            users: messageUsers,
-                                            statuses: messageStatuses,
+                                            users: slicedUsers(from: messageUsers, userIDs: threadUserIDs(thread.replies)),
+                                            statuses: slicedStatuses(from: messageStatuses, userIDs: threadUserIDs(thread.replies)),
                                             currentUserID: currentUserID,
                                             currentUsername: currentUsername,
                                             fileData: slicedFileData(from: timeline.fileData, for: thread.replies.flatMap(\.files)),
@@ -178,10 +202,10 @@ struct MessageTimeline: View {
         MattermostTimelineGrouping(maximumInterval: messageGroupingIntervalMinutes * 60)
     }
 
-    private func messageRow(for post: MattermostPost, in group: TimelineGroup) -> MessageRow {
+    private func messageRow(for post: MattermostPost, in group: TimelineGroup) -> some View {
         MessageRow(
             post: post,
-            users: messageUsers,
+            users: slicedUsers(from: messageUsers, userIDs: postUserIDs(post)),
             avatarData: timeline.avatarData[post.userID],
             fileData: slicedFileData(from: timeline.fileData, for: post.files),
             customEmojiData: slicedEmojiData(from: timeline.customEmojiData, reactions: post.reactions),
@@ -206,6 +230,7 @@ struct MessageTimeline: View {
                 timeline.toggleReaction(on: post, emojiName: emojiName)
             }
         )
+        .equatable()
     }
 
     private func updateReactionTooltip(_ tooltip: ReactionTooltip?) {
@@ -402,6 +427,7 @@ struct MessageRow: View {
                     mediaClient: mediaClient,
                     loadContent: { await onContentVisible([post]) }
                 )
+                .equatable()
                 if let poll = post.poll {
                     SocialPoll(
                         poll: poll,
@@ -420,6 +446,7 @@ struct MessageRow: View {
                     showsTooltips: true,
                     allowsInteraction: true
                 )
+                .equatable()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .topTrailing) {
@@ -661,6 +688,7 @@ private struct InlineReplyThread: View {
                         onReactionTooltipChange: onReactionTooltipChange,
                         onToggleReaction: onToggleReaction
                     )
+                    .equatable()
                     .id(reply.id)
                 }
 
@@ -764,6 +792,7 @@ private struct InlineReplyRow: View {
                 mediaClient: mediaClient,
                 loadContent: { await onContentVisible([post]) }
             )
+            .equatable()
             if let poll = post.poll {
                 SocialPoll(
                     poll: poll,
@@ -782,6 +811,7 @@ private struct InlineReplyRow: View {
                 showsTooltips: true,
                 allowsInteraction: true
             )
+            .equatable()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .topTrailing) {
@@ -1298,5 +1328,51 @@ private struct TimelineStatus: View {
             .foregroundStyle(isError ? WorkspaceTheme.attention : WorkspaceTheme.secondaryText)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 30)
+    }
+}
+
+// ponytail:perf — hand-written equality so SwiftUI can skip re-rendering a row whose
+// display inputs did not change (closures and the shared media client are stable for
+// the lifetime of a timeline session and are intentionally excluded). This is the main
+// lever that keeps a full-timeline publish from re-evaluating every visible row.
+extension MessageRow: Equatable {
+    nonisolated static func == (lhs: MessageRow, rhs: MessageRow) -> Bool {
+        lhs.post == rhs.post
+            && lhs.users == rhs.users
+            && lhs.avatarData == rhs.avatarData
+            && lhs.fileData == rhs.fileData
+            && lhs.customEmojiData == rhs.customEmojiData
+            && lhs.status == rhs.status
+            && lhs.messageFontSize == rhs.messageFontSize
+            && lhs.fontFamily == rhs.fontFamily
+            && lhs.currentUserID == rhs.currentUserID
+            && lhs.currentUsername == rhs.currentUsername
+            && lhs.showsMetadata == rhs.showsMetadata
+            && lhs.horizontalInset == rhs.horizontalInset
+    }
+}
+
+extension InlineReplyRow: Equatable {
+    nonisolated static func == (lhs: InlineReplyRow, rhs: InlineReplyRow) -> Bool {
+        lhs.post == rhs.post
+            && lhs.users == rhs.users
+            && lhs.status == rhs.status
+            && lhs.currentUserID == rhs.currentUserID
+            && lhs.currentUsername == rhs.currentUsername
+            && lhs.fileData == rhs.fileData
+            && lhs.avatarData == rhs.avatarData
+            && lhs.customEmojiData == rhs.customEmojiData
+            && lhs.messageFontSize == rhs.messageFontSize
+            && lhs.fontFamily == rhs.fontFamily
+    }
+}
+
+extension ReactionSummary: Equatable {
+    nonisolated static func == (lhs: ReactionSummary, rhs: ReactionSummary) -> Bool {
+        lhs.post == rhs.post
+            && lhs.currentUserID == rhs.currentUserID
+            && lhs.customEmojiData == rhs.customEmojiData
+            && lhs.showsTooltips == rhs.showsTooltips
+            && lhs.allowsInteraction == rhs.allowsInteraction
     }
 }
