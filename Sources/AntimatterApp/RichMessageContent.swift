@@ -122,15 +122,32 @@ struct RichMessageContent: View {
     }
 }
 
+private final class OnDemandSelectableTextView: NSTextView {
+    override func mouseDown(with event: NSEvent) {
+        isSelectable = true
+        window?.makeFirstResponder(self)
+        super.mouseDown(with: event)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned {
+            isSelectable = false
+            setSelectedRange(NSRange(location: 0, length: 0))
+        }
+        return resigned
+    }
+}
+
 private struct SelectableMarkdownText: NSViewRepresentable {
     let markdown: String
     let fontSize: Double
     let fontFamily: AppFontFamily
 
     func makeNSView(context: Context) -> NSTextView {
-        let textView = NSTextView(frame: .zero)
+        let textView = OnDemandSelectableTextView(frame: .zero)
         textView.isEditable = false
-        textView.isSelectable = true
+        textView.isSelectable = false
         textView.drawsBackground = false
         textView.isRichText = true
         textView.textContainerInset = .zero
