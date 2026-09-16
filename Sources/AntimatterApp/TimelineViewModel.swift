@@ -179,6 +179,8 @@ final class TimelineViewModel: ObservableObject {
             }
             for await (userID, data) in group where data != nil {
                 avatarData[userID] = data
+                // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
+                AppLogger.freeze.notice("Published Avatar: id \(userID, privacy: .public), bytes \(data?.count ?? 0)")
             }
         }
         AppLogger.timeline.endInterval("Fetch Timeline Avatars", avatarsInterval)

@@ -1,10 +1,14 @@
 import AntimatterFoundation
 import Foundation
+import os
 
 /// ponytail:diagnostic — temporary scroll-freeze instrumentation.
-/// Continuously probes the main queue and logs any continuous stall over 750 ms
-/// to the 'freeze' log category so freezes can be correlated against the
-/// "Image Attachment Decode" and "Published ..." events in the same stream.
+/// An off-main watchdog posts heartbeats to the main queue; when a heartbeat
+/// is still pending after ~1 second the process is sampled with /usr/bin/sample
+/// so the blocking stack is captured while the app is still frozen, and the
+/// total stall duration is logged once the heartbeat finally executes. All
+/// lines go to the 'freeze' log category; sample reports are written to the
+/// temporary directory with antimatter-stall-*.txt names.
 /// Remove this file (and its start call in AntimatterApp) once the
 /// scroll-past-replies freeze is confirmed and fixed.
 @MainActor
@@ -15,18 +19,69 @@ enum MainThreadStallLogger {
         guard !isStarted else { return }
         isStarted = true
         // Startup line doubles as a sanity check that the running binary includes the diagnostics.
-        AppLogger.freeze.notice("Freeze diagnostics armed: watchdog probing main thread every 250 ms")
-        scheduleNextProbe()
+        AppLogger.freeze.notice("Freeze diagnostics armed: watchdog will sample the process during main-thread stalls")
+        StallDetector().beginProbing()
+    }
+}
+
+private final class Heartbeat: @unchecked Sendable {
+    private let arrived = OSAllocatedUnfairLock(initialState: false)
+    private let birth = Date()
+
+    var hasArrived: Bool {
+        arrived.withLock { $0 }
     }
 
-    private static func scheduleNextProbe() {
-        let due = Date().addingTimeInterval(0.25)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            let lagSeconds = Date().timeIntervalSince(due)
-            if lagSeconds > 0.75 {
-                AppLogger.freeze.notice("Main Thread Stall: blocked main thread for approximately \(Int((lagSeconds * 1_000).rounded())) ms")
+    /// Records arrival and returns how long the heartbeat waited in the main
+    /// queue — an upper-bound measure of the main-thread stall.
+    func arrive() -> TimeInterval {
+        let wait = Date().timeIntervalSince(birth)
+        arrived.withLock { $0 = true }
+        return wait
+    }
+}
+
+private final class StallDetector: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "com.antimatter.stall-watchdog", qos: .utility)
+
+    func beginProbing() {
+        beat()
+    }
+
+    private func beat() {
+        let heartbeat = Heartbeat()
+        DispatchQueue.main.async {
+            let milliseconds = Int((heartbeat.arrive() * 1_000).rounded())
+            if milliseconds > 1_000 {
+                AppLogger.freeze.notice("Main Thread Stall: blocked approximately \(milliseconds) ms (see the most recent antimatter-stall-*.txt sample)")
             }
-            scheduleNextProbe()
         }
+        queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self else { return }
+            if heartbeat.hasArrived {
+                self.beat()
+            } else {
+                self.captureSample()
+            }
+        }
+    }
+
+    private func captureSample() {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("antimatter-stall-\(Int(Date().timeIntervalSince1970 * 1_000)).txt")
+            .path
+        AppLogger.freeze.notice("Main Thread Stall detected: sampling the process for 1 s, report at \(path, privacy: .public)")
+        let sample = Process()
+        sample.executableURL = URL(fileURLWithPath: "/usr/bin/sample")
+        sample.arguments = [String(pid), "1", "-file", path]
+        do {
+            try sample.run()
+            sample.waitUntilExit()
+            AppLogger.freeze.notice("Main Thread Stall sample finished with exit \(sample.terminationStatus): \(path, privacy: .public)")
+        } catch {
+            AppLogger.freeze.notice("Main Thread Stall: automatic sampling failed (\(error.localizedDescription, privacy: .public)); run `/usr/bin/sample \(pid) 2` manually during the freeze instead")
+        }
+        beat()
     }
 }
