@@ -123,6 +123,15 @@ struct RichMessageContent: View {
 }
 
 private final class OnDemandSelectableTextView: NSTextView {
+    override var intrinsicContentSize: NSSize {
+        guard let textContainer, let layoutManager else {
+            return NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+        }
+        layoutManager.ensureLayout(for: textContainer)
+        let usedHeight = layoutManager.usedRect(for: textContainer).height
+        return NSSize(width: NSView.noIntrinsicMetric, height: ceil(usedHeight) + 2)
+    }
+
     override func mouseDown(with event: NSEvent) {
         isSelectable = true
         window?.makeFirstResponder(self)
@@ -154,6 +163,8 @@ private struct SelectableMarkdownText: NSViewRepresentable {
         textView.textContainer?.lineFragmentPadding = 0
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = false
+        textView.isHorizontallyResizable = false
         applyText(to: textView, coordinator: context.coordinator)
         return textView
     }
@@ -204,6 +215,8 @@ private struct SelectableMarkdownText: NSViewRepresentable {
         textView.textColor = NSColor.labelColor
         textView.font = baseFont
         textView.textContainer?.lineFragmentPadding = 0
+        textView.layoutManager?.ensureLayout(for: textView.textContainer!)
+        textView.invalidateIntrinsicContentSize()
     }
 }
 
