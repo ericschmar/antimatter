@@ -60,7 +60,7 @@ struct MessageTimeline: View {
     @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @State private var reactionTooltip: ReactionTooltip?
-    @State private var groups: [TimelineGroup] = []
+    @State private var items: [TimelineItem] = []
 
     private static var rendersInlineReplyThreads: Bool {
         ProcessInfo.processInfo.environment["ANTIMATTER_DISABLE_INLINE_REPLY_THREADS"] != "1"
@@ -92,10 +92,12 @@ struct MessageTimeline: View {
                                     }
                             }
 
-                            ForEach(groups) { group in
-                                TimelineDateHeader(date: group.date)
-                                ForEach(group.threads) { thread in
-                                    messageRow(for: thread.root, in: group)
+                            ForEach(items) { item in
+                                switch item {
+                                case .header(let date):
+                                    TimelineDateHeader(date: date)
+                                case .thread(let thread, let previousRoot):
+                                    messageRow(for: thread.root, previousRoot: previousRoot)
                                         .id(thread.root.id)
 
                                     if Self.rendersInlineReplyThreads && !thread.replies.isEmpty {
@@ -159,7 +161,7 @@ struct MessageTimeline: View {
             }
             .task(id: timeline.posts) {
                 let interval = AppLogger.timeline.beginInterval("Regroup Timeline Posts")
-                groups = await Self.makeGroups(from: timeline.posts)
+                items = await Self.makeItems(from: timeline.posts)
                 AppLogger.timeline.endInterval("Regroup Timeline Posts", interval)
             }
             .onGeometryChange(for: CGFloat.self) { proxy in
@@ -172,13 +174,26 @@ struct MessageTimeline: View {
         .accessibilityIdentifier("message-timeline")
     }
 
-    private static func makeGroups(from posts: [MattermostPost]) async -> [TimelineGroup] {
+    /// Flattens threads into one lazy child per header or thread. Keeping each
+    /// item bounded is what lets LazyVStack materialize only rows near the
+    /// viewport; day-sized groups forced whole-day row measurement whenever a
+    /// day entered the prefetch window, stalling the main thread for seconds.
+    /// ponytail: a thread with a very large reply count still measures in one
+    /// burst; if that ever bites, split replies into their own items.
+    private static func makeItems(from posts: [MattermostPost]) async -> [TimelineItem] {
         await Task.detached(priority: .userInitiated) {
-            Dictionary(grouping: MattermostTimelineThreading.threads(from: posts)) { thread in
+            let byDay = Dictionary(grouping: MattermostTimelineThreading.threads(from: posts)) { thread in
                 Calendar.current.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(thread.root.createAt) / 1_000))
             }
-            .map { TimelineGroup(date: $0.key, threads: $0.value) }
-            .sorted { $0.date < $1.date }
+            var items: [TimelineItem] = []
+            for day in byDay.sorted(by: { $0.key < $1.key }) {
+                items.append(.header(day.key))
+                let threads = day.value
+                for index in threads.indices {
+                    items.append(.thread(threads[index], previousRoot: index > 0 ? threads[index - 1].root : nil))
+                }
+            }
+            return items
         }.value
     }
 
@@ -202,7 +217,7 @@ struct MessageTimeline: View {
         MattermostTimelineGrouping(maximumInterval: messageGroupingIntervalMinutes * 60)
     }
 
-    private func messageRow(for post: MattermostPost, in group: TimelineGroup) -> some View {
+    private func messageRow(for post: MattermostPost, previousRoot: MattermostPost?) -> some View {
         MessageRow(
             post: post,
             users: slicedUsers(from: messageUsers, userIDs: postUserIDs(post)),
@@ -215,7 +230,7 @@ struct MessageTimeline: View {
             currentUserID: currentUserID,
             currentUsername: currentUsername,
             mediaClient: timeline.mediaClient,
-            showsMetadata: !messageGrouping.shouldGroup(post, with: group.previousRoot(of: post)),
+            showsMetadata: !messageGrouping.shouldGroup(post, with: previousRoot),
             horizontalInset: 18,
             onStartDirectMessage: onStartDirectMessage,
             onReply: onReply,
@@ -289,22 +304,19 @@ private struct ReactionTooltipView: View {
     }
 }
 
-private struct TimelineGroup: Identifiable {
-    let date: Date
-    let threads: [MattermostTimelineThread]
+/// A single lazy child of the timeline list: either a day header or one
+/// thread (its root plus inline replies). Flat per-thread granularity keeps
+/// LazyVStack materialization bounded to rows near the viewport instead of
+/// materializing an entire day whenever it enters the prefetch window.
+private enum TimelineItem: Identifiable {
+    case header(Date)
+    case thread(MattermostTimelineThread, previousRoot: MattermostPost?)
 
-    var id: Date { date }
-
-    init(date: Date, threads: [MattermostTimelineThread]) {
-        self.date = date
-        self.threads = threads
-    }
-
-    func previousRoot(of post: MattermostPost) -> MattermostPost? {
-        guard let index = threads.firstIndex(where: { $0.root.id == post.id }), index > 0 else {
-            return nil
+    var id: String {
+        switch self {
+        case .header(let date): return "day-\(date.timeIntervalSince1970)"
+        case .thread(let thread, _): return thread.id
         }
-        return threads[index - 1].root
     }
 }
 
