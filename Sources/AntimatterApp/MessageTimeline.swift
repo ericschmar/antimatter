@@ -67,7 +67,8 @@ struct MessageTimeline: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
+        BodyEvalCounter.tick("MessageTimeline")
+        return ScrollViewReader { proxy in
             GeometryReader { geometry in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -375,6 +376,12 @@ struct MessageRow: View {
     @State private var isDeleteConfirmationPresented = false
 
     var body: some View {
+        BodyEvalCounter.tick("MessageRow")
+        return rowBody
+    }
+
+    @ViewBuilder
+    private var rowBody: some View {
         HStack(alignment: .top, spacing: 10) {
             if showsMetadata {
                 PresenceDot(status: status)

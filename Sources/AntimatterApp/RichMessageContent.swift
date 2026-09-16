@@ -15,6 +15,30 @@ struct RichMessageContent: View {
     let loadContent: () async -> Void
     @State private var isVisible = false
 
+    // ponytail:diagnostic — set ANTIMATTER_DISABLE_TEXT_SELECTION=1 to isolate
+    // selection overlays as a stall variable. Remove with the stall watchdog.
+    private static var rendersTextSelection: Bool {
+        ProcessInfo.processInfo.environment["ANTIMATTER_DISABLE_TEXT_SELECTION"] != "1"
+    }
+
+    private var markdownText: some View {
+        Markdown(messageWithoutEmbeddedGIFs)
+            .markdownTheme(
+                .gitHub
+                    .text {
+                        if fontFamily == .monospaced {
+                            FontFamilyVariant(.monospaced)
+                        }
+                        FontSize(fontSize)
+                    }
+                    .codeBlock { configuration in
+                        ChatCodeBlock(configuration: configuration)
+                    }
+            )
+            .tint(WorkspaceTheme.accent)
+            .foregroundStyle(WorkspaceTheme.primaryText)
+    }
+
     private var containsHighlightableMention: Bool {
         MattermostMentionMatcher.containsHighlightableMention(
             in: post.message,
@@ -23,24 +47,17 @@ struct RichMessageContent: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        BodyEvalCounter.tick("RichMessageContent")
+        return VStack(alignment: .leading, spacing: 7) {
             if !messageWithoutEmbeddedGIFs.isEmpty {
-                Markdown(messageWithoutEmbeddedGIFs)
-                    .markdownTheme(
-                        .gitHub
-                            .text {
-                                if fontFamily == .monospaced {
-                                    FontFamilyVariant(.monospaced)
-                                }
-                                FontSize(fontSize)
-                            }
-                            .codeBlock { configuration in
-                                ChatCodeBlock(configuration: configuration)
-                            }
-                    )
-                    .tint(WorkspaceTheme.accent)
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                    .textSelection(.enabled)
+                // ponytail:diagnostic — SwiftUI's per-text selection overlays reconfigure
+                // (setFont/invalidateIntrinsicContentSize) inside the stall passes; the env
+                // toggle isolates them as a stall variable. Remove with the stall watchdog.
+                if Self.rendersTextSelection {
+                    markdownText.textSelection(.enabled)
+                } else {
+                    markdownText
+                }
             }
 
             if isVisible {

@@ -25,6 +25,40 @@ enum MainThreadStallLogger {
         let detector = StallDetector()
         Self.detector = detector
         detector.beginProbing()
+        BodyEvalCounter.startPeriodicFlush()
+    }
+}
+
+/// ponytail:diagnostic — temporary scroll-freeze instrumentation.
+/// Counts body evaluations of the hottest view bodies between log lines so the
+/// freeze stream shows whether a stall loop is driven by re-evaluated bodies or
+/// by layout-layer churn alone. Log with BodyEvalCounter.flush(label:).
+@MainActor
+enum BodyEvalCounter {
+    private static var counts: [String: Int] = [:]
+
+    static func tick(_ label: String) {
+        counts[label, default: 0] += 1
+    }
+
+    static func flush() {
+        let snapshot = counts
+        counts = [:]
+        guard !snapshot.isEmpty else { return }
+        let summary = snapshot
+            .sorted { $0.key > $1.key }
+            .map { "\($0.key)=\($0.value)" }
+            .joined(separator: " ")
+        AppLogger.freeze.notice("Body Evals (5s): \(summary, privacy: .public)")
+    }
+
+    static func startPeriodicFlush() {
+        Task { @MainActor in
+            while true {
+                try? await Task.sleep(for: .seconds(5))
+                flush()
+            }
+        }
     }
 }
 
