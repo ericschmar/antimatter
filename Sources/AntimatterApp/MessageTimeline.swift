@@ -4,6 +4,21 @@ import EmojiData
 import SwiftUI
 import SwiftEmojiPicker
 
+/// Narrows row inputs to the file data a single post can display, so a publish
+/// for one message's attachment does not invalidate every other row's input.
+func slicedFileData(from all: [String: Data], for files: [MattermostFile]) -> [String: Data] {
+    files.reduce(into: [String: Data]()) { slice, file in
+        if let data = all[file.id] { slice[file.id] = data }
+    }
+}
+
+/// Narrows row inputs to the custom emoji artwork a post's reactions can display.
+func slicedEmojiData(from all: [String: Data], reactions: [MattermostReaction]) -> [String: Data] {
+    Set(reactions.lazy.map(\.emojiName)).reduce(into: [String: Data]()) { slice, name in
+        if let data = all[name] { slice[name] = data }
+    }
+}
+
 struct MessageTimeline: View {
     @ObservedObject var timeline: TimelineViewModel
     let knownUsers: [String: MattermostUser]
@@ -66,9 +81,9 @@ struct MessageTimeline: View {
                                             statuses: messageStatuses,
                                             currentUserID: currentUserID,
                                             currentUsername: currentUsername,
-                                            fileData: timeline.fileData,
+                                            fileData: slicedFileData(from: timeline.fileData, for: thread.replies.flatMap(\.files)),
                                             avatarData: timeline.avatarData,
-                                            customEmojiData: timeline.customEmojiData,
+                                            customEmojiData: slicedEmojiData(from: timeline.customEmojiData, reactions: thread.replies.flatMap(\.reactions)),
                                             messageFontSize: messageFontSize,
                                             fontFamily: selectedFontFamily,
                                             mediaClient: timeline.mediaClient,
@@ -168,8 +183,8 @@ struct MessageTimeline: View {
             post: post,
             users: messageUsers,
             avatarData: timeline.avatarData[post.userID],
-            fileData: timeline.fileData,
-            customEmojiData: timeline.customEmojiData,
+            fileData: slicedFileData(from: timeline.fileData, for: post.files),
+            customEmojiData: slicedEmojiData(from: timeline.customEmojiData, reactions: post.reactions),
             status: timeline.statuses[post.userID] ?? statuses[post.userID],
             messageFontSize: messageFontSize,
             fontFamily: selectedFontFamily,
@@ -619,7 +634,10 @@ private struct InlineReplyThread: View {
                 .fill(WorkspaceTheme.divider)
                 .frame(width: 2)
 
-            LazyVStack(alignment: .leading, spacing: 8) {
+            // A plain VStack, not LazyVStack: the outer timeline stack already places
+            // thread groups lazily, and a nested lazy container re-runs its placement
+            // machinery on every outer pass for what is only a handful of replies.
+            VStack(alignment: .leading, spacing: 8) {
                 ForEach(visibleReplies) { reply in
                     InlineReplyRow(
                         post: reply,
