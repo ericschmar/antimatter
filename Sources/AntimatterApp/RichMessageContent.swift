@@ -419,9 +419,8 @@ private struct ChatImageAttachment: View {
         let pixels = image?.representations.first
             .map { "\($0.pixelsWide)x\($0.pixelsHigh)" }
             ?? "n/a"
-        AppLogger.timeline.emitEvent(
-            "Image Attachment Decode",
-            "id: \(file.id), bytes: \(data.count), pixels: \(pixels), create ms: \(createMilliseconds), decode ms: \(decodeMilliseconds)"
+        AppLogger.freeze.notice(
+            "Image Attachment Decode: id \(file.id, privacy: .public), bytes \(data.count), pixels \(pixels, privacy: .public), create ms \(createMilliseconds), decode ms \(decodeMilliseconds)"
         )
         return image
     }

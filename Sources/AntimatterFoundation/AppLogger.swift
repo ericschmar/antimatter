@@ -12,4 +12,7 @@ public enum AppLogger {
     public static let persistence = Logger(subsystem: subsystem, category: "persistence")
     public static let workspace = Logger(subsystem: subsystem, category: "workspace")
     public static let timeline = OSSignposter(subsystem: subsystem, category: "timeline")
+    // ponytail:diagnostic — temporary scroll-freeze channel. Plain os_log (not signposts)
+    // so lines are guaranteed visible in `log stream`. Remove with the scroll-freeze diagnostics.
+    public static let freeze = Logger(subsystem: subsystem, category: "freeze")
 }

@@ -206,9 +206,9 @@ final class TimelineViewModel: ObservableObject {
                 // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
                 if let data {
                     fileData[fileID] = data
-                    AppLogger.timeline.emitEvent("Published File Data", "id: \(fileID), bytes: \(data.count)")
+                    AppLogger.freeze.notice("Published File Data: id \(fileID, privacy: .public), bytes \(data.count)")
                 } else {
-                    AppLogger.timeline.emitEvent("Skipped File Data", "id: \(fileID), reason: load failed, will refetch on next appear")
+                    AppLogger.freeze.notice("Skipped File Data: id \(fileID, privacy: .public), reason: load failed, will refetch on next appear")
                 }
             }
         }
@@ -275,7 +275,7 @@ final class TimelineViewModel: ObservableObject {
                 if let data {
                     customEmojiData[name] = data
                     // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
-                    AppLogger.timeline.emitEvent("Published Custom Emoji", "name: \(name), bytes: \(data.count)")
+                    AppLogger.freeze.notice("Published Custom Emoji: name \(name, privacy: .public), bytes \(data.count)")
                 }
             }
         }
