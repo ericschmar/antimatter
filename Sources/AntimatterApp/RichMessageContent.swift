@@ -16,12 +16,45 @@ struct RichMessageContent: View {
     @State private var isVisible = false
 
     private var markdownText: some View {
-        SelectableMarkdownText(
-            markdown: messageWithoutEmbeddedGIFs,
-            fontSize: fontSize,
-            fontFamily: fontFamily
-        )
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(chatMarkdownParts.enumerated()), id: \.offset) { _, part in
+                switch part {
+                case .prose(let text):
+                    MarkdownView(text)
+                        .markdownStyle(messageMarkdownStyle)
+                case .code(let language, let content):
+                    ChatCodeBlock(language: language, content: content)
+                }
+            }
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var messageMarkdownStyle: MarkdownStyle {
+        var style = MarkdownStyle.default
+        style.textColor = WorkspaceTheme.primaryText
+        style.secondaryTextColor = WorkspaceTheme.secondaryText
+        style.accentColor = WorkspaceTheme.accent
+        style.codeTextColor = WorkspaceTheme.primaryText
+        style.codeBackground = WorkspaceTheme.primaryText.opacity(0.08)
+        style.bodyFont = fontFamily.font(size: fontSize)
+        style.codeFont = .system(size: fontSize * 0.92, design: .monospaced)
+        style.captionFont = fontFamily.font(size: max(fontSize - 2, 10))
+        style.heading1Font = fontFamily.font(size: fontSize + 6, weight: .bold)
+        style.heading2Font = fontFamily.font(size: fontSize + 4, weight: .bold)
+        style.heading3Font = fontFamily.font(size: fontSize + 2, weight: .semibold)
+        style.heading4Font = fontFamily.font(size: fontSize, weight: .semibold)
+        style.heading5Font = fontFamily.font(size: fontSize, weight: .semibold)
+        style.heading6Font = fontFamily.font(size: fontSize, weight: .semibold)
+        style.tableHeaderFont = fontFamily.font(size: max(fontSize - 1, 10), weight: .semibold)
+        style.tableBodyFont = fontFamily.font(size: fontSize)
+        style.blockSpacing = 8
+        style.lineSpacing = 2
+        return style
+    }
+
+    private var chatMarkdownParts: [ChatMarkdownPart] {
+        ChatMarkdownPart.split(messageWithoutEmbeddedGIFs)
     }
 
     private var containsHighlightableMention: Bool {
@@ -122,150 +155,48 @@ struct RichMessageContent: View {
     }
 }
 
-private final class OnDemandSelectableTextView: NSTextView {
-    private var measuredWidth: CGFloat = -1
-    private var measuredHeight: CGFloat = 0
-    private var needsMeasurement = true
+private enum ChatMarkdownPart {
+    case prose(String)
+    case code(language: String, content: String)
 
-    override var intrinsicContentSize: NSSize {
-        let width = bounds.width
-        guard width > 0, let textContainer, let layoutManager else {
-            return NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    static func split(_ markdown: String) -> [ChatMarkdownPart] {
+        guard let fence = try? NSRegularExpression(
+            pattern: #"^```([^\n]*)\n([\s\S]*?)^```[ \t]*$"#,
+            options: [.anchorsMatchLines]
+        ) else {
+            return [.prose(markdown)]
         }
 
-        if needsMeasurement || abs(measuredWidth - width) > 0.5 {
-            textContainer.containerSize = NSSize(width: width, height: CGFloat.greatestFiniteMagnitude)
-            layoutManager.ensureLayout(for: textContainer)
-            measuredWidth = width
-            measuredHeight = ceil(layoutManager.usedRect(for: textContainer).height) + 2
-            needsMeasurement = false
-        }
-        return NSSize(width: NSView.noIntrinsicMetric, height: measuredHeight)
-    }
+        let nsMarkdown = markdown as NSString
+        let fullRange = NSRange(location: 0, length: nsMarkdown.length)
+        let matches = fence.matches(in: markdown, range: fullRange)
+        guard !matches.isEmpty else { return [.prose(markdown)] }
 
-    func invalidateMeasuredHeight() {
-        needsMeasurement = true
-        invalidateIntrinsicContentSize()
-    }
-
-    override func setFrameSize(_ newSize: NSSize) {
-        if abs(bounds.width - newSize.width) > 0.5 {
-            needsMeasurement = true
-        }
-        super.setFrameSize(newSize)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        isSelectable = true
-        window?.makeFirstResponder(self)
-        super.mouseDown(with: event)
-    }
-
-    override func resignFirstResponder() -> Bool {
-        let resigned = super.resignFirstResponder()
-        if resigned {
-            isSelectable = false
-            setSelectedRange(NSRange(location: 0, length: 0))
-        }
-        return resigned
-    }
-}
-
-private struct SelectableMarkdownText: NSViewRepresentable {
-    let markdown: String
-    let fontSize: Double
-    let fontFamily: AppFontFamily
-
-    func makeNSView(context: Context) -> NSTextView {
-        let textView = OnDemandSelectableTextView(frame: .zero)
-        textView.isEditable = false
-        textView.isSelectable = false
-        textView.drawsBackground = false
-        textView.isRichText = true
-        textView.textContainerInset = .zero
-        textView.textContainer?.lineFragmentPadding = 0
-        textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
-        textView.isVerticallyResizable = false
-        textView.isHorizontallyResizable = false
-        applyText(to: textView, coordinator: context.coordinator)
-        return textView
-    }
-
-    func updateNSView(_ textView: NSTextView, context: Context) {
-        guard context.coordinator.markdown != markdown
-            || context.coordinator.fontSize != fontSize
-            || context.coordinator.fontFamily != fontFamily
-        else { return }
-        applyText(to: textView, coordinator: context.coordinator)
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    final class Coordinator {
-        var markdown = ""
-        var fontSize = 0.0
-        var fontFamily = AppFontFamily.system
-    }
-
-    private func applyText(to textView: NSTextView, coordinator: Coordinator) {
-        coordinator.markdown = markdown
-        coordinator.fontSize = fontSize
-        coordinator.fontFamily = fontFamily
-
-        let baseFont = NSFont(
-            name: fontFamily == .monospaced ? "Menlo" : NSFont.systemFont(ofSize: fontSize).familyName ?? ".AppleSystemUIFont",
-            size: fontSize
-        ) ?? NSFont.systemFont(ofSize: fontSize)
-        let attributes = [NSAttributedString.Key.font: baseFont]
-
-        do {
-            var rendered = try AttributedString(
-                markdown: markdown,
-                options: .init(interpretedSyntax: .full)
-            )
-            rendered.foregroundColor = .init(nsColor: NSColor.labelColor)
-            let attributedText = NSAttributedString(rendered)
-            let mutableText = NSMutableAttributedString(attributedString: attributedText)
-            mutableText.addAttributes(attributes, range: NSRange(location: 0, length: mutableText.length))
-            // The AttributedString → NSAttributedString bridge keeps Markdown
-            // inlinePresentationIntent runs (code/bold/italic/strikethrough) but
-            // never converts them to fonts, and the base-font stamp above would
-            // flatten them all to the plain face. Synthesize the fonts here.
-            let monospaceFont = NSFont(name: "Menlo", size: fontSize)
-                ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-            for run in rendered.runs {
-                guard let intent = run.inlinePresentationIntent else { continue }
-                var font = baseFont
-                if intent.contains(.code) {
-                    font = monospaceFont
+        var parts: [ChatMarkdownPart] = []
+        var cursor = 0
+        for match in matches {
+            if match.range.location > cursor {
+                let prose = nsMarkdown.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !prose.isEmpty {
+                    parts.append(.prose(prose))
                 }
-                if intent.contains(.stronglyEmphasized) {
-                    font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
-                }
-                if intent.contains(.emphasized) {
-                    font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
-                }
-                if intent.contains(.strikethrough) {
-                    mutableText.addAttribute(
-                        .strikethroughStyle,
-                        value: NSUnderlineStyle.single.rawValue,
-                        range: NSRange(run.range, in: rendered)
-                    )
-                }
-                mutableText.addAttribute(.font, value: font, range: NSRange(run.range, in: rendered))
             }
-            textView.textStorage?.setAttributedString(mutableText)
-        } catch {
-            textView.textStorage?.setAttributedString(NSAttributedString(string: markdown, attributes: attributes))
+            let language = nsMarkdown.substring(with: match.range(at: 1))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let content = nsMarkdown.substring(with: match.range(at: 2))
+                .trimmingCharacters(in: .newlines)
+            parts.append(.code(language: language, content: content))
+            cursor = match.range.location + match.range.length
         }
-
-        textView.textColor = NSColor.labelColor
-        textView.font = baseFont
-        textView.textContainer?.lineFragmentPadding = 0
-        (textView as? OnDemandSelectableTextView)?.invalidateMeasuredHeight()
+        if cursor < nsMarkdown.length {
+            let prose = nsMarkdown.substring(from: cursor)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !prose.isEmpty {
+                parts.append(.prose(prose))
+            }
+        }
+        return parts.isEmpty ? [.prose(markdown)] : parts
     }
 }
 
@@ -331,19 +262,20 @@ private struct AnimatedGIFImage: NSViewRepresentable {
 
 
 private struct ChatCodeBlock: View {
-    let configuration: CodeBlockConfiguration
+    let language: String
+    let content: String
     @State private var copied = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(language)
+                Text(displayLanguage)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
                 Spacer()
                 Button {
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(configuration.content, forType: .string)
+                    NSPasteboard.general.setString(content, forType: .string)
                     copied = true
                 } label: {
                     Label(copied ? "Copied" : "Copy", systemImage: "doc.on.doc")
@@ -351,19 +283,18 @@ private struct ChatCodeBlock: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(WorkspaceTheme.secondaryText)
-                .accessibilityLabel("Copy \(language) code")
+                .accessibilityLabel("Copy \(displayLanguage) code")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(WorkspaceTheme.primaryText.opacity(0.05))
 
             ScrollView(.horizontal, showsIndicators: false) {
-                configuration.label
+                Text(content)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                    .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-                    .markdownTextStyle {
-                        FontFamilyVariant(.monospaced)
-                        FontSize(.em(0.85))
-                    }
                     .padding(14)
             }
         }
@@ -377,14 +308,10 @@ private struct ChatCodeBlock: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(WorkspaceTheme.divider, lineWidth: 1)
         }
-        .markdownMargin(top: 0, bottom: 16)
     }
 
-    private var language: String {
-        guard let language = configuration.language, !language.isEmpty else {
-            return "code"
-        }
-        return language
+    private var displayLanguage: String {
+        language.isEmpty ? "code" : language
     }
 }
 

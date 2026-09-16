@@ -1,5 +1,5 @@
 {
-  "originHash" : "6d69c295a8428fa60fc0610e4a3ab5533c1e1ee5be061ebf17c55a7f0215629b",
+  "originHash" : "ba188fee7c2ea2acf14a648269ba66f34963f3a6924f18632d92821cde633d6c",
   "pins" : [
     {
       "identity" : "emojikit",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "e615f635e0b45f852c37b3f7a42e17a2ce1857a9",
         "version" : "2.5.0"
-      }
-    },
-    {
-      "identity" : "networkimage",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gonzalezreal/NetworkImage",
-      "state" : {
-        "revision" : "2849f5323265386e200484b0d0f896e73c3411b9",
-        "version" : "6.0.1"
       }
     },
     {
@@ -38,12 +29,21 @@
       }
     },
     {
+      "identity" : "swift-markdown",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-markdown.git",
+      "state" : {
+        "revision" : "3c6f9523da3a1ec2fd829673e472d95b8097a3b8",
+        "version" : "0.8.0"
+      }
+    },
+    {
       "identity" : "swift-markdown-ui",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gonzalezreal/swift-markdown-ui",
+      "location" : "https://github.com/1amageek/swift-markdown-ui.git",
       "state" : {
-        "revision" : "5f613358148239d0292c0cef674a3c2314737f9e",
-        "version" : "2.4.1"
+        "revision" : "3e3fcae635f8ca86edaffa70c0f3b7799dae0c6d",
+        "version" : "0.2.1"
       }
     },
     {

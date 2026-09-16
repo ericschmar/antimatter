@@ -1,15 +1,15 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "Antimatter",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v26)],
     products: [
         .executable(name: "Antimatter", targets: ["AntimatterApp"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", from: "2.4.1"),
+        .package(url: "https://github.com/1amageek/swift-markdown-ui.git", from: "0.2.1"),
         .package(url: "https://github.com/sergius-la/SwiftEmojiPicker", from: "2.2.1"),
         .package(url: "https://github.com/danielsaidi/EmojiKit.git", from: "2.5.0"),
         .package(url: "https://github.com/klaaspieter/swift-emoji", from: "0.1.0"),
