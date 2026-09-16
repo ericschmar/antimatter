@@ -177,11 +177,17 @@ final class TimelineViewModel: ObservableObject {
                     (userID, try? await loader.loadAvatarData(userID: userID))
                 }
             }
+            // Batch avatar writes: every published mutation re-places and re-measures
+            // all visible timeline rows, so a ten-author batch must render once,
+            // not ten times.
+            var loadedAvatars: [String: Data] = [:]
             for await (userID, data) in group where data != nil {
-                avatarData[userID] = data
-                // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
-                AppLogger.freeze.notice("Published Avatar: id \(userID, privacy: .public), bytes \(data?.count ?? 0)")
+                loadedAvatars[userID] = data
             }
+            guard !loadedAvatars.isEmpty else { return }
+            avatarData.merge(loadedAvatars) { _, new in new }
+            // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
+            AppLogger.freeze.notice("Published Avatar Batch: \(loadedAvatars.count) avatars, \(loadedAvatars.values.map(\.count).reduce(0, +)) bytes total")
         }
         AppLogger.timeline.endInterval("Fetch Timeline Avatars", avatarsInterval)
     }
@@ -203,16 +209,22 @@ final class TimelineViewModel: ObservableObject {
                     group.addTask { (fileID, await task.value) }
                 }
             }
+            var loadedFiles: [String: Data] = [:]
             for await (fileID, data) in group {
                 loadingFileTasks[fileID] = nil
-                // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
                 if let data {
-                    fileData[fileID] = data
-                    AppLogger.freeze.notice("Published File Data: id \(fileID, privacy: .public), bytes \(data.count)")
+                    loadedFiles[fileID] = data
                 } else {
+                    // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
                     AppLogger.freeze.notice("Skipped File Data: id \(fileID, privacy: .public), reason: load failed, will refetch on next appear")
                 }
             }
+            // Batch file writes into one publish; each published mutation re-lays-out
+            // every visible row (see loadAuthors).
+            guard !loadedFiles.isEmpty else { return }
+            fileData.merge(loadedFiles) { _, new in new }
+            // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
+            AppLogger.freeze.notice("Published File Data Batch: \(loadedFiles.count) files, \(loadedFiles.values.map(\.count).reduce(0, +)) bytes total")
         }
     }
 
@@ -272,14 +284,18 @@ final class TimelineViewModel: ObservableObject {
                     group.addTask { (name, await task.value) }
                 }
             }
+            var loadedEmoji: [String: Data] = [:]
             for await (name, data) in group {
                 loadingEmojiTasks[name] = nil
                 if let data {
-                    customEmojiData[name] = data
-                    // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
-                    AppLogger.freeze.notice("Published Custom Emoji: name \(name, privacy: .public), bytes \(data.count)")
+                    loadedEmoji[name] = data
                 }
             }
+            // Batch emoji writes into one publish (see loadAuthors).
+            guard !loadedEmoji.isEmpty else { return }
+            customEmojiData.merge(loadedEmoji) { _, new in new }
+            // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
+            AppLogger.freeze.notice("Published Custom Emoji Batch: \(loadedEmoji.count) emoji")
         }
     }
 
