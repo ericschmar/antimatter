@@ -22,6 +22,10 @@ enum MainThreadStallLogger {
         isStarted = true
         // Startup line doubles as a sanity check that the running binary includes the diagnostics.
         AppLogger.freeze.notice("Freeze diagnostics armed: watchdog will sample the process during main-thread stalls")
+        // ponytail:diagnostic — announce experiment toggles so captured logs self-identify.
+        if ProcessInfo.processInfo.environment["ANTIMATTER_DISABLE_TEXT_SELECTION"] == "1" {
+            AppLogger.freeze.notice("Text selection: DISABLED (ANTIMATTER_DISABLE_TEXT_SELECTION=1)")
+        }
         let detector = StallDetector()
         Self.detector = detector
         detector.beginProbing()

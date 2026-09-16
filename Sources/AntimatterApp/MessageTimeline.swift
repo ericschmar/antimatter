@@ -80,17 +80,27 @@ struct MessageTimeline: View {
                             TimelineEmptyState()
                         } else {
                             if timeline.hasEarlierPosts {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .accessibilityLabel("Loading earlier messages")
-                                    .onAppear {
-                                        AppLogger.timeline.emitEvent("Earlier Posts Sentinel Appeared")
-                                        Task {
-                                            await timeline.loadEarlierPosts()
-                                        }
+                                // ponytail: an indeterminate spinner invalidates every display
+                                // frame while mounted; inside the lazy stack each invalidation
+                                // re-places the whole item list, which froze scrolling for seconds.
+                                // Static affordance, same onAppear auto-load.
+                                Button {
+                                    Task { await timeline.loadEarlierPosts() }
+                                } label: {
+                                    Label("Load earlier messages", systemImage: "chevron.up.2")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 10)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Load earlier messages")
+                                .onAppear {
+                                    AppLogger.timeline.emitEvent("Earlier Posts Sentinel Appeared")
+                                    Task {
+                                        await timeline.loadEarlierPosts()
                                     }
+                                }
                             }
 
                             ForEach(items) { item in

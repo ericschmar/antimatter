@@ -468,8 +468,11 @@ private struct ChatImageAttachment: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Preview image \(first.name)")
             } else {
-                ProgressView()
-                    .controlSize(.small)
+                // ponytail: was an indeterminate ProgressView — a per-frame invalidator
+                // inside the lazy stack; static placeholder until data arrives.
+                Label("Image", systemImage: "photo")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
                     .frame(width: 300, height: 120)
                     .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
