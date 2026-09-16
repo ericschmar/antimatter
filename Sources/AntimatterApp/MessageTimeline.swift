@@ -23,6 +23,10 @@ struct MessageTimeline: View {
     @State private var reactionTooltip: ReactionTooltip?
     @State private var groups: [TimelineGroup] = []
 
+    private static var rendersInlineReplyThreads: Bool {
+        ProcessInfo.processInfo.environment["ANTIMATTER_DISABLE_INLINE_REPLY_THREADS"] != "1"
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             GeometryReader { geometry in
@@ -42,6 +46,7 @@ struct MessageTimeline: View {
                                     .padding(.vertical, 10)
                                     .accessibilityLabel("Loading earlier messages")
                                     .onAppear {
+                                        AppLogger.timeline.emitEvent("Earlier Posts Sentinel Appeared")
                                         Task {
                                             await timeline.loadEarlierPosts()
                                         }
@@ -54,7 +59,7 @@ struct MessageTimeline: View {
                                     messageRow(for: thread.root, in: group)
                                         .id(thread.root.id)
 
-                                    if !thread.replies.isEmpty {
+                                    if Self.rendersInlineReplyThreads && !thread.replies.isEmpty {
                                         InlineReplyThread(
                                             replies: thread.replies,
                                             users: messageUsers,
@@ -85,7 +90,6 @@ struct MessageTimeline: View {
                     }
                     .padding(.vertical, 10)
                     .frame(minHeight: geometry.size.height, alignment: .bottom)
-                    .id("\(selectedFontFamily.rawValue)-\(messageFontSize)")
                 }
                 .defaultScrollAnchor(.bottom)
                 .overlayPreferenceValue(ReactionTooltipAnchorKey.self) { anchors in
@@ -115,7 +119,14 @@ struct MessageTimeline: View {
                 }
             }
             .task(id: timeline.posts) {
+                let interval = AppLogger.timeline.beginInterval("Regroup Timeline Posts")
                 groups = await Self.makeGroups(from: timeline.posts)
+                AppLogger.timeline.endInterval("Regroup Timeline Posts", interval)
+            }
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { width in
+                AppLogger.timeline.emitEvent("Timeline Width Changed", "width: \(width)")
             }
         }
         .accessibilityLabel("Message timeline")
@@ -390,7 +401,9 @@ struct MessageRow: View {
                     currentUserID: currentUserID,
                     customEmojiData: customEmojiData,
                     onToggleReaction: onToggleReaction,
-                    onTooltipChange: onReactionTooltipChange
+                    onTooltipChange: onReactionTooltipChange,
+                    showsTooltips: true,
+                    allowsInteraction: true
                 )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -598,6 +611,7 @@ private struct InlineReplyThread: View {
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
+    @State private var showsAllReplies = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -606,7 +620,7 @@ private struct InlineReplyThread: View {
                 .frame(width: 2)
 
             LazyVStack(alignment: .leading, spacing: 8) {
-                ForEach(replies) { reply in
+                ForEach(visibleReplies) { reply in
                     InlineReplyRow(
                         post: reply,
                         users: users,
@@ -631,6 +645,15 @@ private struct InlineReplyThread: View {
                     )
                     .id(reply.id)
                 }
+
+                if replies.count > visibleReplies.count {
+                    Button("Load \(replies.count - visibleReplies.count) more replies") {
+                        showsAllReplies = true
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.accent)
+                }
             }
             .padding(10)
         }
@@ -641,6 +664,10 @@ private struct InlineReplyThread: View {
         .padding(.vertical, 5)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(replies.count) inline replies")
+    }
+
+    private var visibleReplies: ArraySlice<MattermostPost> {
+        showsAllReplies ? replies[...] : replies.prefix(2)
     }
 
     private var replyLeadingInset: CGFloat {
@@ -733,7 +760,9 @@ private struct InlineReplyRow: View {
                 currentUserID: currentUserID,
                 customEmojiData: customEmojiData,
                 onToggleReaction: onToggleReaction,
-                onTooltipChange: onReactionTooltipChange
+                onTooltipChange: onReactionTooltipChange,
+                showsTooltips: true,
+                allowsInteraction: true
             )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1049,62 +1078,82 @@ private struct ReactionSummary: View {
     let customEmojiData: [String: Data]
     let onToggleReaction: (MattermostPost, String) -> Void
     let onTooltipChange: (ReactionTooltip?) -> Void
+    let showsTooltips: Bool
+    let allowsInteraction: Bool
 
     var body: some View {
         HStack(spacing: 5) {
             ForEach(summaries) { summary in
-                Button {
-                    onToggleReaction(post, summary.emojiName)
-                } label: {
-                    HStack(spacing: 3) {
-                        if let data = customEmojiData[summary.emojiName],
-                           let image = NSImage(data: data) {
-                            Image(nsImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 14, height: 14)
-                        } else {
-                            Text(displayEmoji(for: summary.emojiName))
-                                .font(.system(size: 14))
-                        }
-                        Text("\(summary.count)")
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                if showsTooltips {
+                    Button {
+                        onToggleReaction(post, summary.emojiName)
+                    } label: {
+                        reactionBadge(summary)
                     }
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(WorkspaceTheme.raisedSurface)
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule().stroke(
-                            summary.userIDs.contains(currentUserID ?? "")
-                                ? WorkspaceTheme.accent
-                                : WorkspaceTheme.divider,
-                            lineWidth: summary.userIDs.contains(currentUserID ?? "") ? 2 : 1
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        "\(summary.emojiName) reaction, \(summary.count)\(summary.userIDs.contains(currentUserID ?? "") ? ", selected" : "")"
+                    )
+                    .anchorPreference(key: ReactionTooltipAnchorKey.self, value: .bounds) {
+                        [summary.id: $0]
+                    }
+                    .onHover { isHovering in
+                        onTooltipChange(
+                            isHovering
+                                ? ReactionTooltip(
+                                    id: summary.id,
+                                    text: "\(readableName(for: summary.emojiName)) · \(summary.userIDs.map(displayName).joined(separator: ", "))"
+                                )
+                                : nil
                         )
+                    }
+                } else if allowsInteraction {
+                    Button {
+                        onToggleReaction(post, summary.emojiName)
+                    } label: {
+                        reactionBadge(summary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        "\(summary.emojiName) reaction, \(summary.count)\(summary.userIDs.contains(currentUserID ?? "") ? ", selected" : "")"
                     )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(
-                    "\(summary.emojiName) reaction, \(summary.count)\(summary.userIDs.contains(currentUserID ?? "") ? ", selected" : "")"
-                )
-                .anchorPreference(key: ReactionTooltipAnchorKey.self, value: .bounds) {
-                    [summary.id: $0]
-                }
-                .onHover { isHovering in
-                    onTooltipChange(
-                        isHovering
-                            ? ReactionTooltip(
-                                id: summary.id,
-                                text: "\(readableName(for: summary.emojiName)) · \(summary.userIDs.map(displayName).joined(separator: ", "))"
-                            )
-                            : nil
-                    )
+                } else {
+                    reactionBadge(summary)
                 }
             }
-
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func reactionBadge(_ summary: ReactionCount) -> some View {
+        HStack(spacing: 3) {
+            if let data = customEmojiData[summary.emojiName],
+               let image = NSImage(data: data) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 14, height: 14)
+            } else {
+                Text(displayEmoji(for: summary.emojiName))
+                    .font(.system(size: 14))
+            }
+            Text("\(summary.count)")
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+        }
+        .foregroundStyle(WorkspaceTheme.primaryText)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(WorkspaceTheme.raisedSurface)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule().stroke(
+                summary.userIDs.contains(currentUserID ?? "")
+                    ? WorkspaceTheme.accent
+                    : WorkspaceTheme.divider,
+                lineWidth: summary.userIDs.contains(currentUserID ?? "") ? 2 : 1
+            )
+        )
     }
 
     private var summaries: [ReactionCount] {

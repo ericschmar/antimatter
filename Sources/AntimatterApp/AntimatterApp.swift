@@ -18,6 +18,8 @@ struct AntimatterApp: App {
             loadedConfiguration = AppConfiguration(environment: .production)
         }
         configuration = loadedConfiguration
+        // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove with MainThreadStallLogger.swift.
+        MainThreadStallLogger.start()
         AppLogger.application.notice(
             "Giphy API key configured: \(loadedConfiguration.giphyAPIKey != nil, privacy: .public)"
         )

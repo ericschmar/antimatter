@@ -268,7 +268,10 @@ struct MessageComposer: View {
 
     private func sendMessage() {
         guard canSendMessage else { return }
-        composer.send(onSent: onSent)
+        Task { @MainActor in
+            await Task.yield()
+            composer.send(onSent: onSent)
+        }
     }
 }
 

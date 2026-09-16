@@ -29,8 +29,11 @@ final class TimelineViewModel: ObservableObject {
     private var nextPageIndex = 1
     private let pageSize = MattermostPage().size
     private var customEmojiIDs: [String: String]?
+    private var loadingCustomEmojiCatalogTask: Task<[MattermostCustomEmoji]?, Never>?
     private var loadingFileTasks: [String: Task<Data?, Never>] = [:]
     private var loadingEmojiTasks: [String: Task<Data?, Never>] = [:]
+    private var pendingVisiblePosts: [String: MattermostPost] = [:]
+    private var isLoadingVisibleContent = false
 
     init(session: MattermostSession) {
         let client = MattermostAPIClient(serverURL: session.serverURL, token: session.token)
@@ -82,41 +85,74 @@ final class TimelineViewModel: ObservableObject {
     }
 
     func loadEarlierPosts() async {
-        guard
-            let channelID = activeChannelID,
-            !isLoading,
-            !isLoadingEarlierPosts,
-            hasEarlierPosts
-        else {
+        guard let channelID = activeChannelID else {
+            AppLogger.timeline.emitEvent("Earlier Posts Skipped", "reason: no active channel")
             return
         }
+        guard !isLoading else {
+            AppLogger.timeline.emitEvent("Earlier Posts Skipped", "reason: initial load, page: \(self.nextPageIndex)")
+            return
+        }
+        guard !isLoadingEarlierPosts else {
+            AppLogger.timeline.emitEvent("Earlier Posts Skipped", "reason: already loading, page: \(self.nextPageIndex)")
+            return
+        }
+        guard hasEarlierPosts else {
+            AppLogger.timeline.emitEvent("Earlier Posts Skipped", "reason: exhausted, page: \(self.nextPageIndex)")
+            return
+        }
+
+        AppLogger.timeline.emitEvent("Earlier Posts Requested", "page: \(self.nextPageIndex), current posts: \(self.posts.count)")
+        let interval = AppLogger.timeline.beginInterval("Load Earlier Posts")
+        defer { AppLogger.timeline.endInterval("Load Earlier Posts", interval) }
 
         isLoadingEarlierPosts = true
         defer { isLoadingEarlierPosts = false }
 
+        let page = MattermostPage(index: nextPageIndex, size: pageSize)
+        let fetchInterval = AppLogger.timeline.beginInterval("Fetch Earlier Posts")
+        let olderPosts: [MattermostPost]
         do {
-            let page = MattermostPage(index: nextPageIndex, size: pageSize)
-            let olderPosts = try await loader.loadRecentPosts(channelID: channelID, page: page)
-            guard activeChannelID == channelID else { return }
-
-            nextPageIndex += 1
-            hasEarlierPosts = olderPosts.count == pageSize
-            let existingPostIDs = Set(posts.map(\.id))
-            let newPosts = olderPosts.filter { !existingPostIDs.contains($0.id) }
-            guard !newPosts.isEmpty else { return }
-
-            try? await store.apply(.posts(newPosts))
-            posts = chronological(posts + newPosts)
-            await loadAuthors(for: newPosts)
+            olderPosts = try await loader.loadRecentPosts(channelID: channelID, page: page)
         } catch {
+            AppLogger.timeline.endInterval("Fetch Earlier Posts", fetchInterval)
+            AppLogger.timeline.emitEvent("Earlier Posts Failed", "page: \(page.index)")
             return
         }
+        AppLogger.timeline.endInterval("Fetch Earlier Posts", fetchInterval)
+        guard activeChannelID == channelID else {
+            AppLogger.timeline.emitEvent("Earlier Posts Discarded", "reason: channel changed, page: \(page.index)")
+            return
+        }
+
+        nextPageIndex += 1
+        hasEarlierPosts = olderPosts.count == pageSize
+        let existingPostIDs = Set(posts.map(\.id))
+        let newPosts = olderPosts.filter { !existingPostIDs.contains($0.id) }
+        guard !newPosts.isEmpty else {
+            AppLogger.timeline.emitEvent("Earlier Posts Discarded", "reason: duplicate page, page: \(page.index), received: \(olderPosts.count), total: \(self.posts.count)")
+            return
+        }
+
+        let mergeInterval = AppLogger.timeline.beginInterval("Persist and Publish Earlier Posts")
+        try? await store.apply(.posts(newPosts))
+        posts = chronological(posts + newPosts)
+        AppLogger.timeline.endInterval("Persist and Publish Earlier Posts", mergeInterval)
+        AppLogger.timeline.emitEvent(
+            "Earlier Posts Published",
+            "page: \(page.index), received: \(olderPosts.count), new: \(newPosts.count), total: \(self.posts.count), has earlier: \(self.hasEarlierPosts)"
+        )
+        await loadAuthors(for: newPosts)
     }
 
     private func loadAuthors(for posts: [MattermostPost]) async {
+        let interval = AppLogger.timeline.beginInterval("Load Timeline Authors")
+        defer { AppLogger.timeline.endInterval("Load Timeline Authors", interval) }
+
         let userIDs = Array(Set(posts.flatMap { post in
             [post.userID] + post.reactions.map(\.userID)
         }))
+        let usersInterval = AppLogger.timeline.beginInterval("Fetch Timeline Users")
         do {
             let fetchedUsers = try await loader.loadUsers(ids: userIDs)
             users.merge(Dictionary(uniqueKeysWithValues: fetchedUsers.map { ($0.id, $0) })) { _, new in new }
@@ -126,11 +162,15 @@ final class TimelineViewModel: ObservableObject {
                 users.merge(Dictionary(uniqueKeysWithValues: cached.users.map { ($0.id, $0) })) { _, new in new }
             }
         }
+        AppLogger.timeline.endInterval("Fetch Timeline Users", usersInterval)
 
+        let statusesInterval = AppLogger.timeline.beginInterval("Fetch Timeline Statuses")
         if let loadedStatuses = try? await loader.loadStatuses(userIDs: userIDs) {
             statuses.merge(Dictionary(uniqueKeysWithValues: loadedStatuses.map { ($0.userID, $0.status) })) { _, new in new }
         }
+        AppLogger.timeline.endInterval("Fetch Timeline Statuses", statusesInterval)
 
+        let avatarsInterval = AppLogger.timeline.beginInterval("Fetch Timeline Avatars")
         await withTaskGroup(of: (String, Data?).self) { group in
             for userID in userIDs where avatarData[userID] == nil {
                 group.addTask { [loader] in
@@ -141,9 +181,13 @@ final class TimelineViewModel: ObservableObject {
                 avatarData[userID] = data
             }
         }
+        AppLogger.timeline.endInterval("Fetch Timeline Avatars", avatarsInterval)
     }
 
     private func loadAttachments(for posts: [MattermostPost]) async {
+        let interval = AppLogger.timeline.beginInterval("Fetch Timeline Attachments")
+        defer { AppLogger.timeline.endInterval("Fetch Timeline Attachments", interval) }
+
         let fileIDs = Set(posts.flatMap(\.files).map(\.id))
         await withTaskGroup(of: (String, Data?).self) { group in
             for fileID in fileIDs where fileData[fileID] == nil {
@@ -159,8 +203,12 @@ final class TimelineViewModel: ObservableObject {
             }
             for await (fileID, data) in group {
                 loadingFileTasks[fileID] = nil
+                // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
                 if let data {
                     fileData[fileID] = data
+                    AppLogger.timeline.emitEvent("Published File Data", "id: \(fileID), bytes: \(data.count)")
+                } else {
+                    AppLogger.timeline.emitEvent("Skipped File Data", "id: \(fileID), reason: load failed, will refetch on next appear")
                 }
             }
         }
@@ -169,13 +217,41 @@ final class TimelineViewModel: ObservableObject {
     /// Fetches media and custom reaction artwork only after its message is
     /// rendered by the lazy timeline.
     func loadVisibleContent(for posts: [MattermostPost]) async {
-        await loadAttachments(for: posts)
-        await loadCustomEmoji(for: posts)
+        for post in posts {
+            pendingVisiblePosts[post.id] = post
+        }
+        guard !isLoadingVisibleContent else { return }
+
+        isLoadingVisibleContent = true
+        defer { isLoadingVisibleContent = false }
+        await Task.yield()
+        while !pendingVisiblePosts.isEmpty {
+            let visiblePosts = Array(pendingVisiblePosts.values)
+            pendingVisiblePosts = [:]
+            let interval = AppLogger.timeline.beginInterval("Load Visible Timeline Content")
+            await loadAttachments(for: visiblePosts)
+            await loadCustomEmoji(for: visiblePosts)
+            AppLogger.timeline.endInterval("Load Visible Timeline Content", interval)
+        }
     }
 
     private func loadCustomEmoji(for posts: [MattermostPost]) async {
+        let interval = AppLogger.timeline.beginInterval("Fetch Timeline Custom Emoji")
+        defer { AppLogger.timeline.endInterval("Fetch Timeline Custom Emoji", interval) }
+
         if customEmojiIDs == nil {
-            guard let emojis = try? await customEmojis.loadAll() else { return }
+            let emojis: [MattermostCustomEmoji]?
+            if let loadingCustomEmojiCatalogTask {
+                emojis = await loadingCustomEmojiCatalogTask.value
+            } else {
+                let task = Task { [customEmojis] in
+                    try? await customEmojis.loadAll()
+                }
+                loadingCustomEmojiCatalogTask = task
+                emojis = await task.value
+                loadingCustomEmojiCatalogTask = nil
+            }
+            guard let emojis else { return }
             customEmojiIDs = Dictionary(uniqueKeysWithValues: emojis.map { ($0.name, $0.id) })
         }
 
@@ -198,6 +274,8 @@ final class TimelineViewModel: ObservableObject {
                 loadingEmojiTasks[name] = nil
                 if let data {
                     customEmojiData[name] = data
+                    // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove once confirmed.
+                    AppLogger.timeline.emitEvent("Published Custom Emoji", "name: \(name), bytes: \(data.count)")
                 }
             }
         }

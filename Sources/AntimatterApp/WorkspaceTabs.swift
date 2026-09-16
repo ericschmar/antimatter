@@ -1,24 +1,90 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct WorkspaceTabs: View {
     @ObservedObject var workspace: WorkspaceViewModel
     @ObservedObject var navigation: NavigationViewModel
+    @State private var draggingTab: WorkspaceTab?
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 3) {
                 ForEach(workspace.tabs) { tab in
                     WorkspaceTabItem(tab: tab, workspace: workspace, navigation: navigation)
+                        .onDrag {
+                            draggingTab = tab
+                            return NSItemProvider(object: tab.channelID as NSString)
+                        }
+                        .onDrop(of: [.text], delegate: TabDropDelegate(
+                            target: tab,
+                            workspace: workspace,
+                            dragging: $draggingTab
+                        ))
                 }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
         }
         .frame(height: WorkspaceTheme.titleHeight + 2)
+        .background(WindowDragHandle())
         .background(WorkspaceTheme.sidebar)
         .overlay(alignment: .bottom) {
             Divider().overlay(WorkspaceTheme.divider)
         }
+        .onDrop(of: [.text], delegate: TabBarDropDelegate(dragging: $draggingTab))
+    }
+}
+
+private struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        WindowDragView()
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    private final class WindowDragView: NSView {
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+    }
+}
+
+
+private struct TabDropDelegate: DropDelegate {
+    let target: WorkspaceTab
+    let workspace: WorkspaceViewModel
+    @Binding var dragging: WorkspaceTab?
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging, dragging != target,
+              let from = workspace.tabs.firstIndex(of: dragging),
+              let to = workspace.tabs.firstIndex(of: target)
+        else { return }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            workspace.move(from: from, to: to)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
+    }
+}
+
+private struct TabBarDropDelegate: DropDelegate {
+    @Binding var dragging: WorkspaceTab?
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
     }
 }
 
@@ -66,7 +132,7 @@ private struct WorkspaceTabItem: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
-                    .frame(width: 18, height: 18)
+                    .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)
             .foregroundStyle(WorkspaceTheme.secondaryText)

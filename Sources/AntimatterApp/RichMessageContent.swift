@@ -41,7 +41,6 @@ struct RichMessageContent: View {
                     .tint(WorkspaceTheme.accent)
                     .foregroundStyle(WorkspaceTheme.primaryText)
                     .textSelection(.enabled)
-                    .id("\(fontFamily.rawValue)-\(fontSize)")
             }
 
             if isVisible {
@@ -75,6 +74,7 @@ struct RichMessageContent: View {
         }
         .accessibilityHint(containsHighlightableMention ? "Contains a channel or personal mention." : "")
         .onAppear {
+            guard !isVisible else { return }
             isVisible = true
             Task {
                 await loadContent()
@@ -319,8 +319,13 @@ private final class LinkPreviewCache {
                 continuation.resume(returning: $0)
             }
             let provider = LPMetadataProvider()
-            provider.startFetchingMetadata(for: url) { metadata, _ in
-                let wrapped = SendableLinkMetadata(metadata)
+            completion.provider = provider
+            provider.startFetchingMetadata(for: url) { metadata, error in
+                if error == nil {
+                    metadata?.iconProvider = nil
+                    metadata?.imageProvider = nil
+                }
+                let wrapped = error == nil ? SendableLinkMetadata(metadata) : nil
                 Task { @MainActor in
                     completion.finish(wrapped)
                 }
@@ -352,18 +357,22 @@ private final class LinkPreviewCache {
 private final class TimeoutCompletion {
     private var didFinish = false
     private let completion: (SendableLinkMetadata?) -> Void
+    var provider: LPMetadataProvider?
 
     init(timeout: TimeInterval, completion: @escaping (SendableLinkMetadata?) -> Void) {
         self.completion = completion
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(timeout))
-            self?.finish(nil)
+            self?.finish(nil, cancellingProvider: true)
         }
     }
 
-    func finish(_ metadata: SendableLinkMetadata?) {
+    func finish(_ metadata: SendableLinkMetadata?, cancellingProvider: Bool = false) {
         guard !didFinish else { return }
         didFinish = true
+        if cancellingProvider {
+            provider?.cancel()
+        }
         completion(metadata)
     }
 }
@@ -384,6 +393,7 @@ private struct LinkPresentationView: NSViewRepresentable {
     }
 
     func updateNSView(_ linkView: LPLinkView, context: Context) {
+        guard linkView.metadata !== metadata else { return }
         linkView.metadata = metadata
     }
 }
@@ -392,9 +402,33 @@ private struct ChatImageAttachment: View {
     let files: [MattermostFile]
     let data: [String: Data]
 
+    // ponytail:diagnostic — temporary scroll-freeze instrumentation; remove with the stall watchdog once the freeze is confirmed and fixed.
+    private static func decodedImage(from data: Data, file: MattermostFile) -> NSImage? {
+        let created = Date()
+        let image = NSImage(data: data)
+        let createMilliseconds = Int(Date().timeIntervalSince(created) * 1_000)
+        var decodeMilliseconds = 0
+        if data.count > 1_000_000 {
+            // Force the decode the render pipeline would otherwise pay at draw time,
+            // so per-evaluation cost is visible in the log.
+            let decoded = Date()
+            image?.lockFocus()
+            image?.unlockFocus()
+            decodeMilliseconds = Int(Date().timeIntervalSince(decoded) * 1_000)
+        }
+        let pixels = image?.representations.first
+            .map { "\($0.pixelsWide)x\($0.pixelsHigh)" }
+            ?? "n/a"
+        AppLogger.timeline.emitEvent(
+            "Image Attachment Decode",
+            "id: \(file.id), bytes: \(data.count), pixels: \(pixels), create ms: \(createMilliseconds), decode ms: \(decodeMilliseconds)"
+        )
+        return image
+    }
+
     var body: some View {
         Group {
-            if let first = files.first, let data = data[first.id], let image = NSImage(data: data) {
+            if let first = files.first, let data = data[first.id], let image = Self.decodedImage(from: data, file: first) {
                 Button {
                     openQuickLookPreview(for: first, data: data)
                 } label: {

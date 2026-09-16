@@ -11,4 +11,5 @@ public enum AppLogger {
     public static let networking = Logger(subsystem: subsystem, category: "networking")
     public static let persistence = Logger(subsystem: subsystem, category: "persistence")
     public static let workspace = Logger(subsystem: subsystem, category: "workspace")
+    public static let timeline = OSSignposter(subsystem: subsystem, category: "timeline")
 }

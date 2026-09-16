@@ -99,6 +99,12 @@ final class WorkspaceViewModel: ObservableObject {
         persist()
     }
 
+    func move(from source: Int, to destination: Int) {
+        guard source != destination else { return }
+        tabs.move(fromOffsets: IndexSet(integer: source), toOffset: destination > source ? destination + 1 : destination)
+        persist()
+    }
+
     func closeSelected() {
         guard let selectedTab = tabs.first(where: { $0.channelID == selectedChannelID }) else { return }
         close(selectedTab)
