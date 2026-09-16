@@ -107,9 +107,9 @@ struct MessageTimeline: View {
                                 switch item {
                                 case .header(let date):
                                     TimelineDateHeader(date: date)
-                                case .thread(let thread, let previousRoot):
-                                    messageRow(for: thread.root, previousRoot: previousRoot)
-                                        .id(thread.root.id)
+                                case .thread(let thread):
+                                    messageRow(for: thread.root, previousRoot: thread.previousRoot)
+                                        .id(thread.id)
 
                                     if Self.rendersInlineReplyThreads && !thread.replies.isEmpty {
                                         InlineReplyThread(
@@ -201,7 +201,10 @@ struct MessageTimeline: View {
                 items.append(.header(day.key))
                 let threads = day.value
                 for index in threads.indices {
-                    items.append(.thread(threads[index], previousRoot: index > 0 ? threads[index - 1].root : nil))
+                    items.append(.thread(TimelineThreadItem(
+                        thread: threads[index],
+                        previousRoot: index > 0 ? threads[index - 1].root : nil
+                    )))
                 }
             }
             return items
@@ -317,16 +320,30 @@ private struct ReactionTooltipView: View {
 
 /// A single lazy child of the timeline list: either a day header or one
 /// thread (its root plus inline replies). Flat per-thread granularity keeps
-/// LazyVStack materialization bounded to rows near the viewport instead of
-/// materializing an entire day whenever it enters the prefetch window.
+/// Reference-backed thread payload keeps TimelineItem cheap to copy during
+/// LazyVStack identity and placement passes.
+private final class TimelineThreadItem: @unchecked Sendable, Identifiable {
+    let root: MattermostPost
+    let replies: [MattermostPost]
+    let previousRoot: MattermostPost?
+
+    init(thread: MattermostTimelineThread, previousRoot: MattermostPost?) {
+        self.root = thread.root
+        self.replies = thread.replies
+        self.previousRoot = previousRoot
+    }
+
+    var id: String { root.id }
+}
+
 private enum TimelineItem: Identifiable {
     case header(Date)
-    case thread(MattermostTimelineThread, previousRoot: MattermostPost?)
+    case thread(TimelineThreadItem)
 
     var id: String {
         switch self {
         case .header(let date): return "day-\(date.timeIntervalSince1970)"
-        case .thread(let thread, _): return thread.id
+        case .thread(let thread): return thread.id
         }
     }
 }
