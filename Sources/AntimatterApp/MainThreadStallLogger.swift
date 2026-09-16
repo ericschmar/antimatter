@@ -14,13 +14,17 @@ import os
 @MainActor
 enum MainThreadStallLogger {
     private static var isStarted = false
+    // Keeps the probe chain alive; the detector holds only weak self-references internally.
+    private static var detector: StallDetector?
 
     static func start() {
         guard !isStarted else { return }
         isStarted = true
         // Startup line doubles as a sanity check that the running binary includes the diagnostics.
         AppLogger.freeze.notice("Freeze diagnostics armed: watchdog will sample the process during main-thread stalls")
-        StallDetector().beginProbing()
+        let detector = StallDetector()
+        Self.detector = detector
+        detector.beginProbing()
     }
 }
 
