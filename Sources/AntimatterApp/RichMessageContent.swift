@@ -230,6 +230,33 @@ private struct SelectableMarkdownText: NSViewRepresentable {
             let attributedText = NSAttributedString(rendered)
             let mutableText = NSMutableAttributedString(attributedString: attributedText)
             mutableText.addAttributes(attributes, range: NSRange(location: 0, length: mutableText.length))
+            // The AttributedString → NSAttributedString bridge keeps Markdown
+            // inlinePresentationIntent runs (code/bold/italic/strikethrough) but
+            // never converts them to fonts, and the base-font stamp above would
+            // flatten them all to the plain face. Synthesize the fonts here.
+            let monospaceFont = NSFont(name: "Menlo", size: fontSize)
+                ?? NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+            for run in rendered.runs {
+                guard let intent = run.inlinePresentationIntent else { continue }
+                var font = baseFont
+                if intent.contains(.code) {
+                    font = monospaceFont
+                }
+                if intent.contains(.stronglyEmphasized) {
+                    font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+                }
+                if intent.contains(.emphasized) {
+                    font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+                }
+                if intent.contains(.strikethrough) {
+                    mutableText.addAttribute(
+                        .strikethroughStyle,
+                        value: NSUnderlineStyle.single.rawValue,
+                        range: NSRange(run.range, in: rendered)
+                    )
+                }
+                mutableText.addAttribute(.font, value: font, range: NSRange(run.range, in: rendered))
+            }
             textView.textStorage?.setAttributedString(mutableText)
         } catch {
             textView.textStorage?.setAttributedString(NSAttributedString(string: markdown, attributes: attributes))
