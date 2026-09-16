@@ -123,13 +123,36 @@ struct RichMessageContent: View {
 }
 
 private final class OnDemandSelectableTextView: NSTextView {
+    private var measuredWidth: CGFloat = -1
+    private var measuredHeight: CGFloat = 0
+    private var needsMeasurement = true
+
     override var intrinsicContentSize: NSSize {
-        guard let textContainer, let layoutManager else {
+        let width = bounds.width
+        guard width > 0, let textContainer, let layoutManager else {
             return NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
         }
-        layoutManager.ensureLayout(for: textContainer)
-        let usedHeight = layoutManager.usedRect(for: textContainer).height
-        return NSSize(width: NSView.noIntrinsicMetric, height: ceil(usedHeight) + 2)
+
+        if needsMeasurement || abs(measuredWidth - width) > 0.5 {
+            textContainer.containerSize = NSSize(width: width, height: CGFloat.greatestFiniteMagnitude)
+            layoutManager.ensureLayout(for: textContainer)
+            measuredWidth = width
+            measuredHeight = ceil(layoutManager.usedRect(for: textContainer).height) + 2
+            needsMeasurement = false
+        }
+        return NSSize(width: NSView.noIntrinsicMetric, height: measuredHeight)
+    }
+
+    func invalidateMeasuredHeight() {
+        needsMeasurement = true
+        invalidateIntrinsicContentSize()
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        if abs(bounds.width - newSize.width) > 0.5 {
+            needsMeasurement = true
+        }
+        super.setFrameSize(newSize)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -215,8 +238,7 @@ private struct SelectableMarkdownText: NSViewRepresentable {
         textView.textColor = NSColor.labelColor
         textView.font = baseFont
         textView.textContainer?.lineFragmentPadding = 0
-        textView.layoutManager?.ensureLayout(for: textView.textContainer!)
-        textView.invalidateIntrinsicContentSize()
+        (textView as? OnDemandSelectableTextView)?.invalidateMeasuredHeight()
     }
 }
 
