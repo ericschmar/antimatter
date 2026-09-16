@@ -15,28 +15,13 @@ struct RichMessageContent: View {
     let loadContent: () async -> Void
     @State private var isVisible = false
 
-    // ponytail:diagnostic — set ANTIMATTER_DISABLE_TEXT_SELECTION=1 to isolate
-    // selection overlays as a stall variable. Remove with the stall watchdog.
-    private static var rendersTextSelection: Bool {
-        ProcessInfo.processInfo.environment["ANTIMATTER_DISABLE_TEXT_SELECTION"] != "1"
-    }
-
     private var markdownText: some View {
-        Markdown(messageWithoutEmbeddedGIFs)
-            .markdownTheme(
-                .gitHub
-                    .text {
-                        if fontFamily == .monospaced {
-                            FontFamilyVariant(.monospaced)
-                        }
-                        FontSize(fontSize)
-                    }
-                    .codeBlock { configuration in
-                        ChatCodeBlock(configuration: configuration)
-                    }
-            )
-            .tint(WorkspaceTheme.accent)
-            .foregroundStyle(WorkspaceTheme.primaryText)
+        SelectableMarkdownText(
+            markdown: messageWithoutEmbeddedGIFs,
+            fontSize: fontSize,
+            fontFamily: fontFamily
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var containsHighlightableMention: Bool {
@@ -50,14 +35,7 @@ struct RichMessageContent: View {
         BodyEvalCounter.tick("RichMessageContent")
         return VStack(alignment: .leading, spacing: 7) {
             if !messageWithoutEmbeddedGIFs.isEmpty {
-                // ponytail:diagnostic — SwiftUI's per-text selection overlays reconfigure
-                // (setFont/invalidateIntrinsicContentSize) inside the stall passes; the env
-                // toggle isolates them as a stall variable. Remove with the stall watchdog.
-                if Self.rendersTextSelection {
-                    markdownText.textSelection(.enabled)
-                } else {
-                    markdownText
-                }
+                markdownText
             }
 
             if isVisible {
@@ -141,6 +119,74 @@ struct RichMessageContent: View {
 
     private var nonImageFiles: [MattermostFile] {
         post.files.filter { !$0.mimeType.hasPrefix("image/") }
+    }
+}
+
+private struct SelectableMarkdownText: NSViewRepresentable {
+    let markdown: String
+    let fontSize: Double
+    let fontFamily: AppFontFamily
+
+    func makeNSView(context: Context) -> NSTextView {
+        let textView = NSTextView(frame: .zero)
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.drawsBackground = false
+        textView.isRichText = true
+        textView.textContainerInset = .zero
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        applyText(to: textView, coordinator: context.coordinator)
+        return textView
+    }
+
+    func updateNSView(_ textView: NSTextView, context: Context) {
+        guard context.coordinator.markdown != markdown
+            || context.coordinator.fontSize != fontSize
+            || context.coordinator.fontFamily != fontFamily
+        else { return }
+        applyText(to: textView, coordinator: context.coordinator)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator {
+        var markdown = ""
+        var fontSize = 0.0
+        var fontFamily = AppFontFamily.system
+    }
+
+    private func applyText(to textView: NSTextView, coordinator: Coordinator) {
+        coordinator.markdown = markdown
+        coordinator.fontSize = fontSize
+        coordinator.fontFamily = fontFamily
+
+        let baseFont = NSFont(
+            name: fontFamily == .monospaced ? "Menlo" : NSFont.systemFont(ofSize: fontSize).familyName ?? ".AppleSystemUIFont",
+            size: fontSize
+        ) ?? NSFont.systemFont(ofSize: fontSize)
+        let attributes = [NSAttributedString.Key.font: baseFont]
+
+        do {
+            var rendered = try AttributedString(
+                markdown: markdown,
+                options: .init(interpretedSyntax: .full)
+            )
+            rendered.foregroundColor = .init(nsColor: NSColor.labelColor)
+            let attributedText = NSAttributedString(rendered)
+            let mutableText = NSMutableAttributedString(attributedString: attributedText)
+            mutableText.addAttributes(attributes, range: NSRange(location: 0, length: mutableText.length))
+            textView.textStorage?.setAttributedString(mutableText)
+        } catch {
+            textView.textStorage?.setAttributedString(NSAttributedString(string: markdown, attributes: attributes))
+        }
+
+        textView.textColor = NSColor.labelColor
+        textView.font = baseFont
+        textView.textContainer?.lineFragmentPadding = 0
     }
 }
 
