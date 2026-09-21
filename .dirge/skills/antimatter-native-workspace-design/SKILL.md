@@ -34,6 +34,10 @@ Lift reaction-tooltip presentation state to the direct timeline-row container (f
 
 The current native test target (`NativeTests/AntimatterFoundationTests`) covers foundation and timeline-model behavior, not SwiftUI visual stacking; validate this interaction manually in addition to the standard build/tests.
 
+## Nibware Source Selection
+
+When creating a new native SwiftUI surface or component, consult the project Kilo skill at `.kilo/skills/nibware-ui-components/SKILL.md`. Browse Nibware's component catalog only after inspecting the target and adjacent UI; reuse an existing project component or platform control first. Select the smallest fitting SwiftUI source slice, remove demo scaffolding, and adapt its layout and appearance to Antimatter rather than importing a dependency or replacing established interactions.
+
 ## Verification
 
 For an implementation, run:

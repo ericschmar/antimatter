@@ -59,6 +59,7 @@
 		ACBFE48B304B692A0040FD59 /* MattermostAccountSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE488304B692A0040FD59 /* MattermostAccountSettings.swift */; };
 		ACBFE48C305AD7680040FD59 /* MainThreadStallLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE48B305AD7680040FD59 /* MainThreadStallLogger.swift */; };
 		ACBFE491305B0DFF0040FD59 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = ACBFE490305B0DFF0040FD59 /* MarkdownUI */; };
+		ACBFE493305C45CE0040FD59 /* ClearableSearchField.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE492305C45CE0040FD59 /* ClearableSearchField.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -123,6 +124,7 @@
 		ACBFE488304B692A0040FD59 /* MattermostAccountSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostAccountSettings.swift; sourceTree = "<group>"; };
 		ACBFE489305348CE0040FD59 /* ConversationDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationDrawer.swift; sourceTree = "<group>"; };
 		ACBFE48B305AD7680040FD59 /* MainThreadStallLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainThreadStallLogger.swift; sourceTree = "<group>"; };
+		ACBFE492305C45CE0040FD59 /* ClearableSearchField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClearableSearchField.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +157,7 @@
 		A40000000000000000000002 /* Sources/AntimatterApp */ = {
 			isa = PBXGroup;
 			children = (
+				ACBFE492305C45CE0040FD59 /* ClearableSearchField.swift */,
 				ACBFE48B305AD7680040FD59 /* MainThreadStallLogger.swift */,
 				ACBFE489305348CE0040FD59 /* ConversationDrawer.swift */,
 				ACBFE47E304B692A0040FD59 /* ChannelFilesAside.swift */,
@@ -339,6 +342,7 @@
 				A10000000000000000000028 /* MessageComposer.swift in Sources */,
 				A10000000000000000000030 /* PresenceViewModel.swift in Sources */,
 				ACBFE48C305AD7680040FD59 /* MainThreadStallLogger.swift in Sources */,
+				ACBFE493305C45CE0040FD59 /* ClearableSearchField.swift in Sources */,
 				AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */,
 				ACBFE482304B692A0040FD59 /* GiphyPicker.swift in Sources */,
 				ACBFE483304B692A0040FD59 /* ChannelFilesAside.swift in Sources */,

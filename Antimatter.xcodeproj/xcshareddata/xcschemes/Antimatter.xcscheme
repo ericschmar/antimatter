@@ -51,9 +51,51 @@
             ReferencedContainer = "container:Antimatter.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "ANTIMATTER_DISABLE_INLINE_REPLY_THREADS"
+            value = "0"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_INLINE_REPLY_PLACEHOLDER"
+            value = "0"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_INLINE_REPLY_MARKDOWN_PLACEHOLDER"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_INLINE_REPLY_REACTION_PLACEHOLDER"
+            value = "0"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_INLINE_REPLY_STATIC_REACTIONS"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_INLINE_REPLY_DISABLE_REACTION_TOOLTIPS"
+            value = "0"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_INLINE_REPLY_DISABLE_REACTION_TOOLTIP_HOVER"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_DISABLE_TEXT_SELECTION"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
-      buildConfiguration = "Release"
+      buildConfiguration = "Debug"
       shouldUseLaunchSchemeArgsEnv = "YES"
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"

@@ -305,6 +305,7 @@ private struct SidebarPlaceholder: View {
             UserPickerSheet(
                 title: "Start a direct message",
                 users: availableUsers,
+                avatarData: navigation.avatarData,
                 actionTitle: "Message"
             ) { user in
                 Task { await navigation.openDirectMessage(with: user) }
@@ -777,7 +778,11 @@ private struct ConversationPlaceholder: View {
 
                 Spacer(minLength: 0)
                 if selectedTab?.isSearchResults != true {
-                    ChannelParticipantStack(participants: channelParticipants)
+                    ChannelParticipantStack(
+                        participants: channelParticipants,
+                        canAddMembers: canAddMembers,
+                        onAddMember: { isAddMemberPresented = true }
+                    )
                     if canAddMembers {
                         Button {
                             isAddMemberPresented = true
@@ -915,6 +920,7 @@ private struct ConversationPlaceholder: View {
             UserPickerSheet(
                 title: "Add a member",
                 users: availableMembers,
+                avatarData: navigation.avatarData.merging(timeline.avatarData) { _, new in new },
                 actionTitle: "Add to chat"
             ) { user in
                 guard let channelID = selectedTab?.channelID else { return }
@@ -1022,6 +1028,7 @@ private struct ConversationPlaceholder: View {
             return ChannelParticipant(
                 id: post.userID,
                 displayName: user?.displayName ?? "Unknown member",
+                username: user?.username,
                 avatarData: timeline.avatarData[post.userID]
             )
         }
@@ -1048,7 +1055,68 @@ private struct ConversationPlaceholder: View {
 private struct ChannelParticipant: Identifiable {
     let id: String
     let displayName: String
+    let username: String?
     let avatarData: Data?
+}
+
+private struct MemberAvatar: View {
+    let data: Data?
+    let name: String
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let data, let image = NSImage(data: data) {
+                Image(nsImage: image).resizable().scaledToFill()
+            } else {
+                Text(initials)
+                    .font(.system(size: size * 0.36, weight: .bold, design: .monospaced))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
+        }
+        .frame(width: size, height: size)
+        .background(WorkspaceTheme.raisedSurface)
+        .clipShape(Circle())
+    }
+
+    private var initials: String {
+        String(name.split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
+    }
+}
+
+private struct MemberRow: View {
+    let name: String
+    let username: String?
+    let avatarData: Data?
+    var avatarSize: CGFloat = 24
+    @State private var isHovered = false
+
+    static let height: CGFloat = 42
+
+    var body: some View {
+        HStack(spacing: 10) {
+            MemberAvatar(data: avatarData, name: name, size: avatarSize)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                if let username, !username.isEmpty {
+                    Text("@\(username)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .frame(minHeight: Self.height)
+        .background(isHovered ? WorkspaceTheme.hoverSurface : Color.clear)
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+    }
 }
 
 private struct CreateChannelSheet: View {
@@ -1088,6 +1156,7 @@ private struct CreateChannelSheet: View {
 private struct UserPickerSheet: View {
     let title: String
     let users: [MattermostUser]
+    let avatarData: [String: Data]
     let actionTitle: String
     let select: (MattermostUser) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -1095,27 +1164,42 @@ private struct UserPickerSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(title)
-                .font(.system(size: 18, weight: .semibold))
-            TextField("Search people", text: $query)
-                .textFieldStyle(.roundedBorder)
-            List(filteredUsers) { user in
-                Button {
-                    select(user)
-                    dismiss()
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(user.displayName)
-                        Text("@\(user.username)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(WorkspaceTheme.secondaryText)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                Text("\(users.count) people")
+                    .font(.system(size: 11))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
+            ClearableSearchField(placeholder: "Search people", text: $query)
+            if filteredUsers.isEmpty {
+                emptyState
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(filteredUsers) { user in
+                            Button {
+                                select(user)
+                                dismiss()
+                            } label: {
+                                MemberRow(
+                                    name: user.displayName,
+                                    username: user.username,
+                                    avatarData: avatarData[user.id],
+                                    avatarSize: 28
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(actionTitle) \(user.displayName)")
+                        }
                     }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(actionTitle) \(user.displayName)")
+                .frame(height: 260)
+                .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius))
+                .overlay(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius).stroke(WorkspaceTheme.divider, lineWidth: 1))
             }
-            .listStyle(.inset)
-            .frame(height: 260)
             Button("Cancel") { dismiss() }
                 .keyboardShortcut(.cancelAction)
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -1123,6 +1207,17 @@ private struct UserPickerSheet: View {
         .padding(24)
         .frame(width: 360)
         .background(WorkspaceTheme.surface)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "person.crop.circle.badge.questionmark")
+                .font(.system(size: 20))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+            Text(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Nobody here yet" : "No matches")
+                .font(.system(size: 12))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+        }
     }
 
     private var filteredUsers: [MattermostUser] {
@@ -1137,8 +1232,11 @@ private struct UserPickerSheet: View {
 
 private struct ChannelParticipantStack: View {
     let participants: [ChannelParticipant]
+    let canAddMembers: Bool
+    let onAddMember: () -> Void
     private let visibleParticipantCount = 4
     @State private var isMemberListPresented = false
+    @State private var query = ""
 
     var body: some View {
         Button {
@@ -1146,19 +1244,8 @@ private struct ChannelParticipantStack: View {
         } label: {
             HStack(spacing: -9) {
                 ForEach(participants.prefix(visibleParticipantCount)) { participant in
-                    Group {
-                        if let data = participant.avatarData, let image = NSImage(data: data) {
-                            Image(nsImage: image).resizable().scaledToFill()
-                        } else {
-                            Text(initials(for: participant.displayName))
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .foregroundStyle(WorkspaceTheme.secondaryText)
-                        }
-                    }
-                    .frame(width: 28, height: 28)
-                    .background(WorkspaceTheme.raisedSurface)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
+                    MemberAvatar(data: participant.avatarData, name: participant.displayName, size: 28)
+                        .overlay(Circle().stroke(WorkspaceTheme.surface, lineWidth: 2))
                 }
 
                 if participants.count > visibleParticipantCount {
@@ -1174,42 +1261,79 @@ private struct ChannelParticipantStack: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $isMemberListPresented, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Channel members")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                    .padding(12)
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    Text("Members")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                    Text("\(participants.count)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(WorkspaceTheme.raisedSurface))
+                    Spacer(minLength: 0)
+                    if canAddMembers {
+                        Button {
+                            onAddMember()
+                        } label: {
+                            Image(systemName: "person.badge.plus")
+                                .font(.system(size: 12, weight: .semibold))
+                                .frame(width: 24, height: 24)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .help("Add member to chat")
+                        .accessibilityLabel("Add member to chat")
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+
+                ClearableSearchField(placeholder: "Search members", text: $query)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
+
                 Divider().overlay(WorkspaceTheme.divider)
-                ForEach(participants) { participant in
-                    HStack(spacing: 8) {
-                        Group {
-                            if let data = participant.avatarData, let image = NSImage(data: data) {
-                                Image(nsImage: image).resizable().scaledToFill()
-                            } else {
-                                Text(initials(for: participant.displayName))
-                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(WorkspaceTheme.secondaryText)
+
+                if filteredParticipants.isEmpty {
+                    Text(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No members yet" : "No matches")
+                        .font(.system(size: 12))
+                        .foregroundStyle(WorkspaceTheme.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 24)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(filteredParticipants) { participant in
+                                MemberRow(
+                                    name: participant.displayName,
+                                    username: participant.username,
+                                    avatarData: participant.avatarData
+                                )
                             }
                         }
-                        .frame(width: 22, height: 22)
-                        .background(WorkspaceTheme.raisedSurface)
-                        .clipShape(Circle())
-                        Text(participant.displayName)
-                            .font(.system(size: 12))
-                            .foregroundStyle(WorkspaceTheme.primaryText)
-                        Spacer()
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
+                    .frame(height: min(CGFloat(filteredParticipants.count) * MemberRow.height, 294))
                 }
             }
-            .frame(width: 220)
+            .frame(width: 240)
             .background(WorkspaceTheme.surface)
         }
         .accessibilityLabel("\(participants.count) channel participants")
+        .accessibilityHint("Shows the members of this chat.")
+        .onChange(of: isMemberListPresented) { _, isPresented in
+            if isPresented { query = "" }
+        }
     }
 
-    private func initials(for name: String) -> String {
-        String(name.split(separator: " ").prefix(2).compactMap(\.first)).uppercased()
+    private var filteredParticipants: [ChannelParticipant] {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return participants }
+        return participants.filter {
+            $0.displayName.localizedCaseInsensitiveContains(trimmedQuery) ||
+                ($0.username?.localizedCaseInsensitiveContains(trimmedQuery) ?? false)
+        }
     }
 }

@@ -74,7 +74,12 @@ struct RichMessageContent: View {
             if isVisible {
                 ForEach(embeddedGIFs, id: \.absoluteString) { url in
                     AnimatedGIFImage(url: url, client: mediaClient)
-                        .frame(maxWidth: 360, minHeight: 180, maxHeight: 260, alignment: .leading)
+                        .frame(
+                            maxWidth: AnimatedGIFImage.displayBox.width,
+                            minHeight: 180,
+                            maxHeight: AnimatedGIFImage.displayBox.height,
+                            alignment: .leading
+                        )
                 }
 
                 if let previewURL {
@@ -201,6 +206,10 @@ private enum ChatMarkdownPart {
 }
 
 private struct AnimatedGIFImage: NSViewRepresentable {
+    /// Largest on-screen box for an embedded GIF. The `.frame` at the call
+    /// site mirrors these numbers so the layout slot matches the decoded size.
+    static let displayBox = CGSize(width: 360, height: 260)
+
     let url: URL
     let client: MattermostAPIClient
 
@@ -222,6 +231,17 @@ private struct AnimatedGIFImage: NSViewRepresentable {
 
     static func dismantleNSView(_ imageView: NSImageView, coordinator: Coordinator) {
         coordinator.task?.cancel()
+    }
+
+    /// NSViewRepresentable sizes the NSImageView by its fitting size — the
+    /// GIF's full pixel size — rather than the surrounding SwiftUI `.frame`
+    /// proposal, which is how oversized GIFs spilled outside the message row.
+    /// Clamp the image's point size so its fitting size always fits the box;
+    /// NSImageView keeps animating the representations regardless.
+    static func clampedDisplaySize(for size: CGSize) -> CGSize {
+        guard size.width > 0, size.height > 0 else { return size }
+        let scale = min(1, displayBox.width / size.width, displayBox.height / size.height)
+        return CGSize(width: size.width * scale, height: size.height * scale)
     }
 
     @MainActor
@@ -246,6 +266,7 @@ private struct AnimatedGIFImage: NSViewRepresentable {
                         )
                         return
                     }
+                    image.size = AnimatedGIFImage.clampedDisplaySize(for: image.size)
                     imageView.image = image
                     AppLogger.networking.notice(
                         "Loaded Giphy media from \(url.absoluteString, privacy: .public)"
@@ -291,7 +312,7 @@ private struct ChatCodeBlock: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 Text(content)
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(WorkspaceTheme.primaryText)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)

@@ -14,6 +14,7 @@ struct MessageComposer: View {
     @State private var isCreatingPoll = false
     @State private var isGiphyPickerPresented = false
     @State private var isMentionPickerPresented = false
+    @State private var selectedMentionIndex = 0
     @State private var isEmojiPickerPresented = false
     @State private var selectedEmoji = ""
     @State private var composerWidth: CGFloat = 300
@@ -121,15 +122,19 @@ struct MessageComposer: View {
                         composer.persistDraft()
                         onTyping()
                         isMentionPickerPresented = mentionQuery != nil
+                        selectedMentionIndex = 0
                     }
                     .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
                         loadDroppedText(from: providers)
                     }
-                    .onKeyPress(.return, phases: .down) { (keyPress: KeyPress) -> KeyPress.Result in
-                        let isShiftPressed = keyPress.modifiers.contains(.shift)
-                        guard !isShiftPressed else { return .ignored }
-                        sendMessage()
-                        return .handled
+                    .onKeyPress(.return, phases: .down) { keyPress in
+                        handleReturn(keyPress)
+                    }
+                    .onKeyPress(keys: [.upArrow, .downArrow], phases: .down) { keyPress in
+                        handleArrow(keyPress)
+                    }
+                    .onKeyPress(.escape, phases: .down) { _ in
+                        handleEscape()
                     }
 
                 Divider().overlay(WorkspaceTheme.divider)
@@ -173,11 +178,8 @@ struct MessageComposer: View {
             }
             .overlay(alignment: .topLeading) {
                 if isMentionPickerPresented {
-                    MentionPicker(users: mentionMatches) { user in
-                        composer.insertMention(user.username)
-                        composer.persistDraft()
-                        onTyping()
-                        isMentionPickerPresented = false
+                    MentionPicker(users: mentionMatches, selectedIndex: selectedMentionIndex) { user in
+                        selectMention(user)
                     }
                     .frame(height: mentionPickerHeight, alignment: .top)
                     .alignmentGuide(.leading) { dimensions in
@@ -230,6 +232,33 @@ struct MessageComposer: View {
         }
     }
 
+    private func handleReturn(_ keyPress: KeyPress) -> KeyPress.Result {
+        guard !keyPress.modifiers.contains(.shift) else { return .ignored }
+        if isMentionPickerPresented, !mentionMatches.isEmpty {
+            let index = min(selectedMentionIndex, mentionMatches.count - 1)
+            selectMention(mentionMatches[index])
+        } else {
+            sendMessage()
+        }
+        return .handled
+    }
+
+    private func handleArrow(_ keyPress: KeyPress) -> KeyPress.Result {
+        guard isMentionPickerPresented, !mentionMatches.isEmpty else { return .ignored }
+        if keyPress.key == .downArrow {
+            selectedMentionIndex = min(selectedMentionIndex + 1, mentionMatches.count - 1)
+        } else {
+            selectedMentionIndex = max(selectedMentionIndex - 1, 0)
+        }
+        return .handled
+    }
+
+    private func handleEscape() -> KeyPress.Result {
+        guard isMentionPickerPresented else { return .ignored }
+        isMentionPickerPresented = false
+        return .handled
+    }
+
     private func loadDroppedText(from providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first else { return false }
         provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
@@ -266,6 +295,13 @@ struct MessageComposer: View {
         isEmojiPickerPresented = true
     }
 
+    private func selectMention(_ user: MattermostUser) {
+        composer.insertMention(user.username)
+        composer.persistDraft()
+        onTyping()
+        isMentionPickerPresented = false
+    }
+
     private func sendMessage() {
         guard canSendMessage else { return }
         Task { @MainActor in
@@ -277,6 +313,7 @@ struct MessageComposer: View {
 
 private struct MentionPicker: View {
     let users: [MattermostUser]
+    let selectedIndex: Int
     let select: (MattermostUser) -> Void
 
     var body: some View {
@@ -292,34 +329,41 @@ private struct MentionPicker: View {
                     .foregroundStyle(WorkspaceTheme.secondaryText)
                     .padding(12)
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(users) { user in
-                            Button {
-                                select(user)
-                            } label: {
-                                HStack(spacing: 9) {
-                                    Text(initials(for: user.displayName))
-                                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                                        .frame(width: 24, height: 24)
-                                        .background(WorkspaceTheme.raisedSurface, in: Circle())
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(user.displayName)
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundStyle(WorkspaceTheme.primaryText)
-                                        Text("@\(user.username)")
-                                            .font(.system(size: 11))
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(Array(users.enumerated()), id: \.element.id) { index, user in
+                                Button {
+                                    select(user)
+                                } label: {
+                                    HStack(spacing: 9) {
+                                        Text(initials(for: user.displayName))
+                                            .font(.system(size: 9, weight: .bold, design: .monospaced))
                                             .foregroundStyle(WorkspaceTheme.secondaryText)
+                                            .frame(width: 24, height: 24)
+                                            .background(WorkspaceTheme.raisedSurface, in: Circle())
+                                        VStack(alignment: .leading, spacing: 1) {
+                                            Text(user.displayName)
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundStyle(WorkspaceTheme.primaryText)
+                                            Text("@\(user.username)")
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(WorkspaceTheme.secondaryText)
+                                        }
+                                        Spacer()
                                     }
-                                    Spacer()
+                                    .contentShape(Rectangle())
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(WorkspaceTheme.hoverSurface.opacity(index == selectedIndex ? 1 : 0))
                                 }
-                                .contentShape(Rectangle())
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
+                                .buttonStyle(.plain)
+                                .id(index)
                             }
-                            .buttonStyle(.plain)
                         }
+                    }
+                    .onChange(of: selectedIndex) { _, index in
+                        proxy.scrollTo(index)
                     }
                 }
                 .frame(maxHeight: 260)
@@ -451,11 +495,17 @@ private struct PollComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Create a poll")
-                .font(.system(size: 20, weight: .semibold))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Create a poll")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                Text("Everyone in this chat can vote on the options you add.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+            }
             VStack(spacing: 0) {
                 formRow("Question", placeholder: "What would you like to ask?", text: $question)
-                Divider().padding(.leading, 16)
+                Divider().overlay(WorkspaceTheme.divider).padding(.leading, 16)
                 ForEach(options.indices, id: \.self) { index in
                     formRow(
                         "Option \(index + 1)",
@@ -464,23 +514,27 @@ private struct PollComposer: View {
                         remove: options.count > 2 ? { options.remove(at: index) } : nil
                     )
                     if index < options.indices.last! {
-                        Divider().padding(.leading, 16)
+                        Divider().overlay(WorkspaceTheme.divider).padding(.leading, 16)
                     }
                 }
             }
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .formaCard(0)
+            .background(WorkspaceTheme.raisedSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(WorkspaceTheme.divider, lineWidth: 1))
             if options.count < 10 {
-                Button("Add option", systemImage: "plus") {
+                Button {
                     options.append("")
+                } label: {
+                    Label("Add option", systemImage: "plus")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(WorkspaceTheme.navigationAccent)
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(WorkspaceTheme.navigationAccent)
+                .help("Add another answer")
             }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                 Button("Create poll") {
                     create(question.trimmingCharacters(in: .whitespacesAndNewlines), cleanedOptions)
                 }
@@ -490,6 +544,7 @@ private struct PollComposer: View {
         }
         .padding(24)
         .frame(width: 420)
+        .background(WorkspaceTheme.surface)
     }
 
     @ViewBuilder
@@ -501,23 +556,26 @@ private struct PollComposer: View {
     ) -> some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 16, weight: .medium))
-                .frame(width: 92, alignment: .leading)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(WorkspaceTheme.secondaryText)
+                .frame(width: 84, alignment: .leading)
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 16))
+                .font(.system(size: 13))
                 .foregroundStyle(WorkspaceTheme.primaryText)
             if let remove {
                 Button(action: remove) {
                     Image(systemName: "minus.circle")
+                        .font(.system(size: 13))
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(WorkspaceTheme.secondaryText)
+                .help("Remove \(label.lowercased())")
                 .accessibilityLabel("Remove \(label.lowercased())")
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 15)
+        .padding(.vertical, 10)
     }
 }
 

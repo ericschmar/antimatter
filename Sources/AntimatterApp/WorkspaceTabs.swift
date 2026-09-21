@@ -26,7 +26,7 @@ struct WorkspaceTabs: View {
             .padding(.vertical, 3)
         }
         .frame(height: WorkspaceTheme.titleHeight + 2)
-        .background(WindowDragHandle())
+        .background(WindowDragConfiguration())
         .background(WorkspaceTheme.sidebar)
         .overlay(alignment: .bottom) {
             Divider().overlay(WorkspaceTheme.divider)
@@ -35,7 +35,7 @@ struct WorkspaceTabs: View {
     }
 }
 
-private struct WindowDragHandle: NSViewRepresentable {
+private struct WindowDragConfiguration: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         WindowDragView()
     }
@@ -43,8 +43,13 @@ private struct WindowDragHandle: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {}
 
     private final class WindowDragView: NSView {
-        override func mouseDown(with event: NSEvent) {
-            window?.performDrag(with: event)
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            window?.isMovableByWindowBackground = true
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            nil
         }
     }
 }

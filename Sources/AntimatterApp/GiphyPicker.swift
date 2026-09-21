@@ -66,28 +66,17 @@ struct GiphyPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Search Giphy")
-                        .font(.system(size: 20, weight: .semibold))
-                    Text("Choose a GIF to add to your message.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                }
-                Spacer()
-                Button("Cancel") { dismiss() }
-                    .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Search Giphy")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(WorkspaceTheme.primaryText)
+                Text("Choose a GIF to add to your message.")
+                    .font(.system(size: 11))
                     .foregroundStyle(WorkspaceTheme.secondaryText)
             }
 
-            HStack(spacing: 8) {
-                TextField("Search for GIFs", text: $model.query)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(model.search)
-                Button("Search", action: model.search)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+            ClearableSearchField(placeholder: "Search for GIFs", text: $model.query)
+                .onSubmit(model.search)
 
             Group {
                 if model.isLoading {
@@ -109,24 +98,9 @@ struct GiphyPicker: View {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 8) {
                             ForEach(model.gifs) { gif in
-                                Button {
+                                GifTile(gif: gif) {
                                     select(gif)
-                                } label: {
-                                    AsyncImage(url: gif.previewURL) { image in
-                                        image
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                    } placeholder: {
-                                        Rectangle()
-                                            .fill(WorkspaceTheme.raisedSurface)
-                                            .overlay { ProgressView() }
-                                    }
-                                    .frame(height: 116)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                 }
-                                .buttonStyle(.plain)
-                                .help(gif.title.isEmpty ? "Insert GIF" : gif.title)
-                                .accessibilityLabel(gif.title.isEmpty ? "Insert GIF" : "Insert \(gif.title)")
                             }
                         }
                         .padding(.trailing, 2)
@@ -134,9 +108,41 @@ struct GiphyPicker: View {
                 }
             }
             .frame(minHeight: 270)
+
+            Button("Cancel") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(20)
+        .padding(24)
         .frame(width: 620, height: 500)
+        .background(WorkspaceTheme.surface)
         .task { model.loadTrending() }
+    }
+}
+
+private struct GifTile: View {
+    let gif: GiphyGIF
+    let select: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: select) {
+            AsyncImage(url: gif.previewURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Rectangle()
+                    .fill(WorkspaceTheme.raisedSurface)
+                    .overlay { ProgressView() }
+            }
+            .frame(height: 116)
+            .clipShape(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous).fill(WorkspaceTheme.hoverSurface).opacity(isHovered ? 1 : 0))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help(gif.title.isEmpty ? "Insert GIF" : gif.title)
+        .accessibilityLabel(gif.title.isEmpty ? "Insert GIF" : "Insert \(gif.title)")
     }
 }
