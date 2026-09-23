@@ -118,6 +118,7 @@ struct MessageComposer: View {
                     .padding(8)
                     .frame(height: composer.height)
                     .disabled(channelID == nil || composer.isSending)
+                    .background(TextEditorDropInterceptor())
                     .onChange(of: composer.message) { _, _ in
                         composer.persistDraft()
                         onTyping()
@@ -125,7 +126,7 @@ struct MessageComposer: View {
                         selectedMentionIndex = 0
                     }
                     .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
-                        loadDroppedText(from: providers)
+                        handleDrop(providers)
                     }
                     .onKeyPress(.return, phases: .down) { keyPress in
                         handleReturn(keyPress)
@@ -259,14 +260,37 @@ struct MessageComposer: View {
         return .handled
     }
 
-    private func loadDroppedText(from providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-        provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
-            let text = item as? String ?? (item as? Data).flatMap { String(data: $0, encoding: .utf8) }
-            guard let text else { return }
-            Task { @MainActor in composer.message += text }
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        var claimed = false
+        for provider in providers {
+            // File drags win over text so a dropped .txt attaches instead of
+            // dumping its contents into the message.
+            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                claimed = true
+                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                    let url: URL?
+                    if let loaded = item as? URL {
+                        url = loaded
+                    } else if let data = item as? Data {
+                        url = URL(dataRepresentation: data, relativeTo: nil)
+                    } else if let string = item as? String {
+                        url = URL(string: string) ?? URL(fileURLWithPath: string)
+                    } else {
+                        url = nil
+                    }
+                    guard let url else { return }
+                    Task { @MainActor in composer.addAttachments([url]) }
+                }
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                claimed = true
+                provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
+                    let text = item as? String ?? (item as? Data).flatMap { String(data: $0, encoding: .utf8) }
+                    guard let text else { return }
+                    Task { @MainActor in composer.message += text }
+                }
+            }
         }
-        return true
+        return claimed
     }
 
     private func insertFormatting(_ format: ComposerFormat) {
@@ -307,6 +331,41 @@ struct MessageComposer: View {
         Task { @MainActor in
             await Task.yield()
             composer.send(onSent: onSent)
+        }
+    }
+}
+
+// TextEditor's underlying NSTextView natively accepts file drops by inserting
+// the file path as text, which swallows drags before the composer's .onDrop
+// handler runs. This probe strips the text view's drag registrations so file
+// and text drags fall through to .onDrop. Re-runs from make and update because
+// SwiftUI can recreate the underlying text view.
+private struct TextEditorDropInterceptor: NSViewRepresentable {
+    func makeNSView(context: Context) -> ProbeView {
+        ProbeView()
+    }
+
+    func updateNSView(_ view: ProbeView, context: Context) {
+        view.disableNativeDrops()
+    }
+
+    final class ProbeView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            disableNativeDrops()
+        }
+
+        func disableNativeDrops() {
+            // The probe is a background of the TextEditor, so its superview
+            // contains the editor's AppKit subtree and nothing else.
+            guard let container = superview else { return }
+            var queue: [NSView] = [container]
+            while let view = queue.popLast() {
+                if view is NSTextView {
+                    view.unregisterDraggedTypes()
+                }
+                queue.append(contentsOf: view.subviews)
+            }
         }
     }
 }
