@@ -117,7 +117,9 @@ final class ComposerViewModel: ObservableObject {
     }
 
     func addAttachments(_ urls: [URL]) {
+        NSLog("[composer-drop] addAttachments called with %ld URL(s): %@", urls.count, urls.map(\.path).joined(separator: ", "))
         attachmentURLs += urls.filter { url in !attachmentURLs.contains(url) }
+        NSLog("[composer-drop] attachmentURLs now contains %ld URL(s)", attachmentURLs.count)
     }
 
     func removeAttachment(_ url: URL) {

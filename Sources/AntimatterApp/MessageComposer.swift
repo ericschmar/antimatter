@@ -112,31 +112,24 @@ struct MessageComposer: View {
                 ComposerAttachmentChips(urls: composer.attachmentURLs, remove: composer.removeAttachment)
             }
             VStack(spacing: 0) {
-                TextEditor(text: $composer.message)
-                    .font(.system(size: 13))
-                    .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .frame(height: composer.height)
-                    .disabled(channelID == nil || composer.isSending)
-                    .background(TextEditorDropInterceptor())
-                    .onChange(of: composer.message) { _, _ in
-                        composer.persistDraft()
-                        onTyping()
-                        isMentionPickerPresented = mentionQuery != nil
-                        selectedMentionIndex = 0
+                ComposerTextEditor(
+                    text: $composer.message,
+                    isDisabled: channelID == nil || composer.isSending,
+                    onReturn: { handleComposerReturn() },
+                    onVerticalArrow: { isDown in handleComposerArrow(isDown: isDown) },
+                    onEscape: { handleComposerEscape() },
+                    onDropFiles: { urls in
+                        composer.addAttachments(urls)
                     }
-                    .onDrop(of: [.fileURL, .plainText], isTargeted: nil) { providers in
-                        handleDrop(providers)
-                    }
-                    .onKeyPress(.return, phases: .down) { keyPress in
-                        handleReturn(keyPress)
-                    }
-                    .onKeyPress(keys: [.upArrow, .downArrow], phases: .down) { keyPress in
-                        handleArrow(keyPress)
-                    }
-                    .onKeyPress(.escape, phases: .down) { _ in
-                        handleEscape()
-                    }
+                )
+                .padding(8)
+                .frame(height: composer.height)
+                .onChange(of: composer.message) { _, _ in
+                    composer.persistDraft()
+                    onTyping()
+                    isMentionPickerPresented = mentionQuery != nil
+                    selectedMentionIndex = 0
+                }
 
                 Divider().overlay(WorkspaceTheme.divider)
 
@@ -233,64 +226,32 @@ struct MessageComposer: View {
         }
     }
 
-    private func handleReturn(_ keyPress: KeyPress) -> KeyPress.Result {
-        guard !keyPress.modifiers.contains(.shift) else { return .ignored }
+    // Return true from these when the keystroke was consumed; the text view
+    // otherwise falls through to its native behavior (newline, cursor move).
+    private func handleComposerReturn() -> Bool {
         if isMentionPickerPresented, !mentionMatches.isEmpty {
             let index = min(selectedMentionIndex, mentionMatches.count - 1)
             selectMention(mentionMatches[index])
         } else {
             sendMessage()
         }
-        return .handled
+        return true
     }
 
-    private func handleArrow(_ keyPress: KeyPress) -> KeyPress.Result {
-        guard isMentionPickerPresented, !mentionMatches.isEmpty else { return .ignored }
-        if keyPress.key == .downArrow {
+    private func handleComposerArrow(isDown: Bool) -> Bool {
+        guard isMentionPickerPresented, !mentionMatches.isEmpty else { return false }
+        if isDown {
             selectedMentionIndex = min(selectedMentionIndex + 1, mentionMatches.count - 1)
         } else {
             selectedMentionIndex = max(selectedMentionIndex - 1, 0)
         }
-        return .handled
+        return true
     }
 
-    private func handleEscape() -> KeyPress.Result {
-        guard isMentionPickerPresented else { return .ignored }
+    private func handleComposerEscape() -> Bool {
+        guard isMentionPickerPresented else { return false }
         isMentionPickerPresented = false
-        return .handled
-    }
-
-    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
-        var claimed = false
-        for provider in providers {
-            // File drags win over text so a dropped .txt attaches instead of
-            // dumping its contents into the message.
-            if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-                claimed = true
-                provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                    let url: URL?
-                    if let loaded = item as? URL {
-                        url = loaded
-                    } else if let data = item as? Data {
-                        url = URL(dataRepresentation: data, relativeTo: nil)
-                    } else if let string = item as? String {
-                        url = URL(string: string) ?? URL(fileURLWithPath: string)
-                    } else {
-                        url = nil
-                    }
-                    guard let url else { return }
-                    Task { @MainActor in composer.addAttachments([url]) }
-                }
-            } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                claimed = true
-                provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
-                    let text = item as? String ?? (item as? Data).flatMap { String(data: $0, encoding: .utf8) }
-                    guard let text else { return }
-                    Task { @MainActor in composer.message += text }
-                }
-            }
-        }
-        return claimed
+        return true
     }
 
     private func insertFormatting(_ format: ComposerFormat) {
@@ -335,38 +296,130 @@ struct MessageComposer: View {
     }
 }
 
-// TextEditor's underlying NSTextView natively accepts file drops by inserting
-// the file path as text, which swallows drags before the composer's .onDrop
-// handler runs. This probe strips the text view's drag registrations so file
-// and text drags fall through to .onDrop. Re-runs from make and update because
-// SwiftUI can recreate the underlying text view.
-private struct TextEditorDropInterceptor: NSViewRepresentable {
-    func makeNSView(context: Context) -> ProbeView {
-        ProbeView()
+// SwiftUI's TextEditor hosts its NSTextView where we cannot intercept it —
+// diagnostics showed the editor's native text view swallows file drops and
+// inserts the path as text, with no path for our code to see them. The
+// composer therefore owns its text view directly: dropped files become
+// attachments and text drags keep the native insert-at-caret behavior.
+private struct ComposerTextEditor: NSViewRepresentable {
+    @Binding var text: String
+    let isDisabled: Bool
+    var onReturn: () -> Bool
+    var onVerticalArrow: (Bool) -> Bool
+    var onEscape: () -> Bool
+    var onDropFiles: ([URL]) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
     }
 
-    func updateNSView(_ view: ProbeView, context: Context) {
-        view.disableNativeDrops()
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.focusRingType = .none
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+
+        let textView = ComposerNSTextView()
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.allowsUndo = true
+        textView.drawsBackground = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.minSize = .zero
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainerInset = .zero
+        textView.font = .systemFont(ofSize: 13)
+        // Keep text types so text drags fall through to the native
+        // insert-at-caret path; file URLs route to the attachment callback.
+        textView.registerForDraggedTypes([.fileURL, .string, .rtf])
+        textView.delegate = context.coordinator
+        scrollView.documentView = textView
+        return scrollView
     }
 
-    final class ProbeView: NSView {
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            disableNativeDrops()
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? ComposerNSTextView else { return }
+        if textView.string != text {
+            textView.string = text
+        }
+        textView.isEditable = !isDisabled
+        textView.onReturn = onReturn
+        textView.onVerticalArrow = onVerticalArrow
+        textView.onEscape = onEscape
+        textView.onDropFiles = onDropFiles
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        let text: Binding<String>
+
+        init(text: Binding<String>) {
+            self.text = text
         }
 
-        func disableNativeDrops() {
-            // The probe is a background of the TextEditor, so its superview
-            // contains the editor's AppKit subtree and nothing else.
-            guard let container = superview else { return }
-            var queue: [NSView] = [container]
-            while let view = queue.popLast() {
-                if view is NSTextView {
-                    view.unregisterDraggedTypes()
-                }
-                queue.append(contentsOf: view.subviews)
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            if text.wrappedValue != textView.string {
+                text.wrappedValue = textView.string
             }
         }
+    }
+}
+
+private final class ComposerNSTextView: NSTextView {
+    var onReturn: (() -> Bool)?
+    var onVerticalArrow: ((Bool) -> Bool)?
+    var onEscape: (() -> Bool)?
+    var onDropFiles: (([URL]) -> Void)?
+
+    override func insertNewline(_ sender: Any?) {
+        let isShiftReturn = NSApp.currentEvent?.modifierFlags.contains(.shift) ?? false
+        if !isShiftReturn, onReturn?() == true { return }
+        super.insertNewline(sender)
+    }
+
+    override func moveUp(_ sender: Any?) {
+        if onVerticalArrow?(false) == true { return }
+        super.moveUp(sender)
+    }
+
+    override func moveDown(_ sender: Any?) {
+        if onVerticalArrow?(true) == true { return }
+        super.moveDown(sender)
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        if onEscape?() == true { return }
+        super.cancelOperation(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let fileURLs = Self.droppedFileURLs(from: sender.draggingPasteboard)
+        NSLog("[composer-drop] editor drop: %ld file URL(s)", fileURLs.count)
+        if !fileURLs.isEmpty {
+            onDropFiles?(fileURLs)
+            return true
+        }
+        return super.performDragOperation(sender)
+    }
+
+    private static func droppedFileURLs(from pasteboard: NSPasteboard) -> [URL] {
+        if let urls = pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) as? [URL], !urls.isEmpty {
+            return urls
+        }
+        if let data = pasteboard.data(forType: .fileURL),
+           let url = URL(dataRepresentation: data, relativeTo: nil) {
+            return [url]
+        }
+        return []
     }
 }
 
