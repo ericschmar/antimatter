@@ -1,9 +1,17 @@
 import AntimatterFoundation
+import AppKit
 import OSLog
 import SwiftUI
 
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+}
+
 @main
 struct AntimatterApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     private let configuration: AppConfiguration
     @StateObject private var authentication: AuthenticationViewModel
     @StateObject private var accentColorSettings = AccentColorSettings()

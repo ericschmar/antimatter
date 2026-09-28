@@ -46,6 +46,7 @@
 		AC7AC2663049E3C400B4461D /* EmojiKit in Frameworks */ = {isa = PBXBuildFile; productRef = AC7AC2653049E3C400B4461D /* EmojiKit */; };
 		AC7AC2673049E3C400B4461D /* MattermostPolls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2683049E3C400B4461D /* MattermostPolls.swift */; };
 		AC7AC2703049E3C400B4461D /* ChatTypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7AC2693049E3C400B4461D /* ChatTypingIndicator.swift */; };
+		AC948448306AD4F600C654AC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ACBFE475304A0B030040FD59 /* Assets.xcassets */; };
 		ACBFE47B304B58860040FD59 /* EmojiData in Frameworks */ = {isa = PBXBuildFile; productRef = ACBFE47A304B58860040FD59 /* EmojiData */; };
 		ACBFE47D304B690C0040FD59 /* GiphyClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE47C304B690C0040FD59 /* GiphyClient.swift */; };
 		ACBFE481304C00000040FD59 /* MattermostCustomEmoji.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE480304C00000040FD59 /* MattermostCustomEmoji.swift */; };
@@ -242,6 +243,7 @@
 			buildPhases = (
 				A30000000000000000000001 /* Frameworks */,
 				A70000000000000000000001 /* Sources */,
+				AC948447306AD4F200C654AC /* Resources */,
 			);
 			buildRules = (
 			);
@@ -316,6 +318,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AC948447306AD4F200C654AC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC948448306AD4F600C654AC /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A70000000000000000000001 /* Sources */ = {
@@ -395,6 +408,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -418,6 +432,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_STYLE = Automatic;

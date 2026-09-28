@@ -421,6 +421,37 @@ final class MattermostAPIClientTests: XCTestCase {
         XCTAssertEqual(event.data?["user_id"]?.stringValue, "user-1")
     }
 
+    func testWebSocketTypingEventDecodesChannelFromBroadcast() throws {
+        // Real frames from current server versions keep only user_id/parent_id
+        // in `data`; the channel rides in `broadcast.channel_id`.
+        let data = Data(
+            """
+            {
+              "event": "typing",
+              "data": {
+                "user_id": "user-1",
+                "parent_id": ""
+              },
+              "broadcast": {
+                "omit_users": null,
+                "user_id": "user-1",
+                "channel_id": "channel-1",
+                "team_id": "",
+                "omit_connection_id": "connection-1"
+              },
+              "seq": 41
+            }
+            """.utf8
+        )
+
+        let event = try JSONDecoder().decode(MattermostWebSocketEvent.self, from: data)
+
+        XCTAssertEqual(event.event, "typing")
+        XCTAssertNil(event.data?["channel_id"])
+        XCTAssertEqual(event.broadcast?["channel_id"]?.stringValue, "channel-1")
+        XCTAssertEqual(event.data?["user_id"]?.stringValue, "user-1")
+    }
+
     func testReactionEndpointsUseAuthenticatedMattermostPaths() async throws {
         var requestedPaths: [String] = []
         URLProtocolStub.handler = { request in

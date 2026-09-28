@@ -860,9 +860,12 @@ private struct ConversationPlaceholder: View {
                                 }
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                            if presence.hasTypingUsers {
-                                ChatTypingIndicator()
+                            .overlay(alignment: .bottomLeading) {
+                                if !typingNames.isEmpty {
+                                    ChatTypingIndicator(names: typingNames)
+                                        .padding(.leading, 18)
+                                        .padding(.bottom, 6)
+                                }
                             }
 
                             if selectedThreadRootID == nil {
@@ -936,6 +939,14 @@ private struct ConversationPlaceholder: View {
 
     private var selectedTab: WorkspaceTab? {
         workspace.tabs.first(where: { $0.channelID == workspace.selectedChannelID })
+    }
+
+    private var typingNames: [String] {
+        let knownUsers = navigation.users.merging(timeline.users) { _, new in new }
+        return presence.typingUserIDs
+            .filter { $0 != navigation.currentUserID }
+            .compactMap { knownUsers[$0]?.displayName ?? "Someone" }
+            .sorted()
     }
 
     @ViewBuilder

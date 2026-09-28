@@ -47,6 +47,7 @@ public enum MattermostWebSocketValue: Codable, Equatable, Sendable {
 public struct MattermostWebSocketEvent: Decodable, Equatable, Sendable {
     public let event: String
     public let data: [String: MattermostWebSocketValue]?
+    public let broadcast: [String: MattermostWebSocketValue]?
     public let seq: Int?
 
     public func decodedData<Value: Decodable>(_ type: Value.Type, forKey key: String) -> Value? {

@@ -32,7 +32,12 @@ final class PresenceViewModel: ObservableObject {
     func reconcile(_ event: MattermostWebSocketEvent, channelID: String?) {
         switch event.event {
         case "typing":
-            guard event.data?["channel_id"]?.stringValue == channelID,
+            // Current server versions put only user_id/parent_id in typing
+            // `data`; the channel rides in `broadcast.channel_id`, which is
+            // also what the hub routes by. Accept either location.
+            let typingChannelID = event.data?["channel_id"]?.stringValue
+                ?? event.broadcast?["channel_id"]?.stringValue
+            guard typingChannelID == channelID,
                   let userID = event.data?["user_id"]?.stringValue else { return }
             typingUserIDs.insert(userID)
             expiryTasks[userID]?.cancel()
