@@ -10,6 +10,10 @@ struct MessageComposer: View {
     let teamID: String?
     let onSent: (MattermostPost) -> Void
     let onTyping: () -> Void
+    let editingPost: MattermostPost?
+    @Binding var editMessage: String
+    let onSaveEdit: (MattermostPost) -> Void
+    let onCancelEdit: () -> Void
     @State private var isImportingFiles = false
     @State private var isCreatingPoll = false
     @State private var isGiphyPickerPresented = false
@@ -25,7 +29,11 @@ struct MessageComposer: View {
     }
 
     private var canSendMessage: Bool {
-        !composerDisabled && composer.hasContent
+        !composerDisabled && (editingPost == nil ? composer.hasContent : !editMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    private var editorText: Binding<String> {
+        editingPost == nil ? $composer.message : $editMessage
     }
 
     private var mentionQuery: String? {
@@ -81,7 +89,27 @@ struct MessageComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let replyPost = composer.replyPost {
+            if editingPost != nil {
+                HStack(spacing: 8) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 11))
+                        .foregroundStyle(WorkspaceTheme.navigationAccent)
+                    Text("Editing message")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(WorkspaceTheme.primaryText)
+                    Spacer(minLength: 0)
+                    Button(action: onCancelEdit) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .accessibilityLabel("Cancel edit")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(WorkspaceTheme.raisedSurface.opacity(0.7), in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
+            } else if let replyPost = composer.replyPost {
                 HStack(spacing: 8) {
                     Image(systemName: "arrowshape.turn.up.left.fill")
                         .font(.system(size: 11))
@@ -113,7 +141,7 @@ struct MessageComposer: View {
             }
             VStack(spacing: 0) {
                 ComposerTextEditor(
-                    text: $composer.message,
+                    text: editorText,
                     isDisabled: channelID == nil || composer.isSending,
                     onReturn: { handleComposerReturn() },
                     onVerticalArrow: { isDown in handleComposerArrow(isDown: isDown) },
@@ -125,10 +153,15 @@ struct MessageComposer: View {
                 .padding(8)
                 .frame(height: composer.height)
                 .onChange(of: composer.message) { _, _ in
+                    guard editingPost == nil else { return }
                     composer.persistDraft()
                     onTyping()
                     isMentionPickerPresented = mentionQuery != nil
                     selectedMentionIndex = 0
+                }
+                .onChange(of: editMessage) { _, _ in
+                    guard editingPost != nil else { return }
+                    isMentionPickerPresented = false
                 }
 
                 Divider().overlay(WorkspaceTheme.divider)
@@ -151,15 +184,15 @@ struct MessageComposer: View {
                             .foregroundStyle(WorkspaceTheme.attention)
                             .lineLimit(1)
                     }
-                    Button(action: sendMessage) {
-                        Image(systemName: composer.isSending ? "ellipsis" : "arrow.up")
+                    Button(action: submitMessage) {
+                        Image(systemName: composer.isSending ? "ellipsis" : (editingPost == nil ? "arrow.up" : "checkmark"))
                             .font(.system(size: 12, weight: .bold))
                             .frame(width: 28, height: 28)
                             .foregroundStyle(WorkspaceTheme.canvas)
                             .background(WorkspaceTheme.accent, in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .help(composer.isSending ? "Sending" : "Send message")
+                    .help(composer.isSending ? "Sending" : (editingPost == nil ? "Send message" : "Save edit"))
                     .disabled(!canSendMessage)
                 }
                 .padding(.horizontal, 7)
@@ -229,7 +262,9 @@ struct MessageComposer: View {
     // Return true from these when the keystroke was consumed; the text view
     // otherwise falls through to its native behavior (newline, cursor move).
     private func handleComposerReturn() -> Bool {
-        if isMentionPickerPresented, !mentionMatches.isEmpty {
+        if editingPost != nil {
+            submitMessage()
+        } else if isMentionPickerPresented, !mentionMatches.isEmpty {
             let index = min(selectedMentionIndex, mentionMatches.count - 1)
             selectMention(mentionMatches[index])
         } else {
@@ -287,12 +322,20 @@ struct MessageComposer: View {
         isMentionPickerPresented = false
     }
 
-    private func sendMessage() {
+    private func submitMessage() {
         guard canSendMessage else { return }
-        Task { @MainActor in
-            await Task.yield()
-            composer.send(onSent: onSent)
+        if let editingPost {
+            onSaveEdit(editingPost)
+        } else {
+            Task { @MainActor in
+                await Task.yield()
+                composer.send(onSent: onSent)
+            }
         }
+    }
+
+    private func sendMessage() {
+        submitMessage()
     }
 }
 

@@ -86,17 +86,11 @@ struct ChannelSection: View {
                             }
                             Text(navigation.displayName(for: channel)).lineLimit(1)
                             Spacer(minLength: 0)
-                            if channel.mentionCount > 0 {
-                                Text(String(channel.mentionCount))
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(WorkspaceTheme.accent)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(WorkspaceTheme.accent.opacity(0.16), in: Capsule())
-                            } else if channel.unreadCount > 0 {
-                                Text(String(channel.unreadCount))
-                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(WorkspaceTheme.accent)
+                            if channel.unreadCount > 0 || channel.mentionCount > 0 {
+                                Circle()
+                                    .fill(WorkspaceTheme.accent)
+                                    .frame(width: 6, height: 6)
+                                    .accessibilityHidden(true)
                             }
                             if hoveredChannelID == channel.id {
                                 Image(systemName: "ellipsis")
@@ -105,8 +99,8 @@ struct ChannelSection: View {
                                     .accessibilityHidden(true)
                             }
                         }
-                        .font(.system(size: 13, weight: channel.unreadCount > 0 ? .semibold : .regular))
-                        .foregroundStyle(WorkspaceTheme.primaryText)
+                        .font(.system(size: 13, weight: channel.unreadCount > 0 || channel.mentionCount > 0 ? .semibold : .regular))
+                        .foregroundStyle(channel.unreadCount > 0 || channel.mentionCount > 0 ? WorkspaceTheme.primaryText : WorkspaceTheme.secondaryText)
                         .padding(.leading, 16)
                         .padding(.trailing, 8)
                         .frame(maxWidth: .infinity)
@@ -115,16 +109,14 @@ struct ChannelSection: View {
                             navigation.selectedChannelID == channel.id ? WorkspaceTheme.raisedSurface : .clear,
                             in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous)
                         )
-                        .overlay(alignment: .leading) {
-                            if navigation.selectedChannelID == channel.id {
-                                Rectangle()
-                                    .fill(WorkspaceTheme.accent)
-                                    .frame(width: 2, height: 22)
-                            }
-                        }
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        channel.unreadCount > 0 || channel.mentionCount > 0
+                            ? "\(navigation.displayName(for: channel)), unread"
+                            : navigation.displayName(for: channel)
+                    )
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
                             onOpenPermanently(channel)

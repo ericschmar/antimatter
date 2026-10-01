@@ -103,6 +103,11 @@ private struct WorkspaceTabItem: View {
         workspace.selectedChannelID == tab.channelID
     }
 
+    private var hasUnread: Bool {
+        guard let channel = navigation.channels.first(where: { $0.id == tab.channelID }) else { return false }
+        return channel.unreadCount > 0 || channel.mentionCount > 0
+    }
+
     var body: some View {
         HStack(spacing: 6) {
             Button {
@@ -121,7 +126,7 @@ private struct WorkspaceTabItem: View {
 
                     Text(tab.title)
                         .lineLimit(1)
-                        .font(.system(size: 12, weight: isSelected ? .medium : .regular))
+                        .font(.system(size: 12, weight: isSelected || hasUnread ? .medium : .regular))
                         .italic(tab.isPreview)
                 }
             }
@@ -144,7 +149,7 @@ private struct WorkspaceTabItem: View {
             .opacity(isHovering || isSelected ? 1 : 0)
             .help("Close tab")
         }
-        .foregroundStyle(isSelected ? WorkspaceTheme.primaryText : WorkspaceTheme.secondaryText)
+        .foregroundStyle(isSelected || hasUnread ? WorkspaceTheme.primaryText : WorkspaceTheme.secondaryText)
         .padding(.leading, 10)
         .padding(.trailing, 3)
         .frame(height: WorkspaceTheme.titleHeight - 6)

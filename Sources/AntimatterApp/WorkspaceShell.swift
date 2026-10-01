@@ -262,11 +262,6 @@ private struct SidebarPlaceholder: View {
                 onLogout: disconnect
             )
 
-            AttentionShelf(
-                mentionCount: navigation.mentionCount,
-                unreadChannelCount: navigation.unreadChannelCount
-            )
-
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if navigation.isLoading {
@@ -457,53 +452,6 @@ private struct CommandDeckHeader: View {
             .padding(.bottom, 8)
         }
         .padding(.horizontal, 14)
-    }
-}
-
-private struct AttentionShelf: View {
-    let mentionCount: Int
-    let unreadChannelCount: Int
-
-    var body: some View {
-        if mentionCount > 0 || unreadChannelCount > 0 {
-            VStack(spacing: 1) {
-                if mentionCount > 0 {
-                    AttentionShelfRow(symbol: "at", title: "Mentions", count: mentionCount, tint: WorkspaceTheme.attention)
-                }
-                if unreadChannelCount > 0 {
-                    AttentionShelfRow(symbol: "circle.fill", title: "Unread", count: unreadChannelCount, tint: WorkspaceTheme.accent)
-                }
-            }
-            .padding(.vertical, 6)
-            .background(WorkspaceTheme.surface.opacity(0.45))
-        }
-    }
-}
-
-private struct AttentionShelfRow: View {
-    let symbol: String
-    let title: String
-    let count: Int
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(tint)
-                .frame(width: 12)
-            Text(title)
-            Spacer(minLength: 0)
-            Text(String(count))
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(tint)
-        }
-        .font(.system(size: 11, weight: .medium))
-        .foregroundStyle(WorkspaceTheme.secondaryText)
-        .padding(.horizontal, 16)
-        .frame(height: 24)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(count)")
     }
 }
 
@@ -999,18 +947,28 @@ private struct ConversationPlaceholder: View {
     }
 
     private var messageComposer: some View {
-        MessageComposer(composer: composer, channelID: selectedTab?.channelID, teamID: pollTeamID) { post in
-            Task {
-                await timeline.appendSentPost(post)
-                if let selectedThreadRootID,
-                   let root = timeline.posts.first(where: { $0.id == selectedThreadRootID }) {
-                    composer.reply(to: root)
+        MessageComposer(
+            composer: composer,
+            channelID: selectedTab?.channelID,
+            teamID: pollTeamID,
+            onSent: { post in
+                Task {
+                    await timeline.appendSentPost(post)
+                    if let selectedThreadRootID,
+                       let root = timeline.posts.first(where: { $0.id == selectedThreadRootID }) {
+                        composer.reply(to: root)
+                    }
                 }
-            }
-        } onTyping: {
-            guard let channelID = selectedTab?.channelID else { return }
-            Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
-        }
+            },
+            onTyping: {
+                guard let channelID = selectedTab?.channelID else { return }
+                Task { await realtime.sendTyping(channelID: channelID, parentID: composer.replyRootID ?? "") }
+            },
+            editingPost: timeline.editingPostID.flatMap { id in timeline.posts.first(where: { $0.id == id }) },
+            editMessage: $timeline.editMessage,
+            onSaveEdit: timeline.saveEdit,
+            onCancelEdit: timeline.cancelEditing
+        )
     }
 
     private var pollTeamID: String? {
