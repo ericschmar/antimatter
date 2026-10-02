@@ -934,6 +934,7 @@ private struct MessageActionBar: View {
                 onToggleReaction: onToggleReaction
             )
             actionButton("arrowshape.turn.up.left", label: "Reply") { onReply(post) }
+                .pointerStyle(.link)
             if post.userID == currentUserID {
                 actionButton("pencil", label: "Edit message") { onEdit(post) }
             }
@@ -952,6 +953,7 @@ private struct MessageActionBar: View {
                     .frame(width: 26, height: 26)
             }
             .menuStyle(.borderlessButton)
+            .pointerStyle(.link)
         }
         .foregroundStyle(WorkspaceTheme.secondaryText)
         .background(WorkspaceTheme.surface, in: RoundedRectangle(cornerRadius: WorkspaceTheme.compactCornerRadius, style: .continuous))
@@ -1288,6 +1290,7 @@ private struct AddReactionButton: View {
                 .padding(5)
         }
         .buttonStyle(.plain)
+        .pointerStyle(.link)
         .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
             EmojiPickerView(
                 selectedEmoji: $selectedEmoji,
