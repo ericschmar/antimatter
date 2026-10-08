@@ -63,10 +63,7 @@ struct AntimatterApp: App {
         }
 
         WindowGroup("Direct message", for: DirectMessageWindowRoute.self) { $route in
-            if let route,
-               let session = ([authentication.connectedSession] + authentication.savedSessions)
-                .compactMap { session in session }
-                .first(where: { session in session.serverURL.absoluteString == route.serverURL }) {
+            if let route, let session = session(for: route) {
                 DirectMessageWindow(route: route, configuration: configuration, session: session)
             } else {
                 Color.clear
@@ -78,5 +75,11 @@ struct AntimatterApp: App {
         .environmentObject(accentColorSettings)
         .environmentObject(userColorSettings)
         .environmentObject(directMessageWindows)
+    }
+
+    private func session(for route: DirectMessageWindowRoute) -> MattermostSession? {
+        ([authentication.connectedSession] + authentication.savedSessions)
+            .compactMap { $0 }
+            .first { $0.serverURL.absoluteString == route.serverURL }
     }
 }
