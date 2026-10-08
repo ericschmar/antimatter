@@ -344,7 +344,7 @@ struct MessageComposer: View {
 // inserts the path as text, with no path for our code to see them. The
 // composer therefore owns its text view directly: dropped files become
 // attachments and text drags keep the native insert-at-caret behavior.
-private struct ComposerTextEditor: NSViewRepresentable {
+struct ComposerTextEditor: NSViewRepresentable {
     @Binding var text: String
     let isDisabled: Bool
     var onReturn: () -> Bool
@@ -387,6 +387,7 @@ private struct ComposerTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        context.coordinator.text = $text
         guard let textView = scrollView.documentView as? ComposerNSTextView else { return }
         if textView.string != text {
             textView.string = text
@@ -399,7 +400,7 @@ private struct ComposerTextEditor: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
-        let text: Binding<String>
+        var text: Binding<String>
 
         init(text: Binding<String>) {
             self.text = text

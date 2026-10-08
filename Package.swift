@@ -38,5 +38,10 @@ let package = Package(
             ],
             path: "NativeTests/AntimatterFoundationTests"
         ),
+        .testTarget(
+            name: "AntimatterAppTests",
+            dependencies: ["AntimatterApp"],
+            path: "NativeTests/AntimatterAppTests"
+        ),
     ]
 )
