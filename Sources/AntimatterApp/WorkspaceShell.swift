@@ -393,7 +393,7 @@ private struct OverlayScrollerConfigurator: NSViewRepresentable {
     }
 }
 
-private struct TitleBarControlAligner: NSViewRepresentable {
+struct TitleBarControlAligner: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         NSView()
     }
@@ -401,20 +401,24 @@ private struct TitleBarControlAligner: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {
         DispatchQueue.main.async {
             guard let window = view.window else { return }
-            let controlTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+            Self.alignControls(in: window)
+        }
+    }
 
-            for controlType in controlTypes {
-                guard let button = window.standardWindowButton(controlType),
-                      let container = button.superview
-                else {
-                    continue
-                }
+    static func alignControls(in window: NSWindow) {
+        let controlTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
 
-                let originY = container.bounds.maxY
-                    - WorkspaceTheme.titleBarContentHeight / 2
-                    - button.frame.height / 2
-                button.setFrameOrigin(NSPoint(x: button.frame.minX, y: originY))
+        for controlType in controlTypes {
+            guard let button = window.standardWindowButton(controlType),
+                  let container = button.superview
+            else {
+                continue
             }
+
+            let originY = container.bounds.maxY
+                - WorkspaceTheme.titleBarContentHeight / 2
+                - button.frame.height / 2
+            button.setFrameOrigin(NSPoint(x: button.frame.minX, y: originY))
         }
     }
 }

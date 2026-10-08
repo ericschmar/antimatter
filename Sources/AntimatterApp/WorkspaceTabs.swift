@@ -35,7 +35,7 @@ struct WorkspaceTabs: View {
     }
 }
 
-private struct WindowDragConfiguration: NSViewRepresentable {
+struct WindowDragConfiguration: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         WindowDragView()
     }

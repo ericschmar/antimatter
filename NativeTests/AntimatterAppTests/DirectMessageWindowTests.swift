@@ -1,4 +1,5 @@
 import AntimatterFoundation
+import AppKit
 import Foundation
 import XCTest
 
@@ -9,6 +10,28 @@ final class DirectMessageWindowTests: XCTestCase {
     override func tearDown() {
         DirectMessageURLProtocolStub.handler = nil
         super.tearDown()
+    }
+
+    func testTitleBarControlAlignerCentersTrafficLights() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 760),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        let controlTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+
+        TitleBarControlAligner.alignControls(in: window)
+
+        for controlType in controlTypes {
+            let button = try XCTUnwrap(window.standardWindowButton(controlType))
+            let container = try XCTUnwrap(button.superview)
+            XCTAssertEqual(
+                button.frame.midY,
+                container.bounds.maxY - WorkspaceTheme.titleBarContentHeight / 2,
+                accuracy: 0.001
+            )
+        }
     }
 
     func testRegistryUsesServerAndChannelInsteadOfTitle() throws {

@@ -103,6 +103,8 @@ struct DirectMessageWindow: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(WorkspaceTheme.primaryText)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
 
                 Spacer(minLength: 0)
 
@@ -125,9 +127,11 @@ struct DirectMessageWindow: View {
                 .accessibilityLabel(isChannelFilesPresented ? "Close channel files" : "Show channel files")
                 .accessibilityHint("Shows files shared in this direct message.")
             }
-            .padding(.horizontal, 18)
-            .frame(height: WorkspaceTheme.headerHeight)
+            .padding(.leading, WorkspaceTheme.titleBarControlInset)
+            .padding(.trailing, 18)
+            .frame(height: WorkspaceTheme.titleBarContentHeight)
             .background(WorkspaceTheme.surface)
+            .background(WindowDragConfiguration())
 
             Divider().overlay(WorkspaceTheme.divider)
 
@@ -206,6 +210,8 @@ struct DirectMessageWindow: View {
             }
         }
         .background(WorkspaceTheme.canvas)
+        .background(TitleBarControlAligner())
+        .ignoresSafeArea(.container, edges: .top)
         .preferredColorScheme(.dark)
         .task {
             await navigation.load(preferredChannelID: route.channelID)
