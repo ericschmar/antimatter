@@ -394,6 +394,35 @@ private struct OverlayScrollerConfigurator: NSViewRepresentable {
 }
 
 struct TitleBarControlAligner: NSViewRepresentable {
+    final class Coordinator: NSObject {
+        private weak var window: NSWindow?
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
+
+        func observeResize(of newWindow: NSWindow) {
+            guard window !== newWindow else { return }
+            NotificationCenter.default.removeObserver(self, name: NSWindow.didResizeNotification, object: window)
+            window = newWindow
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(alignControlsAfterResize),
+                name: NSWindow.didResizeNotification,
+                object: newWindow
+            )
+        }
+
+        @MainActor @objc private func alignControlsAfterResize() {
+            guard let window else { return }
+            TitleBarControlAligner.alignControls(in: window)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> NSView {
         NSView()
     }
@@ -401,6 +430,7 @@ struct TitleBarControlAligner: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {
         DispatchQueue.main.async {
             guard let window = view.window else { return }
+            context.coordinator.observeResize(of: window)
             Self.alignControls(in: window)
         }
     }

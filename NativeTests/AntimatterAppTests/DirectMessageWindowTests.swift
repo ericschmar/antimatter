@@ -1,6 +1,7 @@
 import AntimatterFoundation
 import AppKit
 import Foundation
+import SwiftUI
 import XCTest
 
 @testable import AntimatterApp
@@ -22,6 +23,100 @@ final class DirectMessageWindowTests: XCTestCase {
         let controlTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
 
         TitleBarControlAligner.alignControls(in: window)
+
+        for controlType in controlTypes {
+            let button = try XCTUnwrap(window.standardWindowButton(controlType))
+            let container = try XCTUnwrap(button.superview)
+            XCTAssertEqual(
+                button.frame.midY,
+                container.bounds.maxY - WorkspaceTheme.titleBarContentHeight / 2,
+                accuracy: 0.001
+            )
+        }
+    }
+
+    func testStandaloneWindowMarksRouteChannelAsRead() async throws {
+        let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
+        let navigationLoaded = expectation(description: "standalone window loads its route")
+        let readMarker = expectation(description: "standalone window marks its route channel read")
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        let defaultsName = "DirectMessageWindowReadStateTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsName))
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+            defaults.removePersistentDomain(forName: defaultsName)
+        }
+        DirectMessageURLProtocolStub.handler = { request in
+            switch (request.httpMethod, request.url?.path) {
+            case ("GET", "/api/v4/users/me/teams"):
+                return Self.response(for: request, body: "[]")
+            case ("GET", "/api/v4/users/me/channels"):
+                navigationLoaded.fulfill()
+                return Self.response(for: request, body: #"[{"id":"channel-direct","name":"current-user_recipient-user","display_name":"Recipient","type":"D"}]"#)
+            case ("GET", "/api/v4/users/me"):
+                return Self.response(for: request, body: #"{"id":"current-user","username":"current"}"#)
+            case ("POST", "/api/v4/users/ids"):
+                return Self.response(for: request, body: #"[{"id":"recipient-user","username":"recipient","first_name":"Recipient"}]"#)
+            case ("GET", "/api/v4/users/me/channels/channel-direct/unread"):
+                return Self.response(for: request, body: #"{"channel_id":"channel-direct","msg_count":1,"mention_count":0}"#)
+            case ("GET", "/api/v4/users/current-user/image"), ("GET", "/api/v4/users/recipient-user/image"):
+                return Self.response(for: request, body: "avatar")
+            case ("POST", "/api/v4/channels/members/current-user/view"):
+                readMarker.fulfill()
+                return Self.response(for: request, body: "{}")
+            default:
+                throw MattermostAPIError.invalidResponse
+            }
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [DirectMessageURLProtocolStub.self]
+        let client = MattermostAPIClient(
+            serverURL: serverURL,
+            token: "test-token",
+            session: URLSession(configuration: configuration)
+        )
+        let navigation = NavigationViewModel(
+            loader: MattermostNavigationLoader(client: client),
+            store: MattermostLocalStore(serverURL: serverURL, directory: directory),
+            defaults: defaults
+        )
+        let route = try route(title: "Recipient")
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 760),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = NSHostingView(
+            rootView: DirectMessageWindow(
+                route: route,
+                configuration: AppConfiguration(environment: .development),
+                session: MattermostSession(serverURL: serverURL, token: "test-token"),
+                navigation: navigation
+            )
+            .environmentObject(DirectMessageWindowRegistry())
+        )
+        window.makeKeyAndOrderFront(nil)
+        defer { window.close() }
+
+        await fulfillment(of: [navigationLoaded, readMarker], timeout: 1)
+    }
+
+    func testTitleBarControlAlignerKeepsTrafficLightsCenteredAfterResize() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 760),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        let controlTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        let coordinator = TitleBarControlAligner.Coordinator()
+
+        TitleBarControlAligner.alignControls(in: window)
+        coordinator.observeResize(of: window)
+        window.setContentSize(NSSize(width: 1000, height: 760))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
 
         for controlType in controlTypes {
             let button = try XCTUnwrap(window.standardWindowButton(controlType))

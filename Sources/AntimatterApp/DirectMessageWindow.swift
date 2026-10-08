@@ -84,11 +84,16 @@ struct DirectMessageWindow: View {
     @State private var isChannelFilesPresented = false
     @State private var selectedThreadRootID: String?
 
-    init(route: DirectMessageWindowRoute, configuration: AppConfiguration, session: MattermostSession) {
+    init(
+        route: DirectMessageWindowRoute,
+        configuration: AppConfiguration,
+        session: MattermostSession,
+        navigation: NavigationViewModel? = nil
+    ) {
         self.route = route
         self.configuration = configuration
         self.session = session
-        _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
+        _navigation = StateObject(wrappedValue: navigation ?? NavigationViewModel(session: session))
         _timeline = StateObject(wrappedValue: TimelineViewModel(session: session))
         _composer = StateObject(wrappedValue: ComposerViewModel(session: session, giphyAPIKey: configuration.giphyAPIKey))
         _channelFiles = StateObject(wrappedValue: ChannelFilesViewModel(session: session))
@@ -215,6 +220,8 @@ struct DirectMessageWindow: View {
         .preferredColorScheme(.dark)
         .task {
             await navigation.load(preferredChannelID: route.channelID)
+            composer.select(channelID: route.channelID, teamID: navigation.selectedTeamID)
+            await navigation.markChannelAsRead(route.channelID, previousChannelID: nil)
             await presence.refresh(for: navigation.presenceUserIDs)
             await realtime.start()
         }
