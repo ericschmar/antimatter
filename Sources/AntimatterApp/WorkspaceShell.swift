@@ -136,7 +136,8 @@ struct WorkspaceShell: View {
                 savedSessions: savedSessions,
                 selectSession: selectSession,
                 addAccount: addAccount,
-                disconnect: disconnect
+                disconnect: disconnect,
+                close: { isSettingsPresented = false }
             )
         }
         .task {

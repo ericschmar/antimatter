@@ -45,7 +45,7 @@ struct SettingsView: View {
     let selectSession: (MattermostSession) -> Void
     let addAccount: () -> Void
     let disconnect: (MattermostSession?) -> Void
-    @Environment(\.dismiss) private var dismiss
+    let close: () -> Void
     @EnvironmentObject private var accentColorSettings: AccentColorSettings
     @StateObject private var accountSettings: AccountSettingsViewModel
     @State private var selection: Section? = .general
@@ -56,7 +56,8 @@ struct SettingsView: View {
         savedSessions: [MattermostSession],
         selectSession: @escaping (MattermostSession) -> Void,
         addAccount: @escaping () -> Void,
-        disconnect: @escaping (MattermostSession?) -> Void
+        disconnect: @escaping (MattermostSession?) -> Void,
+        close: @escaping () -> Void
     ) {
         self.session = session
         self.channels = channels
@@ -64,6 +65,7 @@ struct SettingsView: View {
         self.selectSession = selectSession
         self.addAccount = addAccount
         self.disconnect = disconnect
+        self.close = close
         _accountSettings = StateObject(wrappedValue: AccountSettingsViewModel(session: session))
     }
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
@@ -102,7 +104,7 @@ struct SettingsView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button {
-                    dismiss()
+                    close()
                 } label: {
                     Image(systemName: "xmark")
                 }
