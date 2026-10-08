@@ -16,6 +16,7 @@ struct AntimatterApp: App {
     @StateObject private var authentication: AuthenticationViewModel
     @StateObject private var accentColorSettings = AccentColorSettings()
     @StateObject private var userColorSettings = UserColorSettings()
+    @StateObject private var directMessageWindows = DirectMessageWindowRegistry()
 
     init() {
         let loadedConfiguration: AppConfiguration
@@ -53,11 +54,29 @@ struct AntimatterApp: App {
             }
             .environmentObject(accentColorSettings)
             .environmentObject(userColorSettings)
+            .environmentObject(directMessageWindows)
         }
         .defaultSize(width: 1_200, height: 800)
         .windowStyle(.hiddenTitleBar)
         .commands {
             WorkspaceCommands()
         }
+
+        WindowGroup("Direct message", for: DirectMessageWindowRoute.self) { $route in
+            if let route,
+               let session = ([authentication.connectedSession] + authentication.savedSessions)
+                .compactMap { session in session }
+                .first(where: { session in session.serverURL.absoluteString == route.serverURL }) {
+                DirectMessageWindow(route: route, configuration: configuration, session: session)
+            } else {
+                Color.clear
+            }
+        }
+        .defaultSize(width: 640, height: 760)
+        .windowStyle(.hiddenTitleBar)
+        .commandsRemoved()
+        .environmentObject(accentColorSettings)
+        .environmentObject(userColorSettings)
+        .environmentObject(directMessageWindows)
     }
 }
