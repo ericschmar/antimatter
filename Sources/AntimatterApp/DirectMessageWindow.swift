@@ -52,6 +52,23 @@ final class DirectMessageWindowRegistry: ObservableObject {
     }
 }
 
+@MainActor
+@discardableResult
+func requestDirectMessageWindow(
+    for channel: MattermostChannel,
+    session: MattermostSession,
+    title: String,
+    presentation: DirectMessagePresentation,
+    registry: DirectMessageWindowRegistry,
+    openWindow: (DirectMessageWindowRoute) -> Void
+) -> Bool {
+    guard presentation == .window, channel.type == "D" else { return false }
+    let route = DirectMessageWindowRoute(session: session, channel: channel, title: title)
+    guard registry.claim(route) else { return false }
+    openWindow(route)
+    return true
+}
+
 struct DirectMessageWindow: View {
     let route: DirectMessageWindowRoute
     let configuration: AppConfiguration
@@ -215,17 +232,15 @@ struct DirectMessageWindow: View {
             guard let channel = await navigation.openDirectMessage(
                 with: user,
                 selectInWorkspace: presentation.selectsInWorkspace
-            ),
-            presentation == .window,
-            channel.type == "D"
-            else { return }
-            let route = DirectMessageWindowRoute(
+            ) else { return }
+            requestDirectMessageWindow(
+                for: channel,
                 session: session,
-                channel: channel,
-                title: navigation.displayName(for: channel)
+                title: navigation.displayName(for: channel),
+                presentation: presentation,
+                registry: registry,
+                openWindow: { openWindow(value: $0) }
             )
-            guard registry.claim(route) else { return }
-            openWindow(value: route)
         }
     }
 

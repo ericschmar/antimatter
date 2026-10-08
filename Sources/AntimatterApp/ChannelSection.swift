@@ -8,6 +8,7 @@ struct ChannelSection: View {
     let channels: [MattermostChannel]
     @ObservedObject var navigation: NavigationViewModel
     @ObservedObject var presence: PresenceViewModel
+    let onOpenDirectMessage: (MattermostChannel) -> Void
     let onOpenPermanently: (MattermostChannel) -> Void
     let creationAction: (() -> Void)?
     @State private var draggedChannelID: String?
@@ -20,6 +21,7 @@ struct ChannelSection: View {
         channels: [MattermostChannel],
         navigation: NavigationViewModel,
         presence: PresenceViewModel,
+        onOpenDirectMessage: @escaping (MattermostChannel) -> Void,
         onOpenPermanently: @escaping (MattermostChannel) -> Void = { _ in },
         creationAction: (() -> Void)? = nil
     ) {
@@ -28,6 +30,7 @@ struct ChannelSection: View {
         self.channels = channels
         self.navigation = navigation
         self.presence = presence
+        self.onOpenDirectMessage = onOpenDirectMessage
         self.onOpenPermanently = onOpenPermanently
         self.creationAction = creationAction
     }
@@ -71,7 +74,11 @@ struct ChannelSection: View {
                     }
                     ForEach(channels) { channel in
                     Button {
-                        navigation.selectedChannelID = channel.id
+                        if channel.type == "D" {
+                            onOpenDirectMessage(channel)
+                        } else {
+                            navigation.selectedChannelID = channel.id
+                        }
                     } label: {
                         HStack(spacing: 8) {
                             if channel.type == "D" {

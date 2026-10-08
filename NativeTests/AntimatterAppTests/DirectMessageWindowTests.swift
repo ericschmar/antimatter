@@ -24,6 +24,33 @@ final class DirectMessageWindowTests: XCTestCase {
         XCTAssertTrue(registry.claim(renamedRoute))
     }
 
+    func testWindowPresentationRequestsRoute() throws {
+        let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
+        let session = MattermostSession(serverURL: serverURL, token: "test-token")
+        let channel = try JSONDecoder().decode(
+            MattermostChannel.self,
+            from: Data(#"{"id":"channel-direct","name":"current-user_recipient-user","display_name":"Recipient","type":"D"}"#.utf8)
+        )
+        let registry = DirectMessageWindowRegistry()
+        var requestedRoutes: [DirectMessageWindowRoute] = []
+        let request: () -> Bool = {
+            requestDirectMessageWindow(
+                for: channel,
+                session: session,
+                title: "Recipient",
+                presentation: .window,
+                registry: registry
+            ) { route in
+                requestedRoutes.append(route)
+            }
+        }
+
+        XCTAssertTrue(request())
+        XCTAssertFalse(request())
+        XCTAssertEqual(requestedRoutes.map(\.channelID), ["channel-direct"])
+        XCTAssertEqual(requestedRoutes.map(\.serverURL), [serverURL.absoluteString])
+    }
+
     func testNewDirectMessageForWindowDoesNotSelectWorkspace() async throws {
         let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)

@@ -65,6 +65,7 @@ struct WorkspaceShell: View {
                     onSearch: performSearch,
                     onOpenSettings: { isSettingsPresented = true },
                     onOpenPermanently: openPermanently,
+                    onOpenDirectMessage: openDirectMessage,
                     onStartDirectMessage: startDirectMessage,
                     disconnect: { disconnect(nil) }
                 )
@@ -235,30 +236,54 @@ struct WorkspaceShell: View {
         Task {
             guard let channel = await navigation.openDirectMessage(
                 with: user,
-                selectInWorkspace: presentation.selectsInWorkspace
+                selectInWorkspace: false
             ) else { return }
-            if presentation == .window {
-                openDirectMessageWindow(channel)
-            }
+            openDirectMessage(channel, presentation: presentation, selectInWorkspaceWhenDisabled: true)
         }
+    }
+
+    private func openDirectMessage(_ channel: MattermostChannel) {
+        openDirectMessage(
+            channel,
+            presentation: DirectMessagePresentation.current,
+            selectInWorkspaceWhenDisabled: true
+        )
     }
 
     private func openDirectMessageWindow(forIncoming post: MattermostPost) {
         guard post.userID != navigation.currentUserID,
               let channel = navigation.channels.first(where: { $0.id == post.channelID && $0.type == "D" })
         else { return }
-        openDirectMessageWindow(channel)
+        openDirectMessage(
+            channel,
+            presentation: DirectMessagePresentation.current,
+            selectInWorkspaceWhenDisabled: false
+        )
     }
 
-    private func openDirectMessageWindow(_ channel: MattermostChannel) {
-        guard DirectMessagePresentation.current == .window, channel.type == "D" else { return }
-        let route = DirectMessageWindowRoute(
-            session: session,
-            channel: channel,
-            title: navigation.displayName(for: channel)
-        )
-        guard directMessageWindows.claim(route) else { return }
-        openWindow(value: route)
+    private func openDirectMessage(
+        _ channel: MattermostChannel,
+        presentation: DirectMessagePresentation,
+        selectInWorkspaceWhenDisabled: Bool
+    ) {
+        guard channel.type == "D" else {
+            if selectInWorkspaceWhenDisabled {
+                navigation.selectedChannelID = channel.id
+            }
+            return
+        }
+        if presentation == .window {
+            requestDirectMessageWindow(
+                for: channel,
+                session: session,
+                title: navigation.displayName(for: channel),
+                presentation: presentation,
+                registry: directMessageWindows,
+                openWindow: { openWindow(value: $0) }
+            )
+        } else if selectInWorkspaceWhenDisabled {
+            navigation.selectedChannelID = channel.id
+        }
     }
 
     private func performSearch() {
@@ -282,6 +307,7 @@ private struct SidebarPlaceholder: View {
     let onSearch: () -> Void
     let onOpenSettings: () -> Void
     let onOpenPermanently: (MattermostChannel) -> Void
+    let onOpenDirectMessage: (MattermostChannel) -> Void
     let onStartDirectMessage: (MattermostUser) -> Void
     let disconnect: () -> Void
     @State private var isCreateChannelPresented = false
@@ -315,15 +341,15 @@ private struct SidebarPlaceholder: View {
                             .foregroundStyle(WorkspaceTheme.attention)
                             .padding(14)
                     } else {
-                        ChannelSection("FAVORITES", sectionID: "favorites", channels: navigation.favoriteChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
-                        ChannelSection("CHANNELS", sectionID: "channels", channels: navigation.regularChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently) {
+                        ChannelSection("FAVORITES", sectionID: "favorites", channels: navigation.favoriteChannels, navigation: navigation, presence: presence, onOpenDirectMessage: onOpenDirectMessage, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("CHANNELS", sectionID: "channels", channels: navigation.regularChannels, navigation: navigation, presence: presence, onOpenDirectMessage: onOpenDirectMessage, onOpenPermanently: onOpenPermanently) {
                             isCreateChannelPresented = true
                         }
-                        ChannelSection("DIRECT MESSAGES", sectionID: "direct", channels: navigation.directMessages, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently) {
+                        ChannelSection("DIRECT MESSAGES", sectionID: "direct", channels: navigation.directMessages, navigation: navigation, presence: presence, onOpenDirectMessage: onOpenDirectMessage, onOpenPermanently: onOpenPermanently) {
                             isNewDirectMessagePresented = true
                         }
-                        ChannelSection("GROUP MESSAGES", sectionID: "group", channels: navigation.groupMessages, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
-                        ChannelSection("ARCHIVED", sectionID: "archived", channels: navigation.archivedChannels, navigation: navigation, presence: presence, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("GROUP MESSAGES", sectionID: "group", channels: navigation.groupMessages, navigation: navigation, presence: presence, onOpenDirectMessage: onOpenDirectMessage, onOpenPermanently: onOpenPermanently)
+                        ChannelSection("ARCHIVED", sectionID: "archived", channels: navigation.archivedChannels, navigation: navigation, presence: presence, onOpenDirectMessage: onOpenDirectMessage, onOpenPermanently: onOpenPermanently)
                     }
                 }
                 .padding(.vertical, 8)
