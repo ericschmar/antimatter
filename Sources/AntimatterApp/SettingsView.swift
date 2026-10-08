@@ -45,6 +45,7 @@ struct SettingsView: View {
     let selectSession: (MattermostSession) -> Void
     let addAccount: () -> Void
     let disconnect: (MattermostSession?) -> Void
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var accentColorSettings: AccentColorSettings
     @StateObject private var accountSettings: AccountSettingsViewModel
     @State private var selection: Section? = .general
@@ -98,6 +99,17 @@ struct SettingsView: View {
             .background(WorkspaceTheme.canvas)
         }
         .navigationTitle("Settings")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .accessibilityLabel("Close Settings")
+                .help("Close Settings")
+            }
+        }
         .frame(width: 780, height: 540)
         .preferredColorScheme(.dark)
     }
