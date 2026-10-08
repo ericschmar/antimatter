@@ -126,7 +126,11 @@ struct ChannelSection: View {
                     )
                     .simultaneousGesture(
                         TapGesture(count: 2).onEnded {
-                            onOpenPermanently(channel)
+                            openChannelOnDoubleClick(
+                                channel,
+                                onOpenDirectMessage: onOpenDirectMessage,
+                                onOpenPermanently: onOpenPermanently
+                            )
                         }
                     )
                     .onHover { isHovered in
@@ -181,6 +185,18 @@ struct ChannelSection: View {
         }
     }
 
+}
+
+func openChannelOnDoubleClick(
+    _ channel: MattermostChannel,
+    onOpenDirectMessage: (MattermostChannel) -> Void,
+    onOpenPermanently: (MattermostChannel) -> Void
+) {
+    if channel.type == "D" {
+        onOpenDirectMessage(channel)
+    } else {
+        onOpenPermanently(channel)
+    }
 }
 
 private struct DirectMessageAvatar: View {
