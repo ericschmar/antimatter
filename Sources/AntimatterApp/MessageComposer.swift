@@ -32,6 +32,15 @@ struct MessageComposer: View {
         !composerDisabled && (editingPost == nil ? composer.hasContent : !editMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
+    private var focusRequestID: String? {
+        guard editingPost == nil,
+              !isImportingFiles,
+              !isCreatingPoll,
+              !isGiphyPickerPresented,
+              !isEmojiPickerPresented else { return nil }
+        return channelID
+    }
+
     private var editorText: Binding<String> {
         editingPost == nil ? $composer.message : $editMessage
     }
@@ -143,6 +152,7 @@ struct MessageComposer: View {
                 ComposerTextEditor(
                     text: editorText,
                     isDisabled: channelID == nil || composer.isSending,
+                    focusRequestID: focusRequestID,
                     onReturn: { handleComposerReturn() },
                     onVerticalArrow: { isDown in handleComposerArrow(isDown: isDown) },
                     onEscape: { handleComposerEscape() },
@@ -347,6 +357,7 @@ struct MessageComposer: View {
 struct ComposerTextEditor: NSViewRepresentable {
     @Binding var text: String
     let isDisabled: Bool
+    let focusRequestID: String?
     var onReturn: () -> Bool
     var onVerticalArrow: (Bool) -> Bool
     var onEscape: () -> Bool
@@ -397,6 +408,8 @@ struct ComposerTextEditor: NSViewRepresentable {
         textView.onVerticalArrow = onVerticalArrow
         textView.onEscape = onEscape
         textView.onDropFiles = onDropFiles
+        textView.focusRequestID = isDisabled ? nil : focusRequestID
+        textView.focusIfRequested()
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
@@ -415,11 +428,26 @@ struct ComposerTextEditor: NSViewRepresentable {
     }
 }
 
-private final class ComposerNSTextView: NSTextView {
+final class ComposerNSTextView: NSTextView {
     var onReturn: (() -> Bool)?
     var onVerticalArrow: ((Bool) -> Bool)?
     var onEscape: (() -> Bool)?
     var onDropFiles: (([URL]) -> Void)?
+    var focusRequestID: String?
+    private var completedFocusRequestID: String?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        focusIfRequested()
+    }
+
+    func focusIfRequested() {
+        guard let focusRequestID,
+              focusRequestID != completedFocusRequestID,
+              let window else { return }
+        completedFocusRequestID = focusRequestID
+        window.makeFirstResponder(self)
+    }
 
     override func insertNewline(_ sender: Any?) {
         let isShiftReturn = NSApp.currentEvent?.modifierFlags.contains(.shift) ?? false
