@@ -74,6 +74,7 @@ struct SettingsView: View {
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @AppStorage("followSystemAppearance") private var followSystemAppearance = false
     @AppStorage("workspaceOpenPreviews") private var openPreviews = true
+    @AppStorage(AppConfiguration.automaticallyOpenDirectMessagesInNewWindowKey) private var automaticallyOpenDirectMessagesInNewWindow = false
 
     var body: some View {
         NavigationSplitView {
@@ -191,6 +192,8 @@ struct SettingsView: View {
             SettingsPageHeader("Workspace", subtitle: "Choose how conversations open in your workspace.")
             SettingsGroup {
                 SettingsToggleRow("Open channels as previews", isOn: $openPreviews)
+                SettingsDivider()
+                SettingsToggleRow("Open direct messages in a new window", isOn: $automaticallyOpenDirectMessagesInNewWindow)
             }
 
         case .keyboardShortcuts:

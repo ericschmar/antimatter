@@ -23,6 +23,10 @@ public struct AppConfiguration: Equatable, Sendable {
 
     public let environment: Environment
     public let initialServerURL: URL?
+    public static let automaticallyOpenDirectMessagesInNewWindowKey = "automaticallyOpenDirectMessagesInNewWindow"
+    public static var automaticallyOpenDirectMessagesInNewWindow: Bool {
+        UserDefaults.standard.bool(forKey: automaticallyOpenDirectMessagesInNewWindowKey)
+    }
     /// Optional public Giphy API key used to search for GIFs from the composer.
     /// The key is intentionally read from the host environment and never persisted.
     public let giphyAPIKey: String?

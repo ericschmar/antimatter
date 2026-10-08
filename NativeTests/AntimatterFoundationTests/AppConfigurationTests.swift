@@ -10,6 +10,25 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertNil(configuration.giphyAPIKey)
     }
 
+    func testAutomaticDirectMessagePopOutPreferenceDefaultsToDisabledAndPersists() {
+        let defaults = UserDefaults.standard
+        let key = AppConfiguration.automaticallyOpenDirectMessagesInNewWindowKey
+        let originalValue = defaults.object(forKey: key)
+        defer {
+            if let originalValue {
+                defaults.set(originalValue, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        defaults.removeObject(forKey: key)
+        XCTAssertFalse(AppConfiguration.automaticallyOpenDirectMessagesInNewWindow)
+
+        defaults.set(true, forKey: key)
+        XCTAssertTrue(AppConfiguration.automaticallyOpenDirectMessagesInNewWindow)
+    }
+
     func testLoadReadsDevelopmentServerURL() throws {
         let configuration = try AppConfiguration.load(environment: [
             "ANTIMATTER_ENV": "development",
