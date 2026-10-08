@@ -231,9 +231,15 @@ struct WorkspaceShell: View {
     }
 
     private func startDirectMessage(with user: MattermostUser) {
+        let presentation = DirectMessagePresentation.current
         Task {
-            guard let channel = await navigation.openDirectMessage(with: user) else { return }
-            openDirectMessageWindow(channel)
+            guard let channel = await navigation.openDirectMessage(
+                with: user,
+                selectInWorkspace: presentation.selectsInWorkspace
+            ) else { return }
+            if presentation == .window {
+                openDirectMessageWindow(channel)
+            }
         }
     }
 
@@ -245,7 +251,7 @@ struct WorkspaceShell: View {
     }
 
     private func openDirectMessageWindow(_ channel: MattermostChannel) {
-        guard AppConfiguration.automaticallyOpenDirectMessagesInNewWindow, channel.type == "D" else { return }
+        guard DirectMessagePresentation.current == .window, channel.type == "D" else { return }
         let route = DirectMessageWindowRoute(
             session: session,
             channel: channel,
