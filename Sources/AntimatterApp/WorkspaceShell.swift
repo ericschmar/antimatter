@@ -10,6 +10,8 @@ struct WorkspaceShell: View {
     let addAccount: () -> Void
     let disconnect: (MattermostSession?) -> Void
     @EnvironmentObject private var accentColorSettings: AccentColorSettings
+    @EnvironmentObject private var directMessageWindows: DirectMessageWindowRegistry
+    @Environment(\.openWindow) private var openWindow
     @StateObject private var navigation: NavigationViewModel
     @StateObject private var workspace: WorkspaceViewModel
     @StateObject private var timeline: TimelineViewModel
@@ -63,6 +65,7 @@ struct WorkspaceShell: View {
                     onSearch: performSearch,
                     onOpenSettings: { isSettingsPresented = true },
                     onOpenPermanently: openPermanently,
+                    onStartDirectMessage: startDirectMessage,
                     disconnect: { disconnect(nil) }
                 )
                     .frame(
@@ -87,7 +90,8 @@ struct WorkspaceShell: View {
                     channelFiles: channelFiles,
                     presence: presence,
                     realtime: realtime,
-                    search: search
+                    search: search,
+                    onStartDirectMessage: startDirectMessage
                 )
                     .frame(minWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
                     .focusable()
@@ -153,6 +157,9 @@ struct WorkspaceShell: View {
                 await timeline.reconcile(event, activeChannelID: activeChannelID)
                 await navigation.reconcile(event, activeChannelID: activeChannelID)
                 let notificationPost = event.decodedData(MattermostPost.self, forKey: "post")
+                if let notificationPost {
+                    openDirectMessageWindow(forIncoming: notificationPost)
+                }
                 let senderName = notificationPost.flatMap { navigation.users[$0.userID]?.displayName }
                 let channelName = notificationPost
                     .flatMap { post in navigation.channels.first { $0.id == post.channelID } }
@@ -222,6 +229,31 @@ struct WorkspaceShell: View {
         workspace.openPermanently(channel, title: navigation.displayName(for: channel))
     }
 
+    private func startDirectMessage(with user: MattermostUser) {
+        Task {
+            guard let channel = await navigation.openDirectMessage(with: user) else { return }
+            openDirectMessageWindow(channel)
+        }
+    }
+
+    private func openDirectMessageWindow(forIncoming post: MattermostPost) {
+        guard post.userID != navigation.currentUserID,
+              let channel = navigation.channels.first(where: { $0.id == post.channelID && $0.type == "D" })
+        else { return }
+        openDirectMessageWindow(channel)
+    }
+
+    private func openDirectMessageWindow(_ channel: MattermostChannel) {
+        guard AppConfiguration.automaticallyOpenDirectMessagesInNewWindow, channel.type == "D" else { return }
+        let route = DirectMessageWindowRoute(
+            session: session,
+            channel: channel,
+            title: navigation.displayName(for: channel)
+        )
+        guard directMessageWindows.claim(route) else { return }
+        openWindow(value: route)
+    }
+
     private func performSearch() {
         let query = search.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
@@ -243,6 +275,7 @@ private struct SidebarPlaceholder: View {
     let onSearch: () -> Void
     let onOpenSettings: () -> Void
     let onOpenPermanently: (MattermostChannel) -> Void
+    let onStartDirectMessage: (MattermostUser) -> Void
     let disconnect: () -> Void
     @State private var isCreateChannelPresented = false
     @State private var isNewDirectMessagePresented = false
@@ -303,7 +336,7 @@ private struct SidebarPlaceholder: View {
                 avatarData: navigation.avatarData,
                 actionTitle: "Message"
             ) { user in
-                Task { await navigation.openDirectMessage(with: user) }
+                onStartDirectMessage(user)
             }
         }
     }
@@ -701,6 +734,7 @@ private struct ConversationPlaceholder: View {
     @ObservedObject var presence: PresenceViewModel
     @ObservedObject var realtime: RealtimeUpdatesViewModel
     @ObservedObject var search: SearchViewModel
+    let onStartDirectMessage: (MattermostUser) -> Void
     @State private var isAddMemberPresented = false
     @State private var isChannelFilesPresented = false
     @State private var selectedThreadRootID: String?
@@ -793,11 +827,7 @@ private struct ConversationPlaceholder: View {
                                 currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
                                 channelID: selectedTab?.channelID,
                                 focusedPostID: workspace.focusedPostID,
-                                onStartDirectMessage: { user in
-                                    Task {
-                                        await navigation.openDirectMessage(with: user)
-                                    }
-                                },
+                                onStartDirectMessage: onStartDirectMessage,
                                 onReply: composer.reply,
                                 onOpenThread: openThread,
                                 onVote: { post, actionID in
@@ -837,9 +867,7 @@ private struct ConversationPlaceholder: View {
                                     statuses: presence.statuses.merging(timeline.statuses) { _, new in new },
                                     currentUserID: navigation.currentUserID,
                                     currentUsername: navigation.currentUserID.flatMap { navigation.users[$0]?.username },
-                                    onStartDirectMessage: { user in
-                                        Task { await navigation.openDirectMessage(with: user) }
-                                    },
+                                    onStartDirectMessage: onStartDirectMessage,
                                     dismiss: closeThread
                                 )
                                 Divider().overlay(WorkspaceTheme.divider)

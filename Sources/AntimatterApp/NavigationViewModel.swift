@@ -187,13 +187,13 @@ final class NavigationViewModel: ObservableObject {
         return users[userID]?.displayName ?? channel.displayName
     }
 
-    func openDirectMessage(with user: MattermostUser) async {
-        guard let currentUserID, currentUserID != user.id else { return }
+    func openDirectMessage(with user: MattermostUser) async -> MattermostChannel? {
+        guard let currentUserID, currentUserID != user.id else { return nil }
 
         if let existingChannel = directMessages.first(where: { directMessageUserID(for: $0) == user.id }) {
             selectedChannelID = existingChannel.id
             await loadAvatarIfMissing(for: user)
-            return
+            return existingChannel
         }
 
         do {
@@ -204,8 +204,10 @@ final class NavigationViewModel: ObservableObject {
             }
             selectedChannelID = channel.id
             await loadAvatarIfMissing(for: user)
+            return channel
         } catch {
             loadError = error.localizedDescription
+            return nil
         }
     }
 
