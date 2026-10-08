@@ -127,7 +127,7 @@ struct DirectMessageWindow: View {
                 .accessibilityLabel(isChannelFilesPresented ? "Close channel files" : "Show channel files")
                 .accessibilityHint("Shows files shared in this direct message.")
             }
-            .padding(.leading, WorkspaceTheme.titleBarControlInset)
+            .padding(.leading, WorkspaceTheme.titleBarControlInset + 4)
             .padding(.trailing, 18)
             .frame(height: WorkspaceTheme.titleBarContentHeight)
             .background(WorkspaceTheme.surface)
