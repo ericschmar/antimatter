@@ -51,6 +51,24 @@ final class DirectMessageWindowTests: XCTestCase {
         XCTAssertEqual(requestedRoutes.map(\.serverURL), [serverURL.absoluteString])
     }
 
+    func testDoubleClickOnDirectMessageDoesNotOpenWorkspace() throws {
+        let channel = try JSONDecoder().decode(
+            MattermostChannel.self,
+            from: Data(#"{"id":"channel-direct","name":"current-user_recipient-user","display_name":"Recipient","type":"D"}"#.utf8)
+        )
+        var openedDirectMessageIDs: [String] = []
+        var openedInWorkspace = false
+
+        openChannelOnDoubleClick(
+            channel,
+            onOpenDirectMessage: { openedDirectMessageIDs.append($0.id) },
+            onOpenPermanently: { _ in openedInWorkspace = true }
+        )
+
+        XCTAssertEqual(openedDirectMessageIDs, ["channel-direct"])
+        XCTAssertFalse(openedInWorkspace)
+    }
+
     func testNewDirectMessageForWindowDoesNotSelectWorkspace() async throws {
         let serverURL = try XCTUnwrap(URL(string: "https://chat.example.com"))
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
