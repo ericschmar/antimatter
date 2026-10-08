@@ -19,10 +19,6 @@ private struct WorkspaceTabActionKey: FocusedValueKey {
     typealias Value = (WorkspaceTabAction) -> Void
 }
 
-private struct WorkspaceSettingsActionKey: FocusedValueKey {
-    typealias Value = () -> Void
-}
-
 extension FocusedValues {
     var workspaceFocusAction: ((WorkspaceFocusTarget) -> Void)? {
         get { self[WorkspaceFocusActionKey.self] }
@@ -33,26 +29,23 @@ extension FocusedValues {
         get { self[WorkspaceTabActionKey.self] }
         set { self[WorkspaceTabActionKey.self] = newValue }
     }
+}
 
-    var workspaceSettingsAction: (() -> Void)? {
-        get { self[WorkspaceSettingsActionKey.self] }
-        set { self[WorkspaceSettingsActionKey.self] = newValue }
-    }
+func requestSettingsWindow(openWindow: (String) -> Void) {
+    openWindow(SettingsWindow.sceneID)
 }
 
 struct WorkspaceCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.workspaceFocusAction) private var focusWorkspace
     @FocusedValue(\.workspaceTabAction) private var performTabAction
-    @FocusedValue(\.workspaceSettingsAction) private var showSettings
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") {
-                showSettings?()
+                requestSettingsWindow { openWindow(id: $0) }
             }
             .keyboardShortcut(",", modifiers: [.command])
-            .disabled(showSettings == nil)
         }
 
         CommandGroup(after: .newItem) {

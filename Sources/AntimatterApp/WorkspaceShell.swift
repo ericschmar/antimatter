@@ -24,7 +24,6 @@ struct WorkspaceShell: View {
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var focusedRegion: WorkspaceFocusTarget?
     @State private var isCommandPalettePresented = false
-    @State private var isSettingsPresented = false
 
     init(
         configuration: AppConfiguration,
@@ -63,7 +62,9 @@ struct WorkspaceShell: View {
                     presence: presence,
                     search: search,
                     onSearch: performSearch,
-                    onOpenSettings: { isSettingsPresented = true },
+                    onOpenSettings: {
+                        requestSettingsWindow { openWindow(id: $0) }
+                    },
                     onOpenPermanently: openPermanently,
                     onOpenDirectMessage: openDirectMessage,
                     onStartDirectMessage: startDirectMessage,
@@ -111,9 +112,6 @@ struct WorkspaceShell: View {
         .preferredColorScheme(.dark)
         .focusedSceneValue(\.workspaceFocusAction, focus)
         .focusedSceneValue(\.workspaceTabAction, performTabAction)
-        .focusedSceneValue(\.workspaceSettingsAction) {
-            isSettingsPresented = true
-        }
         .overlay {
             if isCommandPalettePresented {
                 CommandPalette(
@@ -129,17 +127,6 @@ struct WorkspaceShell: View {
             }
             .keyboardShortcut("k", modifiers: [.command])
             .opacity(0)
-        }
-        .sheet(isPresented: $isSettingsPresented) {
-            SettingsView(
-                session: session,
-                channels: navigation.channels,
-                savedSessions: savedSessions,
-                selectSession: selectSession,
-                addAccount: addAccount,
-                disconnect: disconnect,
-                close: { isSettingsPresented = false }
-            )
         }
         .task {
             focusedRegion = .conversation

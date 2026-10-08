@@ -9,6 +9,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+enum SettingsWindow {
+    static let sceneID = "settings"
+}
+
+private struct SettingsWindowHost: View {
+    let session: MattermostSession
+    let savedSessions: [MattermostSession]
+    let selectSession: (MattermostSession) -> Void
+    let addAccount: () -> Void
+    let disconnect: (MattermostSession?) -> Void
+    @StateObject private var navigation: NavigationViewModel
+
+    init(
+        session: MattermostSession,
+        savedSessions: [MattermostSession],
+        selectSession: @escaping (MattermostSession) -> Void,
+        addAccount: @escaping () -> Void,
+        disconnect: @escaping (MattermostSession?) -> Void
+    ) {
+        self.session = session
+        self.savedSessions = savedSessions
+        self.selectSession = selectSession
+        self.addAccount = addAccount
+        self.disconnect = disconnect
+        _navigation = StateObject(wrappedValue: NavigationViewModel(session: session))
+    }
+
+    var body: some View {
+        SettingsView(
+            session: session,
+            channels: navigation.channels,
+            savedSessions: savedSessions,
+            selectSession: selectSession,
+            addAccount: addAccount,
+            disconnect: disconnect
+        )
+        .task {
+            await navigation.load()
+        }
+    }
+}
+
 @main
 struct AntimatterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -61,6 +103,30 @@ struct AntimatterApp: App {
         .commands {
             WorkspaceCommands()
         }
+
+        WindowGroup("Settings", id: SettingsWindow.sceneID) {
+            Group {
+                if let session = authentication.connectedSession {
+                    SettingsWindowHost(
+                        session: session,
+                        savedSessions: authentication.savedSessions,
+                        selectSession: authentication.select,
+                        addAccount: authentication.addAccount,
+                        disconnect: authentication.disconnect
+                    )
+                    .id(session.serverURL)
+                } else {
+                    ContentUnavailableView(
+                        "Settings unavailable",
+                        systemImage: "gearshape",
+                        description: Text("Sign in to manage Settings.")
+                    )
+                }
+            }
+            .environmentObject(accentColorSettings)
+            .environmentObject(userColorSettings)
+        }
+        .defaultSize(width: 780, height: 540)
 
         WindowGroup("Direct message", for: DirectMessageWindowRoute.self) { $route in
             if let route, let session = session(for: route) {
