@@ -61,6 +61,7 @@
 		ACBFE48C305AD7680040FD59 /* MainThreadStallLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE48B305AD7680040FD59 /* MainThreadStallLogger.swift */; };
 		ACBFE491305B0DFF0040FD59 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = ACBFE490305B0DFF0040FD59 /* MarkdownUI */; };
 		ACBFE493305C45CE0040FD59 /* ClearableSearchField.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBFE492305C45CE0040FD59 /* ClearableSearchField.swift */; };
+		ACE5F098307800340059C449 /* DirectMessageWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE5F097307800340059C449 /* DirectMessageWindow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,6 +127,7 @@
 		ACBFE489305348CE0040FD59 /* ConversationDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationDrawer.swift; sourceTree = "<group>"; };
 		ACBFE48B305AD7680040FD59 /* MainThreadStallLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainThreadStallLogger.swift; sourceTree = "<group>"; };
 		ACBFE492305C45CE0040FD59 /* ClearableSearchField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClearableSearchField.swift; sourceTree = "<group>"; };
+		ACE5F097307800340059C449 /* DirectMessageWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectMessageWindow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,6 +149,7 @@
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				ACE5F097307800340059C449 /* DirectMessageWindow.swift */,
 				ACBFE475304A0B030040FD59 /* Assets.xcassets */,
 				A40000000000000000000002 /* Sources/AntimatterApp */,
 				A40000000000000000000003 /* Sources/AntimatterFoundation */,
@@ -343,6 +346,7 @@
 				AC7AC2553048C65F00B4461D /* AuthenticationViewModel.swift in Sources */,
 				AC7AC2563048C65F00B4461D /* NavigationViewModel.swift in Sources */,
 				A10000000000000000000002 /* WorkspaceShell.swift in Sources */,
+				ACE5F098307800340059C449 /* DirectMessageWindow.swift in Sources */,
 				ACBFE48A305348CE0040FD59 /* ConversationDrawer.swift in Sources */,
 				A10000000000000000000003 /* WorkspaceTheme.swift in Sources */,
 				A10000000000000000000013 /* WorkspaceTabs.swift in Sources */,
