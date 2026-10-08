@@ -30,6 +30,17 @@ final class NavigationViewModel: ObservableObject {
         selectedTeamID = defaults.string(forKey: selectedTeamKey)
     }
 
+    init(
+        loader: MattermostNavigationLoader,
+        store: MattermostLocalStore,
+        defaults: UserDefaults = .standard
+    ) {
+        self.loader = loader
+        self.store = store
+        self.defaults = defaults
+        selectedTeamID = defaults.string(forKey: selectedTeamKey)
+    }
+
     var favoriteChannels: [MattermostChannel] {
         ordered(visibleChannels.filter { favoriteIDs.contains($0.id) && !isArchived($0) }, section: "favorites")
     }
@@ -187,11 +198,16 @@ final class NavigationViewModel: ObservableObject {
         return users[userID]?.displayName ?? channel.displayName
     }
 
-    func openDirectMessage(with user: MattermostUser) async -> MattermostChannel? {
+    func openDirectMessage(
+        with user: MattermostUser,
+        selectInWorkspace: Bool = true
+    ) async -> MattermostChannel? {
         guard let currentUserID, currentUserID != user.id else { return nil }
 
         if let existingChannel = directMessages.first(where: { directMessageUserID(for: $0) == user.id }) {
-            selectedChannelID = existingChannel.id
+            if selectInWorkspace {
+                selectedChannelID = existingChannel.id
+            }
             await loadAvatarIfMissing(for: user)
             return existingChannel
         }
@@ -202,7 +218,9 @@ final class NavigationViewModel: ObservableObject {
                 channels.append(channel)
                 try? await store.apply(.navigation(teams: teams, channels: channels))
             }
-            selectedChannelID = channel.id
+            if selectInWorkspace {
+                selectedChannelID = channel.id
+            }
             await loadAvatarIfMissing(for: user)
             return channel
         } catch {

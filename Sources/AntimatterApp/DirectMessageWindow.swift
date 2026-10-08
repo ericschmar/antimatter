@@ -1,6 +1,23 @@
 import AntimatterFoundation
 import SwiftUI
 
+enum DirectMessagePresentation: Equatable {
+    case workspace
+    case window
+
+    init(automaticallyOpenInNewWindow: Bool) {
+        self = automaticallyOpenInNewWindow ? .window : .workspace
+    }
+
+    static var current: Self {
+        Self(automaticallyOpenInNewWindow: AppConfiguration.automaticallyOpenDirectMessagesInNewWindow)
+    }
+
+    var selectsInWorkspace: Bool {
+        self == .workspace
+    }
+}
+
 struct DirectMessageWindowRoute: Codable, Hashable {
     let serverURL: String
     let channelID: String
@@ -193,10 +210,14 @@ struct DirectMessageWindow: View {
     }
 
     private func startDirectMessage(with user: MattermostUser) {
+        let presentation = DirectMessagePresentation.current
         Task {
-            guard let channel = await navigation.openDirectMessage(with: user),
-                  AppConfiguration.automaticallyOpenDirectMessagesInNewWindow,
-                  channel.type == "D"
+            guard let channel = await navigation.openDirectMessage(
+                with: user,
+                selectInWorkspace: presentation.selectsInWorkspace
+            ),
+            presentation == .window,
+            channel.type == "D"
             else { return }
             let route = DirectMessageWindowRoute(
                 session: session,
