@@ -58,6 +58,7 @@ struct MessageTimeline: View {
     let onFocusedPostDisplayed: (String) -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
+    @AppStorage(TimelineMessageSpacing.storageKey) private var timelineMessageSpacing = TimelineMessageSpacing.medium.rawValue
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @State private var reactionTooltip: ReactionTooltip?
     @State private var items: [TimelineItem] = []
@@ -227,6 +228,10 @@ struct MessageTimeline: View {
         AppFontFamily(rawValue: appFontFamily) ?? .system
     }
 
+    private var selectedTimelineMessageSpacing: TimelineMessageSpacing {
+        TimelineMessageSpacing(storedValue: timelineMessageSpacing)
+    }
+
     private var messageGrouping: MattermostTimelineGrouping {
         MattermostTimelineGrouping(maximumInterval: messageGroupingIntervalMinutes * 60)
     }
@@ -246,6 +251,7 @@ struct MessageTimeline: View {
             mediaClient: timeline.mediaClient,
             showsMetadata: !messageGrouping.shouldGroup(post, with: previousRoot),
             horizontalInset: 18,
+            verticalPadding: selectedTimelineMessageSpacing.verticalPadding,
             onStartDirectMessage: onStartDirectMessage,
             onReply: onReply,
             onOpenThread: onOpenThread,
@@ -386,6 +392,7 @@ struct MessageRow: View {
     let mediaClient: MattermostAPIClient
     let showsMetadata: Bool
     let horizontalInset: CGFloat
+    let verticalPadding: CGFloat
     let onStartDirectMessage: (MattermostUser) -> Void
     let onReply: (MattermostPost) -> Void
     let onOpenThread: (MattermostPost) -> Void
@@ -511,7 +518,7 @@ struct MessageRow: View {
             }
         }
         .padding(.horizontal, horizontalInset)
-        .padding(.vertical, 3)
+        .padding(.vertical, verticalPadding)
         .background(isHovering ? WorkspaceTheme.hoverSurface : .clear)
         .contentShape(Rectangle())
         .onHover { isHovering = $0 }
@@ -1398,6 +1405,7 @@ extension MessageRow: Equatable {
             && lhs.currentUsername == rhs.currentUsername
             && lhs.showsMetadata == rhs.showsMetadata
             && lhs.horizontalInset == rhs.horizontalInset
+            && lhs.verticalPadding == rhs.verticalPadding
     }
 }
 

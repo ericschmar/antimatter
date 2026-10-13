@@ -12,6 +12,7 @@ struct ThreadSidebar: View {
     let dismiss: () -> Void
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
+    @AppStorage(TimelineMessageSpacing.storageKey) private var timelineMessageSpacing = TimelineMessageSpacing.medium.rawValue
 
     var body: some View {
         ConversationDrawer(
@@ -43,6 +44,10 @@ struct ThreadSidebar: View {
         AppFontFamily(rawValue: appFontFamily) ?? .system
     }
 
+    private var selectedTimelineMessageSpacing: TimelineMessageSpacing {
+        TimelineMessageSpacing(storedValue: timelineMessageSpacing)
+    }
+
     private func postView(_ post: MattermostPost, isRoot: Bool) -> some View {
         MessageRow(
             post: post,
@@ -58,6 +63,7 @@ struct ThreadSidebar: View {
             mediaClient: timeline.mediaClient,
             showsMetadata: true,
             horizontalInset: 0,
+            verticalPadding: selectedTimelineMessageSpacing.verticalPadding,
             onStartDirectMessage: onStartDirectMessage,
             onReply: { _ in },
             onOpenThread: { _ in },
