@@ -69,6 +69,7 @@ struct SettingsView: View {
     @AppStorage("notificationSoundsEnabled") private var notificationSoundsEnabled = true
     @AppStorage("compactTimeline") private var compactTimeline = true
     @AppStorage("showTimelineAvatars") private var showTimelineAvatars = true
+    @AppStorage(TimelineMessageSpacing.storageKey) private var timelineMessageSpacing = TimelineMessageSpacing.medium.rawValue
     @AppStorage("messageFontSize") private var messageFontSize = 12.0
     @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
@@ -135,6 +136,16 @@ struct SettingsView: View {
                 SettingsToggleRow("Follow system appearance", isOn: $followSystemAppearance)
                 SettingsDivider()
                 SettingsToggleRow("Use compact message timeline", isOn: $compactTimeline)
+                SettingsDivider()
+                SettingsValueRow("Message spacing", value: selectedTimelineMessageSpacing.name) {
+                    Picker("Message spacing", selection: $timelineMessageSpacing) {
+                        ForEach(TimelineMessageSpacing.allCases) { spacing in
+                            Text(spacing.name).tag(spacing.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 110)
+                }
                 SettingsDivider()
                 SettingsToggleRow("Show user avatars", isOn: $showTimelineAvatars)
             }
@@ -261,6 +272,10 @@ struct SettingsView: View {
 
     private var selectedFontFamily: AppFontFamily {
         AppFontFamily(rawValue: appFontFamily) ?? .system
+    }
+
+    private var selectedTimelineMessageSpacing: TimelineMessageSpacing {
+        TimelineMessageSpacing(storedValue: timelineMessageSpacing)
     }
 
     private var groupingIntervalValue: String {

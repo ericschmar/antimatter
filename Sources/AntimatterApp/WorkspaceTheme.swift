@@ -1,5 +1,31 @@
 import SwiftUI
 
+enum TimelineMessageSpacing: String, CaseIterable, Identifiable {
+    case small
+    case medium
+    case large
+
+    static let storageKey = "timelineMessageSpacing"
+
+    var id: Self { self }
+
+    var name: String {
+        rawValue.capitalized
+    }
+
+    var verticalPadding: CGFloat {
+        switch self {
+        case .small: 1
+        case .medium: 3
+        case .large: 6
+        }
+    }
+
+    init(storedValue: String?) {
+        self = TimelineMessageSpacing(rawValue: storedValue ?? "") ?? .medium
+    }
+}
+
 enum AppFontFamily: String, CaseIterable, Identifiable {
     case system
     case rounded
