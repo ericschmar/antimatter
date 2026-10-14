@@ -4,6 +4,59 @@ import EmojiData
 import SwiftUI
 import SwiftEmojiPicker
 
+/// A purpose-built, latest-only timeline projection queue inspired by Exyte
+/// Chat's serialized UI-update queue. SwiftUI can publish several post
+/// snapshots in a burst; rendering each would redo full-history threading and
+/// grouping work.
+actor LatestOnlyUpdateQueue<Input: Sendable, Output: Sendable> {
+    typealias Transform = @Sendable (Input) async -> Output
+
+    private struct PendingUpdate {
+        let generation: UInt
+        let input: Input
+        let continuation: CheckedContinuation<Output?, Never>
+    }
+
+    private let transform: Transform
+    private var generation: UInt = 0
+    private var pendingUpdate: PendingUpdate?
+    private var isProcessing = false
+
+    init(transform: @escaping Transform) {
+        self.transform = transform
+    }
+
+    func submit(_ input: Input) async -> Output? {
+        guard !Task.isCancelled else { return nil }
+
+        generation &+= 1
+        let updateGeneration = generation
+
+        return await withCheckedContinuation { continuation in
+            pendingUpdate?.continuation.resume(returning: nil)
+            pendingUpdate = PendingUpdate(
+                generation: updateGeneration,
+                input: input,
+                continuation: continuation
+            )
+
+            guard !isProcessing else { return }
+            isProcessing = true
+            Task { await processPendingUpdates() }
+        }
+    }
+
+    private func processPendingUpdates() async {
+        while let update = pendingUpdate {
+            pendingUpdate = nil
+            let output = await transform(update.input)
+            update.continuation.resume(returning: update.generation == generation ? output : nil)
+        }
+
+        isProcessing = false
+    }
+}
+
 /// Narrows row inputs to the file data a single post can display, so a publish
 /// for one message's attachment does not invalidate every other row's input.
 func slicedFileData(from all: [String: Data], for files: [MattermostFile]) -> [String: Data] {
@@ -62,6 +115,9 @@ struct MessageTimeline: View {
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
     @State private var reactionTooltip: ReactionTooltip?
     @State private var items: [TimelineItem] = []
+    @State private var itemUpdateQueue = LatestOnlyUpdateQueue<[MattermostPost], [TimelineItem]>(
+        transform: Self.makeItems
+    )
 
     private static var rendersInlineReplyThreads: Bool {
         ProcessInfo.processInfo.environment["ANTIMATTER_DISABLE_INLINE_REPLY_THREADS"] != "1"
@@ -172,9 +228,18 @@ struct MessageTimeline: View {
                 }
             }
             .task(id: timeline.posts) {
+                let posts = timeline.posts
+                guard !Task.isCancelled else { return }
+
                 let interval = AppLogger.timeline.beginInterval("Regroup Timeline Posts")
-                items = await Self.makeItems(from: timeline.posts)
-                AppLogger.timeline.endInterval("Regroup Timeline Posts", interval)
+                defer { AppLogger.timeline.endInterval("Regroup Timeline Posts", interval) }
+
+                guard
+                    let updatedItems = await itemUpdateQueue.submit(posts),
+                    !Task.isCancelled
+                else { return }
+
+                items = updatedItems
             }
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.width
@@ -328,6 +393,7 @@ private struct ReactionTooltipView: View {
 /// thread (its root plus inline replies). Flat per-thread granularity keeps
 /// Reference-backed thread payload keeps TimelineItem cheap to copy during
 /// LazyVStack identity and placement passes.
+/// Immutable payload is safe to transfer from the detached projection task.
 private final class TimelineThreadItem: @unchecked Sendable, Identifiable {
     let root: MattermostPost
     let replies: [MattermostPost]
@@ -342,7 +408,7 @@ private final class TimelineThreadItem: @unchecked Sendable, Identifiable {
     var id: String { root.id }
 }
 
-private enum TimelineItem: Identifiable {
+private enum TimelineItem: Identifiable, Sendable {
     case header(Date)
     case thread(TimelineThreadItem)
 
