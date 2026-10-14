@@ -39,7 +39,8 @@ Exyte Chat's `UIList` is an iOS UIKit `UITableView` adapter, so its data-source,
 - AppKit review identified state-remount, pagination-anchor, column-width, tooltip-anchor, same-day prepend, collapsed focused-reply, and superseded-scroll races; each was addressed before the final re-review.
 
 ## Mission synchronization
-- No unresolved mission synchronization issues. The local implementation and verification commits are `baa2b45` and `ec62a4c`.
+- No unresolved mission synchronization issues. The local implementation and verification commits are `baa2b45`, `ec62a4c`, `7c8cc1a`, and `838e412`.
+- Beads issue `antimatter-ann` is closed with all acceptance criteria verified.
 - The optional Beads Dolt remote is intentionally unconfigured in this embedded/solo checkout; `bd dolt push` explicitly reports that local issue storage is sufficient.
 
 ## Residual risk / deliberately deferred follow-ups
