@@ -1450,9 +1450,10 @@ private struct TimelineLoadingState: View {
                             .frame(width: index.isMultiple(of: 2) ? 120 : 88, height: 10)
                         RoundedRectangle(cornerRadius: 3)
                             .fill(WorkspaceTheme.raisedSurface.opacity(0.8))
-                            .frame(maxWidth: index.isMultiple(of: 2) ? 290 : 360)
                             .frame(height: 11)
+                            .frame(maxWidth: .infinity)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
