@@ -147,6 +147,13 @@ final class TableSnapshotUpdatePlanTests: XCTestCase {
         XCTAssertLessThan(fixedHost.sizeThatFits(in: proposal).height, TimelineRowHeightPlan.maximumMeasurementHeight)
     }
 
+    func testRenderedHeightSupersedesTheInitialEstimate() {
+        XCTAssertEqual(
+            TimelineRowHeightPlan.height(measuredHeight: 184, estimatedHeight: 44),
+            184
+        )
+    }
+
     func testRowMeasurementHeightIsFinite() {
         XCTAssertTrue(TimelineRowHeightPlan.maximumMeasurementHeight.isFinite)
     }

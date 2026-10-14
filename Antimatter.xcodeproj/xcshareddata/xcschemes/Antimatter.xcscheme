@@ -92,6 +92,11 @@
             value = "1"
             isEnabled = "YES">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ANTIMATTER_TIMELINE_ROW_SIZING_DIAGNOSTICS"
+            value = "0"
+            isEnabled = "YES">
+         </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction

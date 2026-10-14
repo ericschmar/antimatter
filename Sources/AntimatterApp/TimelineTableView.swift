@@ -1,3 +1,4 @@
+import AntimatterFoundation
 import AppKit
 import SwiftUI
 
@@ -62,7 +63,7 @@ struct TimelineTableView: NSViewRepresentable {
         tableView.intercellSpacing = .zero
         tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         tableView.rowHeight = 44
-        tableView.usesAutomaticRowHeights = true
+        tableView.usesAutomaticRowHeights = false
         tableView.dataSource = context.coordinator
         tableView.delegate = context.coordinator
 
@@ -104,6 +105,7 @@ struct TimelineTableView: NSViewRepresentable {
         private var handledScrollRequestID: UUID?
         private var activeScrollRequestID: UUID?
         private var rowHeights: [String: CGFloat] = [:]
+        private var lastLoggedDelegateHeights: [String: CGFloat] = [:]
         private var pendingHeightInvalidationRowIDs = Set<String>()
         private var hasScheduledHeightInvalidation = false
 
@@ -132,10 +134,18 @@ struct TimelineTableView: NSViewRepresentable {
 
         func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
             guard rowIDs.indices.contains(row) else { return tableView.rowHeight }
-            return TimelineRowHeightPlan.height(
-                measuredHeight: rowHeights[rowIDs[row]],
+            let rowID = rowIDs[row]
+            let height = TimelineRowHeightPlan.height(
+                measuredHeight: rowHeights[rowID],
                 estimatedHeight: tableView.rowHeight
             )
+            if TimelineRowSizingDiagnostics.isEnabled, lastLoggedDelegateHeights[rowID] != height {
+                lastLoggedDelegateHeights[rowID] = height
+                AppLogger.freeze.notice(
+                    "Timeline Row Height Requested: id \(rowID, privacy: .public), cached \(self.rowHeights[rowID] ?? 0, privacy: .public), returning \(height, privacy: .public)"
+                )
+            }
+            return height
         }
 
         func tableView(_ tableView: NSTableView, didRemove rowView: NSTableRowView, forRow row: Int) {
@@ -168,11 +178,19 @@ struct TimelineTableView: NSViewRepresentable {
             measureHeight(of: cell, rowID: rowID, in: tableView)
         }
 
-        private func measureHeight(of cell: TimelineHostingCell, rowID: String, in tableView: NSTableView) {
-            guard let height = cell.height(for: tableView.tableColumns[0].width) else { return }
+        private func updateHeight(_ height: CGFloat, for rowID: String) {
+            guard let height = TimelineRowHeightPlan.validHeight(height) else { return }
             guard rowHeights[rowID] != height else { return }
             rowHeights[rowID] = height
+            if TimelineRowSizingDiagnostics.isEnabled {
+                AppLogger.freeze.notice("Timeline Row Height Cached: id \(rowID, privacy: .public), height \(height, privacy: .public)")
+            }
             invalidateHeight(for: rowID)
+        }
+
+        private func measureHeight(of cell: TimelineHostingCell, rowID: String, in tableView: NSTableView) {
+            guard let height = cell.height(for: tableView.tableColumns[0].width) else { return }
+            updateHeight(height, for: rowID)
         }
 
         fileprivate func invalidateCachedHeightsForViewportWidthChange() {
@@ -208,6 +226,14 @@ struct TimelineTableView: NSViewRepresentable {
                 tableView.noteHeightOfRows(withIndexesChanged: rowIndexes)
                 tableView.layoutSubtreeIfNeeded()
                 self.scrollView?.updateBottomInset()
+                guard TimelineRowSizingDiagnostics.isEnabled else { return }
+                for row in rowIndexes {
+                    guard self.rowIDs.indices.contains(row) else { continue }
+                    let rowID = self.rowIDs[row]
+                    AppLogger.freeze.notice(
+                        "Timeline Row Height Applied: id \(rowID, privacy: .public), cached \(self.rowHeights[rowID] ?? 0, privacy: .public), table \(tableView.rect(ofRow: row).height, privacy: .public)"
+                    )
+                }
             }
         }
 
@@ -393,11 +419,16 @@ enum TimelineRowHeightPlan {
     // if a single message must exceed it.
     static let maximumMeasurementHeight: CGFloat = 10_000
 
+    static func validHeight(_ height: CGFloat) -> CGFloat? {
+        guard height.isFinite, height > 0 else { return nil }
+        return min(height, maximumMeasurementHeight)
+    }
+
     static func height(measuredHeight: CGFloat?, estimatedHeight: CGFloat) -> CGFloat {
-        guard let measuredHeight, measuredHeight.isFinite, measuredHeight > 0 else {
+        guard let measuredHeight, let height = validHeight(measuredHeight) else {
             return estimatedHeight.isFinite && estimatedHeight > 0 ? estimatedHeight : 44
         }
-        return min(measuredHeight, maximumMeasurementHeight)
+        return height
     }
 }
 
@@ -575,9 +606,12 @@ struct TimelineAnchorReporter: NSViewRepresentable {
 @MainActor
 private final class TimelineHostingCell: NSTableCellView {
     private let hostingController = TimelineHostingController(rootView: AnyView(EmptyView()))
+    private let diagnosticsLabel = NSTextField(labelWithString: "")
     private var rowID: String?
     private var onContentLayout: ((String) -> Void)?
     private var hasScheduledContentLayoutNotification = false
+    private var measuredHeight: CGFloat?
+    private var lastLoggedMetrics: TimelineRowSizingMetrics?
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
@@ -593,6 +627,17 @@ private final class TimelineHostingCell: NSTableCellView {
             hostingView.topAnchor.constraint(equalTo: topAnchor),
             hostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+
+        diagnosticsLabel.translatesAutoresizingMaskIntoConstraints = false
+        diagnosticsLabel.font = .monospacedSystemFont(ofSize: 9, weight: .medium)
+        diagnosticsLabel.textColor = .systemRed
+        diagnosticsLabel.backgroundColor = .clear
+        diagnosticsLabel.isHidden = true
+        addSubview(diagnosticsLabel)
+        NSLayoutConstraint.activate([
+            diagnosticsLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            diagnosticsLabel.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+        ])
     }
 
     @available(*, unavailable)
@@ -607,6 +652,8 @@ private final class TimelineHostingCell: NSTableCellView {
     ) {
         self.rowID = rowID
         self.onContentLayout = onContentLayout
+        measuredHeight = nil
+        lastLoggedMetrics = nil
         hostingController.onLayout = { [weak self] in
             self?.scheduleContentLayoutNotification()
         }
@@ -622,8 +669,29 @@ private final class TimelineHostingCell: NSTableCellView {
         let height = hostingController.sizeThatFits(
             in: CGSize(width: width, height: TimelineRowHeightPlan.maximumMeasurementHeight)
         ).height
-        guard height.isFinite, height > 0 else { return nil }
-        return min(height, TimelineRowHeightPlan.maximumMeasurementHeight)
+        let validHeight = TimelineRowHeightPlan.validHeight(height)
+        measuredHeight = validHeight
+        return validHeight
+    }
+
+    override func layout() {
+        super.layout()
+        guard TimelineRowSizingDiagnostics.isEnabled, let rowID else { return }
+        wantsLayer = true
+        layer?.borderColor = NSColor.systemRed.withAlphaComponent(0.85).cgColor
+        layer?.borderWidth = 1
+
+        let metrics = TimelineRowSizingMetrics(
+            tableRowHeight: superview?.bounds.height ?? bounds.height,
+            cellHeight: bounds.height,
+            hostingHeight: hostingController.view.bounds.height,
+            measuredHeight: measuredHeight
+        )
+        diagnosticsLabel.stringValue = "\(rowID.prefix(8)) row \(metrics.tableRowHeight.rounded()) cell \(metrics.cellHeight.rounded()) host \(metrics.hostingHeight.rounded()) fit \(metrics.measuredHeight?.rounded() ?? 0)"
+        diagnosticsLabel.isHidden = false
+        guard metrics != lastLoggedMetrics else { return }
+        lastLoggedMetrics = metrics
+        AppLogger.freeze.notice("Timeline Row Sizing: id \(rowID, privacy: .public), row \(metrics.tableRowHeight, privacy: .public), cell \(metrics.cellHeight, privacy: .public), host \(metrics.hostingHeight, privacy: .public), measured \(metrics.measuredHeight ?? 0, privacy: .public)")
     }
 
     override func prepareForReuse() {
@@ -631,6 +699,10 @@ private final class TimelineHostingCell: NSTableCellView {
         rowID = nil
         onContentLayout = nil
         hostingController.onLayout = nil
+        measuredHeight = nil
+        lastLoggedMetrics = nil
+        diagnosticsLabel.isHidden = true
+        layer?.borderWidth = 0
         hostingController.rootView = AnyView(EmptyView())
     }
 
@@ -654,4 +726,15 @@ private final class TimelineHostingController: NSHostingController<AnyView> {
         super.viewDidLayout()
         onLayout?()
     }
+}
+
+private enum TimelineRowSizingDiagnostics {
+    static let isEnabled = ProcessInfo.processInfo.environment["ANTIMATTER_TIMELINE_ROW_SIZING_DIAGNOSTICS"] == "1"
+}
+
+private struct TimelineRowSizingMetrics: Equatable {
+    let tableRowHeight: CGFloat
+    let cellHeight: CGFloat
+    let hostingHeight: CGFloat
+    let measuredHeight: CGFloat?
 }
