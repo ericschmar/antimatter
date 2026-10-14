@@ -96,6 +96,7 @@ final class DirectMessageWindowTests: XCTestCase {
                 navigation: navigation
             )
             .environmentObject(DirectMessageWindowRegistry())
+            .environmentObject(UserColorSettings(defaults: defaults))
         )
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }

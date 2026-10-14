@@ -11,15 +11,15 @@
 - [x] S1.3.2: Run focused and full SwiftPM tests, SwiftPM build, Xcode Debug/Release builds, diff checks, and an independent implementation review.
 - [x] S1.3.3: Commit the verified implementation.
 
-## M2: Replace SwiftUI timeline layout with a reusable native AppKit table | status: in_progress
-### T2.1: Design and test serialized incremental table snapshots | status: in_progress
-- [ ] S2.1.1: Add deterministic tests for incremental prepend, append, removal, and reorder fallback plans.
-- [ ] S2.1.2: Implement an NSTableView bridge with reusable NSHostingView cells and automatic variable heights.
+## M2: Replace SwiftUI timeline layout with a reusable native AppKit table | status: completed
+### T2.1: Design and test serialized incremental table snapshots | status: completed
+- [x] S2.1.1: Add deterministic tests for incremental prepend, append, removal, and reorder fallback plans.
+- [x] S2.1.2: Implement an NSTableView bridge with reusable NSHostingView cells and automatic variable heights.
 
-### T2.2: Preserve all existing message timeline behavior and visuals | status: pending
-- [ ] S2.2.1: Preserve row views, inline replies, loading/error/empty states, pagination triggering, and reaction tooltips.
-- [ ] S2.2.2: Preserve bottom alignment, newest/focused-message scrolling, and visible anchor during pagination.
+### T2.2: Preserve all existing message timeline behavior and visuals | status: completed
+- [x] S2.2.1: Preserve row views, inline replies, loading/error/empty states, pagination triggering, and reaction tooltips.
+- [x] S2.2.2: Preserve bottom alignment, newest/focused-message scrolling, and visible anchor during pagination.
 
-### T2.3: Review, verify, and commit the native table implementation | status: pending
-- [ ] S2.3.1: Run focused and full tests, SwiftPM and Xcode Debug/Release builds, diff checks, and independent review.
-- [ ] S2.3.2: Resolve review findings, close the Beads issue, and commit the verified implementation.
+### T2.3: Review, verify, and commit the native table implementation | status: completed
+- [x] S2.3.1: Run focused and full tests, SwiftPM and Xcode Debug/Release builds, diff checks, and independent review.
+- [x] S2.3.2: Resolve review findings, close the Beads issue, and commit the verified implementation.

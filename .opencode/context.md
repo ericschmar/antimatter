@@ -19,6 +19,10 @@ Exyte Chat's `UIList` is an iOS UIKit `UITableView` adapter, so its data-source,
 - The SwiftUI task captures one posts snapshot, honors cancellation before submitting and before applying state, then applies only a current result.
 - Existing `ScrollView`, `LazyVStack`, stable item identity, row equality boundaries, styles, and timeline behavior remain intact.
 - Added deterministic in-flight-obsolete regression coverage in `NativeTests/AntimatterAppTests/LatestOnlyUpdateQueueTests.swift`.
+- Added `TimelineTableView`, a view-based one-column `NSTableView` bridge with reusable `NSHostingView` cells, automatic variable row heights, stable row identities, bounded visible-cell reconfiguration, incremental insert/remove snapshots, and reload fallback for retained-row reordering.
+- Preserved pagination position using the first retained visible message row plus its intra-row pixel offset. The pagination sentinel is excluded so prepends move it offscreen instead of draining pages.
+- Preserved short-list bottom alignment, latest/root/reply focus scrolling, reaction tooltip placement across hosting roots, width-dependent height invalidation, existing SwiftUI row content, and explicit `UserColorSettings` environment propagation.
+- Added pure incremental snapshot regression tests in `NativeTests/AntimatterAppTests/TableSnapshotUpdatePlanTests.swift` and added the new bridge to the Xcode app target.
 
 ## Evidence
 - Commit: `baa2b45 Coalesce timeline projection updates`
@@ -29,11 +33,15 @@ Exyte Chat's `UIList` is an iOS UIKit `UITableView` adapter, so its data-source,
 - Xcode Release app build — passed.
 - `git diff --check` and `graft check` — passed.
 - Independent review found cancellation and race-test gaps; both were fixed before final verification.
+- AppKit phase focused tests passed (8 snapshot/anchor tests and 7 direct-message hosting tests).
+- Full SwiftPM suite passed (73 XCTest tests plus 2 Swift Testing tests).
+- SwiftPM build and Xcode Debug/Release app builds passed.
+- AppKit review identified state-remount, pagination-anchor, column-width, tooltip-anchor, same-day prepend, collapsed focused-reply, and superseded-scroll races; each was addressed before the final re-review.
 
 ## Mission synchronization
 - No unresolved mission synchronization issues. The local implementation and verification commits are `baa2b45` and `ec62a4c`.
 - The optional Beads Dolt remote is intentionally unconfigured in this embedded/solo checkout; `bd dolt push` explicitly reports that local issue storage is sufficient.
 
 ## Residual risk / deliberately deferred follow-ups
-- This focused change does not change image decoding, Markdown parsing, inline-reply rendering, reaction tooltip preferences, or scroll-anchor behavior. Existing active Beads issues cover the observed resize/inline-reply stalls (`antimatter-5ie`, `antimatter-a6x`, `antimatter-y6w`).
+- This change intentionally leaves image decoding, Markdown parsing, and inline-reply content rendering untouched. Existing active Beads issues cover remaining content-level costs (`antimatter-5ie`, `antimatter-a6x`, `antimatter-y6w`).
 - A manual runtime trace in an image-heavy busy channel remains useful for quantifying the improvement; it is not automatable in the current pure SwiftPM test setup.

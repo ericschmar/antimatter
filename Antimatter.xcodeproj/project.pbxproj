@@ -19,6 +19,7 @@
 		A10000000000000000000019 /* MattermostLocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* MattermostLocalStore.swift */; };
 		A10000000000000000000020 /* TimelineViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* TimelineViewModel.swift */; };
 		A10000000000000000000021 /* MessageTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* MessageTimeline.swift */; };
+		A10000000000000000000038 /* TimelineTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* TimelineTableView.swift */; };
 		A10000000000000000000022 /* MattermostTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* MattermostTimeline.swift */; };
 		A10000000000000000000023 /* RichMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* RichMessageContent.swift */; };
 		A10000000000000000000025 /* RealtimeUpdatesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000028 /* RealtimeUpdatesViewModel.swift */; };
@@ -89,6 +90,7 @@
 		A20000000000000000000021 /* MattermostLocalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostLocalStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000022 /* TimelineViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000023 /* MessageTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTimeline.swift; sourceTree = "<group>"; };
+		A20000000000000000000040 /* TimelineTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineTableView.swift; sourceTree = "<group>"; };
 		A20000000000000000000024 /* MattermostTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MattermostTimeline.swift; sourceTree = "<group>"; };
 		A20000000000000000000025 /* RichMessageContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichMessageContent.swift; sourceTree = "<group>"; };
 		A20000000000000000000028 /* RealtimeUpdatesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeUpdatesViewModel.swift; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 				AC7AC2513048C65F00B4461D /* WorkspaceCommands.swift */,
 				A20000000000000000000001 /* AntimatterApp.swift */,
 				A20000000000000000000002 /* WorkspaceShell.swift */,
+				A20000000000000000000040 /* TimelineTableView.swift */,
 				A20000000000000000000003 /* WorkspaceTheme.swift */,
 				A20000000000000000000015 /* WorkspaceTabs.swift */,
 				A20000000000000000000016 /* WorkspaceViewModel.swift */,
@@ -353,6 +356,7 @@
 				A10000000000000000000014 /* WorkspaceViewModel.swift in Sources */,
 				A10000000000000000000020 /* TimelineViewModel.swift in Sources */,
 				A10000000000000000000021 /* MessageTimeline.swift in Sources */,
+				A10000000000000000000038 /* TimelineTableView.swift in Sources */,
 				A10000000000000000000023 /* RichMessageContent.swift in Sources */,
 				A10000000000000000000025 /* RealtimeUpdatesViewModel.swift in Sources */,
 				A10000000000000000000027 /* ComposerViewModel.swift in Sources */,

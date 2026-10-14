@@ -113,8 +113,10 @@ struct MessageTimeline: View {
     @AppStorage("appFontFamily") private var appFontFamily = AppFontFamily.system.rawValue
     @AppStorage(TimelineMessageSpacing.storageKey) private var timelineMessageSpacing = TimelineMessageSpacing.medium.rawValue
     @AppStorage("messageGroupingIntervalMinutes") private var messageGroupingIntervalMinutes = 5.0
-    @State private var reactionTooltip: ReactionTooltip?
     @State private var items: [TimelineItem] = []
+    @State private var scrollRequest: TimelineTableScrollRequest?
+    @State private var pendingFocusedPostID: String?
+    @State private var pendingLatestPostID: String?
     @State private var itemUpdateQueue = LatestOnlyUpdateQueue<[MattermostPost], [TimelineItem]>(
         transform: Self.makeItems
     )
@@ -125,136 +127,61 @@ struct MessageTimeline: View {
 
     var body: some View {
         BodyEvalCounter.tick("MessageTimeline")
-        return ScrollViewReader { proxy in
-            GeometryReader { geometry in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        if timeline.isLoading && timeline.posts.isEmpty {
-                            TimelineLoadingState()
-                        } else if let error = timeline.loadError {
-                            TimelineStatus(message: error, isError: true)
-                        } else if timeline.posts.isEmpty {
-                            TimelineEmptyState()
-                        } else {
-                            if timeline.hasEarlierPosts {
-                                // ponytail: an indeterminate spinner invalidates every display
-                                // frame while mounted; inside the lazy stack each invalidation
-                                // re-places the whole item list, which froze scrolling for seconds.
-                                // Static affordance, same onAppear auto-load.
-                                Button {
-                                    Task { await timeline.loadEarlierPosts() }
-                                } label: {
-                                    Label("Load earlier messages", systemImage: "chevron.up.2")
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundStyle(WorkspaceTheme.secondaryText)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 10)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("Load earlier messages")
-                                .onAppear {
-                                    AppLogger.timeline.emitEvent("Earlier Posts Sentinel Appeared")
-                                    Task {
-                                        await timeline.loadEarlierPosts()
-                                    }
-                                }
-                            }
-
-                            ForEach(items) { item in
-                                switch item {
-                                case .header(let date):
-                                    TimelineDateHeader(date: date)
-                                case .thread(let thread):
-                                    messageRow(for: thread.root, previousRoot: thread.previousRoot)
-                                        .id(thread.id)
-
-                                    if Self.rendersInlineReplyThreads && !thread.replies.isEmpty {
-                                        InlineReplyThread(
-                                            replies: thread.replies,
-                                            users: slicedUsers(from: messageUsers, userIDs: threadUserIDs(thread.replies)),
-                                            statuses: slicedStatuses(from: messageStatuses, userIDs: threadUserIDs(thread.replies)),
-                                            currentUserID: currentUserID,
-                                            currentUsername: currentUsername,
-                                            fileData: slicedFileData(from: timeline.fileData, for: thread.replies.flatMap(\.files)),
-                                            avatarData: timeline.avatarData,
-                                            customEmojiData: slicedEmojiData(from: timeline.customEmojiData, reactions: thread.replies.flatMap(\.reactions)),
-                                            messageFontSize: messageFontSize,
-                                            fontFamily: selectedFontFamily,
-                                            mediaClient: timeline.mediaClient,
-                                            onStartDirectMessage: onStartDirectMessage,
-                                            onReply: onReply,
-                                            onEdit: timeline.beginEditing,
-                                            onDelete: timeline.delete,
-                                            onVote: onVote,
-                                            onEndPoll: timeline.endPoll,
-                                            onContentVisible: timeline.loadVisibleContent,
-                                            onReactionTooltipChange: updateReactionTooltip
-                                        ) { post, emojiName in
-                                            timeline.toggleReaction(on: post, emojiName: emojiName)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.vertical, 10)
-                    .frame(minHeight: geometry.size.height, alignment: .bottom)
+        let displayItems = displayItems
+        return TimelineTableView(
+            rowIDs: displayItems.map(\.id),
+            scrollRequest: scrollRequest,
+            onScrollApplied: { postID in
+                if postID == pendingFocusedPostID {
+                    pendingFocusedPostID = nil
+                    onFocusedPostDisplayed(postID)
                 }
-                .defaultScrollAnchor(.bottom)
-                .overlayPreferenceValue(ReactionTooltipAnchorKey.self) { anchors in
-                    GeometryReader { proxy in
-                        if let reactionTooltip, let anchor = anchors[reactionTooltip.id] {
-                            ReactionTooltipView(text: reactionTooltip.text)
-                                .position(
-                                    x: proxy[anchor].midX,
-                                    y: proxy[anchor].maxY + 18
-                                )
-                                .allowsHitTesting(false)
-                        }
-                    }
+                if postID == pendingLatestPostID {
+                    pendingLatestPostID = nil
                 }
-                .onChange(of: newestRootPostID) { _, postID in
-                    guard focusedPostID == nil else { return }
-                    scrollToLatest(postID, with: proxy)
-                }
-                .task(id: channelID) {
-                    await timeline.load(channelID: channelID, aroundPostID: focusedPostID)
-                    if let focusedPostID {
-                        scrollTo(focusedPostID, with: proxy)
-                        onFocusedPostDisplayed(focusedPostID)
-                    } else {
-                        scrollToLatest(newestRootPostID, with: proxy)
-                    }
-                }
+            },
+            rowContent: { index, updateReactionTooltip in
+                AnyView(displayRow(displayItems[index], updateReactionTooltip: updateReactionTooltip))
             }
-            .task(id: timeline.posts) {
-                let posts = timeline.posts
-                guard !Task.isCancelled else { return }
-
-                let interval = AppLogger.timeline.beginInterval("Regroup Timeline Posts")
-                defer { AppLogger.timeline.endInterval("Regroup Timeline Posts", interval) }
-
-                guard
-                    let updatedItems = await itemUpdateQueue.submit(posts),
-                    !Task.isCancelled
-                else { return }
-
-                items = updatedItems
+        )
+        .onChange(of: newestRootPostID) { _, postID in
+            guard focusedPostID == nil, let postID else { return }
+            pendingLatestPostID = postID
+            requestScrollToLatestPostIfProjected()
+        }
+        .task(id: channelID) {
+            await timeline.load(channelID: channelID, aroundPostID: focusedPostID)
+            if let focusedPostID {
+                pendingFocusedPostID = focusedPostID
+                requestScrollToFocusedPostIfProjected()
+            } else if let newestRootPostID {
+                pendingLatestPostID = newestRootPostID
+                requestScrollToLatestPostIfProjected()
             }
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.width
-            } action: { width in
-                AppLogger.timeline.emitEvent("Timeline Width Changed", "width: \(width)")
-            }
+        }
+        .task(id: timeline.posts) {
+            let posts = timeline.posts
+            guard !Task.isCancelled else { return }
+
+            let interval = AppLogger.timeline.beginInterval("Regroup Timeline Posts")
+            defer { AppLogger.timeline.endInterval("Regroup Timeline Posts", interval) }
+
+            guard
+                let updatedItems = await itemUpdateQueue.submit(posts),
+                !Task.isCancelled
+            else { return }
+
+            items = updatedItems
+            requestScrollToFocusedPostIfProjected()
+            requestScrollToLatestPostIfProjected()
         }
         .accessibilityLabel("Message timeline")
         .accessibilityIdentifier("message-timeline")
     }
 
-    /// Flattens threads into one lazy child per header or thread. Keeping each
-    /// item bounded is what lets LazyVStack materialize only rows near the
-    /// viewport; day-sized groups forced whole-day row measurement whenever a
-    /// day entered the prefetch window, stalling the main thread for seconds.
+    /// Flattens threads into one table row per header or thread. Keeping each
+    /// item bounded lets NSTableView materialize only rows near the viewport;
+    /// day-sized groups forced whole-day row measurement at once.
     /// ponytail: a thread with a very large reply count still measures in one
     /// burst; if that ever bites, split replies into their own items.
     private static func makeItems(from posts: [MattermostPost]) async -> [TimelineItem] {
@@ -301,7 +228,87 @@ struct MessageTimeline: View {
         MattermostTimelineGrouping(maximumInterval: messageGroupingIntervalMinutes * 60)
     }
 
-    private func messageRow(for post: MattermostPost, previousRoot: MattermostPost?) -> some View {
+    private var displayItems: [TimelineDisplayItem] {
+        if timeline.isLoading && timeline.posts.isEmpty { return [.loading] }
+        if let error = timeline.loadError { return [.error(error)] }
+        if timeline.posts.isEmpty { return [.empty] }
+        return (timeline.hasEarlierPosts ? [.loadEarlier] : []) + items.map(TimelineDisplayItem.timeline)
+    }
+
+    @ViewBuilder
+    private func displayRow(
+        _ item: TimelineDisplayItem,
+        updateReactionTooltip: @escaping (ReactionTooltip?) -> Void
+    ) -> some View {
+        switch item {
+        case .loading:
+            TimelineLoadingState()
+        case .error(let message):
+            TimelineStatus(message: message, isError: true)
+        case .empty:
+            TimelineEmptyState()
+        case .loadEarlier:
+            Button {
+                Task { await timeline.loadEarlierPosts() }
+            } label: {
+                Label("Load earlier messages", systemImage: "chevron.up.2")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(WorkspaceTheme.secondaryText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Load earlier messages")
+            .onAppear {
+                AppLogger.timeline.emitEvent("Earlier Posts Sentinel Appeared")
+                Task { await timeline.loadEarlierPosts() }
+            }
+        case .timeline(.header(let date)):
+            TimelineDateHeader(date: date)
+        case .timeline(.thread(let thread)):
+            VStack(alignment: .leading, spacing: 0) {
+                messageRow(
+                    for: thread.root,
+                    previousRoot: thread.previousRoot,
+                    onReactionTooltipChange: updateReactionTooltip
+                )
+                .background(TimelineAnchorReporter(id: .post(thread.root.id)))
+
+                if Self.rendersInlineReplyThreads && !thread.replies.isEmpty {
+                    InlineReplyThread(
+                        replies: thread.replies,
+                        users: slicedUsers(from: messageUsers, userIDs: threadUserIDs(thread.replies)),
+                        statuses: slicedStatuses(from: messageStatuses, userIDs: threadUserIDs(thread.replies)),
+                        currentUserID: currentUserID,
+                        currentUsername: currentUsername,
+                        fileData: slicedFileData(from: timeline.fileData, for: thread.replies.flatMap(\.files)),
+                        avatarData: timeline.avatarData,
+                        customEmojiData: slicedEmojiData(from: timeline.customEmojiData, reactions: thread.replies.flatMap(\.reactions)),
+                        messageFontSize: messageFontSize,
+                        fontFamily: selectedFontFamily,
+                        mediaClient: timeline.mediaClient,
+                        onStartDirectMessage: onStartDirectMessage,
+                        onReply: onReply,
+                        onEdit: timeline.beginEditing,
+                        onDelete: timeline.delete,
+                        onVote: onVote,
+                        onEndPoll: timeline.endPoll,
+                        onContentVisible: timeline.loadVisibleContent,
+                        onReactionTooltipChange: updateReactionTooltip,
+                        focusedPostID: pendingFocusedPostID
+                    ) { post, emojiName in
+                        timeline.toggleReaction(on: post, emojiName: emojiName)
+                    }
+                }
+            }
+        }
+    }
+
+    private func messageRow(
+        for post: MattermostPost,
+        previousRoot: MattermostPost?,
+        onReactionTooltipChange: @escaping (ReactionTooltip?) -> Void
+    ) -> some View {
         MessageRow(
             post: post,
             users: slicedUsers(from: messageUsers, userIDs: postUserIDs(post)),
@@ -325,7 +332,7 @@ struct MessageTimeline: View {
             onVote: onVote,
             onEndPoll: timeline.endPoll,
             onContentVisible: timeline.loadVisibleContent,
-            onReactionTooltipChange: updateReactionTooltip,
+            onReactionTooltipChange: onReactionTooltipChange,
             onToggleReaction: { post, emojiName in
                 timeline.toggleReaction(on: post, emojiName: emojiName)
             }
@@ -333,25 +340,35 @@ struct MessageTimeline: View {
         .equatable()
     }
 
-    private func updateReactionTooltip(_ tooltip: ReactionTooltip?) {
-        reactionTooltip = tooltip
+    private func requestScroll(toPostID postID: String, anchor: TimelineTableScrollRequest.Anchor) {
+        let rowID = items.lazy.compactMap { item -> String? in
+            guard case .thread(let thread) = item,
+                  thread.root.id == postID || thread.replies.contains(where: { $0.id == postID })
+            else { return nil }
+            return thread.id
+        }.first ?? postID
+        scrollRequest = TimelineTableScrollRequest(rowID: rowID, postID: postID, anchor: anchor)
     }
 
-    private func scrollToLatest(_ postID: String?, with proxy: ScrollViewProxy) {
-        guard let postID else { return }
-        DispatchQueue.main.async {
-            withAnimation(.easeOut(duration: 0.15)) {
-                proxy.scrollTo(postID, anchor: .bottom)
-            }
-        }
+    private func requestScrollToFocusedPostIfProjected() {
+        guard let postID = pendingFocusedPostID,
+              items.contains(where: { item in
+                  guard case .thread(let thread) = item else { return false }
+                  return thread.root.id == postID || thread.replies.contains(where: { $0.id == postID })
+              })
+        else { return }
+        requestScroll(toPostID: postID, anchor: .center)
     }
 
-    private func scrollTo(_ postID: String, with proxy: ScrollViewProxy) {
-        DispatchQueue.main.async {
-            withAnimation(.easeOut(duration: 0.15)) {
-                proxy.scrollTo(postID, anchor: .center)
-            }
-        }
+    private func requestScrollToLatestPostIfProjected() {
+        guard pendingFocusedPostID == nil,
+              let postID = pendingLatestPostID,
+              items.contains(where: { item in
+                  guard case .thread(let thread) = item else { return false }
+                  return thread.root.id == postID
+              })
+        else { return }
+        requestScroll(toPostID: postID, anchor: .bottom)
     }
 }
 
@@ -360,15 +377,7 @@ struct ReactionTooltip: Identifiable {
     let text: String
 }
 
-private struct ReactionTooltipAnchorKey: PreferenceKey {
-    static let defaultValue: [String: Anchor<CGRect>] = [:]
-
-    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-private struct ReactionTooltipView: View {
+struct ReactionTooltipView: View {
     let text: String
 
     var body: some View {
@@ -390,9 +399,8 @@ private struct ReactionTooltipView: View {
 }
 
 /// A single lazy child of the timeline list: either a day header or one
-/// thread (its root plus inline replies). Flat per-thread granularity keeps
-/// Reference-backed thread payload keeps TimelineItem cheap to copy during
-/// LazyVStack identity and placement passes.
+/// Reference-backed thread payload keeps TimelineItem cheap to copy while the
+/// table applies snapshots and configures visible rows.
 /// Immutable payload is safe to transfer from the detached projection task.
 private final class TimelineThreadItem: @unchecked Sendable, Identifiable {
     let root: MattermostPost
@@ -416,6 +424,24 @@ private enum TimelineItem: Identifiable, Sendable {
         switch self {
         case .header(let date): return "day-\(date.timeIntervalSince1970)"
         case .thread(let thread): return thread.id
+        }
+    }
+}
+
+private enum TimelineDisplayItem: Identifiable {
+    case loading
+    case error(String)
+    case empty
+    case loadEarlier
+    case timeline(TimelineItem)
+
+    var id: String {
+        switch self {
+        case .loading: "state-loading"
+        case .error: "state-error"
+        case .empty: "state-empty"
+        case .loadEarlier: "load-earlier"
+        case .timeline(let item): item.id
         }
     }
 }
@@ -770,6 +796,7 @@ private struct InlineReplyThread: View {
     let onEndPoll: (MattermostPost) -> Void
     let onContentVisible: ([MattermostPost]) async -> Void
     let onReactionTooltipChange: (ReactionTooltip?) -> Void
+    let focusedPostID: String?
     let onToggleReaction: (MattermostPost, String) -> Void
     @AppStorage("showTimelineAvatars") private var showAvatars = true
     @State private var showsAllReplies = false
@@ -809,6 +836,7 @@ private struct InlineReplyThread: View {
                     )
                     .equatable()
                     .id(reply.id)
+                    .background(TimelineAnchorReporter(id: .post(reply.id)))
                 }
 
                 if replies.count > visibleReplies.count {
@@ -832,7 +860,13 @@ private struct InlineReplyThread: View {
     }
 
     private var visibleReplies: ArraySlice<MattermostPost> {
-        showsAllReplies ? replies[...] : replies.prefix(2)
+        replies.prefix(
+            inlineReplyPrefixCount(
+                replyIDs: replies.map(\.id),
+                focusedPostID: focusedPostID,
+                showsAllReplies: showsAllReplies
+            )
+        )
     }
 
     private var replyLeadingInset: CGFloat {
@@ -843,6 +877,19 @@ private struct InlineReplyThread: View {
         // the reply content; indent the thread content an additional 24 points.
         return messageContentLeadingInset - 12 + 24
     }
+
+}
+
+func inlineReplyPrefixCount(
+    replyIDs: [String],
+    focusedPostID: String?,
+    showsAllReplies: Bool
+) -> Int {
+    if showsAllReplies { return replyIDs.count }
+    guard let focusedPostID, let focusedIndex = replyIDs.firstIndex(of: focusedPostID) else {
+        return min(2, replyIDs.count)
+    }
+    return max(2, focusedIndex + 1)
 }
 
 private struct InlineReplyRow: View {
@@ -1263,9 +1310,7 @@ private struct ReactionSummary: View {
                     .accessibilityLabel(
                         "\(summary.emojiName) reaction, \(summary.count)\(summary.userIDs.contains(currentUserID ?? "") ? ", selected" : "")"
                     )
-                    .anchorPreference(key: ReactionTooltipAnchorKey.self, value: .bounds) {
-                        [summary.id: $0]
-                    }
+                    .background(TimelineAnchorReporter(id: .reaction(summary.id)))
                     .onHover { isHovering in
                         onTooltipChange(
                             isHovering
