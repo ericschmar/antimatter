@@ -75,6 +75,9 @@ struct TimelineTableView: NSViewRepresentable {
         scrollView.contentInsets = NSEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
         scrollView.documentView = tableView
         scrollView.timelineTableView = tableView
+        scrollView.onViewportWidthChanged = { [weak coordinator = context.coordinator] in
+            coordinator?.invalidateCachedHeightsForViewportWidthChange()
+        }
         context.coordinator.tableView = tableView
         context.coordinator.scrollView = scrollView
         return scrollView
@@ -100,6 +103,9 @@ struct TimelineTableView: NSViewRepresentable {
         private var rowIDs: [String]
         private var handledScrollRequestID: UUID?
         private var activeScrollRequestID: UUID?
+        private var rowHeights: [String: CGFloat] = [:]
+        private var pendingHeightInvalidationRowIDs = Set<String>()
+        private var hasScheduledHeightInvalidation = false
 
         init(
             rowIDs: [String],
@@ -120,7 +126,16 @@ struct TimelineTableView: NSViewRepresentable {
             let cell = (tableView.makeView(withIdentifier: Self.cellID, owner: nil) as? TimelineHostingCell)
                 ?? TimelineHostingCell(identifier: Self.cellID)
             configure(cell, for: row)
+            measureHeight(of: cell, rowID: rowIDs[row], in: tableView)
             return cell
+        }
+
+        func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+            guard rowIDs.indices.contains(row) else { return tableView.rowHeight }
+            return TimelineRowHeightPlan.height(
+                measuredHeight: rowHeights[rowIDs[row]],
+                estimatedHeight: tableView.rowHeight
+            )
         }
 
         func tableView(_ tableView: NSTableView, didRemove rowView: NSTableRowView, forRow row: Int) {
@@ -129,6 +144,7 @@ struct TimelineTableView: NSViewRepresentable {
 
         private func configure(_ cell: TimelineHostingCell, for row: Int) {
             guard rowIDs.indices.contains(row) else { return }
+            let rowID = rowIDs[row]
             cell.setRootView(
                 AnyView(
                     rowContent(row) { [weak self] tooltip in
@@ -137,8 +153,62 @@ struct TimelineTableView: NSViewRepresentable {
                     .environmentObject(userColorSettings)
                     .environment(\.timelineAnchorRegistry, anchorRegistry)
                 ),
-                rowID: rowIDs[row]
+                rowID: rowID,
+                onContentLayout: { [weak self] rowID in
+                    self?.remeasure(rowID: rowID)
+                }
             )
+        }
+
+        private func remeasure(rowID: String) {
+            guard let tableView,
+                  let row = rowIDs.firstIndex(of: rowID),
+                  let cell = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? TimelineHostingCell
+            else { return }
+            measureHeight(of: cell, rowID: rowID, in: tableView)
+        }
+
+        private func measureHeight(of cell: TimelineHostingCell, rowID: String, in tableView: NSTableView) {
+            guard let height = cell.height(for: tableView.tableColumns[0].width) else { return }
+            guard rowHeights[rowID] != height else { return }
+            rowHeights[rowID] = height
+            invalidateHeight(for: rowID)
+        }
+
+        fileprivate func invalidateCachedHeightsForViewportWidthChange() {
+            guard let tableView else { return }
+            rowHeights.removeAll()
+            let visibleRows = tableView.rows(in: tableView.visibleRect)
+            guard visibleRows.location != NSNotFound, visibleRows.length > 0 else { return }
+            for row in visibleRows.location..<(visibleRows.location + visibleRows.length) {
+                guard rowIDs.indices.contains(row),
+                      let cell = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? TimelineHostingCell
+                else { continue }
+                measureHeight(of: cell, rowID: rowIDs[row], in: tableView)
+            }
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<tableView.numberOfRows))
+        }
+
+        private func invalidateHeight(for rowID: String) {
+            pendingHeightInvalidationRowIDs.insert(rowID)
+            guard !hasScheduledHeightInvalidation else { return }
+            hasScheduledHeightInvalidation = true
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.hasScheduledHeightInvalidation = false
+                let invalidatedRowIDs = self.pendingHeightInvalidationRowIDs
+                self.pendingHeightInvalidationRowIDs.removeAll()
+                guard let tableView else { return }
+                let rowIndexes = TimelineRowHeightInvalidationPlan.indexes(
+                    rowIDs: self.rowIDs,
+                    invalidatedRowIDs: invalidatedRowIDs
+                )
+                guard !rowIndexes.isEmpty else { return }
+                tableView.noteHeightOfRows(withIndexesChanged: rowIndexes)
+                tableView.layoutSubtreeIfNeeded()
+                self.scrollView?.updateBottomInset()
+            }
         }
 
         fileprivate func apply(rowIDs newRowIDs: [String], scrollRequest: TimelineTableScrollRequest?) {
@@ -146,6 +216,7 @@ struct TimelineTableView: NSViewRepresentable {
             let anchor = visibleAnchor(in: tableView, retaining: Set(newRowIDs))
             let plan = TableSnapshotUpdatePlan.make(oldIDs: rowIDs, newIDs: newRowIDs)
             rowIDs = newRowIDs
+            rowHeights = rowHeights.filter { newRowIDs.contains($0.key) }
 
             switch plan {
             case .reload:
@@ -167,6 +238,7 @@ struct TimelineTableView: NSViewRepresentable {
                         if let cell = tableView.view(atColumn: 0, row: row, makeIfNecessary: false)
                             as? TimelineHostingCell {
                             configure(cell, for: row)
+                            measureHeight(of: cell, rowID: rowIDs[row], in: tableView)
                         }
                     }
                     tableView.noteHeightOfRows(withIndexesChanged: rowIndexes)
@@ -308,9 +380,31 @@ enum TableVisibleAnchorPlan {
     }
 }
 
+enum TimelineRowHeightInvalidationPlan {
+    static func indexes(rowIDs: [String], invalidatedRowIDs: Set<String>) -> IndexSet {
+        IndexSet(rowIDs.indices.filter { invalidatedRowIDs.contains(rowIDs[$0]) })
+    }
+}
+
+enum TimelineRowHeightPlan {
+    // ponytail:measurement-ceiling — SwiftUI rich content propagates an unbounded
+    // sizeThatFits height proposal into image and geometry calculations. 10,000 pt
+    // is safely beyond a practical message row; replace with a streaming row layout
+    // if a single message must exceed it.
+    static let maximumMeasurementHeight: CGFloat = 10_000
+
+    static func height(measuredHeight: CGFloat?, estimatedHeight: CGFloat) -> CGFloat {
+        guard let measuredHeight, measuredHeight.isFinite, measuredHeight > 0 else {
+            return estimatedHeight.isFinite && estimatedHeight > 0 ? estimatedHeight : 44
+        }
+        return min(measuredHeight, maximumMeasurementHeight)
+    }
+}
+
 @MainActor
 final class TimelineScrollView: NSScrollView {
     weak var timelineTableView: NSTableView?
+    var onViewportWidthChanged: (() -> Void)?
     fileprivate let tooltipOverlayView = TimelineTooltipOverlayView()
     private var isUpdatingInset = false
     private var previousViewportWidth: CGFloat = 0
@@ -340,7 +434,7 @@ final class TimelineScrollView: NSScrollView {
            tableView.numberOfRows > 0 {
             previousViewportWidth = viewportWidth
             tableView.tableColumns.first?.width = viewportWidth
-            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0..<tableView.numberOfRows))
+            onViewportWidthChanged?()
         }
         updateBottomInset()
     }
@@ -480,14 +574,16 @@ struct TimelineAnchorReporter: NSViewRepresentable {
 
 @MainActor
 private final class TimelineHostingCell: NSTableCellView {
-    private let hostingView = NSHostingView(rootView: AnyView(EmptyView()))
+    private let hostingController = TimelineHostingController(rootView: AnyView(EmptyView()))
     private var rowID: String?
+    private var onContentLayout: ((String) -> Void)?
+    private var hasScheduledContentLayoutNotification = false
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
         self.identifier = identifier
+        let hostingView = hostingController.view
         hostingView.translatesAutoresizingMaskIntoConstraints = false
-        hostingView.sizingOptions = [.intrinsicContentSize]
         hostingView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         hostingView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         addSubview(hostingView)
@@ -504,14 +600,58 @@ private final class TimelineHostingCell: NSTableCellView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func setRootView(_ rootView: AnyView, rowID: String) {
+    func setRootView(
+        _ rootView: AnyView,
+        rowID: String,
+        onContentLayout: @escaping (String) -> Void
+    ) {
         self.rowID = rowID
-        hostingView.rootView = AnyView(rootView.id(rowID))
+        self.onContentLayout = onContentLayout
+        hostingController.onLayout = { [weak self] in
+            self?.scheduleContentLayoutNotification()
+        }
+        hostingController.rootView = AnyView(
+            rootView
+                .fixedSize(horizontal: false, vertical: true)
+                .id(rowID)
+        )
+    }
+
+    func height(for width: CGFloat) -> CGFloat? {
+        guard width.isFinite, width > 0 else { return nil }
+        let height = hostingController.sizeThatFits(
+            in: CGSize(width: width, height: TimelineRowHeightPlan.maximumMeasurementHeight)
+        ).height
+        guard height.isFinite, height > 0 else { return nil }
+        return min(height, TimelineRowHeightPlan.maximumMeasurementHeight)
     }
 
     override func prepareForReuse() {
         super.prepareForReuse()
         rowID = nil
-        hostingView.rootView = AnyView(EmptyView())
+        onContentLayout = nil
+        hostingController.onLayout = nil
+        hostingController.rootView = AnyView(EmptyView())
+    }
+
+    private func scheduleContentLayoutNotification() {
+        guard !hasScheduledContentLayoutNotification else { return }
+        hasScheduledContentLayoutNotification = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.hasScheduledContentLayoutNotification = false
+            guard let rowID = self.rowID else { return }
+            self.onContentLayout?(rowID)
+        }
+    }
+}
+
+@MainActor
+private final class TimelineHostingController: NSHostingController<AnyView> {
+    var onLayout: (() -> Void)?
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        onLayout?()
     }
 }

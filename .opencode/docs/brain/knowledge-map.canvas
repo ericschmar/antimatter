@@ -21,7 +21,7 @@
     {
       "id": "verification",
       "type": "text",
-      "text": "Verification\n[Verification ❌ FAILED] TODO: 10/10, Sync: 3 issues\nFailures:\nSync issues not resolved: 3 issue(s) remain",
+      "text": "Verification\nMission verification passed",
       "x": 840,
       "y": 0,
       "width": 360,
@@ -30,7 +30,7 @@
     {
       "id": "event-0",
       "type": "text",
-      "text": "verification_failed\n[Verification ❌ FAILED] TODO: 10/10, Sync: 3 issues\nFailures:\nSync issues not resolved: 3 issue(s) remain",
+      "text": "continuation_scheduled\n[Verification ❌ FAILED] TODO: 10/10, Sync: 3 issues\nFailures:\nSync issues not resolved: 3 issue(s) remain",
       "x": 0,
       "y": 260,
       "width": 360,
@@ -39,7 +39,7 @@
     {
       "id": "event-1",
       "type": "text",
-      "text": "continuation_scheduled\n[Verification ❌ FAILED] TODO: 10/10, Sync: 3 issues\nFailures:\nSync issues not resolved: 3 issue(s) remain",
+      "text": "prompt_injected\n[Verification ❌ FAILED] TODO: 10/10, Sync: 3 issues\nFailures:\nSync issues not resolved: 3 issue(s) remain",
       "x": 420,
       "y": 260,
       "width": 360,
@@ -48,7 +48,7 @@
     {
       "id": "event-2",
       "type": "text",
-      "text": "prompt_injected\n[Verification ❌ FAILED] TODO: 10/10, Sync: 3 issues\nFailures:\nSync issues not resolved: 3 issue(s) remain",
+      "text": "mission_completed\nMission verification passed",
       "x": 840,
       "y": 260,
       "width": 360,

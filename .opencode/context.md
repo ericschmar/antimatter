@@ -46,3 +46,21 @@ Exyte Chat's `UIList` is an iOS UIKit `UITableView` adapter, so its data-source,
 ## Residual risk / deliberately deferred follow-ups
 - This change intentionally leaves image decoding, Markdown parsing, and inline-reply content rendering untouched. Existing active Beads issues cover remaining content-level costs (`antimatter-5ie`, `antimatter-a6x`, `antimatter-y6w`).
 - A manual runtime trace in an image-heavy busy channel remains useful for quantifying the improvement; it is not automatable in the current pure SwiftPM test setup.
+
+## Active: native table row-height correction (uncommitted)
+- User reported content clipping for complex Markdown, images, links, attachments, and inline replies after the AppKit timeline migration.
+- Root cause investigation showed `NSHostingView` with intrinsic-size sizing reports a one-line/fitting height even when constrained to the timeline column. A direct XCTest shows `NSHostingController.sizeThatFits(in:)` returns the correct wrapped height at the same width.
+- Current uncommitted changes are deliberately limited to `Sources/AntimatterApp/TimelineTableView.swift` and `NativeTests/AntimatterAppTests/TableSnapshotUpdatePlanTests.swift`; do not touch unrelated `.opencode/**` or `AGENTS.md` churn.
+- The bridge now uses reusable `NSHostingController`-backed cells; rows are measured at the actual table-column width, cached by stable ID, invalidated on rendered geometry changes, and cleared/re-measured when the viewport width changes. `NSTableView` uses cached measured heights and retains `44pt` as its offscreen estimate.
+- User then reported `Invalid view geometry` diagnostics with infinity/too-large coordinates. Root cause: current measurement passed `CGFloat.greatestFiniteMagnitude` as `sizeThatFits` height; rich SwiftUI media/geometry can propagate this unbounded proposal.
+- The pending fix replaces it with `TimelineRowHeightPlan.maximumMeasurementHeight = 10_000`, rejects non-finite/invalid input or returned sizes, and falls back to the finite estimate. A `ponytail:measurement-ceiling` comment documents the practical single-message ceiling and upgrade path.
+
+## Latest verification / next move
+- Latest focused command: `swift test --package-path . --filter TableSnapshotUpdatePlanTests && swift build --package-path . && git diff --check` — passed; 14 focused XCTest cases.
+- Prior comprehensive verification before the latest finite-bound guard: full SwiftPM suite (76 XCTest + 2 Swift Testing), SwiftPM build, Xcode Debug and Release builds, `graft check`, and diff check passed. Re-run full/Xcode verification after current change if proceeding to commit.
+- Next action: manually run the Debug app against the reported rich-content messages. Confirm both (1) no invalid geometry diagnostics and (2) no clipped content after initial render or async media/link expansion. Then review and commit only the two intended files if confirmed.
+
+## Latest runtime feedback (still uncommitted)
+- Finite proposal eliminated invalid-geometry diagnostics and images look correct, but replies/link previews initially consumed the full 10,000pt proposal.
+- A targeted XCTest demonstrated that vertically flexible SwiftUI roots consume a positive `sizeThatFits` height proposal. The current uncommitted cell wraps the root in `.fixedSize(horizontal: false, vertical: true)`, which made replies/link previews stop using 10,000pt. Focused verification now has 15 passing tests plus a SwiftPM build and diff check.
+- New user feedback: after the `.fixedSize` correction, reply/message-row top and bottom are clipping again. Next investigation must trace the actual cell measurement versus its final Auto Layout/table frame and geometry-change feedback; do not assume the fixed-size root’s `sizeThatFits` result is what the table ultimately lays out.

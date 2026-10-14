@@ -1,4 +1,6 @@
 import XCTest
+import AppKit
+import SwiftUI
 
 @testable import AntimatterApp
 
@@ -85,4 +87,82 @@ final class TableSnapshotUpdatePlanTests: XCTestCase {
             2
         )
     }
+
+    func testHeightInvalidationUsesCurrentIndexesForStableRowIDs() {
+        XCTAssertEqual(
+            TimelineRowHeightInvalidationPlan.indexes(
+                rowIDs: ["day-1", "message-2", "message-3"],
+                invalidatedRowIDs: ["message-2", "removed-message"]
+            ),
+            IndexSet(integer: 1)
+        )
+    }
+
+    @MainActor
+    func testIntrinsicOnlyHostedTextRemainsSingleLineWhenConstrained() {
+        let message = String(repeating: "A long message that must wrap within the timeline column. ", count: 8)
+        let host = NSHostingView(rootView: AnyView(Text(message).frame(maxWidth: .infinity, alignment: .leading)))
+        host.sizingOptions = [.intrinsicContentSize]
+
+        let container = NSView()
+        container.addSubview(host)
+        host.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            host.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            host.topAnchor.constraint(equalTo: container.topAnchor),
+        ])
+        container.frame.size.width = 200
+        container.layoutSubtreeIfNeeded()
+
+        XCTAssertEqual(host.fittingSize.height, host.intrinsicContentSize.height)
+    }
+
+    @MainActor
+    func testHostingViewMeasuresWrappedTextAtTheColumnWidth() {
+        let message = String(repeating: "A long message that must wrap within the timeline column. ", count: 8)
+        let host = NSHostingController(rootView: AnyView(Text(message).frame(maxWidth: .infinity, alignment: .leading)))
+
+        let wrappedHeight = host.sizeThatFits(
+            in: CGSize(width: 200, height: TimelineRowHeightPlan.maximumMeasurementHeight)
+        ).height
+
+        XCTAssertGreaterThan(wrappedHeight, host.view.intrinsicContentSize.height)
+    }
+
+    @MainActor
+    func testVerticallyFixedHostingRootDoesNotExpandToTheMeasurementProposal() {
+        let root = AnyView(
+            VStack(alignment: .leading) {
+                Text("Message content")
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        )
+        let flexibleHost = NSHostingController(rootView: root)
+        let fixedHost = NSHostingController(rootView: AnyView(root.fixedSize(horizontal: false, vertical: true)))
+        let proposal = CGSize(width: 200, height: TimelineRowHeightPlan.maximumMeasurementHeight)
+
+        XCTAssertEqual(flexibleHost.sizeThatFits(in: proposal).height, TimelineRowHeightPlan.maximumMeasurementHeight)
+        XCTAssertLessThan(fixedHost.sizeThatFits(in: proposal).height, TimelineRowHeightPlan.maximumMeasurementHeight)
+    }
+
+    func testRowMeasurementHeightIsFinite() {
+        XCTAssertTrue(TimelineRowHeightPlan.maximumMeasurementHeight.isFinite)
+    }
+
+    func testRowHeightFallsBackWhenTheMeasurementIsNotFinite() {
+        XCTAssertEqual(
+            TimelineRowHeightPlan.height(measuredHeight: .infinity, estimatedHeight: 44),
+            44
+        )
+    }
+
+    func testRowHeightFallsBackWhenTheEstimateIsNotFinite() {
+        XCTAssertEqual(
+            TimelineRowHeightPlan.height(measuredHeight: nil, estimatedHeight: .infinity),
+            44
+        )
+    }
+
 }
