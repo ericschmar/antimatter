@@ -1,0 +1,90 @@
+{
+  "nodes": [
+    {
+      "id": "objective",
+      "type": "text",
+      "text": "Objective\nPlan, implement, test, and review updating our message view to be significantly more performant. I have an example repo on github that you should research, starting at https://github.com/exyte/Chat/tree/main/Sources/ExyteChat/Views with the `ChatView.swift` file. I believe a lot can be learned from that repo, including in the `UiList.swift` file too. From my understanding, creating/mainaning our own ui queue of updates will be a lot more performant than what we are doing now. Do NOT change any of the styling/UI look and feel. We are purely attempting to speed up the app. If there are any clarifying questions, ask them. If at any point you feel like you aren't making progress, pause, and re-establish first principles. Commit progress along the way as it makes sense.",
+      "x": 0,
+      "y": 0,
+      "width": 360,
+      "height": 180
+    },
+    {
+      "id": "runtime",
+      "type": "text",
+      "text": "Runtime\nIteration 2/1000000000\nProgress [Verification ❌ FAILED] TODO: 0/0, Sync: clean\nFailures:\nTODO file not found at .opencode/todo.md",
+      "x": 420,
+      "y": 0,
+      "width": 360,
+      "height": 180
+    },
+    {
+      "id": "verification",
+      "type": "text",
+      "text": "Verification\n[Verification ❌ FAILED] TODO: 0/0, Sync: clean\nFailures:\nTODO file not found at .opencode/todo.md",
+      "x": 840,
+      "y": 0,
+      "width": 360,
+      "height": 180
+    },
+    {
+      "id": "event-0",
+      "type": "text",
+      "text": "verification_failed\n[Verification ❌ FAILED] TODO: 0/0, Sync: clean\nFailures:\nTODO file not found at .opencode/todo.md",
+      "x": 0,
+      "y": 260,
+      "width": 360,
+      "height": 180
+    },
+    {
+      "id": "event-1",
+      "type": "text",
+      "text": "continuation_scheduled\n[Verification ❌ FAILED] TODO: 0/0, Sync: clean\nFailures:\nTODO file not found at .opencode/todo.md",
+      "x": 420,
+      "y": 260,
+      "width": 360,
+      "height": 180
+    },
+    {
+      "id": "event-2",
+      "type": "text",
+      "text": "prompt_injected\n[Verification ❌ FAILED] TODO: 0/0, Sync: clean\nFailures:\nTODO file not found at .opencode/todo.md",
+      "x": 840,
+      "y": 260,
+      "width": 360,
+      "height": 180
+    }
+  ],
+  "edges": [
+    {
+      "id": "objective-runtime",
+      "fromNode": "objective",
+      "toNode": "runtime",
+      "label": "drives"
+    },
+    {
+      "id": "runtime-verification",
+      "fromNode": "runtime",
+      "toNode": "verification",
+      "label": "checks"
+    },
+    {
+      "id": "verification-event-0",
+      "fromNode": "verification",
+      "toNode": "event-0",
+      "label": "evidence"
+    },
+    {
+      "id": "verification-event-1",
+      "fromNode": "verification",
+      "toNode": "event-1",
+      "label": "evidence"
+    },
+    {
+      "id": "verification-event-2",
+      "fromNode": "verification",
+      "toNode": "event-2",
+      "label": "evidence"
+    }
+  ]
+}
