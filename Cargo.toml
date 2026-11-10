@@ -20,7 +20,7 @@ zeroize = "1"
 security-framework = "3.7.0"
 objc2 = "0.5.2"
 objc2-app-kit = { version = "0.2.2", features = ["NSApplication", "NSWindow"] }
-objc2-foundation = { version = "0.2.2", features = ["NSURL", "NSString", "NSError"] }
+objc2-foundation = { version = "0.2.2", features = ["NSURL", "NSString", "NSError", "NSBundle", "NSArray", "NSDictionary"] }
 objc2-authentication-services = { version = "0.2.2", features = ["ASWebAuthenticationSession", "ASFoundation", "block2"] }
 block2 = "0.5.1"
 

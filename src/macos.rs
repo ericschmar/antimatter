@@ -1,15 +1,20 @@
 use block2::RcBlock;
 use objc2::rc::Retained;
-use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
-use objc2::{ClassType, DeclaredClass, declare_class, msg_send_id, mutability};
-use objc2_app_kit::NSWindow;
+use objc2::runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject};
+use objc2::{ClassType, DeclaredClass, declare_class, msg_send, msg_send_id, mutability};
+use objc2_app_kit::{NSApplication, NSWindow};
 use objc2_authentication_services::{
     ASWebAuthenticationPresentationContextProviding, ASWebAuthenticationSession,
 };
-use objc2_foundation::{MainThreadMarker, NSError, NSString, NSURL};
+use objc2_foundation::{
+    MainThreadMarker, NSArray, NSBundle, NSDictionary, NSError, NSString, NSURL,
+};
 use std::sync::{Arc, Mutex};
 use tokio::sync::oneshot;
 use zeroize::Zeroizing;
+
+pub const BUNDLE_IDENTIFIER: &str = "antimatter.ericschmar.dev";
+pub const CALLBACK_SCHEME: &str = "mattermost-dev";
 
 declare_class!(
     struct PresentationProvider;
@@ -39,6 +44,56 @@ pub enum BrowserError {
     Cancelled,
     StartFailed,
     InvalidUrl,
+    NotMainThread,
+    MissingWindow,
+    BundleIdentifierMismatch,
+    CallbackSchemeNotRegistered,
+}
+
+// objc2 0.5 has no downcast API. Check each plist object's class before casting;
+// plist generic types alone do not validate the contents of an NSArray/NSDictionary.
+fn plist_object<T: ClassType>(object: &AnyObject) -> Option<&T> {
+    unsafe {
+        let matches: bool = msg_send![object, isKindOfClass: T::class()];
+        matches.then(|| &*(object as *const AnyObject).cast::<T>())
+    }
+}
+
+fn check_bundle(bundle: &NSBundle) -> Result<(), BrowserError> {
+    let identifier = unsafe { bundle.bundleIdentifier() };
+    if identifier.as_ref().map(|id| id.to_string()).as_deref() != Some(BUNDLE_IDENTIFIER) {
+        return Err(BrowserError::BundleIdentifierMismatch);
+    }
+    let types =
+        unsafe { bundle.objectForInfoDictionaryKey(&NSString::from_str("CFBundleURLTypes")) };
+    let registered = types
+        .as_deref()
+        .and_then(plist_object::<NSArray<AnyObject>>)
+        .is_some_and(|types| {
+            types.iter().any(|entry| {
+                plist_object::<NSDictionary<NSString, AnyObject>>(entry)
+                    .and_then(|entry| entry.get(&NSString::from_str("CFBundleURLSchemes")))
+                    .and_then(plist_object::<NSArray<AnyObject>>)
+                    .is_some_and(|schemes| {
+                        schemes.iter().any(|scheme| {
+                            plist_object::<NSString>(scheme)
+                                .is_some_and(|scheme| scheme.to_string() == CALLBACK_SCHEME)
+                        })
+                    })
+            })
+        });
+    if !registered {
+        return Err(BrowserError::CallbackSchemeNotRegistered);
+    }
+    Ok(())
+}
+
+/// Check the running executable's bundle metadata without opening a browser.
+/// This checks the bundle declaration, not LaunchServices ownership or delivery.
+/// Call on the UI thread; a bare Cargo executable fails closed.
+pub fn native_prerequisites() -> Result<(), BrowserError> {
+    MainThreadMarker::new().ok_or(BrowserError::NotMainThread)?;
+    check_bundle(&NSBundle::mainBundle())
 }
 
 type CallbackResult = Result<Zeroizing<String>, BrowserError>;
@@ -58,11 +113,24 @@ pub struct BrowserSession {
 }
 
 impl BrowserSession {
+    /// Retain Rune's existing key/main window as the presentation anchor.
+    pub fn start_for_app(login_url: &url::Url) -> Result<(Self, BrowserCallback), BrowserError> {
+        let main_thread = MainThreadMarker::new().ok_or(BrowserError::NotMainThread)?;
+        native_prerequisites()?;
+        let app = NSApplication::sharedApplication(main_thread);
+        let window = app
+            .keyWindow()
+            .or_else(|| unsafe { app.mainWindow() })
+            .ok_or(BrowserError::MissingWindow)?;
+        Self::start(main_thread, window, login_url)
+    }
+
     pub fn start(
         main_thread: MainThreadMarker,
         window: Retained<NSWindow>,
         login_url: &url::Url,
     ) -> Result<(Self, BrowserCallback), BrowserError> {
+        native_prerequisites()?;
         if !matches!(login_url.scheme(), "https" | "http") {
             return Err(BrowserError::InvalidUrl);
         }
@@ -83,7 +151,7 @@ impl BrowserSession {
         });
         let url = unsafe { NSURL::URLWithString(&NSString::from_str(login_url.as_str())) }
             .ok_or(BrowserError::InvalidUrl)?;
-        let scheme = NSString::from_str("mattermost-dev");
+        let scheme = NSString::from_str(CALLBACK_SCHEME);
         #[allow(deprecated)]
         let session = unsafe {
             ASWebAuthenticationSession::initWithURL_callbackURLScheme_completionHandler(
@@ -125,6 +193,18 @@ impl Drop for BrowserSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rune_handle_supports_main_thread_browser_state() {
+        fn send_sync<T: Send + Sync>() {}
+        send_sync::<rune::AppHandle<Option<BrowserSession>>>();
+    }
+
+    #[test]
+    #[ignore = "run on the UI thread inside the actual native app bundle; never opens a browser"]
+    fn actual_native_bundle_metadata() {
+        assert_eq!(native_prerequisites(), Ok(()));
+    }
 
     #[tokio::test]
     async fn cancellation_settles_receiver_and_rejects_late_success() {

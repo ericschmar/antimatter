@@ -282,6 +282,10 @@ impl Client {
         &self.origin
     }
 
+    pub fn credential_for_persistence(&self) -> Secret {
+        self.token.clone()
+    }
+
     pub async fn websocket(
         &self,
         stop: tokio::sync::watch::Receiver<bool>,

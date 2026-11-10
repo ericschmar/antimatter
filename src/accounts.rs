@@ -7,6 +7,7 @@ use std::{
     os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Component, Path, PathBuf},
 };
+use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 const VERSION: u32 = 1;
@@ -50,7 +51,7 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize)]
 pub struct AccountKey {
@@ -107,13 +108,24 @@ pub trait CredentialStore {
 }
 
 #[cfg(target_os = "macos")]
-pub struct KeychainCredentials;
+pub struct KeychainCredentials {
+    service: String,
+}
+
+#[cfg(target_os = "macos")]
+impl Default for KeychainCredentials {
+    fn default() -> Self {
+        Self {
+            service: KEYCHAIN_SERVICE.to_owned(),
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 impl KeychainCredentials {
-    fn options(key: &AccountKey) -> Result<security_framework::passwords::PasswordOptions> {
+    fn options(&self, key: &AccountKey) -> Result<security_framework::passwords::PasswordOptions> {
         let mut options = security_framework::passwords::PasswordOptions::new_generic_password(
-            KEYCHAIN_SERVICE,
+            &self.service,
             &key.credential_account()?,
         );
         options.set_access_synchronized(Some(false));
@@ -125,7 +137,7 @@ impl KeychainCredentials {
 impl CredentialStore for KeychainCredentials {
     fn get(&self, key: &AccountKey) -> Result<Option<Secret>> {
         use zeroize::Zeroizing;
-        match security_framework::passwords::generic_password(Self::options(key)?) {
+        match security_framework::passwords::generic_password(self.options(key)?) {
             Ok(bytes) => {
                 let bytes = Zeroizing::new(bytes);
                 let text = std::str::from_utf8(&bytes)
@@ -141,7 +153,7 @@ impl CredentialStore for KeychainCredentials {
 
     fn save(&mut self, key: &AccountKey, token: &Secret) -> Result<()> {
         use security_framework::access_control::{ProtectionMode, SecAccessControl};
-        let mut options = Self::options(key)?;
+        let mut options = self.options(key)?;
         let access = SecAccessControl::create_with_protection(
             Some(ProtectionMode::AccessibleAfterFirstUnlock),
             0,
@@ -156,7 +168,7 @@ impl CredentialStore for KeychainCredentials {
     }
 
     fn remove(&mut self, key: &AccountKey) -> Result<()> {
-        match security_framework::passwords::delete_generic_password_options(Self::options(key)?) {
+        match security_framework::passwords::delete_generic_password_options(self.options(key)?) {
             Ok(()) => Ok(()),
             Err(e) if e.code() == -25300 => Ok(()),
             Err(e) => Err(Error::Credential(e.code())),
@@ -205,6 +217,25 @@ pub struct Draft {
     pub pane_id: String,
     pub channel_id: String,
     pub text: String,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Navigation {
+    pub channel_id: Option<String>,
+}
+
+impl Navigation {
+    fn validate(&self) -> Result<()> {
+        if self
+            .channel_id
+            .as_ref()
+            .is_some_and(|id| id.trim().is_empty())
+        {
+            return Err(Error::Invalid("empty navigation channel ID"));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -336,8 +367,45 @@ impl<C: CredentialStore> AccountStore<C> {
         self.save_record(key, "preferences.json", data)
     }
 
+    fn selected(&self) -> Result<Option<AccountKey>> {
+        self.check_registry()?;
+        let record = read_json::<Record<Option<String>>>(&self.root.join("selection.json"))?;
+        let Some(record) = record else {
+            return Ok(None);
+        };
+        check_version(record.version)?;
+        record
+            .data
+            .map(|id| {
+                self.registry
+                    .accounts
+                    .iter()
+                    .find(|account| account.local_id == id)
+                    .map(|account| account.key.clone())
+                    .ok_or(Error::Invalid("unknown selected account ID"))
+            })
+            .transpose()
+    }
+
+    fn select(&mut self, key: Option<&AccountKey>) -> Result<()> {
+        self.selected()?; // Never replace corrupt or unknown selection records.
+        let id = key
+            .map(|key| self.account(key).map(|account| account.local_id.clone()))
+            .transpose()?;
+        atomic_json(
+            &self.root.join("selection.json"),
+            &Record {
+                version: VERSION,
+                data: id,
+            },
+        )
+    }
+
     pub fn sign_out(&mut self, key: &AccountKey) -> Result<()> {
         self.check_registry()?;
+        let clear_selection = self.selected()?.as_ref() == Some(key);
+        self.load_drafts(key)?;
+        self.load_preferences::<serde_json::Value>(key)?;
         let directory = self.account_dir(key)?;
         if directory.exists() {
             check_path(&directory, true)?;
@@ -350,6 +418,9 @@ impl<C: CredentialStore> AccountStore<C> {
             }
         }
         self.credentials.remove(key)?;
+        if clear_selection {
+            self.select(None)?;
+        }
         for name in ["drafts.json", "preferences.json"] {
             let file = directory.join(name);
             check_path(&file, false)?;
@@ -424,6 +495,189 @@ impl<C: CredentialStore> AccountStore<C> {
         ensure_dir(&directory)?;
         atomic_bytes(&directory.join(name), &bytes)
     }
+}
+
+type Snapshot = (Vec<Account>, Vec<Draft>, Navigation);
+
+enum Command {
+    Accounts(oneshot::Sender<Result<Vec<Account>>>),
+    Selected(oneshot::Sender<Result<Option<AccountKey>>>),
+    Select(Option<AccountKey>, oneshot::Sender<Result<()>>),
+    Restore(
+        AccountKey,
+        oneshot::Sender<Result<(Secret, Vec<Draft>, Navigation)>>,
+    ),
+    Save(
+        AccountKey,
+        String,
+        Secret,
+        oneshot::Sender<Result<Snapshot>>,
+    ),
+    Checkpoint(
+        AccountKey,
+        Vec<Draft>,
+        Navigation,
+        oneshot::Sender<Result<()>>,
+    ),
+    SignOut(AccountKey, oneshot::Sender<Result<Vec<Account>>>),
+}
+
+/// A cloneable handle to one native thread owning all filesystem and credential I/O.
+/// Accepted commands finish even if the caller drops its reply future.
+#[derive(Clone)]
+pub struct Persistence {
+    sender: mpsc::Sender<Command>,
+}
+
+impl Persistence {
+    pub async fn open(
+        root: PathBuf,
+        credentials: impl CredentialStore + Send + 'static,
+    ) -> Result<Self> {
+        let (sender, mut receiver) = mpsc::channel(32);
+        let (ready, opened) = oneshot::channel();
+        std::thread::Builder::new()
+            .name("account-persistence".into())
+            .spawn(move || {
+                let mut store = match AccountStore::open(root, credentials).and_then(|store| {
+                    store.selected()?;
+                    Ok(store)
+                }) {
+                    Ok(store) => store,
+                    Err(error) => {
+                        let _ = ready.send(Err(error));
+                        return;
+                    }
+                };
+                if ready.send(Ok(())).is_err() {
+                    return;
+                }
+                while let Some(command) = receiver.blocking_recv() {
+                    match command {
+                        Command::Accounts(reply) => {
+                            let _ = reply
+                                .send(store.check_registry().map(|()| store.accounts().to_vec()));
+                        }
+                        Command::Selected(reply) => {
+                            let _ = reply.send(store.selected());
+                        }
+                        Command::Select(key, reply) => {
+                            let _ = reply.send(store.select(key.as_ref()));
+                        }
+                        Command::Restore(key, reply) => {
+                            let result = (|| {
+                                let (drafts, navigation) = load_state(&store, &key)?;
+                                let secret = store.credential(&key)?.ok_or(Error::Invalid(
+                                    "saved credential is missing; sign in again",
+                                ))?;
+                                Ok((secret, drafts, navigation))
+                            })();
+                            let _ = reply.send(result);
+                        }
+                        Command::Save(key, username, token, reply) => {
+                            let result = (|| {
+                                store.check_registry()?;
+                                let (drafts, navigation) =
+                                    if store.accounts().iter().any(|account| account.key == key) {
+                                        load_state(&store, &key)?
+                                    } else {
+                                        (Vec::new(), Navigation::default())
+                                    };
+                                store.save_account(&key, &username, &token)?;
+                                Ok((store.accounts().to_vec(), drafts, navigation))
+                            })();
+                            let _ = reply.send(result);
+                        }
+                        Command::Checkpoint(key, drafts, navigation, reply) => {
+                            let result = (|| {
+                                validate_drafts(&drafts)?;
+                                navigation.validate()?;
+                                load_state(&store, &key)?;
+                                // ponytail: records are atomic separately, not a multi-file transaction.
+                                // Preflight prevents corrupt-state overwrites; an I/O failure can leave
+                                // drafts committed without navigation. Upgrade to a combined record if needed.
+                                store.save_drafts(&key, &drafts)?;
+                                store.save_preferences(&key, &navigation)
+                            })();
+                            let _ = reply.send(result);
+                        }
+                        Command::SignOut(key, reply) => {
+                            let result = (|| {
+                                load_state(&store, &key)?;
+                                store.sign_out(&key)?;
+                                Ok(store.accounts().to_vec())
+                            })();
+                            let _ = reply.send(result);
+                        }
+                    }
+                }
+            })?;
+        opened
+            .await
+            .map_err(|_| Error::Invalid("account persistence worker stopped"))??;
+        Ok(Self { sender })
+    }
+
+    async fn request<T>(
+        &self,
+        command: impl FnOnce(oneshot::Sender<Result<T>>) -> Command,
+    ) -> Result<T> {
+        let (reply, response) = oneshot::channel();
+        self.sender
+            .send(command(reply))
+            .await
+            .map_err(|_| Error::Invalid("account persistence worker stopped"))?;
+        response
+            .await
+            .map_err(|_| Error::Invalid("account persistence worker stopped"))?
+    }
+
+    pub async fn accounts(&self) -> Result<Vec<Account>> {
+        self.request(Command::Accounts).await
+    }
+
+    pub async fn selected(&self) -> Result<Option<AccountKey>> {
+        self.request(Command::Selected).await
+    }
+
+    pub async fn select(&self, key: Option<AccountKey>) -> Result<()> {
+        self.request(|reply| Command::Select(key, reply)).await
+    }
+
+    pub async fn restore(&self, key: AccountKey) -> Result<(Secret, Vec<Draft>, Navigation)> {
+        self.request(|reply| Command::Restore(key, reply)).await
+    }
+
+    pub async fn save(&self, key: AccountKey, username: String, token: Secret) -> Result<Snapshot> {
+        self.request(|reply| Command::Save(key, username, token, reply))
+            .await
+    }
+
+    pub async fn checkpoint(
+        &self,
+        key: AccountKey,
+        drafts: Vec<Draft>,
+        navigation: Navigation,
+    ) -> Result<()> {
+        self.request(|reply| Command::Checkpoint(key, drafts, navigation, reply))
+            .await
+    }
+
+    pub async fn sign_out(&self, key: AccountKey) -> Result<Vec<Account>> {
+        self.request(|reply| Command::SignOut(key, reply)).await
+    }
+}
+
+fn load_state<C: CredentialStore>(
+    store: &AccountStore<C>,
+    key: &AccountKey,
+) -> Result<(Vec<Draft>, Navigation)> {
+    let drafts = store.load_drafts(key)?;
+    let navigation = store
+        .load_preferences::<Navigation>(key)?
+        .unwrap_or_default();
+    navigation.validate()?;
+    Ok((drafts, navigation))
 }
 
 /// ponytail: path checks reject symlinks, but are not race-proof against a malicious
@@ -592,6 +846,271 @@ mod tests {
             channel_id: "channel".into(),
             text: text.into(),
         }
+    }
+
+    #[tokio::test]
+    async fn actor_roundtrip_isolation_selection_and_missing_secret() {
+        let root = TempRoot::new();
+        let actor = Persistence::open(root.0.clone(), FakeCredentials::default())
+            .await
+            .unwrap();
+        let a = key("https://example.test", "a");
+        let b = key("https://example.test", "b");
+        let c = key("https://example.test:8443", "a");
+        assert_eq!(actor.selected().await.unwrap(), None);
+        for (i, key) in [&a, &b, &c].into_iter().enumerate() {
+            let (_, drafts, nav) = actor
+                .save(key.clone(), "synthetic".into(), token("synthetic"))
+                .await
+                .unwrap();
+            assert!(drafts.is_empty());
+            assert_eq!(nav, Navigation::default());
+            actor
+                .checkpoint(
+                    key.clone(),
+                    vec![draft(&i.to_string())],
+                    Navigation {
+                        channel_id: Some(i.to_string()),
+                    },
+                )
+                .await
+                .unwrap();
+        }
+        actor.clone().select(Some(b.clone())).await.unwrap();
+        for (i, key) in [&a, &b, &c].into_iter().enumerate() {
+            let (secret, drafts, nav) = actor.restore(key.clone()).await.unwrap();
+            assert_eq!(secret.expose(), "synthetic");
+            assert_eq!(drafts, vec![draft(&i.to_string())]);
+            assert_eq!(nav.channel_id, Some(i.to_string()));
+        }
+        assert_eq!(actor.sign_out(a).await.unwrap().len(), 2);
+        assert_eq!(actor.selected().await.unwrap(), Some(b.clone()));
+        actor.sign_out(b).await.unwrap();
+        assert_eq!(actor.selected().await.unwrap(), None);
+        actor.select(Some(c.clone())).await.unwrap();
+        let reopened = Persistence::open(root.0.clone(), FakeCredentials::default())
+            .await
+            .unwrap();
+        assert_eq!(reopened.selected().await.unwrap(), Some(c.clone()));
+        assert!(matches!(
+            reopened.restore(c.clone()).await,
+            Err(Error::Invalid(_))
+        ));
+        assert!(
+            reopened
+                .select(Some(key("https://example.test", "unknown")))
+                .await
+                .is_err()
+        );
+        assert_eq!(reopened.selected().await.unwrap(), Some(c));
+    }
+
+    #[tokio::test]
+    async fn actor_corruption_and_validation_never_overwrite() {
+        let root = TempRoot::new();
+        let actor = Persistence::open(root.0.clone(), FakeCredentials::default())
+            .await
+            .unwrap();
+        let key = key("https://example.test", "a");
+        let (accounts, _, _) = actor
+            .save(key.clone(), "before".into(), token("before"))
+            .await
+            .unwrap();
+        actor
+            .checkpoint(key.clone(), vec![draft("before")], Navigation::default())
+            .await
+            .unwrap();
+        let directory = root.0.join(&accounts[0].local_id);
+        let drafts = fs::read(directory.join("drafts.json")).unwrap();
+        assert!(
+            actor
+                .checkpoint(
+                    key.clone(),
+                    vec![draft("after")],
+                    Navigation {
+                        channel_id: Some(" ".into())
+                    }
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(fs::read(directory.join("drafts.json")).unwrap(), drafts);
+        for bad in [
+            br#"{"version":99,"data":{"channel_id":null}}"#.as_slice(),
+            br#"{"version":1,"data":{"channel_id":" "}}"#,
+            br#"{"version":1,"data":{"channel_id":null,"future":true}}"#,
+            b"not json",
+        ] {
+            fs::write(directory.join("preferences.json"), bad).unwrap();
+            assert!(actor.restore(key.clone()).await.is_err());
+            assert!(
+                actor
+                    .save(key.clone(), "after".into(), token("after"))
+                    .await
+                    .is_err()
+            );
+            assert!(
+                actor
+                    .checkpoint(key.clone(), vec![draft("after")], Navigation::default())
+                    .await
+                    .is_err()
+            );
+            assert!(actor.sign_out(key.clone()).await.is_err());
+            assert_eq!(fs::read(directory.join("preferences.json")).unwrap(), bad);
+            assert_eq!(fs::read(directory.join("drafts.json")).unwrap(), drafts);
+            assert_eq!(actor.accounts().await.unwrap()[0].username, "before");
+        }
+        fs::write(
+            directory.join("preferences.json"),
+            br#"{"version":1,"data":{"channel_id":null}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            actor.restore(key.clone()).await.unwrap().0.expose(),
+            "before"
+        );
+        for bad in [
+            br#"{"version":99,"data":null}"#.as_slice(),
+            br#"{"version":1,"data":"../../unsafe"}"#,
+            br#"{"version":1,"data":"00000000-0000-4000-8000-000000000000"}"#,
+            b"not json",
+        ] {
+            fs::write(root.0.join("selection.json"), bad).unwrap();
+            assert!(actor.selected().await.is_err());
+            assert!(actor.select(None).await.is_err());
+            assert!(actor.sign_out(key.clone()).await.is_err());
+            assert!(
+                Persistence::open(root.0.clone(), FakeCredentials::default())
+                    .await
+                    .is_err()
+            );
+            assert_eq!(fs::read(root.0.join("selection.json")).unwrap(), bad);
+            assert!(actor.restore(key.clone()).await.is_ok());
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn actor_ordering_abandoned_replies_and_failures() {
+        use std::sync::{Arc, Mutex};
+        struct Tracked {
+            inner: FakeCredentials,
+            events: Arc<Mutex<Vec<std::thread::ThreadId>>>,
+        }
+        impl CredentialStore for Tracked {
+            fn get(&self, key: &AccountKey) -> Result<Option<Secret>> {
+                self.inner.get(key)
+            }
+            fn save(&mut self, key: &AccountKey, token: &Secret) -> Result<()> {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push(std::thread::current().id());
+                self.inner.save(key, token)
+            }
+            fn remove(&mut self, key: &AccountKey) -> Result<()> {
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push(std::thread::current().id());
+                self.inner.remove(key)
+            }
+        }
+        let root = TempRoot::new();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let actor = Persistence::open(
+            root.0.clone(),
+            Tracked {
+                inner: FakeCredentials {
+                    fail_remove: true,
+                    ..Default::default()
+                },
+                events: events.clone(),
+            },
+        )
+        .await
+        .unwrap();
+        let key = key("https://example.test", "a");
+        let (reply, abandoned) = oneshot::channel();
+        actor
+            .sender
+            .send(Command::Save(
+                key.clone(),
+                "synthetic".into(),
+                token("synthetic"),
+                reply,
+            ))
+            .await
+            .unwrap();
+        drop(abandoned);
+        assert_eq!(actor.accounts().await.unwrap().len(), 1);
+        actor.select(Some(key.clone())).await.unwrap();
+        assert!(actor.sign_out(key.clone()).await.is_err());
+        assert_eq!(actor.selected().await.unwrap(), Some(key.clone()));
+        assert!(actor.restore(key.clone()).await.is_ok());
+        {
+            let events = events.lock().unwrap();
+            assert_eq!(events.len(), 2);
+            assert_eq!(events[0], events[1]);
+            assert_ne!(events[0], std::thread::current().id());
+        }
+        let failed_root = TempRoot::new();
+        let failed = Persistence::open(
+            failed_root.0.clone(),
+            FakeCredentials {
+                fail_save: true,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        assert!(
+            failed
+                .save(key, "synthetic".into(), token("synthetic"))
+                .await
+                .is_err()
+        );
+        assert!(failed.accounts().await.unwrap().is_empty());
+        assert!(!failed_root.0.join("registry.json").exists());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "explicit native invocation only; isolated synthetic Keychain CRUD"]
+    fn isolated_native_keychain_crud() {
+        struct Cleanup {
+            credentials: KeychainCredentials,
+            key: AccountKey,
+        }
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = self.credentials.remove(&self.key);
+            }
+        }
+        let mut test = Cleanup {
+            credentials: KeychainCredentials {
+                service: format!("com.antimatter.synthetic.keychain-test.{}", Uuid::new_v4()),
+            },
+            key: key("https://synthetic.invalid", "synthetic-user"),
+        };
+        assert_ne!(test.credentials.service, KEYCHAIN_SERVICE);
+        assert!(test.credentials.get(&test.key).unwrap().is_none());
+        test.credentials
+            .save(&test.key, &token("synthetic-first"))
+            .unwrap();
+        assert_eq!(
+            test.credentials.get(&test.key).unwrap().unwrap().expose(),
+            "synthetic-first"
+        );
+        test.credentials
+            .save(&test.key, &token("synthetic-updated"))
+            .unwrap();
+        assert_eq!(
+            test.credentials.get(&test.key).unwrap().unwrap().expose(),
+            "synthetic-updated"
+        );
+        test.credentials.remove(&test.key).unwrap();
+        assert!(test.credentials.get(&test.key).unwrap().is_none());
+        test.credentials.remove(&test.key).unwrap();
     }
 
     #[test]

@@ -30,8 +30,11 @@ generation-bound and shape-validated before exchange.
 
 `macos.rs` owns Rust-authored `ASWebAuthenticationSession` bindings, retained
 session/presentation anchor and cancellation completion. Start/cancel on the UI
-thread; no embedded browser or Swift FFI. Actual bundle callback registration
-and browser delivery are native verification requirements, not Cargo guarantees.
+thread; no embedded browser or Swift FFI. The user-authorized bundle identity is `antimatter.ericschmar.dev`, with
+`mattermost-dev` callback. Browser start validates actual main-bundle declarations
+and retains the native key/main window; the ignored native bundle helper does not
+launch, register or sign it. Actual callback delivery remains native verification,
+not a Cargo or plist guarantee.
 
 `websocket.rs` owns authentication, monotonic sequences, receive/heartbeat,
 backoff, cancellation and refresh signaling. Socket creation alone is not
@@ -65,13 +68,39 @@ opaque account directories, versioned atomic restrictive-permission non-secret
 records, account-local pane/channel drafts and the separate Rust Keychain namespace.
 Credential success precedes publishing account metadata. Reject corrupt/unknown
 versions or unsafe paths without overwriting prior state; surface deletion/write
-failures. Serialize persistence writers and run blocking I/O off executor workers.
+failures. `Persistence` is a cloneable Tokio mpsc sender to one dedicated native
+thread; concrete commands and oneshot replies serialize all filesystem/Keychain
+work off executor workers. Opening validates the registry and root selection;
+accepted commands finish even if their reply is abandoned. No generic service
+framework or workspace tree is implemented here.
+
+Expose async `accounts`, `restore`, `save`, `checkpoint`, `sign_out`, `selected`
+and `select`. Restore fails safely for missing credentials. Save preflights existing
+state before replacing a credential, then publishes metadata only after credential
+success. Navigation is a deny-unknown-fields `channel_id: Option<String>` preference
+with nonempty IDs; drafts retain pane/channel identity. Checkpoint validates both
+new and existing records before writing. Drafts/preferences are individually atomic,
+not a multi-file transaction: an I/O failure can commit drafts without navigation
+and must be surfaced, never reported as a successful checkpoint.
+
+Root `selection.json` is a versioned optional opaque local account ID, resolved
+through the validated registry. Missing means none; invalid/unknown/corrupt records
+fail closed and are preserved. Selection is explicit, not implied by save/restore.
+Sign-out preflights state and selection, removes the credential, clears selection
+only if it names that account, then removes account state/metadata. Failures remain
+visible/retryable; partial sign-out can leave a credential missing or selection
+cleared while metadata remains. Other accounts and unknown records are untouched.
+Production credentials use `KeychainCredentials::default()`; the private service
+override exists solely for isolated synthetic native verification.
 
 Selected legacy-token import is copy-only, opt-in and validation-first; existing
 Rust entries win. Never enumerate legacy state at startup or infer ownership of
 host-only caches/global drafts. Do not persist posts, users, authenticated responses
-or media in this scope. The native session-only UI does not yet exercise this
-persistence boundary; module primitives alone do not prove saved-account parity.
+or media in this scope. The native entry now exercises this boundary through
+explicit Remember/Connect saved and checkpointed drafts/navigation. A reserved
+submitted pane prevents restored text from authorizing ambiguous resend; complete
+pending identity/recovery and workspace trees remain outstanding. Module tests
+and UI wiring do not prove native saved-credential parity.
 
 ## Runnable verification and external gates
 
@@ -82,7 +111,11 @@ retry, offline deletion, threaded history and refresh readiness. Tests use only
 synthetic credentials, loopback servers and temporary roots/fake credential stores.
 Run strict all-target Clippy and formatting alongside the tests.
 
-Native Keychain CRUD must use a clearly isolated synthetic service. Real SAML
+Native Keychain CRUD must use a clearly isolated synthetic service. Its explicit
+check failed at first save with `errSecMissingEntitlement (-34018)`; authorized
+signing/provisioning and protected-Keychain verification remain blockers. Do not
+remove after-first-unlock protection or fall back to plaintext/legacy protection
+to make the test pass. Real SAML
 requires confirmed bundle/callback identity and an authorized SAML server. Live
 load/send/retry/reconnect is a separate acceptance gate; synthetic tests cannot
 close it or establish release/macOS-floor readiness.

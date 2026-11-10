@@ -1,17 +1,17 @@
 # Antimatter
 
-Antimatter is replacing its desktop client with Rust/Rune, macOS first; calls are deferred. Cargo is the primary app development entry. The Rust native app now has a session-only PAT/password conversation slice, **not a full Mattermost client**. Existing Swift files and the older documentation below remain reference material; no source removal is authorized.
+Antimatter is replacing its desktop client with Rust/Rune, macOS first; calls are deferred. Cargo is the primary app development entry. The Rust native app now has a PAT/password conversation slice with opt-in saved accounts and native SAML wiring, **not a full Mattermost client**. Existing Swift files and the older documentation below remain reference material; no source removal is authorized.
 
 The goal is a focused desktop experience: channels, direct messages, search, reactions, uploads, markdown composition, notifications, and a compact native shell without embedding the full Mattermost web application.
 
 ## Status
 
-This project is under active development. Native execution offers fresh PAT/password sign-in, channel/latest-history loading, send, conservative delivery checks and socket reconnect refresh. Credentials and drafts are not saved by this entry; disconnect discards session-only state. Native Keychain/SAML, saved-account UI and live-server validation remain outstanding. Headless execution retains the accessible Lights bootstrap and synthetic scenes; real sessions forbid export/tracing. See [SPEC.md](SPEC.md) for the approved replacement boundary.
+This project is under active development. Native execution offers fresh PAT/password sign-in, channel/latest-history loading, send, conservative delivery checks and socket reconnect refresh. Remember is opt-in; saved connection is explicit and account identity is revalidated. Durable drafts/navigation autosave and checkpoint before transitions. Native Keychain CRUD is blocked by missing signing entitlements; browser callback delivery, full pending-send recovery, legacy import and live/SAML validation remain outstanding. Disk failure/crash before autosave commitment may lose the latest edit; Rune cannot veto close. Headless execution retains the accessible Lights bootstrap and synthetic scenes; real sessions forbid export/tracing. See [SPEC.md](SPEC.md) for the approved replacement boundary.
 
 ## Features
 
 - Connect with a personal access token, username/password, or SSO.
-- SAML SSO uses Mattermost's desktop-token callback flow in a contained login window. This lets the app capture its callback consistently across native and bundled-CEF renderers.
+- Rust SAML wiring uses Mattermost's desktop-token flow through ASWebAuthenticationSession; no embedded-browser fallback. Build the unsigned, unregistered native bundle with `python3 scripts/rune-native.py`; `--check` verifies metadata/binary only. It reuses `antimatter.ericschmar.dev` with `mattermost-dev` as authorized; native callback and SAML acceptance remain unverified.
 - Real-time post, reaction, and status updates over the Mattermost WebSocket API.
 - Channel, group message, and direct message navigation.
 - Message search, user search, public channel search, and command palette access.

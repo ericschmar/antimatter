@@ -86,8 +86,9 @@ no Mattermost services and changes no Swift/Xcode/product CI files. Existing
 Swift files remain reference material, not a parallel product. The approved #3
 secure-input verification additionally permits an `auth-proof` scene with only
 synthetic PAT/password values; it exercises Rune secure edits without accessing
-credentials, persistence or network services. Native execution now defaults to the session-only service-backed conversation
-entry described in document 04; headless default and the explicit `hello` scene
+credentials, persistence or network services. Native execution now defaults to the service-backed conversation entry with
+explicit opt-in Remember and explicit saved-account connection described in
+document 04; headless default and the explicit `hello` scene
 retain the bootstrap. The `conversation-proof` scene renders only synthetic data
 and starts no services. Real-account mode rejects headless exports, and all native
 sessions reject tracing; no credentials/account storage are accessed headlessly.

@@ -43,7 +43,18 @@ Account/storage ownership is in document 04's approved replacement contract.
   `/api/v4/users/login/desktop_token`, then validate `/users/me`. Preserve the
   existing registered `mattermost-dev` callback for compatibility; actual bundle
   registration and native callback checks are required, not implied by Cargo.
-  No embedded-browser fallback in #3.
+  The user authorized reusing the actual Swift bundle identity
+  `antimatter.ericschmar.dev` on 2026-11-10. The Rust helper builds a separate
+  unsigned/unregistered bundle under ignored build output, without modifying
+  Swift/Xcode artifacts. Browser start validates the running main-bundle identity
+  and callback declaration and retains its key/main window. No embedded-browser
+  fallback in #3.
+- Isolated native Keychain CRUD uses a unique synthetic service and synthetic
+  values only. The native check currently fails at first save with
+  `errSecMissingEntitlement (-34018)`; after-first-unlock protection is not
+  weakened to bypass this. Authorized signing/provisioning and explicit protected
+  Keychain selection require verification before claiming saved-credential parity.
+  Ad-hoc signing is not evidence of required entitlement authorization.
 - WebSocket emits idle/connecting/connected/disconnected/error. Connection means
   a matching successful auth reply or `hello`, not merely socket creation/send.
   One connection owns its receive/heartbeat/reconnect tasks. Use monotonically

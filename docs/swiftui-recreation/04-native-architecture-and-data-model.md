@@ -57,18 +57,30 @@ is rewritten in Rust; existing product/workspace contracts remain in force.
 
 ### Conversation vertical-slice checkpoint
 
-The Rune native entry now connects fresh PAT/password **session-only** accounts,
-loads channel navigation/latest history, sends and checks pending delivery, and
-refreshes after socket authentication/reconnect. Tokens remain service-owned;
-no credential or draft persistence is implied by this entry. Disconnect cancels
-and clears this in-memory session; it is not the durable account sign-out action.
-The UI warns that disconnect discards session-only drafts/pending state.
+The Rune native entry connects fresh PAT/password accounts, with explicit opt-in
+Remember, and routes native SAML through the same validated completion. Startup
+reads Rust registry/selection metadata only; Connect saved explicitly accesses
+the credential and validates the same account identity. One dedicated persistence
+thread serializes Keychain/filesystem work. Saved selection and single-conversation
+navigation/drafts are durable; full workspace panes remain #4. Durable disconnect
+checkpoints before cancellation; durable sign-out removes only the chosen account.
+Session-only disconnect warns that it discards in-memory drafts/pending state.
 
-This minimal slice serializes channel loads and blocks channel changes while
-loading or while draft/pending text exists. Session cancellation drops the whole
-service future; generation checks reject queued stale UI completions. Concurrent
-pane loads/query cancellation and durable saved-selection/draft orchestration
-remain outstanding, not superseded. Refresh replaces the validated latest-page
+This minimal slice serializes channel loads; durable transitions checkpoint
+account-local pane/channel drafts before switching, while session-only transitions
+still block on draft text. Pending delivery blocks transitions/sign-out. Durable
+send stores a reserved `conversation-pending` pane before enqueue; restored markers
+retain text but never become resendable ordinary drafts. Full pending identity and
+recovery UI remain outstanding. A clean close before enqueue rolls the marker back;
+accepted sends preserve it. Acknowledgement clears it only after durable success.
+Turn-completion autosave includes navigation changes and clean close drains writes
+without overwriting them with stale UI snapshots. Rune cannot veto close: disk
+failure or a crash before commitment may lose the latest uncommitted edit; the UI
+warns and offers explicit save/retry. This ceiling is not acceptance of data-loss
+parity. Accepted persistence commands complete; auth cancellation is disabled past
+the publication boundary rather than pretending it rolls back writes. Session
+cancellation drops network futures; generation checks reject stale UI completions.
+Concurrent pane loads/query cancellation remain outstanding, not superseded. Refresh replaces the validated latest-page
 snapshot, including posts deleted while offline, before marking it ready.
 Real sessions forbid headless exports and native tracing. Synthetic scenes never
 start services or read account storage.
