@@ -1,12 +1,12 @@
 # Antimatter
 
-Antimatter is a small desktop client for Mattermost-compatible servers. It is built with ElectroBun, Bun, React, and TypeScript, with the native Bun process owning Mattermost API calls, file uploads, WebSocket connections, notifications, menus, and SSO handoff.
+Antimatter is replacing its desktop client with Rust/Rune, macOS first; calls are deferred. Cargo is the primary app development entry. The Rust native app now has a session-only PAT/password conversation slice, **not a full Mattermost client**. Existing Swift files and the older documentation below remain reference material; no source removal is authorized.
 
 The goal is a focused desktop experience: channels, direct messages, search, reactions, uploads, markdown composition, notifications, and a compact native shell without embedding the full Mattermost web application.
 
 ## Status
 
-This project is under active development. It is useful as a lightweight client, but it is not a complete replacement for the official Mattermost desktop app.
+This project is under active development. Native execution offers fresh PAT/password sign-in, channel/latest-history loading, send, conservative delivery checks and socket reconnect refresh. Credentials and drafts are not saved by this entry; disconnect discards session-only state. Native Keychain/SAML, saved-account UI and live-server validation remain outstanding. Headless execution retains the accessible Lights bootstrap and synthetic scenes; real sessions forbid export/tracing. See [SPEC.md](SPEC.md) for the approved replacement boundary.
 
 ## Features
 
@@ -28,31 +28,41 @@ This project uses Mattermost's publicly available, open source API behavior and 
 
 ## Requirements
 
-- Bun
-- A Mattermost-compatible server
+- Rust 1.99.1 via rustup (`rust-toolchain.toml` pins it), macOS build tools and a GPU for rendering.
+- Python 3 (standard library only) for the headless self-check.
 
-The app registers `mattermost-dev://` for the Mattermost desktop login callback
-path and captures that callback from its contained SSO window.
+macOS 14+ is legacy product intent, not a validated Rune runtime minimum.
+Bun is development-only spec tooling, not the app runtime.
 
 ## Getting Started
 
-Install dependencies:
-
 ```sh
-bun install
+cargo fetch
+cargo run --locked
+cargo check --locked
+cargo test --locked
+python3 scripts/rune-headless.py
 ```
 
-Start the development app:
+After the initial fetch, the self-check uses `cargo run --locked --offline` to
+render default and scripted-tap states and assert tree accessibility, visible
+labels and PNG dimensions. Repeat the Python command to check offline execution.
+Visually inspect both `build/rune-headless/default.png` and
+`build/rune-headless/tapped.png`; JSON trees and the synthetic tap script are
+alongside them. Automated metadata checks alone are not visual proof.
+
+For a single default headless render:
 
 ```sh
-bun run dev
+mkdir -p build/rune-headless
+cargo run --locked --offline -- --at 1 --tree build/rune-headless/default.json --snap build/rune-headless/default.png
 ```
 
-Run without file watching:
-
-```sh
-bun run start
-```
+For a synthetic conversation render, add `--scene conversation-proof --size 640x640`.
+Use `cargo run --locked -- --real-account` for an interactive session; this flag
+explicitly rejects headless export. HTTP requires the explicit `--dev-http` option.
+The remaining feature documentation describes legacy functionality, not full
+Rust parity or validated release readiness.
 
 ## Profiling UI Responsiveness
 

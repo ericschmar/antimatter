@@ -1,5 +1,6 @@
 node_modules/
 .build/
+/target/
 .hutch/
 .cottontail-tmp/
 build/
