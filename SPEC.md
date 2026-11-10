@@ -74,6 +74,20 @@ server-plus-user identity, isolated versioned state, and opt-in copy-only
 saved-sign-in import. Their named legacy implementation prescriptions are
 superseded; unchanged product/security contracts remain authoritative.
 
+## Approved workspace foundation
+
+The user approved the first issue #4 slice on 2026-11-10: same-revision
+`rune-kit` controls and sidebar/resize mechanics, Antimatter semantic tokens
+and compact message-ledger presentation of the existing single conversation.
+The translated workspace/component implementation contract lives in documents
+02, 06 and 07 linked above and the source-adjacent Rune runtime specification.
+Existing session, persistence and delivery safety remain unchanged. This is not
+approval to replace independent singleton Settings with an in-window page or
+to claim tabs, incremental history, rich-action or native/live parity. The user
+approved a second #4 slice on 2026-11-10: server-backed unread/mention counts and
+best-effort channel-viewed marking for the existing single conversation, specified
+in `src/SPEC.md` (Unread and viewed state). Per-pane/tab unread remains later work.
+
 ## Approved bootstrap and verification gates
 
 The approved minimal application is a standalone edition-2024 Rust package

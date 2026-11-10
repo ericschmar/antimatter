@@ -52,6 +52,11 @@ Refresh replaces the latest-page snapshot, removing offline deletions, and refre
 navigation/history before `Ready(true)`. Authentication triggers refresh even on
 the first connection. Nonfatal malformed frames do not imply connectivity loss.
 
+Refresh also reads per-channel unread counts (`ChannelUnread`, bounded concurrency,
+advisory on failure) and, after the active channel's timeline is published, posts
+the channel-view request (best effort, idempotent). `posted`/`channel_viewed`
+events adjust counts without ever acknowledging pending sends.
+
 Keep one pending send, its text and stable UUID. Match acknowledgements by server
 ID and pending identity with validated author/channel; reject conflicting IDs.
 Posted/edited/deleted events and HTTP results share deduplication. Only a definitive

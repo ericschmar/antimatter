@@ -2,8 +2,15 @@ use crate::{
     mattermost::{Channel, Client, CreatePost, Post, PostPage, Team},
     websocket::{Event, State, WireEvent},
 };
+use futures_util::{StreamExt, stream};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Unread {
+    pub messages: u64,
+    pub mentions: u64,
+}
 
 pub enum Intent {
     Load(String),
@@ -31,7 +38,9 @@ pub enum Update {
     Navigation {
         teams: Vec<Team>,
         channels: Vec<Channel>,
+        unread: HashMap<String, Unread>,
     },
+    Unread(HashMap<String, Unread>),
     Timeline {
         channel_id: String,
         posts: Vec<Post>,
@@ -66,6 +75,8 @@ pub async fn run(
         posts: HashMap::new(),
         identities: HashMap::new(),
         pending: None,
+        unread: HashMap::new(),
+        previous: None,
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
     // and blocks channel switches while unready/pending; use pane generations for supersession.
@@ -105,6 +116,8 @@ struct Worker {
     posts: HashMap<String, Post>,
     identities: HashMap<(String, String, String), String>,
     pending: Option<Pending>,
+    unread: HashMap<String, Unread>,
+    previous: Option<String>,
 }
 
 fn page_posts(page: &PostPage, channel: &str) -> Result<Vec<Post>, Failure> {
@@ -150,7 +163,7 @@ impl Worker {
                     if channel.trim().is_empty() {
                         return Err(Failure::InvalidInput);
                     }
-                    self.channel = Some(channel.clone());
+                    self.previous = self.channel.replace(channel.clone());
                     self.posts.clear();
                     self.emit(Update::Timeline {
                         channel_id: channel,
@@ -236,7 +249,37 @@ impl Worker {
                 return Err(Failure::Load);
             }
         }
-        self.emit(Update::Navigation { teams, channels }).await;
+        let ids: Vec<_> = channels.iter().map(|c| c.id.clone()).collect();
+        let client = &self.client;
+        let fetched: Vec<_> = stream::iter(ids)
+            .map(|id| async move {
+                let unread = client.channel_unread(&id).await;
+                (id, unread)
+            })
+            .buffered(8)
+            .collect()
+            .await;
+        let mut unread = HashMap::new();
+        for (id, result) in fetched {
+            // Advisory counts: a failed or mismatched lookup keeps the last known value.
+            let known = match result {
+                Ok(u) if u.channel_id == id => Some(Unread {
+                    messages: u.msg_count,
+                    mentions: u.mention_count,
+                }),
+                _ => self.unread.get(&id).copied(),
+            };
+            if let Some(known) = known {
+                unread.insert(id, known);
+            }
+        }
+        self.unread = unread.clone();
+        self.emit(Update::Navigation {
+            teams,
+            channels,
+            unread,
+        })
+        .await;
         if let Some(channel) = self.channel.clone() {
             let detail = self
                 .client
@@ -280,13 +323,32 @@ impl Worker {
                 .collect();
             posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
             self.emit(Update::Timeline {
-                channel_id: channel,
+                channel_id: channel.clone(),
                 posts,
             })
             .await;
+            self.view(&channel).await;
         }
         self.emit(Update::Ready(true)).await;
         Ok(())
+    }
+
+    // Best effort and idempotent: failure leaves the server counts for the next refresh.
+    async fn view(&mut self, channel: &str) {
+        let previous = self.previous.take().unwrap_or_default();
+        if self
+            .client
+            .view_channel(&self.user_id, channel, &previous)
+            .await
+            .is_ok()
+            && self
+                .unread
+                .get(channel)
+                .is_some_and(|u| *u != Unread::default())
+        {
+            self.unread.insert(channel.into(), Unread::default());
+            self.emit(Update::Unread(self.unread.clone())).await;
+        }
     }
 
     async fn send(&mut self) -> Result<(), Failure> {
@@ -437,7 +499,43 @@ impl Worker {
         Ok(())
     }
 
+    async fn viewed(&mut self, event: &WireEvent) -> Result<(), Failure> {
+        let id = event
+            .data
+            .get("channel_id")
+            .and_then(|v| v.as_str())
+            .filter(|id| !id.is_empty())
+            .ok_or(Failure::InvalidInput)?;
+        if self.unread.get(id).is_some_and(|u| *u != Unread::default()) {
+            self.unread.insert(id.into(), Unread::default());
+            self.emit(Update::Unread(self.unread.clone())).await;
+        }
+        Ok(())
+    }
+
+    // Advisory delta; the next refresh replaces it with server counts.
+    async fn count(&mut self, post: &Post, event: &WireEvent) {
+        if post.user_id == self.user_id {
+            return;
+        }
+        let Some(unread) = self.unread.get_mut(&post.channel_id) else {
+            return;
+        };
+        unread.messages += 1;
+        let mentioned = event
+            .data
+            .get("mentions")
+            .and_then(|v| v.as_str())
+            .and_then(|v| serde_json::from_str::<Vec<String>>(v).ok())
+            .is_some_and(|ids| ids.contains(&self.user_id));
+        unread.mentions += u64::from(mentioned);
+        self.emit(Update::Unread(self.unread.clone())).await;
+    }
+
     async fn wire(&mut self, event: WireEvent) -> Result<(), Failure> {
+        if event.event == "channel_viewed" {
+            return self.viewed(&event).await;
+        }
         if !matches!(
             event.event.as_str(),
             "posted" | "post_edited" | "post_deleted"
@@ -458,6 +556,9 @@ impl Worker {
                 .is_some_and(|p| p.post.pending_post_id == post.pending_post_id)
             {
                 return Err(Failure::InvalidInput);
+            }
+            if event.event == "posted" {
+                self.count(&post, &event).await;
             }
             return Ok(());
         }
@@ -499,8 +600,8 @@ mod tests {
         let task = tokio::spawn(async move {
             let mut requests = vec![];
             let mut pending = String::new();
-            // Load (4), lost send (1), retry across two pages (2), reconnect refresh (4).
-            for step in 0..11 {
+            // Load (6), lost send (1), retry across two pages (2), reconnect refresh (6).
+            for step in 0..15 {
                 let (mut socket, _) = listener.accept().await.unwrap();
                 let mut bytes = Vec::new();
                 loop {
@@ -531,7 +632,7 @@ mod tests {
                 );
                 let path = request.split_whitespace().nth(1).unwrap().to_owned();
                 requests.push(request.clone());
-                if step == 4 {
+                if step == 6 {
                     let body: Value =
                         serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
                     pending = body["pending_post_id"].as_str().unwrap().to_owned();
@@ -545,13 +646,17 @@ mod tests {
                 } else if path.contains("/teams/t/channels?") {
                     assert!(path.contains("per_page=200"));
                     json!([{"id":"c","team_id":"t","name":"channel","type":"O"}])
+                } else if path.ends_with("/users/me/channels/c/unread") {
+                    json!({"team_id":"t","channel_id":"c","msg_count":0,"mention_count":0})
+                } else if path.ends_with("/members/u/view") {
+                    json!({"status":"OK"})
                 } else if path.ends_with("/channels/c") {
                     json!({"id":"c","team_id":"t","name":"channel","type":"O"})
                 } else {
                     assert!(path.contains("per_page=60"));
-                    if step == 5 {
+                    if step == 7 {
                         json!({"order":["new"],"posts":{"new":post("new", "")},"prev_post_id":"older"})
-                    } else if step == 6 {
+                    } else if step == 8 {
                         assert!(path.contains("before=new"));
                         json!({"order":["sent"],"posts":{"sent":post("sent", &pending)},"prev_post_id":""})
                     } else {
@@ -585,7 +690,9 @@ mod tests {
         intents.send(Intent::Load("c".into())).await.unwrap();
         loop {
             match next(&mut updates).await {
-                Update::Navigation { teams, channels } => {
+                Update::Navigation {
+                    teams, channels, ..
+                } => {
                     assert_eq!(teams[0].id, "t");
                     assert_eq!(channels[0].id, "c");
                 }
@@ -726,7 +833,10 @@ mod tests {
         assert!(matches!(next(&mut updates).await, Update::Ready(true)));
         let requests = server.await.unwrap();
         assert_eq!(
-            requests.iter().filter(|r| r.starts_with("POST ")).count(),
+            requests
+                .iter()
+                .filter(|r| r.starts_with("POST /api/v4/posts "))
+                .count(),
             1
         );
         drop(intents);
@@ -789,6 +899,8 @@ mod tests {
                 channel: Some("c".into()),
                 posts: HashMap::new(),
                 identities: HashMap::new(),
+                unread: HashMap::new(),
+                previous: None,
                 pending: Some(Pending {
                     post: CreatePost {
                         channel_id: "c".into(),
@@ -894,6 +1006,7 @@ mod tests {
                 200,
                 json!({"order":["sent"],"posts":{"sent":post("sent", "pending")}}),
             )),
+            Some((200, json!({"status":"OK"}))),
         ])
         .await;
         worker.refresh().await.unwrap();
@@ -1054,11 +1167,16 @@ mod tests {
             )),
             Some((
                 200,
+                json!({"channel_id":"c","msg_count":0,"mention_count":0}),
+            )),
+            Some((
+                200,
                 json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
             )),
         ];
         let mut responses = navigation.clone();
         responses.push(Some((200, json!({"order":["reply"],"posts":{"reply":post("reply", ""),"parent":post("parent", "")}}))));
+        responses.push(Some((200, json!({"status":"OK"}))));
         responses.extend(navigation);
         responses.push(Some((
             200,
@@ -1090,6 +1208,116 @@ mod tests {
                 Update::Timeline { .. } | Update::Pending(None) | Update::Ready(true)
             ));
         }
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure() {
+        let (mut worker, mut rx, server) = scripted(vec![
+            Some((200, json!([{"id":"t","name":"team"}]))),
+            Some((
+                200,
+                json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
+            )),
+            Some((
+                200,
+                json!({"channel_id":"c","msg_count":3,"mention_count":1}),
+            )),
+            Some((
+                200,
+                json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
+            )),
+            Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
+            Some((200, json!({"status":"OK"}))),
+            Some((200, json!([{"id":"t","name":"team"}]))),
+            Some((
+                200,
+                json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
+            )),
+            Some((500, json!({}))),
+            Some((
+                200,
+                json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
+            )),
+            Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
+            Some((500, json!({}))),
+        ])
+        .await;
+        worker.pending = None;
+        worker.previous = Some("old".into());
+        worker.refresh().await.unwrap();
+        let mut seen = vec![];
+        while let Ok(update) = rx.try_recv() {
+            match update {
+                Update::Navigation { unread, .. } => seen.push(unread["c"]),
+                Update::Unread(unread) => seen.push(unread["c"]),
+                _ => {}
+            }
+        }
+        assert_eq!(
+            seen,
+            [
+                Unread {
+                    messages: 3,
+                    mentions: 1
+                },
+                Unread::default()
+            ]
+        );
+        worker.unread.insert(
+            "c".into(),
+            Unread {
+                messages: 2,
+                mentions: 0,
+            },
+        );
+        worker.refresh().await.unwrap();
+        assert_eq!(
+            worker.unread["c"],
+            Unread {
+                messages: 2,
+                mentions: 0
+            }
+        );
+        let requests = server.await.unwrap();
+        assert!(requests[2].starts_with("GET /api/v4/users/me/channels/c/unread "));
+        assert!(requests[5].starts_with("POST /api/v4/channels/members/u/view "));
+        assert!(requests[5].contains(r#""prev_channel_id":"old""#));
+    }
+
+    #[tokio::test]
+    async fn unread_deltas_ignore_own_current_and_spoofed_events() {
+        let (mut worker, mut rx, server) = scripted(vec![]).await;
+        worker.pending = None;
+        worker.unread.insert("d".into(), Unread::default());
+        let posted = |channel: &str, user: &str, mentions: &str| WireEvent {
+            event: "posted".into(),
+            data: json!({"mentions": mentions, "post": {"id":"p","channel_id":channel,"user_id":user,"message":"m","create_at":1}}),
+            broadcast: json!({}),
+            seq: None,
+        };
+        worker.wire(posted("d", "u", "")).await.unwrap();
+        worker.wire(posted("unknown", "x", "")).await.unwrap();
+        assert!(rx.try_recv().is_err());
+        worker.wire(posted("d", "x", r#"["u"]"#)).await.unwrap();
+        assert!(
+            matches!(rx.try_recv(), Ok(Update::Unread(u)) if u["d"] == Unread { messages: 1, mentions: 1 })
+        );
+        let viewed = |data| WireEvent {
+            event: "channel_viewed".into(),
+            data,
+            broadcast: json!({}),
+            seq: None,
+        };
+        assert_eq!(
+            worker.wire(viewed(json!({}))).await,
+            Err(Failure::InvalidInput)
+        );
+        worker
+            .wire(viewed(json!({"channel_id":"d"})))
+            .await
+            .unwrap();
+        assert!(matches!(rx.try_recv(), Ok(Update::Unread(u)) if u["d"] == Unread::default()));
         server.await.unwrap();
     }
 
@@ -1137,6 +1365,8 @@ mod tests {
             channel: Some("c".into()),
             posts: HashMap::new(),
             identities: HashMap::new(),
+            unread: HashMap::new(),
+            previous: None,
             pending: Some(pending.clone()),
         };
         assert_eq!(worker.intent(Intent::Retry).await, Err(Failure::Reconcile));

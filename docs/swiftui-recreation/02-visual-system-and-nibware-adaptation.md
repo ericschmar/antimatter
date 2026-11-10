@@ -18,6 +18,18 @@ Use semantic tokens, never hard-code colors in feature views. Base type is SF Pr
 - Conversation header is 54 pt. Composer begins at 72 pt, resizes up to `min(320 pt, 44% window height)`.
 - Message rows use a 176 pt leading metadata column, then 8 pt gap and content. Avatar is 18 pt square with 4 pt radius, not a large circular profile image.
 
+## Approved Rune component adaptation
+
+The first issue #4 workspace slice, approved on 2026-11-10, uses generic
+`rune-kit` at the application Rune pin. This replaces Swift-only primitive
+construction for that slice, not the visual contract or required geometry above.
+Map Antimatter semantic tokens onto Kit; do not import OpenCode branding/fonts
+or adopt gradients, per-message cards or chat bubbles. Reuse compatible shell
+pieces rather than accepting the stock 48 pt toolbar in place of the specified
+32 pt title strip and 54 pt conversation header. Default dark is the foundation
+checkpoint; light, high-contrast and warm preference continuity remain required
+later work, not satisfied by a dark-only demonstration.
+
 ## Nibware rules
 
 Nibware’s catalog provides self-contained SwiftUI source examples, not a dependency or design system. Before use:

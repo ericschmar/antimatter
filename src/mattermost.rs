@@ -195,6 +195,15 @@ pub struct Channel {
     pub kind: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct ChannelUnread {
+    pub channel_id: String,
+    #[serde(default)]
+    pub msg_count: u64,
+    #[serde(default)]
+    pub mention_count: u64,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Post {
     pub id: String,
@@ -386,6 +395,11 @@ impl Client {
 
     pub async fn channel(&self, id: &str) -> Result<Channel, Error> {
         self.get(&segments(&["channels", id])?).await
+    }
+
+    pub async fn channel_unread(&self, id: &str) -> Result<ChannelUnread, Error> {
+        self.get(&segments(&["users", "me", "channels", id, "unread"])?)
+            .await
     }
 
     pub async fn channel_members(&self, id: &str, page: u32) -> Result<Value, Error> {

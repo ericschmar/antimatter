@@ -1,5 +1,29 @@
 # SwiftUI and AppKit Workspace Design
 
+## Approved Rune foundation replacement
+
+The user approved the first issue #4 slice on 2026-11-10. For the existing
+single-conversation presentation only, Rune elements and same-pin `rune-kit`
+controls/sidebar mechanics replace the SwiftUI screen/host prescription in
+Approach and Conversation implementation below. A shared Antimatter theme
+retains document 02 geometry and identity; reuse native window controls rather
+than drawing traffic lights. Sidebar resizing is window-local in this slice.
+The current session, checkpoint, composer lock and pending-delivery guards
+remain authoritative under `src/SPEC.md`; presentation does not remove them.
+
+The `NSViewRepresentable`/`NSSplitView`/custom AppKit tab implementation below
+is reference intent awaiting the later Rune tab/split design. Product pane
+independence, tree validation, temporary/durable semantics, scroll anchors and
+keyboard/accessibility requirements remain unchanged and unimplemented by this
+foundation. The singleton Settings owner remains authoritative; Kit Page is
+not a substitute. No new native binding/window registry is approved here.
+
+Verification requires synthetic keyed navigation and resize scripts, composer
+lock/retry semantics, accessibility/tree assertions and visually inspected PNGs,
+plus existing offline service/session tests. No credential or account store
+is opened headlessly. Native window, IME/VoiceOver and live parity require
+separate authorized checks; a synthetic shell is not workspace parity.
+
 ## Approach
 
 Build screens in SwiftUI. Bridge to AppKit only for desktop behavior that SwiftUI does not make dependable: nested resizable split trees, closable tab strips, advanced rich text editing, drag/drop precision, and Quick Look integration.

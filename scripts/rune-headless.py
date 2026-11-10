@@ -67,6 +67,71 @@ assert any(node.get("text") == "Synthetic service conversation" for node in conv
 assert any(node.get("key") == "send" for node in conversation["elements"])
 assert any(node.get("key") == "draft" for node in conversation["elements"])
 print(f"PASS synthetic conversation controls and timeline; visually inspect {conversation_png}")
+
+workspace_inputs = {
+    "selected": [{"t": 0.1, "type": "tap", "key": "channel-synthetic-other"}],
+    "resized": [{"t": 0.1, "type": "drag", "key": "sidebar-grip", "dx": 64, "dur": 0.3}],
+}
+workspace = {}
+for name, events in [("initial", []), *workspace_inputs.items()]:
+    scene = f"workspace-{name}"
+    tree_path = out / f"{scene}.json"
+    png_path = out / f"{scene}.png"
+    args = ["cargo", "run", "--locked", "--offline", "--", "--scene", "workspace-proof",
+            "--size", "960x640", "--at", "1", "--tree", str(tree_path), "--snap", str(png_path)]
+    if events:
+        script = out / f"{scene}-input.json"
+        script.write_text(json.dumps({"events": events}))
+        args.extend(["--script", str(script)])
+    subprocess.run(args, cwd=root, check=True)
+    tree = json.loads(tree_path.read_text())
+    assert not tree["warnings"]
+    elements = tree["elements"]
+    workspace[name] = elements
+    assert any(e.get("key") == "sidebar-grip" for e in elements)
+    for key in ["channel-synthetic-channel", "channel-synthetic-other", "draft", "send", "post-synthetic-post"]:
+        if name == "selected" and key == "post-synthetic-post":
+            continue
+        assert any(e.get("key") == key for e in elements), (name, key)
+    with png_path.open("rb") as png:
+        header = png.read(24)
+    assert header[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", header[16:24]) == (1920, 1280)
+    print(f"PASS {scene}: keyed tree, PNG 1920x1280; visually inspect {png_path}")
+
+def node(elements, key):
+    return next(e for e in elements if e.get("key") == key)
+
+initial, selected, resized = (workspace[name] for name in ["initial", "selected", "resized"])
+assert abs(node(initial, "sidebar-grip")["rect"][0] - 248.0) < 3.0
+assert node(resized, "sidebar-grip")["rect"][0] > node(initial, "sidebar-grip")["rect"][0] + 40.0
+assert any(e.get("text") == "Synthetic service conversation" for e in initial)
+assert not any(e.get("text") == "Synthetic service conversation" for e in selected)
+def row_texts(elements, key):
+    start = next(i for i, e in enumerate(elements) if e.get("key") == key)
+    return [e.get("text") for e in elements[start + 1:start + 4] if e.get("text")]
+
+assert "@2" in row_texts(initial, "channel-synthetic-other")
+assert "@2" not in row_texts(initial, "channel-synthetic-channel")
+assert node(initial, "draft")["inert"] is False
+assert node(initial, "draft")["rect"][3] >= 72
+assert node(initial, "draft")["fill"] != "#00000000"
+print("PASS synthetic channel selection and sidebar resize, without services or saved state")
+for scene, expected_retry in [("workspace-locked-proof", False), ("workspace-retry-proof", True)]:
+    tree_path = out / f"{scene}.json"
+    png_path = out / f"{scene}.png"
+    subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", scene,
+                    "--size", "960x640", "--at", "1", "--tree", str(tree_path),
+                    "--snap", str(png_path)], cwd=root, check=True)
+    tree = json.loads(tree_path.read_text())
+    assert not tree["warnings"]
+    elements = tree["elements"]
+    assert node(elements, "draft")["inert"] and node(elements, "send")["inert"]
+    assert node(elements, "channel-synthetic-other")["inert"]
+    assert any(e.get("key") == "retry" for e in elements) == expected_retry
+    if expected_retry:
+        assert any(e.get("text") == "Pending delivery · draft retained" for e in elements)
+        assert any(e.get("text") == "Check delivery (no resend)" for e in elements)
+    print(f"PASS {scene}: locked controls and retry semantics; visually inspect {png_path}")
 for flags in [["--real-account", "--tree", str(out / "forbidden.json")],
               ["--real-account", "--native", "--trace", str(out / "forbidden.trace")]]:
     result = subprocess.run(["cargo", "run", "--locked", "--offline", "--", *flags],

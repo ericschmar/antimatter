@@ -74,6 +74,44 @@ Headless initialization creates no service runtime and accesses no account store
 `--real-account` rejects headless execution, and native execution rejects tracing.
 Never export credentials or real conversation/account data into test artifacts.
 
+## Kit-backed workspace foundation
+
+The approved first workspace slice uses `rune-kit` at the same exact git revision
+as Rune. Reuse generic controls/sidebar mechanics and the existing Rune editor, not OpenCode theme assets.
+A shared presentation theme maps the owning Antimatter semantic colors and
+compact typography/geometry onto Kit. The native conversation entry presents
+a 248 pt resizable sidebar, compact keyed channel rows, 32 pt title strip,
+54 pt conversation header, and 176 pt metadata/8 pt gap message ledger.
+Reuse existing load/checkpoint/send/retry paths; loading, queued send, ambiguous
+delivery and restored markers keep their current guards. No editor binding
+is attached to a locked composer; it remains inert. Kit control replacement
+must retain disabled-handler and accessibility checks.
+
+Synthetic workspace scenes may demonstrate navigation, sidebar resizing and
+locked/retry states without services, credential/storage access or OS actions.
+Synthetic local transitions never publish real intents or modify durable state.
+Sidebar width is window-local for this foundation; durable pane/layout and
+preference restoration are subsequent work, not implied by presentation.
+This single-conversation slice does not implement tab/split workspaces,
+incremental history anchors, rich message actions or Settings. An in-window Kit
+Page must not replace the independent native singleton.
+
+## Unread and viewed state
+
+The user approved this second issue #4 slice on 2026-11-10. Refresh requests each
+navigated channel's `/users/me/channels/{id}/unread` counts (bounded concurrency)
+and publishes them with `Navigation`; a failed or mismatched lookup keeps the last
+known count, so counts are advisory and never block readiness. After a successful
+load/refresh of the active channel the worker posts the channel-view endpoint
+(previous channel recorded by the last load) and clears that channel locally only
+when the server accepted it; failure is silent and retried by the next refresh.
+`posted` events for other channels from other users add an advisory delta (a
+mention only when the event's `mentions` names the current user); `channel_viewed`
+clears a channel. Deltas are replaced by server counts at the next refresh/reconnect.
+The sidebar shows `@N` for mentions or an unread dot otherwise. Counts are
+session-only and never persisted. Tabs, preview/durable semantics and per-pane
+unread remain later work.
+
 ## Runnable verification
 
 `cargo test --locked --offline --bin antimatter` checks the spring, immediate

@@ -1,13 +1,14 @@
 use antimatter::{
     SessionScope,
     accounts::{self, Account, AccountKey, Draft, Navigation, Persistence},
-    conversation::{self, Intent, Pending, Update},
+    conversation::{self, Intent, Pending, Unread, Update},
     mattermost::{self, Channel, Post, Secret, ServerOrigin},
     websocket,
 };
 use rune::tok::{self, motion, type_};
 use rune::{AppHandle, AppSpec, Cx, El, TextEdit, col, el, text, text_input};
-use std::sync::Arc;
+use rune_kit::{Button, ButtonVariant, Kit, PaletteSeed, PaneState, Sidebar, SidebarRow};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 
 const COMPOSER: &str = "conversation";
@@ -59,6 +60,7 @@ struct State {
     auth_proof: bool,
     application: bool,
     synthetic: bool,
+    sidebar: PaneState,
     pat: TextEdit,
     password: TextEdit,
     server: TextEdit,
@@ -71,6 +73,7 @@ struct State {
     account: Option<String>,
     channel: Option<String>,
     channels: Vec<Channel>,
+    unread: HashMap<String, Unread>,
     posts: Vec<Post>,
     pending: Option<Pending>,
     ready: bool,
@@ -105,6 +108,7 @@ impl Default for State {
             auth_proof: false,
             application: false,
             synthetic: false,
+            sidebar: PaneState::new(248.0).range(160.0, 420.0),
             pat: TextEdit::default().secure(),
             password: TextEdit::default().secure(),
             server: TextEdit::default(),
@@ -117,6 +121,7 @@ impl Default for State {
             account: None,
             channel: None,
             channels: vec![],
+            unread: HashMap::new(),
             posts: vec![],
             pending: None,
             ready: false,
@@ -151,6 +156,7 @@ impl State {
         self.account = None;
         self.channel = None;
         self.channels.clear();
+        self.unread.clear();
         self.posts.clear();
         self.pending = None;
         self.draft.clear();
@@ -652,7 +658,12 @@ impl State {
         {
             return;
         }
-        if self.durable.is_some() {
+        if self.synthetic {
+            if self.channels.iter().any(|c| c.id == channel) {
+                self.channel = Some(channel.clone());
+                self.posts.retain(|p| p.channel_id == channel);
+            }
+        } else if self.durable.is_some() {
             self.checkpoint(AfterCheckpoint::Load(channel));
         } else {
             self.load_now(channel);
@@ -691,7 +702,13 @@ impl State {
 
     fn apply(&mut self, update: Update) {
         match update {
-            Update::Navigation { channels, .. } => self.channels = channels,
+            Update::Navigation {
+                channels, unread, ..
+            } => {
+                self.channels = channels;
+                self.unread = unread;
+            }
+            Update::Unread(unread) => self.unread = unread,
             Update::Timeline { channel_id, posts } => {
                 if self.channel.as_deref() == Some(&channel_id) {
                     self.posts = posts;
@@ -870,29 +887,308 @@ async fn authenticate(
     Ok((client, user, key, durable, saved, drafts, navigation))
 }
 
+fn workspace_theme() -> Kit {
+    let color = |s| rune::color::hex(s).expect("valid theme color");
+    let mut k = Kit::from_palette(PaletteSeed {
+        bg: color("#111113"),
+        fg: color("#edeef0"),
+        accent: color("#46a758"),
+    });
+    k.c.layer_01 = color("#18191b");
+    k.c.layer_02 = color("#212225");
+    k.c.hover = color("#272a2d");
+    k.c.border_base = color("#363a3f");
+    k.c.border_strong = color("#43484e");
+    k.c.text_muted = color("#b0b4ba");
+    k.c.text_faint = color("#777b84");
+    k.ty.ui = rune::TextStyle::new(14.0, 400.0);
+    k.ty.ui_medium = rune::TextStyle::new(14.0, 600.0);
+    k.radius.md = 6.0;
+    k.c.warning.fg = color("#e5ad57");
+    k.c.warning.icon = color("#e5ad57");
+    k
+}
+
 fn button(
     key: &str,
     label: &str,
     disabled: bool,
     action: impl Fn(&mut State) + Send + Sync + 'static,
 ) -> El {
-    let control = el()
-        .key(key)
-        .label(label)
+    let control = Button::new(label)
+        .variant(ButtonVariant::GhostMuted)
         .disabled(disabled)
-        .padding(8.0)
-        .radius(4.0)
-        .fill(tok::theme(true).control_off)
-        .on_press(move |s| {
+        .on_press(move |s: &mut State| {
             if !disabled {
                 action(s);
             }
         })
-        .child(text(label).color(tok::theme(true).text));
+        .build(&workspace_theme())
+        .key(key);
     if disabled { control.inert() } else { control }
 }
 
+fn workspace(s: &State) -> El {
+    let k = workspace_theme();
+    let c = &k.c;
+    let locked = !s.ready || s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
+    let mut sidebar = Sidebar::new()
+        .label("Channels")
+        .header(text("CHANNELS").font(k.ty.small_medium).color(c.text_muted));
+    for channel in &s.channels {
+        let id = channel.id.clone();
+        let disabled = locked || (s.durable.is_none() && !s.draft.text.is_empty());
+        let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
+        let mut row = SidebarRow::new(&channel.display_name).height(32.0);
+        if unread.mentions > 0 {
+            row = row.badge(format!("@{}", unread.mentions));
+        } else if unread.messages > 0 {
+            row = row.status(rune_kit::shell::RowStatus::Unread);
+        }
+        let row = row
+            .selected(s.channel.as_deref() == Some(&channel.id))
+            .on_select(move |s: &mut State, _| {
+                if !disabled {
+                    s.load(id.clone());
+                }
+            })
+            .build(&k)
+            .key(format!("channel-{}", channel.id));
+        sidebar = sidebar.child(if disabled {
+            row.disabled(true).inert()
+        } else {
+            row
+        });
+    }
+    let sidebar = col()
+        .w(s.sidebar.width())
+        .h_full()
+        .fill(c.layer_01)
+        .child(
+            rune::row()
+                .h(32.0)
+                .w_full()
+                .px(8.0)
+                .center_y()
+                .window_drag()
+                .child(
+                    text(s.account.as_deref().unwrap_or_default())
+                        .font(k.ty.small)
+                        .color(c.text_muted)
+                        .truncate(),
+                ),
+        )
+        .child(sidebar.build(&k));
+    let width = s.sidebar.width();
+    let grip = el()
+        .key("sidebar-grip")
+        .role("separator")
+        .label("Resize sidebar")
+        .range_value(
+            f64::from(width),
+            f64::from(s.sidebar.min_width()),
+            f64::from(s.sidebar.max_width()),
+        )
+        .range_step(8.0)
+        .w(5.0)
+        .h_full()
+        .cursor(rune::Cursor::ResizeColumn)
+        .fill(c.border_base)
+        .on_drag(move |s: &mut State, d: &mut rune::Drag, _| {
+            if d.phase == rune::Phase::Move {
+                s.sidebar.drag_to(width + d.dx);
+            }
+        });
+    let mut ledger = col()
+        .key("timeline")
+        .grow(1.0)
+        .min_h(0.0)
+        .scroll(rune::ScrollSpec { stick_bottom: true });
+    for post in &s.posts {
+        ledger = ledger.child(
+            rune::row()
+                .key(format!("post-{}", post.id))
+                .w_full()
+                .gap(8.0)
+                .px(16.0)
+                .py(8.0)
+                .child(
+                    text(&post.user_id)
+                        .w(176.0)
+                        .font(k.ty.small)
+                        .color(c.text_muted),
+                )
+                .child(
+                    text(&post.message)
+                        .grow(1.0)
+                        .font(k.ty.ui)
+                        .color(c.text_base),
+                ),
+        );
+    }
+    let editor = text_input(&s.draft, k.ty.ui)
+        .key("draft")
+        .label("Message")
+        .placeholder("Write a message…", c.text_faint)
+        .w_full()
+        .h(72.0)
+        .padding(10.0)
+        .radius(7.0)
+        .border(1.0, c.border_strong)
+        .fill(c.layer_02)
+        .color(c.text_base);
+    let composer = if locked {
+        editor.disabled(true).read_only(true).inert()
+    } else {
+        editor.on_edit(|s: &mut State| &mut s.draft)
+    };
+    let mut main = col()
+        .grow(1.0)
+        .min_w(0.0)
+        .h_full()
+        .fill(c.bg_base)
+        .child(
+            rune::row()
+                .w_full()
+                .h(32.0)
+                .px(16.0)
+                .center_y()
+                .window_drag()
+                .child(text("Antimatter").font(k.ty.ui_medium).color(c.text_base)),
+        )
+        .child(
+            rune::row()
+                .w_full()
+                .h(54.0)
+                .px(16.0)
+                .center_y()
+                .gap(12.0)
+                .child(
+                    text(
+                        s.channels
+                            .iter()
+                            .find(|c| Some(c.id.as_str()) == s.channel.as_deref())
+                            .map_or("Conversation", |c| c.display_name.as_str()),
+                    )
+                    .font(k.ty.ui_medium)
+                    .color(c.text_base),
+                )
+                .child(el().grow(1.0))
+                .child(button(
+                    "reload",
+                    "Reload",
+                    s.busy || (!s.ready && s.error.is_none()),
+                    |s| {
+                        if s.dispatch(Intent::Refresh) {
+                            s.ready = false;
+                            s.error = None;
+                        }
+                    },
+                )),
+        );
+    main = main.child(
+        text(format!(
+            "Connection: {:?}{}",
+            s.connection,
+            if s.ready { "" } else { " · refreshing" }
+        ))
+        .font(k.ty.small)
+        .color(c.text_muted),
+    );
+    main = main.child(text(if s.durable.is_some() {
+        if s.checkpoint_retry.is_some() { "UNSAVED: retry durable update before closing. Closing cannot be blocked; failed writes lose the latest edits." }
+        else if s.busy { "Saving durable state… wait before closing. Accepted writes cannot be cancelled or rolled back." }
+        else { "Drafts autosave after edits. A crash or failed write can lose the latest edit. Pending delivery blocks switching/sign-out." }
+    } else { "Session-only: closing/disconnecting discards drafts. Use Remember for durable autosave." }).font(k.ty.small).color(c.text_muted));
+    main = main.child(button(
+        "disconnect",
+        "Disconnect session",
+        s.busy || s.submitted || s.pending.is_some() || s.recovered_pending,
+        |s| s.checkpoint(AfterCheckpoint::Disconnect),
+    ));
+    if s.durable.is_some() {
+        main = main.child(button(
+            "save-draft",
+            "Save draft",
+            s.busy || s.submitted || s.pending.is_some() || s.recovered_pending,
+            |s| s.checkpoint(AfterCheckpoint::Save),
+        ));
+    }
+    if s.recovered_pending {
+        main = main.child(text("Unresolved durable submission. Text is retained below and cannot be resent, switched or signed out; delivery recovery requires manual verification.").color(c.warning.fg));
+        for draft in s.drafts.iter().filter(|d| d.pane_id == SUBMITTED) {
+            main = main
+                .child(text(format!("{}: {}", draft.channel_id, draft.text)).color(c.warning.fg));
+        }
+    }
+    if s.checkpoint_retry.is_some() {
+        main = main.child(button(
+            "retry-save",
+            "Retry durable update (does not resend)",
+            s.busy,
+            |s| {
+                if let Some(action) = s.checkpoint_retry.take() {
+                    s.checkpoint(action);
+                }
+            },
+        ));
+    }
+    if let Some(pending) = &s.pending {
+        main = main
+            .child(
+                text(if pending.failed {
+                    "Pending delivery · draft retained"
+                } else {
+                    "Sending…"
+                })
+                .color(c.warning.fg),
+            )
+            .child(button(
+                "retry",
+                if pending.retryable {
+                    "Retry rejected send"
+                } else {
+                    "Check delivery (no resend)"
+                },
+                s.busy || !pending.failed || !s.ready,
+                |s| {
+                    if s.dispatch(Intent::Retry) {
+                        s.ready = false;
+                    }
+                },
+            ));
+    }
+    if let Some(error) = s.error {
+        main = main.child(text(error).color(c.warning.fg));
+    }
+    main = main.child(ledger).child(
+        col()
+            .w_full()
+            .px(16.0)
+            .py(8.0)
+            .gap(8.0)
+            .fill(c.layer_01)
+            .child(composer)
+            .child(rune::row().w_full().child(el().grow(1.0)).child(button(
+                "send",
+                "Send",
+                locked || s.channel.is_none() || s.draft.text.trim().is_empty(),
+                |s| s.send(),
+            ))),
+    );
+    rune::row()
+        .w_full()
+        .h_full()
+        .fill(c.bg_base)
+        .child(sidebar)
+        .child(grip)
+        .child(main)
+}
+
 fn application(s: &State) -> El {
+    if s.account.is_some() {
+        return workspace(s);
+    }
     let t = tok::theme(true);
     let mut body = col()
         .w_full()
@@ -901,216 +1197,63 @@ fn application(s: &State) -> El {
         .gap(8.0)
         .fill(t.bg)
         .child(text("Antimatter").font(type_::TITLE).color(t.text));
-    if let Some(account) = &s.account {
-        body = body
-            .child(text(account).color(t.text))
-            .child(
-                text(format!(
-                    "Connection: {:?}{}",
-                    s.connection,
-                    if s.ready { "" } else { " · refreshing" }
-                ))
-                .color(t.text),
-            )
-            .child(
-                text(if s.durable.is_some() {
-                    if s.checkpoint_retry.is_some() { "UNSAVED: retry durable update before closing. Closing cannot be blocked; failed writes lose the latest edits." }
-                    else if s.busy { "Saving durable state… wait before closing. Accepted writes cannot be cancelled or rolled back." }
-                    else { "Drafts autosave after edits. A crash or failed write can lose the latest edit. Pending delivery blocks switching/sign-out." }
-                } else { "Session-only: closing/disconnecting discards drafts. Use Remember for durable autosave." })
-                    .color(t.text),
-            )
-            .child(button("disconnect", "Disconnect session", s.busy || s.submitted || s.pending.is_some() || s.recovered_pending, |s| {
-                s.checkpoint(AfterCheckpoint::Disconnect)
-            }))
-            .child(button(
-                "reload",
-                "Reload",
-                s.busy || (!s.ready && s.error.is_none()),
-                |s| {
-                    if s.dispatch(Intent::Refresh) {
-                        s.ready = false;
-                        s.error = None;
-                    }
-                },
-            ));
-        let rows = s.channels.iter().map(|channel| {
-            let id = channel.id.clone();
-            button(
-                &format!("channel-{}", channel.id),
-                &channel.display_name,
-                !s.ready
-                    || s.busy
-                    || s.submitted
-                    || s.recovered_pending
-                    || s.pending.is_some()
-                    || (s.durable.is_none() && !s.draft.text.is_empty()),
-                move |s| s.load(id.clone()),
-            )
-        });
-        body = body.child(
-            col()
-                .h(70.0)
-                .scroll(rune::ScrollSpec {
-                    stick_bottom: false,
-                })
-                .children(rows),
-        );
-        body = body
-            .child(
-                col()
-                    .key("timeline")
-                    .grow(1.0)
-                    .min_h(0.0)
-                    .scroll(rune::ScrollSpec { stick_bottom: true })
-                    .children(s.posts.iter().map(|post| {
-                        text(&post.message)
-                            .key(format!("post-{}", post.id))
-                            .color(t.text)
-                    })),
-            )
-            .child(
-                if !s.ready || s.busy || s.submitted || s.recovered_pending || s.pending.is_some() {
-                    text_input(&s.draft, type_::BODY)
-                        .key("draft")
-                        .label("Message")
-                        .w_full()
-                        .h(60.0)
-                        .disabled(true)
-                        .read_only(true)
-                        .inert()
-                } else {
-                    text_input(&s.draft, type_::BODY)
-                        .key("draft")
-                        .label("Message")
-                        .w_full()
-                        .h(60.0)
-                        .on_edit(|s: &mut State| &mut s.draft)
-                },
-            )
-            .child(button(
-                "send",
-                "Send",
-                !s.ready
-                    || s.busy
-                    || s.submitted
-                    || s.recovered_pending
-                    || s.pending.is_some()
-                    || s.channel.is_none()
-                    || s.draft.text.trim().is_empty(),
-                |s| s.send(),
-            ));
-        if s.durable.is_some() {
-            body = body.child(button(
-                "save-draft",
-                "Save draft",
-                s.busy || s.submitted || s.pending.is_some() || s.recovered_pending,
-                |s| s.checkpoint(AfterCheckpoint::Save),
-            ));
-        }
-        if s.recovered_pending {
-            body = body.child(text("Unresolved durable submission. Text is retained below and cannot be resent, switched or signed out; delivery recovery requires manual verification.").color(t.text));
-            for draft in s.drafts.iter().filter(|d| d.pane_id == SUBMITTED) {
-                body =
-                    body.child(text(format!("{}: {}", draft.channel_id, draft.text)).color(t.text));
-            }
-        }
-        if s.checkpoint_retry.is_some() {
-            body = body.child(button(
-                "retry-save",
-                "Retry durable update (does not resend)",
-                s.busy,
-                |s| {
-                    if let Some(action) = s.checkpoint_retry.take() {
-                        s.checkpoint(action);
-                    }
-                },
-            ));
-        }
-        if let Some(pending) = &s.pending {
-            body = body
-                .child(
-                    text(if pending.failed {
-                        "Pending delivery · draft retained"
-                    } else {
-                        "Sending…"
-                    })
-                    .color(t.text),
-                )
-                .child(button(
-                    "retry",
-                    if pending.retryable {
-                        "Retry rejected send"
-                    } else {
-                        "Check delivery (no resend)"
-                    },
-                    s.busy || !pending.failed || !s.ready,
-                    |s| {
-                        if s.dispatch(Intent::Retry) {
-                            s.ready = false;
-                        }
-                    },
-                ));
-        }
-    } else {
-        body = body
-            .child(text("Sign in explicitly · Remember is opt-in").color(t.text))
-            .child(button(
-                "remember",
-                if s.remember {
-                    "Remember sign-in: on"
-                } else {
-                    "Remember sign-in: off"
-                },
-                s.busy,
-                |s| s.remember = !s.remember,
-            ))
-            .child(
-                text_input(&s.server, type_::BODY)
-                    .key("server")
-                    .label("Server HTTPS origin")
-                    .single_line()
-                    .w_full()
-                    .h(36.0)
-                    .on_edit(|s: &mut State| &mut s.server),
-            )
-            .child(
-                text_input(&s.pat, type_::BODY)
-                    .key("pat")
-                    .label("Personal access token")
-                    .single_line()
-                    .w_full()
-                    .h(36.0)
-                    .on_edit(|s: &mut State| &mut s.pat),
-            )
-            .child(button("connect-pat", "Connect with PAT", s.busy, |s| {
-                s.connect(false)
-            }))
-            .child(
-                text_input(&s.login, type_::BODY)
-                    .key("login")
-                    .label("Username or email")
-                    .single_line()
-                    .w_full()
-                    .h(36.0)
-                    .on_edit(|s: &mut State| &mut s.login),
-            )
-            .child(
-                text_input(&s.password, type_::BODY)
-                    .key("password")
-                    .label("Password")
-                    .single_line()
-                    .w_full()
-                    .h(36.0)
-                    .on_edit(|s: &mut State| &mut s.password),
-            )
-            .child(button(
-                "connect-password",
-                "Connect with password",
-                s.busy,
-                |s| s.connect(true),
-            ));
-    }
+    body = body
+        .child(text("Sign in explicitly · Remember is opt-in").color(t.text))
+        .child(button(
+            "remember",
+            if s.remember {
+                "Remember sign-in: on"
+            } else {
+                "Remember sign-in: off"
+            },
+            s.busy,
+            |s| s.remember = !s.remember,
+        ))
+        .child(
+            text_input(&s.server, type_::BODY)
+                .key("server")
+                .label("Server HTTPS origin")
+                .single_line()
+                .w_full()
+                .h(36.0)
+                .on_edit(|s: &mut State| &mut s.server),
+        )
+        .child(
+            text_input(&s.pat, type_::BODY)
+                .key("pat")
+                .label("Personal access token")
+                .single_line()
+                .w_full()
+                .h(36.0)
+                .on_edit(|s: &mut State| &mut s.pat),
+        )
+        .child(button("connect-pat", "Connect with PAT", s.busy, |s| {
+            s.connect(false)
+        }))
+        .child(
+            text_input(&s.login, type_::BODY)
+                .key("login")
+                .label("Username or email")
+                .single_line()
+                .w_full()
+                .h(36.0)
+                .on_edit(|s: &mut State| &mut s.login),
+        )
+        .child(
+            text_input(&s.password, type_::BODY)
+                .key("password")
+                .label("Password")
+                .single_line()
+                .w_full()
+                .h(36.0)
+                .on_edit(|s: &mut State| &mut s.password),
+        )
+        .child(button(
+            "connect-password",
+            "Connect with password",
+            s.busy,
+            |s| s.connect(true),
+        ));
     #[cfg(target_os = "macos")]
     if s.account.is_none() {
         body = body.child(button(
@@ -1243,6 +1386,42 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
         .child(switch)
 }
 
+fn synthetic_workspace(s: &mut State) {
+    s.application = true;
+    s.synthetic = true;
+    s.account = Some("Synthetic conversation · no real account".into());
+    s.channel = Some("synthetic-channel".into());
+    s.channels = ["synthetic-channel", "synthetic-other"]
+        .into_iter()
+        .map(|id| Channel {
+            id: id.into(),
+            team_id: "synthetic-team".into(),
+            name: id.into(),
+            display_name: id.into(),
+            kind: "O".into(),
+        })
+        .collect();
+    s.unread = HashMap::from([(
+        "synthetic-other".into(),
+        Unread {
+            messages: 4,
+            mentions: 2,
+        },
+    )]);
+    s.ready = true;
+    s.connection = websocket::State::Connected;
+    s.posts.push(Post {
+        id: "synthetic-post".into(),
+        channel_id: "synthetic-channel".into(),
+        user_id: "synthetic-user".into(),
+        message: "Synthetic service conversation".into(),
+        create_at: 1,
+        update_at: 0,
+        delete_at: 0,
+        pending_post_id: String::new(),
+    });
+}
+
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     if !rune::is_headless()
@@ -1275,22 +1454,23 @@ fn main() {
                 s.pat = TextEdit::new("synthetic-pat-do-not-export").secure();
                 s.password = TextEdit::new("synthetic-password-do-not-export").secure();
             }),
-            ("conversation-proof", |s| {
-                s.application = true;
-                s.synthetic = true;
-                s.account = Some("Synthetic conversation · no real account".into());
-                s.channel = Some("synthetic-channel".into());
-                s.ready = true;
-                s.connection = websocket::State::Connected;
-                s.posts.push(Post {
-                    id: "synthetic-post".into(),
-                    channel_id: "synthetic-channel".into(),
-                    user_id: "synthetic-user".into(),
-                    message: "Synthetic service conversation".into(),
-                    create_at: 1,
-                    update_at: 0,
-                    delete_at: 0,
-                    pending_post_id: String::new(),
+            ("conversation-proof", synthetic_workspace),
+            ("workspace-proof", synthetic_workspace),
+            ("workspace-locked-proof", |s| {
+                synthetic_workspace(s);
+                s.submitted = true;
+            }),
+            ("workspace-retry-proof", |s| {
+                synthetic_workspace(s);
+                s.draft = TextEdit::new("synthetic draft");
+                s.pending = Some(Pending {
+                    post: mattermost::CreatePost {
+                        channel_id: "synthetic-channel".into(),
+                        message: "synthetic draft".into(),
+                        pending_post_id: "synthetic-pending".into(),
+                    },
+                    failed: true,
+                    retryable: false,
                 });
             }),
         ],
@@ -1810,6 +1990,7 @@ mod tests {
             application: true,
             account: Some("synthetic account".into()),
             channel: Some("c".into()),
+            unread: HashMap::new(),
             channels: vec![Channel {
                 id: "other".into(),
                 team_id: "t".into(),
@@ -1878,6 +2059,36 @@ mod tests {
             delete_at: 0,
             pending_post_id: pending_id.into(),
         }
+    }
+
+    #[test]
+    fn synthetic_workspace_selection_and_lock_stay_local() {
+        let mut s = State::default();
+        synthetic_workspace(&mut s);
+        assert_eq!(s.sidebar.width(), 248.0);
+        assert_eq!(s.channels.len(), 2);
+        s.load("synthetic-other".into());
+        assert_eq!(s.channel.as_deref(), Some("synthetic-other"));
+        assert!(s.posts.is_empty());
+        assert!(s.intents.is_none());
+        let before = s.channel.clone();
+        s.submitted = true;
+        s.load("synthetic-channel".into());
+        assert_eq!(s.channel, before);
+        let mut rt = Runtime::new(
+            s,
+            view,
+            (640.0, 640.0),
+            Env {
+                system_dark: true,
+                scale: 2.0,
+            },
+        );
+        rt.invalidate();
+        rt.frame(0.0);
+        assert!(inert(&rt, "draft"));
+        assert!(inert(&rt, "send"));
+        assert!(inert(&rt, "channel-synthetic-channel"));
     }
 
     #[test]
@@ -2013,7 +2224,7 @@ mod tests {
         let server = tokio::spawn(async move {
             let mut requests = vec![];
             let mut pending_id = String::new();
-            for step in 0..6 {
+            for step in 0..8 {
                 let (mut socket, _) = listener.accept().await.unwrap();
                 let mut bytes = Vec::new();
                 loop {
@@ -2043,7 +2254,7 @@ mod tests {
                         .contains("authorization: bearer fake")
                 );
                 let path = request.split_whitespace().nth(1).unwrap();
-                if step == 4 {
+                if step == 6 {
                     assert!(request.starts_with("POST /api/v4/posts "));
                     let body: Value =
                         serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
@@ -2055,8 +2266,13 @@ mod tests {
                     drop(socket);
                     continue;
                 }
-                assert!(request.starts_with("GET "));
-                let body = if path.ends_with("/users/me/teams") {
+                let viewing = request.starts_with("POST /api/v4/channels/members/u/view ");
+                assert!(viewing || request.starts_with("GET "));
+                let body = if viewing {
+                    json!({"status":"OK"})
+                } else if path.ends_with("/users/me/channels/c/unread") {
+                    json!({"channel_id":"c","msg_count":0,"mention_count":0})
+                } else if path.ends_with("/users/me/teams") {
                     json!([{"id":"t","name":"team"}])
                 } else if path.contains("/teams/t/channels?") {
                     json!([{"id":"c","team_id":"t","name":"channel","type":"O"}])
@@ -2065,7 +2281,7 @@ mod tests {
                 } else {
                     assert!(path.starts_with("/api/v4/channels/c/posts?"));
                     assert!(path.contains("per_page=60"));
-                    if step == 5 {
+                    if step == 7 {
                         json!({"order":["sent"],"posts":{"sent":post(&pending_id)},"prev_post_id":""})
                     } else {
                         json!({"order":[],"posts":{},"prev_post_id":""})
@@ -2161,10 +2377,13 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(
-            requests.iter().filter(|r| r.starts_with("POST ")).count(),
+            requests
+                .iter()
+                .filter(|r| r.starts_with("POST /api/v4/posts "))
+                .count(),
             1
         );
-        assert_eq!(requests.len(), 6);
+        assert_eq!(requests.len(), 8);
         worker.abort();
         assert!(worker.await.unwrap_err().is_cancelled());
     }
