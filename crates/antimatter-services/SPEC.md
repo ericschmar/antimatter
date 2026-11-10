@@ -9,10 +9,10 @@ parent: antimatter
 # Rust services contract
 
 This source-adjacent spec names module responsibilities and verification for the
-approved Rust implementation. [Architecture/data](../docs/swiftui-recreation/04-native-architecture-and-data-model.md)
-and [API/WebSocket/auth](../docs/swiftui-recreation/05-mattermost-api-websocket-and-auth.md),
+approved Rust implementation. [Architecture/data](../../docs/swiftui-recreation/04-native-architecture-and-data-model.md)
+and [API/WebSocket/auth](../../docs/swiftui-recreation/05-mattermost-api-websocket-and-auth.md),
 including their approved replacement sections, retain shared behavioral/security
-ownership. [Root](../SPEC.md) retains migration boundaries. These links remain
+ownership. [Root](../../SPEC.md) retains migration boundaries. These links remain
 normative even though the legacy documents are not graph-indexed. Reconcile the
 owning document and this contract together when intent changes; GitHub issue #3
 owns progress and blockers.

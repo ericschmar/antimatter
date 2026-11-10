@@ -10,14 +10,21 @@ depends-on: [antimatter-rust-services]
 # Rune runtime contract
 
 This source-adjacent spec records the existing Rust boundary, not additional
-feature approval. [Root ownership](../SPEC.md) and the approved replacement
-sections in [architecture/data](../docs/swiftui-recreation/04-native-architecture-and-data-model.md)
-and [API/auth](../docs/swiftui-recreation/05-mattermost-api-websocket-and-auth.md)
+feature approval. [Root ownership](../../SPEC.md) and the approved replacement
+sections in [architecture/data](../../docs/swiftui-recreation/04-native-architecture-and-data-model.md)
+and [API/auth](../../docs/swiftui-recreation/05-mattermost-api-websocket-and-auth.md)
 remain authoritative for shared contracts. Changes must reconcile both owners
 and this implementation contract; source behavior does not supersede intent.
 GitHub issues own execution status, not these specs.
 
 ## Source boundaries
+
+The app is the `antimatter` binary crate. Modules: `state` (State, Login),
+`session`/`checkpoint`/`timeline`/`auth` (`impl State` behaviour), `signin` and
+`workspace` (views), `view` (root and hello scenes), `widgets` (kit wrappers),
+`theme` (selects an [`antimatter-theme`](../antimatter-theme/SPEC.md) `Kit`),
+`scenes` (synthetic proof data) and `tests`. Hot reload patches function bodies in
+`src/*.rs` only.
 
 - `main.rs`: Rune presentation, secure inputs and view intents; native execution
   creates one Tokio runtime. Fresh PAT/password sign-in validates `/users/me`
@@ -31,7 +38,7 @@ GitHub issues own execution status, not these specs.
   and clearing rendered session data. Accepted persistence commands are not
   rolled back by cancellation; cancellation is disabled during auth publication.
   Every background completion checks its generation before changing UI state.
-- [Service contract](services.spec.md): background REST/socket/conversation work.
+- [Service contract](../antimatter-services/SPEC.md): background REST/socket/conversation work.
   Publish small updates through `AppHandle::update`; never perform blocking
   filesystem/Keychain work, HTTP or wire decoding on the UI thread.
 
@@ -120,6 +127,13 @@ stale-session rejection and Rune-driven loopback load/send/delivery checking.
 `python3 scripts/rune-headless.py` checks synthetic rendering/accessibility,
 secure-input redaction and export/trace rejection. Inspect rendered PNGs in
 ignored `build/rune-headless/`; metadata is not visual or native parity proof.
+`task ui:lint` (`scripts/ui-lint.py`) renders every scene at 420x400, 640x480,
+960x640 and 1280x800 with `--chrome` and fails on overflow, text escaping its
+parent, overlapping text, invisible inputs, floating full-width buttons and
+traffic-light overlap; PNGs land in ignored `build/ui/` and must still be
+inspected. `task verify` runs fmt, clippy, tests and both gates; `task precommit` runs it then deletes the generated PNG/JSON (`task clean`). Layout rules:
+content clears a 40 pt titlebar band, the sidebar and main pane shrink, and
+sign-in is a bounded scrolling card.
 
 Native Keychain/browser callback delivery, authorized live-server conversation,
 full pending-delivery recovery, legacy import UI and full workspace behavior

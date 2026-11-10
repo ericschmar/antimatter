@@ -195,12 +195,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rune_handle_supports_main_thread_browser_state() {
-        fn send_sync<T: Send + Sync>() {}
-        send_sync::<rune::AppHandle<Option<BrowserSession>>>();
-    }
-
-    #[test]
     #[ignore = "run on the UI thread inside the actual native app bundle; never opens a browser"]
     fn actual_native_bundle_metadata() {
         assert_eq!(native_prerequisites(), Ok(()));

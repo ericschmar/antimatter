@@ -37,12 +37,21 @@ Bun is development-only spec tooling, not the app runtime.
 ## Getting Started
 
 ```sh
-cargo fetch
-cargo run --locked
-cargo check --locked
-cargo test --locked
-python3 scripts/rune-headless.py
+task            # list tasks
+task fetch      # once, so the rest run --offline
+task verify     # fmt, clippy, tests, headless checks, UI lint
+task precommit  # verify, then delete the PNG/JSON artifacts (build/ui, build/rune-headless)
+task ui:lint    # every scene at 4 window sizes; PNGs in build/ui/ (inspect them)
+task dev        # native window with hot reload (function bodies in crates/antimatter-app/src/*.rs patch live)
+task dev:snap   # hot reload with no window: re-renders build/ui/hot.png on each patch
+task run        # native window, no hot reload
 ```
+
+The tasks wrap `cargo` and `scripts/*.py`; `cargo run --locked` and
+`python3 scripts/rune-headless.py` still work directly. `task dev` needs Dioxus
+CLI 0.7.10 as `dx` (`task hot:install`; the Deno `dx` is unrelated). Edits outside
+function bodies (state, signatures, other files) rebuild and relaunch instead.
+
 
 After the initial fetch, the self-check uses `cargo run --locked --offline` to
 render default and scripted-tap states and assert tree accessibility, visible
@@ -137,13 +146,11 @@ The SSO flow opens the server's `/login/sso/saml` URL with a generated desktop t
 ## Project Layout
 
 ```txt
-src/bun/          ElectroBun main process: API proxy, SSO, websocket, menus
-src/mainview/     React desktop UI
-src/childview/    Settings window UI
-src/shared/       Shared RPC types
+crates/antimatter-services/   Mattermost REST/WebSocket, accounts, conversation (no UI deps)
+crates/antimatter-theme/      Antimatter design tokens as a rune-kit Kit (4 themes)
+crates/antimatter-app/        Rune app binary: state, session, signin, workspace, scenes
+Sources/AntimatterApp/        Legacy SwiftUI app (reference until parity)
 ```
-
-The renderer does not call Mattermost directly for normal app traffic. It sends typed RPC requests to the Bun process, and the Bun process performs the authenticated Mattermost API and WebSocket work.
 
 ## Useful Scripts
 

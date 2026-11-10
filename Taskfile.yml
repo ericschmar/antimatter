@@ -1,0 +1,118 @@
+# https://taskfile.dev — `task` lists everything. Offline tasks never touch the network or a real account.
+version: "3"
+
+vars:
+  RUNE_DIR:
+    sh: cargo metadata --format-version 1 --locked 2>/dev/null | python3 -c "import json,sys,pathlib;print(next(pathlib.Path(p['manifest_path']).parents[2] for p in json.load(sys.stdin)['packages'] if p['name']=='rune'))"
+  PORT: '{{.PORT | default "18745"}}'
+
+tasks:
+  default:
+    silent: true
+    cmds: [task --list]
+
+  fetch:
+    desc: Fetch crates once so every other task can run --offline
+    cmds: [cargo fetch --locked]
+
+  fmt:
+    desc: Check formatting
+    cmds: [cargo fmt --all --check]
+
+  clippy:
+    desc: Clippy, warnings are errors
+    cmds: [cargo clippy --workspace --locked --offline --all-targets -- -D warnings]
+
+  test:
+    desc: Unit and loopback-service tests
+    cmds: [cargo test --workspace --locked --offline]
+
+  ui:self-test:
+    desc: Self-test of the UI lint rules
+    cmds: [python3 scripts/ui-lint.py --self-test]
+
+  ui:lint:
+    desc: Render every scene at 4 window sizes (+ traffic-light check) and fail on layout defects; PNGs in build/ui
+    cmds:
+      - python3 scripts/ui-lint.py {{.CLI_ARGS}}
+
+  ui:snap:
+    desc: "Render one scene: task ui:snap SCENE=signin-proof SIZE=640x640 → build/ui/snap.png"
+    vars:
+      SCENE: '{{.SCENE | default "workspace-proof"}}'
+      SIZE: '{{.SIZE | default "960x640"}}'
+    cmds:
+      - mkdir -p build/ui
+      - cargo run -q --locked --offline -- --scene {{.SCENE}} --size {{.SIZE}} --at 1 --chrome --tree build/ui/snap.json --snap build/ui/snap.png
+      - echo build/ui/snap.png
+
+  headless:
+    desc: Scripted interaction, accessibility and redaction checks (scripts/rune-headless.py)
+    cmds: [python3 scripts/rune-headless.py]
+
+  verify:
+    desc: Everything offline. Run before saying a UI change is done
+    cmds:
+      - task: fmt
+      - task: clippy
+      - task: test
+      - task: ui:self-test
+      - task: headless
+      - task: ui:lint
+
+  clean:
+    desc: Delete generated test artifacts (PNG/JSON renders in build/ui and build/rune-headless)
+    cmds:
+      - rm -rf build/ui build/rune-headless
+
+  precommit:
+    desc: "Run before committing: verify offline, then delete the PNG/JSON artifacts it created"
+    cmds:
+      - task: verify
+      - task: clean
+
+  run:
+    desc: Interactive native window (no hot reload)
+    cmds:
+      - cargo run --locked -- {{.CLI_ARGS}}
+
+  hot:install:
+    desc: Install Dioxus CLI 0.7.10 as `dx` (required by hot reload)
+    status:
+      - test -x "$HOME/.cargo/bin/dx"
+    cmds: [cargo install dioxus-cli --version 0.7.10 --locked]
+
+  dev:
+    desc: "Hot reload in a native window. Function-body edits in crates/antimatter-app/src/*.rs patch live; anything else rebuilds + relaunches"
+    deps: [hot:install]
+    env:
+      RUNE_DEV_LOCAL: "1"
+    cmds:
+      - >-
+        python3 {{.RUNE_DIR}}/scripts/rune-dev --local
+        --manifest-path {{.ROOT_DIR}}/crates/antimatter-app/Cargo.toml
+        --features hot
+        --patch 'src/*.rs'
+        --port {{.PORT}}
+        -- {{.CLI_ARGS}}
+
+  dev:snap:
+    desc: "Hot reload with NO window: re-renders build/ui/hot.png + hot.json on every patch (agent loop)"
+    deps: [hot:install]
+    env:
+      RUNE_DEV_LOCAL: "1"
+    cmds:
+      - mkdir -p build/ui
+      - >-
+        python3 {{.RUNE_DIR}}/scripts/rune-dev --local
+        --manifest-path {{.ROOT_DIR}}/crates/antimatter-app/Cargo.toml
+        --features hot
+        --patch 'src/*.rs'
+        --port {{.PORT}}
+        -- --scene {{.SCENE | default "workspace-proof"}} --size {{.SIZE | default "960x640"}}
+        --snap-on-patch {{.ROOT_DIR}}/build/ui/hot.png
+
+  native:bundle:
+    desc: Build + check the unsigned dev bundle (never launched or registered)
+    cmds:
+      - python3 scripts/rune-native.py {{.CLI_ARGS}}

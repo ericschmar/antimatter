@@ -54,9 +54,10 @@ Do not copy all legacy prose into new specs or add task-spec scaffolding.
 
 Source-adjacent implementation contracts are indexed for navigation:
 
-- [Rune application/session runtime](src/SPEC.md), ID `antimatter-rust-runtime`.
-- [Mattermost conversation/account services](src/services.spec.md), ID
+- [Rune application/session runtime](crates/antimatter-app/SPEC.md), ID `antimatter-rust-runtime`.
+- [Mattermost conversation/account services](crates/antimatter-services/SPEC.md), ID
   `antimatter-rust-services`.
+- [Antimatter theme tokens](crates/antimatter-theme/SPEC.md), ID `antimatter-theme`.
 
 These refine the existing approved boundary; the linked architecture/data and
 API/auth documents retain shared ownership. They do not supersede legacy product
@@ -86,7 +87,7 @@ approval to replace independent singleton Settings with an in-window page or
 to claim tabs, incremental history, rich-action or native/live parity. The user
 approved a second #4 slice on 2026-11-10: server-backed unread/mention counts and
 best-effort channel-viewed marking for the existing single conversation, specified
-in `src/SPEC.md` (Unread and viewed state). Per-pane/tab unread remains later work.
+in `crates/antimatter-app/SPEC.md` (Unread and viewed state). Per-pane/tab unread remains later work.
 
 ## Approved bootstrap and verification gates
 
