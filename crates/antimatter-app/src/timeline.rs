@@ -1,3 +1,4 @@
+use crate::markdown::{from_markdown, to_markdown};
 use crate::state::*;
 use antimatter_services::conversation::{self, Intent, Update};
 use rune::TextEdit;
@@ -42,12 +43,35 @@ impl State {
     }
 
     fn restore_draft(&mut self, channel: &str) {
-        self.draft = TextEdit::new(
+        self.raw = false;
+        self.draft = from_markdown(
             self.drafts
                 .iter()
                 .find(|d| d.pane_id == COMPOSER && d.channel_id == channel)
                 .map_or("", |d| d.text.as_str()),
         );
+    }
+
+    pub(crate) fn markdown(&self) -> String {
+        if self.raw {
+            self.source.text.clone()
+        } else {
+            to_markdown(&self.draft)
+        }
+    }
+
+    pub(crate) fn clear_draft(&mut self) {
+        self.raw = false;
+        self.draft = from_markdown("");
+    }
+
+    pub(crate) fn toggle_raw(&mut self) {
+        if self.raw {
+            self.draft = from_markdown(&self.source.text);
+        } else {
+            self.source = TextEdit::new(to_markdown(&self.draft));
+        }
+        self.raw = !self.raw;
     }
 
     pub(crate) fn load_now(&mut self, channel: String) {
@@ -69,11 +93,11 @@ impl State {
             || self.recovered_pending
             || self.pending.is_some()
             || self.channel.is_none()
-            || self.draft.text.trim().is_empty()
+            || self.markdown().trim().is_empty()
         {
             return;
         }
-        self.checkpoint(AfterCheckpoint::Send(self.draft.text.clone()));
+        self.checkpoint(AfterCheckpoint::Send(self.markdown()));
     }
 
     pub(crate) fn apply(&mut self, update: Update) {
@@ -112,7 +136,7 @@ impl State {
                     if self.durable.is_some() {
                         self.checkpoint(AfterCheckpoint::Acknowledge);
                     } else {
-                        self.draft.clear();
+                        self.clear_draft();
                         self.submitted = false;
                     }
                 }

@@ -1,5 +1,7 @@
 mod auth;
 mod checkpoint;
+mod composer;
+mod markdown;
 mod scenes;
 mod session;
 mod signin;

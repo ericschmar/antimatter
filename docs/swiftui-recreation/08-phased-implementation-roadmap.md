@@ -14,7 +14,7 @@
 ## Phase 2 — Desktop navigation fidelity
 
 - Favorites, local order/archive/emoji labels, collapsed sections, unread/mention, team switcher, channel create/DM create/member add, presence, native menu commands.
-- Implement tab groups, temporary previews, durable tabs, close/pin, split right/down, resize, validation and persistence.
+- Implement tab groups, temporary previews, durable tabs, close/pin, validation and persistence. Split panes are a decided non-goal.
 - Exit criteria: restored workspace never opens empty because of an invalid snapshot.
 
 ## Phase 3 — Message fidelity

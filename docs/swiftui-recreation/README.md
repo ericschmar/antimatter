@@ -7,7 +7,7 @@ This folder is the implementation plan for a **clean-room, native macOS 14+ Swif
 The target is not an iMessage-style messenger. It preserves Antimatter’s current product character:
 
 - A compact, information-dense desktop workspace.
-- A persistent team/channel sidebar plus a tabbed, splittable conversation workspace.
+- A persistent team/channel sidebar plus a tabbed conversation workspace (no splits).
 - Flat, ledger-like message rows with aligned metadata, not alternating chat bubbles.
 - Graphite surfaces, thin dividers, restrained radii, green primary actions, and amber attention states.
 - Mouse, keyboard, context-menu, drag-and-drop, and multi-pane workflows appropriate to macOS.
@@ -55,7 +55,7 @@ This plan reflects the current repository’s documented and implemented surface
 - PAT, password, and SAML SSO authentication.
 - Teams, channels, DMs, group DMs, favorites, archives, local ordering, unread and mention cues.
 - Real-time posts and status events, typing, reactions, attachments, markdown, rich composition, polls, search, command palette, notifications, settings, and exploratory direct calls.
-- Closable tabs, temporary previews, split-right/split-down panels, persisted workspace layout, drafts, reply/edit state, scroll anchors, and composer heights.
+- Closable tabs, temporary previews, persisted tab layout (split panels are a decided non-goal), drafts, reply/edit state, scroll anchors, and composer heights.
 
 Calls are explicitly treated as an exploratory late phase because the current implementation is not a finished replacement for mature calling infrastructure.
 
@@ -98,7 +98,7 @@ be supplied through environment variables.
 | 13 | Composer and drafts | Complete | Markdown composition supports paste and drag-and-drop text, file references can be imported into a message, drafts are persisted per conversation, composer height is retained, and native send state/error feedback posts through Mattermost’s REST API. |
 | 14 | Replies and post editing | Complete | Posts carry Mattermost thread roots; native Reply actions establish cancellable thread context in the persisted composer, while the post editor foundation sends REST updates and preserves server permission/error feedback. |
 | 15 | Typing and presence | Complete | The authenticated WebSocket sends channel/thread typing actions; incoming typing indicators expire after five seconds and status-change events maintain live user presence state. |
-| 16 | Workspace splits and layout persistence | Not started | Support split-right and split-down conversation panes, independent pane selection/scroll state, tab movement, and persisted workspace layout. |
+| 16 | Workspace splits and layout persistence | Won't implement | Split panes were decided a non-goal on 2026-11-11; tabs and persisted tab layout remain in scope. |
 | 17 | Channel and message context actions | Complete | Native context menus support channel opening and favorites, message reply/copy/edit actions, and tab selection, retention, and closure; attachment and reaction controls retain their direct inline actions. |
 | 18 | Search | Complete | A server-backed message search submits Mattermost terms, exposes loading/error states, supports Return-key invocation, and opens a result’s conversation in the workspace. |
 | 19 | Command palette | Complete | Command-K opens a keyboard-accessible palette for message search and workspace focus actions, matching the native menu command vocabulary. |

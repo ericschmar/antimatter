@@ -50,7 +50,7 @@ prevent selection changes while loading or while pending delivery exists.
 Durable channel/account transitions checkpoint pane/channel drafts first;
 session-only channel transitions keep drafts in memory per channel; account
 transitions and disconnect discard them with the existing warning.
-This single-conversation ceiling does not satisfy concurrent workspace panes.
+Concurrent workspace panes (splits) are a decided non-goal, so one active conversation is the intended model.
 
 Lock the composer immediately after send enqueue, not after its acknowledgement.
 At the pinned Rune version, `disabled`/`read_only` alone do not prevent editing:
@@ -101,8 +101,20 @@ Synthetic local transitions never publish real intents or modify durable state.
 Sidebar width is window-local for this foundation; durable pane/layout and
 preference restoration are subsequent work, not implied by presentation.
 This foundation slice does not implement incremental history anchors, rich
-message actions or Settings; tabs are specified below and splits remain unimplemented. An in-window Kit
+message actions or Settings; tabs are specified below; splits are a decided non-goal. An in-window Kit
 Page must not replace the independent native singleton.
+
+## Rich composer
+
+The composer follows Rune Kit's `rich_editor` example: a formatting bar (bold, italic,
+strike, inline code, link, bullet/numbered list, quote, code block) over a `TextArea`
+with highlighted code blocks. Underline and `@` pills are not offered. Markdown is the
+only stored and sent form: `markdown.rs` converts between the editor's marks/blocks and
+a line-based Markdown subset (no escaping), drafts and `Send` carry Markdown, and loading
+a channel parses its draft back. The `Markdown` button swaps to an editable raw source
+view; toggling converts in both directions and the bar is inert in source view. Locked
+states make the whole composer, bar included, inert. Known gaps: mention pills,
+a mono font slot for code, and rendering of received messages.
 
 ## Unread and viewed state
 
@@ -119,7 +131,7 @@ clears a channel. Deltas are replaced by server counts at the next refresh/recon
 The sidebar shows `@N` for mentions or an unread dot otherwise. Counts are
 session-only and never persisted. Per-pane unread remains later work.
 
-## Tabs (no splits)
+## Tabs (splits are a non-goal)
 
 The user approved this third issue #4 slice on 2026-11-11 as "Tabs (no splits)".
 It supersedes, for this window, the AppKit custom tab strip prescription in
@@ -147,8 +159,10 @@ so existing preferences restore with no tabs); an invalid list is rejected like
 an invalid channel ID. Tabs whose channel is no longer navigable are dropped on
 the next navigation update. Unread/mention status appears on inactive tabs.
 Known gaps: the preview tab is not italic (the kit tab has no title-style hook;
-it is described as "Preview tab" for accessibility); scroll anchors and splits are
-not implemented.
+it is described as "Preview tab" for accessibility); scroll anchors are not
+implemented. The user decided on 2026-11-11 that split panes will not be implemented;
+docs 01, 03, 04, 06 and 08 record the same decision, and this runtime does not
+reserve pane-tree or split-ratio state.
 
 ## Runnable verification
 

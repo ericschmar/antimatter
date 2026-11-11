@@ -3,7 +3,7 @@ use crate::tabs::tab_strip;
 use crate::theme::workspace_theme;
 use crate::widgets::*;
 use antimatter_services::conversation::Intent;
-use rune::{El, col, el, text, text_input};
+use rune::{El, col, el, text};
 use rune_kit::{ButtonVariant, Sidebar, SidebarRow};
 
 pub(crate) const TITLEBAR: f32 = 40.0;
@@ -116,22 +116,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 ),
         );
     }
-    let editor = text_input(&s.draft, k.ty.ui)
-        .key("draft")
-        .label("Message")
-        .placeholder("Write a message…", c.text_faint)
-        .w_full()
-        .h(72.0)
-        .padding(10.0)
-        .radius(7.0)
-        .border(1.0, c.border_strong)
-        .fill(c.layer_02)
-        .color(c.text_base);
-    let composer = if locked {
-        editor.disabled(true).read_only(true).inert()
-    } else {
-        editor.on_edit(|s: &mut State| &mut s.draft)
-    };
+    let (composer, toolbar) = crate::composer::composer(s, locked);
     let mut main = col()
         .grow(1.0)
         .min_w(MAIN_MIN)
@@ -274,13 +259,20 @@ pub(crate) fn workspace(s: &State) -> El {
             .gap(8.0)
             .fill(c.layer_01)
             .child(composer)
-            .child(rune::row().w_full().child(el().grow(1.0)).child(button_as(
-                ButtonVariant::Contrast,
-                "send",
-                "Send",
-                locked || s.channel.is_none() || s.draft.text.trim().is_empty(),
-                |s| s.send(),
-            ))),
+            .child(
+                rune::row()
+                    .w_full()
+                    .gap(8.0)
+                    .center_y()
+                    .child(toolbar)
+                    .child(button_as(
+                        ButtonVariant::Contrast,
+                        "send",
+                        "Send",
+                        locked || s.channel.is_none() || s.markdown().trim().is_empty(),
+                        |s| s.send(),
+                    )),
+            ),
     );
     let body = rune::row()
         .w_full()

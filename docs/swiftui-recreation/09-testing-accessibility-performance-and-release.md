@@ -4,7 +4,7 @@
 
 - Unit tests: URL normalization, REST error decoding, Codable fixtures, workspace-tree validation, migration, unread rules, optimistic reconciliation, mention parsing, polling/voting rules.
 - Network tests: custom `URLProtocol` for REST and a controllable websocket protocol/fake event stream.
-- UI tests: auth states, sidebar selection, tab close/split/restore, message send/retry, keyboard palette, mention keyboard selection, attachment flow, theme switching.
+- UI tests: auth states, sidebar selection, tab close/restore, message send/retry, keyboard palette, mention keyboard selection, attachment flow, theme switching.
 - Manual server matrix: PAT/password/SAML, channels/DMs/groups, a server with custom emoji, slow network, offline/reconnect, large files, long messages, light/dark appearance.
 
 ## Accessibility

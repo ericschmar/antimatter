@@ -74,7 +74,8 @@ impl State {
         }
         if let Some(channel) = &self.channel {
             drafts.retain(|d| !(d.pane_id == COMPOSER && &d.channel_id == channel));
-            if !self.draft.text.is_empty()
+            let markdown = self.markdown();
+            if !markdown.is_empty()
                 && !drafts
                     .iter()
                     .any(|d| d.pane_id == SUBMITTED && &d.channel_id == channel)
@@ -82,7 +83,7 @@ impl State {
                 drafts.push(Draft {
                     pane_id: COMPOSER.into(),
                     channel_id: channel.clone(),
-                    text: self.draft.text.clone(),
+                    text: markdown,
                 });
             }
         }
@@ -233,7 +234,7 @@ impl State {
             }
             AfterCheckpoint::Load(channel) => self.load_now(channel),
             AfterCheckpoint::Acknowledge => {
-                self.draft.clear();
+                self.clear_draft();
                 self.submitted = false;
                 self.recovered_pending = false;
                 self.checkpoint_retry = None;

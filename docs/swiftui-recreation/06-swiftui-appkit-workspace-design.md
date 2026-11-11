@@ -12,10 +12,11 @@ The current session, checkpoint, composer lock and pending-delivery guards
 remain authoritative under `src/SPEC.md`; presentation does not remove them.
 
 The `NSViewRepresentable`/`NSSplitView`/custom AppKit tab implementation below
-is reference intent awaiting the later Rune tab/split design. Product pane
-independence, tree validation, temporary/durable semantics, scroll anchors and
-keyboard/accessibility requirements remain unchanged and unimplemented by this
-foundation. The singleton Settings owner remains authoritative; Kit Page is
+is reference intent for the tab design only. Splits are a decided non-goal
+(2026-11-11): the split tree, `NSSplitView` mapping, split ratio and split
+commands below are not to be implemented and are retained as history. Temporary/durable
+semantics, scroll anchors and keyboard/accessibility requirements remain
+unchanged. The singleton Settings owner remains authoritative; Kit Page is
 not a substitute. No new native binding/window registry is approved here.
 
 Verification requires synthetic keyed navigation and resize scripts, composer
@@ -36,7 +37,7 @@ Create `WorkspaceHost: NSViewRepresentable` backed by an `NSViewController` that
 - `group(id, selectedPaneID, paneIDs)` maps to a custom AppKit tab strip plus one hosted SwiftUI pane.
 - `pane(id, channelID)` hosts `ConversationPane` using `NSHostingController`.
 
-A custom tab strip is preferred over `NSTabView` because it needs compact flat tabs, hover-only close controls, temporary italic labels, context menus, and controlled persistence. Use native menu validation and first-responder routing for close/split commands.
+A custom tab strip is preferred over `NSTabView` because it needs compact flat tabs, hover-only close controls, temporary italic labels, context menus, and controlled persistence. Use native menu validation and first-responder routing for close commands.
 
 ## Persistence invariants
 
@@ -54,6 +55,6 @@ Use `NSTextView` through `NSViewRepresentable` for the rich composer once the re
 
 ## Menus and commands
 
-- `CommandMenu` and app `Commands` define `⌘K`, compose focus, close tab, split right/down, attach file/image, emoji picker, and settings.
+- `CommandMenu` and app `Commands` define `⌘K`, compose focus, close tab, attach file/image, emoji picker, and settings.
 - Row/context menus use `contextMenu` when they meet behavior needs; use `NSMenu` bridge for services or dynamic native integration.
-- Accessibility focus must move predictably after tab close, split, palette dismissal, and send.
+- Accessibility focus must move predictably after tab close, palette dismissal, and send.

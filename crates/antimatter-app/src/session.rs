@@ -37,7 +37,7 @@ impl State {
         self.unread.clear();
         self.posts.clear();
         self.pending = None;
-        self.draft.clear();
+        self.clear_draft();
         self.ready = false;
         self.busy = false;
         self.connection = websocket::State::Idle;

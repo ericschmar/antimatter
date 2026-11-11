@@ -9,7 +9,7 @@ Antimatter Mac is a focused Mattermost-compatible desktop client, not an embedde
 - Connect by personal access token, username/password, and SAML SSO desktop callback.
 - Navigate teams; public/private channels; direct and group messages.
 - Show channel metadata, member stack, user presence, unread state, mentions, favorites, archive state, local emoji labels, collapsed sections, and local order.
-- Open conversations as temporary preview tabs or persistent tabs; close, pin, split right/down, resize, and restore a valid workspace tree.
+- Open conversations as temporary preview tabs or persistent tabs; close, pin, and restore durable tabs. Split panes are a decided non-goal (2026-11-11).
 - Load history incrementally; preserve bottom anchoring, scroll position, and pending optimistic posts.
 - Read and compose Markdown, replies, edits, files, images, emoji, Giphy links when configured, polls, and reactions.
 - Search local channels plus remote channels, users, and posts from a command palette.

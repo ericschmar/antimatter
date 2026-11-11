@@ -1151,3 +1151,35 @@ fn preview_tab_made_durable_keeps_its_dragged_position() {
         ["synthetic-other", "synthetic-channel"]
     );
 }
+
+#[test]
+fn composer_toggles_between_rendered_and_markdown_source() {
+    let mut rt = synthetic_runtime();
+    rt.state.draft = crate::markdown::from_markdown("a **b**\n- item");
+    assert_eq!(rt.state.draft.text, "a b\nitem");
+    rt.state.toggle_raw();
+    assert_eq!(rt.state.source.text, "a **b**\n- item");
+    rt.state.source = rune::TextEdit::new("*x*");
+    assert_eq!(rt.state.markdown(), "*x*");
+    rt.state.toggle_raw();
+    assert_eq!(rt.state.draft.text, "x");
+    assert_eq!(rt.state.markdown(), "*x*");
+}
+
+#[test]
+fn toolbar_bold_formats_selection() {
+    let mut rt = synthetic_runtime();
+    rt.state.draft = crate::markdown::from_markdown("hello");
+    tap(&mut rt, "draft");
+    rt.state.draft.set_selection(0, 5);
+    tap(&mut rt, "bold");
+    assert_eq!(rt.state.markdown(), "**hello**");
+}
+
+#[test]
+fn toolbar_at_caret_arms_style_and_keeps_focus() {
+    let mut rt = synthetic_runtime();
+    tap(&mut rt, "draft");
+    tap(&mut rt, "bold");
+    assert!(rt.state.draft.has_mark(&rune::Mark::Bold));
+}

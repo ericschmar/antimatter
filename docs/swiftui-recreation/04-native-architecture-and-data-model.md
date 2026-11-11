@@ -62,7 +62,7 @@ Remember, and routes native SAML through the same validated completion. Startup
 reads Rust registry/selection metadata only; Connect saved explicitly accesses
 the credential and validates the same account identity. One dedicated persistence
 thread serializes Keychain/filesystem work. Saved selection and single-conversation
-navigation/drafts are durable; full workspace panes remain #4. Durable disconnect
+navigation/drafts are durable; splits are a decided non-goal. Durable disconnect
 checkpoints before cancellation; durable sign-out removes only the chosen account.
 Session-only disconnect warns that it discards in-memory drafts/pending state.
 
@@ -136,7 +136,7 @@ Use local models for:
 
 - `AppPreferences`: theme, font, profile picture visibility, own-post marker, notification settings, composer selection.
 - `LocalNavigationState`: favorites, archives, channel emoji map, channel order, collapsed sections.
-- `WorkspaceSnapshot(version: 1)`: durable panes, active pane, split tree ratios, selected tab per group.
+- `WorkspaceSnapshot(version: 1)`: durable tabs and the active tab (no split tree; splits are a non-goal).
 - `PaneState`: draft, reply/edit target, scroll anchor, composer height.
 
 ## Persistence

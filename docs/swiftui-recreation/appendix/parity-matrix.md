@@ -19,7 +19,7 @@
 - [ ] DMs and group DMs
 - [ ] Channel view/unread/mentions/presence
 - [ ] Favorites, archive, local order/emoji/collapsed sections
-- [ ] Tabs, temporary previews, split panes, persisted valid workspace
+- [ ] Tabs, temporary previews, persisted valid workspace (split panes: decided non-goal)
 - [ ] History, scroll anchors, typing, websocket reconnect
 - [ ] Markdown, attachments, image handling, preview
 - [ ] Send/reply/edit/delete/retry

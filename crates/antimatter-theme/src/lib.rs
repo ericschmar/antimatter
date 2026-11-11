@@ -3,6 +3,8 @@
 //! Semantic names follow `docs/swiftui-recreation/appendix/design-tokens.md`. Every kit field
 //! is set here; nothing is inherited from `Kit::neutral` or `Kit::from_palette`.
 
+pub mod icons;
+
 use rune::{Color, Shadow, Spring, TextStyle, color::hex};
 use rune_kit::{Elevation, Kit, Motion, Palette, Radius, StateColors, Type, glyphs};
 
