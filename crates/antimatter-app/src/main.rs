@@ -4,6 +4,7 @@ mod scenes;
 mod session;
 mod signin;
 mod state;
+mod tabs;
 #[cfg(test)]
 mod tests;
 mod theme;
@@ -91,6 +92,18 @@ fn main() {
             }),
             ("conversation-proof", synthetic_workspace),
             ("workspace-proof", synthetic_workspace),
+            ("workspace-tabs-proof", |s| {
+                synthetic_workspace(s);
+                s.navigation.tabs.push("synthetic-other".into());
+                s.preview = Some("synthetic-third".into());
+                s.channels.push(mattermost::Channel {
+                    id: "synthetic-third".into(),
+                    team_id: "synthetic-team".into(),
+                    name: "synthetic-third".into(),
+                    display_name: "synthetic-third".into(),
+                    kind: "O".into(),
+                });
+            }),
             ("workspace-locked-proof", |s| {
                 synthetic_workspace(s);
                 s.submitted = true;
@@ -109,6 +122,7 @@ fn main() {
                 });
             }),
         ],
+        on_key: Some(crate::tabs::window_key),
         ..AppSpec::new(
             "Antimatter",
             if rune::is_headless() {
@@ -128,6 +142,7 @@ fn main() {
             state.runtime = Some(Arc::new(
                 tokio::runtime::Runtime::new().expect("background runtime"),
             ));
+            state.theme = Theme::Warm;
             state.handle = Some(handle.clone());
             state.busy = true;
             state.runtime.as_ref().unwrap().spawn(async move {
@@ -149,6 +164,7 @@ fn main() {
         }
         state
     })
+    .titlebar(rune::Titlebar::new(crate::workspace::TITLEBAR))
     .turn_scope(|_| {}, State::autosave)
     .on_close(|s, _| s.close())
     .run();

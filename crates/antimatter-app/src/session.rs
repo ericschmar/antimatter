@@ -26,6 +26,8 @@ impl State {
         self.drafts.clear();
         self.navigation = Navigation::default();
         self.committed_navigation = Navigation::default();
+        self.preview = None;
+        self.tab_menu = None;
         self.submitted = false;
         self.recovered_pending = false;
         self.intents = None;
@@ -145,8 +147,9 @@ impl State {
             let (intents_tx, intents_rx) = mpsc::channel(32);
             let (socket_tx, socket_rx) = mpsc::channel(64);
             let (updates_tx, mut updates_rx) = mpsc::channel(64);
-            handle.update(move |s, _| {
+            handle.update(move |s, tx| {
                 if s.scope.accepts(generation) {
+                    tx.resize_window(WORKSPACE_WINDOW_SIZE);
                     s.account = Some(account);
                     s.authenticated = Some(authenticated);
                     s.auth_writing = false;

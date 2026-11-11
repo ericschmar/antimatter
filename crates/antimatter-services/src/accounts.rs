@@ -153,6 +153,7 @@ impl CredentialStore for KeychainCredentials {
 
     fn save(&mut self, key: &AccountKey, token: &Secret) -> Result<()> {
         use security_framework::access_control::{ProtectionMode, SecAccessControl};
+        const MISSING_ENTITLEMENT: i32 = -34018;
         let mut options = self.options(key)?;
         let access = SecAccessControl::create_with_protection(
             Some(ProtectionMode::AccessibleAfterFirstUnlock),
@@ -160,11 +161,22 @@ impl CredentialStore for KeychainCredentials {
         )
         .map_err(|e| Error::Credential(e.code()))?;
         options.set_access_control(access);
-        security_framework::passwords::set_generic_password_options(
+        match security_framework::passwords::set_generic_password_options(
             token.expose().as_bytes(),
             options,
-        )
-        .map_err(|e| Error::Credential(e.code()))
+        ) {
+            Ok(()) => Ok(()),
+            // Unsigned builds lack the entitlement for the protected keychain;
+            // use the login keychain instead.
+            Err(e) if e.code() == MISSING_ENTITLEMENT => {
+                security_framework::passwords::set_generic_password_options(
+                    token.expose().as_bytes(),
+                    self.options(key)?,
+                )
+                .map_err(|e| Error::Credential(e.code()))
+            }
+            Err(e) => Err(Error::Credential(e.code())),
+        }
     }
 
     fn remove(&mut self, key: &AccountKey) -> Result<()> {
@@ -223,7 +235,11 @@ pub struct Draft {
 #[serde(deny_unknown_fields)]
 pub struct Navigation {
     pub channel_id: Option<String>,
+    #[serde(default)]
+    pub tabs: Vec<String>,
 }
+
+pub const MAX_TABS: usize = 32;
 
 impl Navigation {
     fn validate(&self) -> Result<()> {
@@ -233,6 +249,16 @@ impl Navigation {
             .is_some_and(|id| id.trim().is_empty())
         {
             return Err(Error::Invalid("empty navigation channel ID"));
+        }
+        if self.tabs.len() > MAX_TABS
+            || self.tabs.iter().any(|id| id.trim().is_empty())
+            || self
+                .tabs
+                .iter()
+                .enumerate()
+                .any(|(i, id)| self.tabs[..i].contains(id))
+        {
+            return Err(Error::Invalid("invalid navigation tabs"));
         }
         Ok(())
     }
@@ -871,6 +897,7 @@ mod tests {
                     vec![draft(&i.to_string())],
                     Navigation {
                         channel_id: Some(i.to_string()),
+                        ..Navigation::default()
                     },
                 )
                 .await
@@ -928,17 +955,42 @@ mod tests {
                     key.clone(),
                     vec![draft("after")],
                     Navigation {
-                        channel_id: Some(" ".into())
+                        channel_id: Some(" ".into()),
+                        ..Navigation::default()
                     }
                 )
                 .await
                 .is_err()
         );
         assert_eq!(fs::read(directory.join("drafts.json")).unwrap(), drafts);
+        assert!(
+            actor
+                .checkpoint(
+                    key.clone(),
+                    vec![draft("after")],
+                    Navigation {
+                        tabs: vec!["a".into(), "a".into()],
+                        ..Navigation::default()
+                    }
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(fs::read(directory.join("drafts.json")).unwrap(), drafts);
+        fs::write(
+            directory.join("preferences.json"),
+            br#"{"version":1,"data":{"channel_id":"c"}}"#,
+        )
+        .unwrap();
+        let (_, _, legacy) = actor.restore(key.clone()).await.unwrap();
+        assert_eq!(legacy.channel_id.as_deref(), Some("c"));
+        assert!(legacy.tabs.is_empty());
         for bad in [
             br#"{"version":99,"data":{"channel_id":null}}"#.as_slice(),
             br#"{"version":1,"data":{"channel_id":" "}}"#,
             br#"{"version":1,"data":{"channel_id":null,"future":true}}"#,
+            br#"{"version":1,"data":{"channel_id":null,"tabs":["a","a"]}}"#,
+            br#"{"version":1,"data":{"channel_id":null,"tabs":[" "]}}"#,
             b"not json",
         ] {
             fs::write(directory.join("preferences.json"), bad).unwrap();

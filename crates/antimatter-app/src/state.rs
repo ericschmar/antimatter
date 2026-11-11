@@ -5,12 +5,14 @@ use antimatter_services::{
     mattermost::{self, Channel, Post, Secret, ServerOrigin},
     websocket,
 };
+use rune::PointerPress;
 use rune::{AppHandle, TextEdit};
-use rune_kit::PaneState;
+use rune_kit::{PaneState, shell::TabDragState};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 
 pub(crate) const COMPOSER: &str = "conversation";
+pub(crate) const WORKSPACE_WINDOW_SIZE: (f32, f32) = (1180.0, 760.0);
 // ponytail: a reserved pane retains unresolved submissions, not resendable drafts.
 // Upgrade to a versioned pending record with identity/recovery when the worker supports it.
 pub(crate) const SUBMITTED: &str = "conversation-pending";
@@ -65,6 +67,10 @@ pub(crate) struct State {
     pub(crate) theme: antimatter_theme::Theme,
     pub(crate) synthetic: bool,
     pub(crate) sidebar: PaneState,
+    pub(crate) preview: Option<String>,
+    pub(crate) preview_at: usize,
+    pub(crate) tab_drag: TabDragState,
+    pub(crate) tab_menu: Option<(String, PointerPress)>,
     pub(crate) pat: TextEdit,
     pub(crate) password: TextEdit,
     pub(crate) server: TextEdit,
@@ -115,6 +121,10 @@ impl Default for State {
             theme: antimatter_theme::Theme::Default,
             synthetic: false,
             sidebar: PaneState::new(248.0).range(160.0, 420.0),
+            preview: None,
+            preview_at: 0,
+            tab_drag: TabDragState::new(),
+            tab_menu: None,
             pat: TextEdit::default().secure(),
             password: TextEdit::default().secure(),
             server: TextEdit::default(),

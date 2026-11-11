@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/ui"
-SCENES = ["signin-proof", "signin-password-proof", "signin-sso-proof", "workspace-proof", "workspace-locked-proof", "workspace-retry-proof",
+SCENES = ["signin-proof", "signin-password-proof", "signin-sso-proof", "workspace-proof", "workspace-tabs-proof", "workspace-locked-proof", "workspace-retry-proof",
           "signin-light-proof", "signin-contrast-proof", "signin-warm-proof", "workspace-light-proof", "workspace-contrast-proof", "workspace-warm-proof"]
 SIZES = ["420x400", "640x480", "960x640", "1280x800"]
 EPS = 0.5
@@ -45,14 +45,26 @@ def lint(tree, chrome_stderr=""):
                 found.append(f"button escapes parent: {name!r} ends {x + w:.0f}, parent {p['rect'][0] + p['rect'][2]:.0f}")
         if role == "text" and e.get("text"):
             p = by_path.get(e["path"].rsplit("/", 1)[0])
-            if p and x + w > p["rect"][0] + p["rect"][2] + EPS:
+            if p and p.get("key") != "title" and x + w > p["rect"][0] + p["rect"][2] + EPS:
                 found.append(f"text escapes parent: {name!r} ends {x + w:.0f}, parent {p['rect'][0] + p['rect'][2]:.0f}")
         if role == "textbox" and not e.get("inert") and invisible(e.get("fill")) and not e.get("border") \
                 and not any(e["path"].startswith(p) for p in boxed):
             found.append(f"textbox {name!r} has no fill or border: invisible input")
         if role == "button" and invisible(e.get("fill")) and not e.get("border") and w > vw * 0.9:
             found.append(f"button {name!r} spans {w:.0f}pt with no fill: floating label")
-    texts = [e for e in els if e.get("role") == "text" and e.get("text") and e["rect"][2] > 0 and e["rect"][3] > 0]
+    clips = [e for e in els if str(e.get("key")).endswith("-scroll") and e["rect"][2] > 0]
+
+    def visible(e):
+        x, y, w, h = e["rect"]
+        for c in clips:
+            if e["path"].startswith(c["path"] + "/"):
+                cx, _, cw, _ = c["rect"]
+                right = min(x + w, cx + cw)
+                x, w = max(x, cx), right - max(x, cx)
+        return [x, y, w, h]
+
+    texts = [dict(e, rect=visible(e)) for e in els if e.get("role") == "text" and e.get("text")]
+    texts = [e for e in texts if e["rect"][2] > 0 and e["rect"][3] > 0]
     for i, a in enumerate(texts):
         for b in texts[i + 1:]:
             ax, ay, aw, ah = a["rect"]

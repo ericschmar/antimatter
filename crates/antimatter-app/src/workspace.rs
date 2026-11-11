@@ -1,4 +1,5 @@
 use crate::state::*;
+use crate::tabs::tab_strip;
 use crate::theme::workspace_theme;
 use crate::widgets::*;
 use antimatter_services::conversation::Intent;
@@ -9,6 +10,7 @@ pub(crate) const TITLEBAR: f32 = 40.0;
 const MAIN_MIN: f32 = 248.0;
 
 pub(crate) fn workspace(s: &State) -> El {
+    let mut layer = Vec::new();
     let k = workspace_theme();
     let c = &k.c;
     let locked = !s.ready || s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
@@ -25,11 +27,17 @@ pub(crate) fn workspace(s: &State) -> El {
         } else if unread.messages > 0 {
             row = row.status(rune_kit::shell::RowStatus::Unread);
         }
+        let open = channel.id.clone();
         let row = row
             .selected(s.channel.as_deref() == Some(&channel.id))
             .on_select(move |s: &mut State, _| {
                 if !disabled {
                     s.load(id.clone());
+                }
+            })
+            .on_double_click(move |s: &mut State, _| {
+                if !disabled {
+                    s.open_durable(open.clone());
                 }
             })
             .build(&k)
@@ -67,14 +75,14 @@ pub(crate) fn workspace(s: &State) -> El {
             f64::from(s.sidebar.max_width()),
         )
         .range_step(8.0)
-        .w(5.0)
+        .w(2.0)
         .h_full()
         .cursor(rune::Cursor::ResizeColumn)
         .fill(c.border_base)
-        .on_drag(move |s: &mut State, d: &mut rune::Drag, _| {
-            if d.phase == rune::Phase::Move {
-                s.sidebar.drag_to(width + d.dx);
-            }
+        .on_drag(|s: &mut State, d: &mut rune::Drag, _| match d.phase {
+            rune::Phase::Down => d.data = s.sidebar.width(),
+            rune::Phase::Move => s.sidebar.drag_to(d.data + d.dx),
+            rune::Phase::Up => {}
         });
     let mut ledger = col()
         .key("timeline")
@@ -137,18 +145,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .center_y()
                 .gap(12.0)
                 .window_drag()
-                .child(
-                    text(
-                        s.channels
-                            .iter()
-                            .find(|c| Some(c.id.as_str()) == s.channel.as_deref())
-                            .map_or("Conversation", |c| c.display_name.as_str()),
-                    )
-                    .font(k.ty.ui_medium)
-                    .color(c.text_base)
-                    .truncate(),
-                )
-                .child(el().grow(1.0))
+                .child(tab_strip(s, &mut layer))
                 .child(button(
                     "reload",
                     "Reload",
@@ -285,11 +282,12 @@ pub(crate) fn workspace(s: &State) -> El {
                 |s| s.send(),
             ))),
     );
-    rune::row()
+    let body = rune::row()
         .w_full()
         .h_full()
         .fill(c.bg_base)
         .child(sidebar)
         .child(grip)
-        .child(main)
+        .child(main);
+    rune_kit::root(body, layer)
 }

@@ -82,7 +82,7 @@ framework or workspace tree is implemented here.
 Expose async `accounts`, `restore`, `save`, `checkpoint`, `sign_out`, `selected`
 and `select`. Restore fails safely for missing credentials. Save preflights existing
 state before replacing a credential, then publishes metadata only after credential
-success. Navigation is a deny-unknown-fields `channel_id: Option<String>` preference
+success. Navigation is a deny-unknown-fields `channel_id: Option<String>` plus ordered durable `tabs` (default empty, unique, nonempty, at most 32) preference
 with nonempty IDs; drafts retain pane/channel identity. Checkpoint validates both
 new and existing records before writing. Drafts/preferences are individually atomic,
 not a multi-file transaction: an I/O failure can commit drafts without navigation
@@ -116,11 +116,12 @@ retry, offline deletion, threaded history and refresh readiness. Tests use only
 synthetic credentials, loopback servers and temporary roots/fake credential stores.
 Run strict all-target Clippy and formatting alongside the tests.
 
-Native Keychain CRUD must use a clearly isolated synthetic service. Its explicit
-check failed at first save with `errSecMissingEntitlement (-34018)`; authorized
-signing/provisioning and protected-Keychain verification remain blockers. Do not
-remove after-first-unlock protection or fall back to plaintext/legacy protection
-to make the test pass. Real SAML
+Native Keychain CRUD must use a clearly isolated synthetic service. Saves first
+request after-first-unlock access control; unsigned builds fail that with
+`errSecMissingEntitlement (-34018)`, and only that error falls back to a regular
+login-Keychain item (still non-synchronized and OS-encrypted). Never fall back to
+plaintext. Protected-Keychain verification still needs authorized
+signing/provisioning. Real SAML
 requires confirmed bundle/callback identity and an authorized SAML server. Live
 load/send/retry/reconnect is a separate acceptance gate; synthetic tests cannot
 close it or establish release/macOS-floor readiness.

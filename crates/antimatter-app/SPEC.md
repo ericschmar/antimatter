@@ -99,8 +99,8 @@ locked/retry states without services, credential/storage access or OS actions.
 Synthetic local transitions never publish real intents or modify durable state.
 Sidebar width is window-local for this foundation; durable pane/layout and
 preference restoration are subsequent work, not implied by presentation.
-This single-conversation slice does not implement tab/split workspaces,
-incremental history anchors, rich message actions or Settings. An in-window Kit
+This foundation slice does not implement incremental history anchors, rich
+message actions or Settings; tabs are specified below and splits remain unimplemented. An in-window Kit
 Page must not replace the independent native singleton.
 
 ## Unread and viewed state
@@ -116,8 +116,35 @@ when the server accepted it; failure is silent and retried by the next refresh.
 mention only when the event's `mentions` names the current user); `channel_viewed`
 clears a channel. Deltas are replaced by server counts at the next refresh/reconnect.
 The sidebar shows `@N` for mentions or an unread dot otherwise. Counts are
-session-only and never persisted. Tabs, preview/durable semantics and per-pane
-unread remain later work.
+session-only and never persisted. Per-pane unread remains later work.
+
+## Tabs (no splits)
+
+The user approved this third issue #4 slice on 2026-11-11 as "Tabs (no splits)".
+It supersedes, for this window, the AppKit custom tab strip prescription in
+`docs/swiftui-recreation/06` (section on the custom tab strip) with the same-pin
+`rune_kit::TabStrip` in the 40 pt title band, keyed `tabs`/`t-{channel_id}`, role
+`tablist`/`tab`. Product semantics from docs 03 and 06 stay in force: sidebar
+select opens or reuses one temporary preview tab; double-clicking a sidebar row or
+a tab, or the tab context menu "Keep tab open", makes it durable; opening an
+existing durable tab activates it. The context menu also offers Close tab and Close
+other tabs; Cmd+W closes the active tab through the window-level key hook (never the
+window) and is consumed even when the last tab cannot close. Each tab shows a `#`
+channel glyph and a hover close button; tab width follows the longest title, clamped
+to 144-240 pt, and shrinks then scrolls on overflow. The app declares
+`Titlebar::new(TITLEBAR)` so only `.window_drag()` regions move the window; without it
+AppKit's native 40 pt band swallowed tab presses and drags. The last tab cannot be closed.
+A tab is a conversation entry, so there is one active channel, one draft and one
+timeline: tab activation, close of the active tab and close-others reuse `load`
+and are refused under the same guards (not ready, busy, submitted, pending,
+recovered, checkpoint retry, or a non-durable draft). Only durable tabs persist,
+as `Navigation.tabs` (ordered, unique, nonempty IDs, at most 32, `serde(default)`
+so existing preferences restore with no tabs); an invalid list is rejected like
+an invalid channel ID. Tabs whose channel is no longer navigable are dropped on
+the next navigation update. Unread/mention status appears on inactive tabs.
+Known gaps: the preview tab is not italic (the kit tab has no title-style hook;
+it is described as "Preview tab" for accessibility), per-tab drafts, scroll
+anchors and splits are not implemented.
 
 ## Runnable verification
 

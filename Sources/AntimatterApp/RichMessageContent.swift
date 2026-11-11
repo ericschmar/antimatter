@@ -310,14 +310,12 @@ private struct ChatCodeBlock: View {
             .padding(.vertical, 9)
             .background(WorkspaceTheme.primaryText.opacity(0.05))
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                Text(content)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(WorkspaceTheme.primaryText)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(14)
-            }
+            Text(content)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(WorkspaceTheme.primaryText)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(14)
         }
         .frame(maxWidth: 800, alignment: .leading)
         .background(

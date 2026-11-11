@@ -11,6 +11,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
     s.synthetic = true;
     s.account = Some("Synthetic conversation · no real account".into());
     s.channel = Some("synthetic-channel".into());
+    s.navigation.tabs = vec!["synthetic-channel".into()];
     s.channels = ["synthetic-channel", "synthetic-other"]
         .into_iter()
         .map(|id| Channel {

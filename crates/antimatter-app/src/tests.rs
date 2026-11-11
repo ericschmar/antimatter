@@ -153,6 +153,7 @@ async fn durable_marker_survives_restart_and_checkpoint_keeps_other_channels() {
             drafts.clone(),
             Navigation {
                 channel_id: Some("c".into()),
+                ..Navigation::default()
             },
         )
         .await
@@ -909,4 +910,226 @@ fn a_tap_flips_the_switch_and_the_knob_springs_across() {
     let on = knob_x(&rt);
     assert!(off < mid && mid < on);
     assert!((on - off - 16.0).abs() < 0.01);
+}
+
+fn synthetic_runtime() -> Runtime<State> {
+    let mut s = State::default();
+    synthetic_workspace(&mut s);
+    let mut rt = Runtime::new(
+        s,
+        view,
+        (800.0, 640.0),
+        Env {
+            system_dark: true,
+            scale: 2.0,
+        },
+    );
+    rt.invalidate();
+    rt.frame(0.0);
+    rt
+}
+
+fn tab_keys(rt: &Runtime<State>) -> Vec<String> {
+    rt.elements()
+        .iter()
+        .filter(|e| e.role == "tab")
+        .filter_map(|e| e.key.clone())
+        .collect()
+}
+
+#[test]
+fn sidebar_select_reuses_one_preview_tab_and_double_click_keeps_it() {
+    let mut rt = synthetic_runtime();
+    assert_eq!(rt.state.tab_order(), ["synthetic-channel"]);
+    tap(&mut rt, "channel-synthetic-other");
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-other"));
+    assert_eq!(rt.state.preview.as_deref(), Some("synthetic-other"));
+    assert_eq!(rt.state.navigation.tabs, ["synthetic-channel"]);
+    assert_eq!(
+        rt.state.tab_order(),
+        ["synthetic-channel", "synthetic-other"]
+    );
+    rt.state.load("synthetic-channel".into());
+    assert_eq!(rt.state.preview.as_deref(), Some("synthetic-other"));
+    rt.state.open_durable("synthetic-other".into());
+    assert_eq!(
+        rt.state.navigation.tabs,
+        ["synthetic-channel", "synthetic-other"]
+    );
+    assert!(rt.state.preview.is_none());
+    rt.state.open_durable("synthetic-other".into());
+    assert_eq!(rt.state.navigation.tabs.len(), 2);
+    rt.invalidate();
+    rt.frame(0.0);
+    assert_eq!(tab_keys(&rt), ["t-synthetic-channel", "t-synthetic-other"]);
+}
+
+#[test]
+fn tab_close_activates_neighbour_and_last_tab_cannot_close() {
+    let mut rt = synthetic_runtime();
+    rt.state.open_durable("synthetic-channel".into());
+    rt.state.open_durable("synthetic-other".into());
+    rt.state.close_tab("synthetic-other");
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-channel"));
+    assert_eq!(rt.state.navigation.tabs, ["synthetic-channel"]);
+    rt.state.close_tab("synthetic-channel");
+    assert_eq!(rt.state.navigation.tabs, ["synthetic-channel"]);
+}
+
+#[test]
+fn tab_switch_obeys_send_and_draft_guards() {
+    let mut rt = synthetic_runtime();
+    rt.state.open_durable("synthetic-channel".into());
+    rt.state.open_durable("synthetic-other".into());
+    rt.state.load("synthetic-channel".into());
+    rt.state.submitted = true;
+    rt.state.close_tab("synthetic-channel");
+    rt.state.load("synthetic-other".into());
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-channel"));
+    assert_eq!(rt.state.navigation.tabs.len(), 2);
+    rt.state.submitted = false;
+    rt.state.draft = rune::TextEdit::new("draft");
+    rt.state.open_durable("synthetic-other".into());
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-channel"));
+    rt.state.close_other_tabs("synthetic-other");
+    assert_eq!(rt.state.navigation.tabs.len(), 2);
+}
+
+#[test]
+fn tab_context_actions_and_unread_status() {
+    let mut rt = synthetic_runtime();
+    rt.state.open_durable("synthetic-channel".into());
+    rt.state.open_durable("synthetic-other".into());
+    rt.state.load("synthetic-channel".into());
+    rt.invalidate();
+    rt.frame(0.0);
+    let other = rt
+        .elements()
+        .into_iter()
+        .find(|e| e.key.as_deref() == Some("t-synthetic-other"))
+        .unwrap();
+    assert_eq!(other.label.as_deref(), Some("synthetic-other"));
+    assert!(!other.item_selected);
+    assert!(
+        rt.elements()
+            .iter()
+            .any(|e| e.key.as_deref() == Some("t-synthetic-channel") && e.item_selected)
+    );
+    rt.state.close_other_tabs("synthetic-channel");
+    assert_eq!(rt.state.navigation.tabs, ["synthetic-channel"]);
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-channel"));
+}
+
+#[test]
+fn reorder_moves_durable_tabs_only() {
+    let mut s = State::default();
+    s.navigation.tabs = vec!["a".into(), "b".into(), "c".into()];
+    s.reorder_tab(0, 2);
+    assert_eq!(s.navigation.tabs, ["b", "c", "a"]);
+    s.reorder_tab(0, 9);
+    assert_eq!(s.navigation.tabs, ["b", "c", "a"]);
+}
+
+#[test]
+fn cmd_w_closes_the_active_tab_and_never_the_window() {
+    let mut rt = synthetic_runtime();
+    rt.state.open_durable("synthetic-channel".into());
+    rt.state.open_durable("synthetic-other".into());
+    rt.state.load("synthetic-channel".into());
+    rt.on_key = Some(crate::tabs::window_key);
+    let cmd = rune::Mods {
+        cmd: true,
+        ..rune::Mods::default()
+    };
+    rt.key(rune::KeyEvent {
+        key: rune::Key::Command('w'),
+        mods: cmd,
+    });
+    rt.frame(0.0);
+    assert!(rt.shell_request.take().is_none());
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-other"));
+    assert_eq!(rt.state.navigation.tabs, ["synthetic-other"]);
+}
+
+#[test]
+fn tab_titles_size_the_strip_and_every_tab_has_icon_and_close() {
+    let mut rt = synthetic_runtime();
+    rt.state.open_durable("synthetic-other".into());
+    rt.invalidate();
+    rt.frame(0.0);
+    let els = rt.elements();
+    let width = |key: &str| {
+        els.iter()
+            .find(|e| e.key.as_deref() == Some(key))
+            .unwrap()
+            .rect[2]
+    };
+    assert!(width("t-synthetic-channel") <= 240.0 && width("t-synthetic-channel") >= 72.0);
+    assert!(els.iter().any(|e| e.label.as_deref() == Some("Close tab")));
+    assert!(els.iter().any(|e| e.key.as_deref() == Some("icon")));
+}
+
+fn drag_tab(rt: &mut Runtime<State>, from: &str, to: &str) {
+    rt.invalidate();
+    for _ in 0..30 {
+        rt.frame(1.0 / 60.0);
+    }
+    let (x, y) = rt.find(from).unwrap();
+    let (tx, _) = rt.find(to).unwrap();
+    rt.pointer_down(x, y);
+    rt.frame(1.0 / 60.0);
+    let steps = 12;
+    for i in 1..=steps {
+        rt.pointer_move(x + (tx - x) * i as f32 / steps as f32, y);
+        rt.frame(1.0 / 60.0);
+    }
+    rt.pointer_up(tx, y);
+    rt.frame(1.0 / 60.0);
+    rt.invalidate();
+    rt.frame(0.0);
+}
+
+#[test]
+fn dragging_a_tab_reorders_and_keeps_the_order() {
+    let mut rt = synthetic_runtime();
+    rt.state.open_durable("synthetic-other".into());
+    assert_eq!(
+        rt.state.navigation.tabs,
+        ["synthetic-channel", "synthetic-other"]
+    );
+    drag_tab(&mut rt, "t-synthetic-channel", "t-synthetic-other");
+    assert_eq!(
+        rt.state.navigation.tabs,
+        ["synthetic-other", "synthetic-channel"]
+    );
+    assert_eq!(tab_keys(&rt), ["t-synthetic-other", "t-synthetic-channel"]);
+}
+
+#[test]
+fn dragging_the_preview_tab_keeps_it_where_it_was_dropped() {
+    let mut rt = synthetic_runtime();
+    rt.state.preview = Some("synthetic-other".into());
+    rt.state.preview_at = 1;
+    drag_tab(&mut rt, "t-synthetic-other", "t-synthetic-channel");
+    assert_eq!(
+        rt.state.tab_order(),
+        ["synthetic-other", "synthetic-channel"]
+    );
+    assert_eq!(tab_keys(&rt), ["t-synthetic-other", "t-synthetic-channel"]);
+}
+
+#[test]
+fn preview_tab_made_durable_keeps_its_dragged_position() {
+    let mut rt = synthetic_runtime();
+    rt.state.preview = Some("synthetic-other".into());
+    rt.state.preview_at = 0;
+    assert_eq!(
+        rt.state.tab_order(),
+        ["synthetic-other", "synthetic-channel"]
+    );
+    rt.state.keep_tab("synthetic-other");
+    assert_eq!(
+        rt.state.navigation.tabs,
+        ["synthetic-other", "synthetic-channel"]
+    );
 }

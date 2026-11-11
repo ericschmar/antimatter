@@ -28,6 +28,7 @@ impl State {
         }
         if self.synthetic {
             if self.channels.iter().any(|c| c.id == channel) {
+                self.note_open(&channel);
                 self.channel = Some(channel.clone());
                 self.posts.retain(|p| p.channel_id == channel);
             }
@@ -40,6 +41,7 @@ impl State {
 
     pub(crate) fn load_now(&mut self, channel: String) {
         if self.dispatch(Intent::Load(channel.clone())) {
+            self.note_open(&channel);
             self.channel = Some(channel.clone());
             self.navigation.channel_id = Some(channel.clone());
             self.draft = TextEdit::new(
@@ -75,6 +77,7 @@ impl State {
             } => {
                 self.channels = channels;
                 self.unread = unread;
+                self.prune_tabs();
             }
             Update::Unread(unread) => self.unread = unread,
             Update::Timeline { channel_id, posts } => {
