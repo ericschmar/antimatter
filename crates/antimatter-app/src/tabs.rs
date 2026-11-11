@@ -42,7 +42,6 @@ impl State {
             && self.pending.is_none()
             && !self.recovered_pending
             && self.checkpoint_retry.is_none()
-            && (self.durable.is_some() || self.draft.text.is_empty())
     }
 
     pub(crate) fn note_open(&mut self, channel: &str) {

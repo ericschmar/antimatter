@@ -48,7 +48,8 @@ Enqueue successfully before changing the selected channel or locking a send;
 queue failure retains the prior timeline and draft. Serialize channel loads and
 prevent selection changes while loading or while pending delivery exists.
 Durable channel/account transitions checkpoint pane/channel drafts first;
-session-only channel transitions still block when draft text exists.
+session-only channel transitions keep drafts in memory per channel; account
+transitions and disconnect discard them with the existing warning.
 This single-conversation ceiling does not satisfy concurrent workspace panes.
 
 Lock the composer immediately after send enqueue, not after its acknowledgement.
@@ -134,17 +135,20 @@ channel glyph and a hover close button; tab width follows the longest title, cla
 to 144-240 pt, and shrinks then scrolls on overflow. The app declares
 `Titlebar::new(TITLEBAR)` so only `.window_drag()` regions move the window; without it
 AppKit's native 40 pt band swallowed tab presses and drags. The last tab cannot be closed.
-A tab is a conversation entry, so there is one active channel, one draft and one
-timeline: tab activation, close of the active tab and close-others reuse `load`
-and are refused under the same guards (not ready, busy, submitted, pending,
-recovered, checkpoint retry, or a non-durable draft). Only durable tabs persist,
+A tab is a conversation entry, so there is one active channel and one timeline, with
+one draft per channel (the composer pane id plus channel id). Switching channels
+snapshots the current draft into `drafts` (checkpointed first when durable, kept in
+memory for session-only) and restores the target channel's draft. Tab activation,
+close of the active tab and close-others reuse `load` and are refused under the
+same guards (not ready, busy, submitted, pending, recovered or checkpoint retry);
+a non-empty session-only draft no longer blocks switching. Only durable tabs persist,
 as `Navigation.tabs` (ordered, unique, nonempty IDs, at most 32, `serde(default)`
 so existing preferences restore with no tabs); an invalid list is rejected like
 an invalid channel ID. Tabs whose channel is no longer navigable are dropped on
 the next navigation update. Unread/mention status appears on inactive tabs.
 Known gaps: the preview tab is not italic (the kit tab has no title-style hook;
-it is described as "Preview tab" for accessibility), per-tab drafts, scroll
-anchors and splits are not implemented.
+it is described as "Preview tab" for accessibility); scroll anchors and splits are
+not implemented.
 
 ## Runnable verification
 

@@ -22,21 +22,32 @@ impl State {
             || self.submitted
             || self.pending.is_some()
             || self.recovered_pending
-            || (self.durable.is_none() && !self.draft.text.is_empty())
         {
             return;
         }
         if self.synthetic {
             if self.channels.iter().any(|c| c.id == channel) {
+                self.drafts = self.snapshot();
                 self.note_open(&channel);
                 self.channel = Some(channel.clone());
                 self.posts.retain(|p| p.channel_id == channel);
+                self.restore_draft(&channel);
             }
         } else if self.durable.is_some() {
             self.checkpoint(AfterCheckpoint::Load(channel));
         } else {
+            self.drafts = self.snapshot();
             self.load_now(channel);
         }
+    }
+
+    fn restore_draft(&mut self, channel: &str) {
+        self.draft = TextEdit::new(
+            self.drafts
+                .iter()
+                .find(|d| d.pane_id == COMPOSER && d.channel_id == channel)
+                .map_or("", |d| d.text.as_str()),
+        );
     }
 
     pub(crate) fn load_now(&mut self, channel: String) {
@@ -44,12 +55,7 @@ impl State {
             self.note_open(&channel);
             self.channel = Some(channel.clone());
             self.navigation.channel_id = Some(channel.clone());
-            self.draft = TextEdit::new(
-                self.drafts
-                    .iter()
-                    .find(|d| d.pane_id == COMPOSER && d.channel_id == channel)
-                    .map_or("", |d| d.text.as_str()),
-            );
+            self.restore_draft(&channel);
             self.posts.clear();
             self.ready = false;
             self.error = None;

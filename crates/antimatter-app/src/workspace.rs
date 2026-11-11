@@ -19,7 +19,7 @@ pub(crate) fn workspace(s: &State) -> El {
         .header(text("CHANNELS").font(k.ty.small_medium).color(c.text_muted));
     for channel in &s.channels {
         let id = channel.id.clone();
-        let disabled = locked || (s.durable.is_none() && !s.draft.text.is_empty());
+        let disabled = locked;
         let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
         let mut row = SidebarRow::new(&channel.display_name).height(32.0);
         if unread.mentions > 0 {
@@ -167,7 +167,7 @@ pub(crate) fn workspace(s: &State) -> El {
             "Drafts autosave after edits. A crash or failed write can lose the latest edit. Pending delivery blocks switching/sign-out."
         }
     } else {
-        "Session-only: closing/disconnecting discards drafts. Use Remember for durable autosave."
+        "Session-only: per-tab drafts are kept in memory; closing/disconnecting discards them. Use Remember for durable autosave."
     };
     let mut actions = rune::row().w_full().gap(8.0).flex_wrap().child(button(
         "disconnect",

@@ -988,11 +988,29 @@ fn tab_switch_obeys_send_and_draft_guards() {
     assert_eq!(rt.state.channel.as_deref(), Some("synthetic-channel"));
     assert_eq!(rt.state.navigation.tabs.len(), 2);
     rt.state.submitted = false;
-    rt.state.draft = rune::TextEdit::new("draft");
+    rt.state.recovered_pending = true;
     rt.state.open_durable("synthetic-other".into());
     assert_eq!(rt.state.channel.as_deref(), Some("synthetic-channel"));
     rt.state.close_other_tabs("synthetic-other");
     assert_eq!(rt.state.navigation.tabs.len(), 2);
+}
+
+#[test]
+fn each_tab_keeps_its_own_draft_across_switches() {
+    let mut rt = synthetic_runtime();
+    rt.state.open_durable("synthetic-channel".into());
+    rt.state.open_durable("synthetic-other".into());
+    rt.state.load("synthetic-channel".into());
+    rt.state.draft = rune::TextEdit::new("first");
+    rt.state.load("synthetic-other".into());
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-other"));
+    assert!(rt.state.draft.text.is_empty());
+    rt.state.draft = rune::TextEdit::new("second");
+    rt.state.load("synthetic-channel".into());
+    assert_eq!(rt.state.draft.text, "first");
+    rt.state.close_tab("synthetic-channel");
+    assert_eq!(rt.state.channel.as_deref(), Some("synthetic-other"));
+    assert_eq!(rt.state.draft.text, "second");
 }
 
 #[test]
