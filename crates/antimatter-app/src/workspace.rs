@@ -14,6 +14,7 @@ const TRAFFIC_LIGHTS: f32 = 84.0;
 const SERVER_MAX_WIDTH: f32 = 160.0;
 const MAIN_MIN: f32 = 248.0;
 const SECTION_HEADER_HEIGHT: f32 = 24.0;
+const ROW_GUTTER: f32 = 6.0;
 
 static DISCLOSURE_OPEN: Icon = Icon {
     name: "antimatter-disclosure-open",
@@ -170,11 +171,12 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
         })
         .build(k)
         .key(format!("channel-{}", channel.id));
-    if locked {
+    let row = if locked {
         row.disabled(true).inert()
     } else {
         row
-    }
+    };
+    rune::row().w_full().px(ROW_GUTTER).child(row)
 }
 
 pub(crate) fn workspace(s: &State) -> El {
