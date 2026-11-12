@@ -395,6 +395,15 @@ impl Client {
         self.get("/users/me/teams").await
     }
 
+    pub async fn site_name(&self) -> Result<String, Error> {
+        let config: Value = self.get("/config/client?format=old").await?;
+        Ok(config
+            .get("SiteName")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned())
+    }
+
     pub async fn users_by_ids(&self, ids: &[String]) -> Result<Vec<User>, Error> {
         self.post("/users/ids", ids).await
     }

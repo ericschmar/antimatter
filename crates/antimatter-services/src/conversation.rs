@@ -36,6 +36,7 @@ pub enum Failure {
 
 pub enum Update {
     Navigation {
+        site_name: String,
         teams: Vec<Team>,
         channels: Vec<Channel>,
         unread: HashMap<String, Unread>,
@@ -78,6 +79,7 @@ pub async fn run(
         pending: None,
         unread: HashMap::new(),
         names: HashMap::new(),
+        site_name: String::new(),
         previous: None,
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
@@ -120,6 +122,7 @@ struct Worker {
     pending: Option<Pending>,
     unread: HashMap<String, Unread>,
     names: HashMap<String, String>,
+    site_name: String,
     previous: Option<String>,
 }
 
@@ -261,6 +264,9 @@ impl Worker {
     async fn refresh(&mut self) -> Result<(), Failure> {
         self.emit(Update::Ready(false)).await;
         let teams = self.client.teams().await.map_err(|_| Failure::Load)?;
+        if self.site_name.is_empty() {
+            self.site_name = self.client.site_name().await.unwrap_or_default();
+        }
         let mut channels = Vec::new();
         let mut seen = HashSet::new();
         for team in &teams {
@@ -322,6 +328,7 @@ impl Worker {
         }
         self.unread = unread.clone();
         self.emit(Update::Navigation {
+            site_name: self.site_name.clone(),
             teams,
             channels,
             unread,
@@ -959,6 +966,7 @@ mod tests {
                 identities: HashMap::new(),
                 unread: HashMap::new(),
                 names: HashMap::new(),
+                site_name: String::new(),
                 previous: None,
                 pending: Some(Pending {
                     post: CreatePost {
@@ -1426,6 +1434,7 @@ mod tests {
             identities: HashMap::new(),
             unread: HashMap::new(),
             names: HashMap::new(),
+            site_name: String::new(),
             previous: None,
             pending: Some(pending.clone()),
         };

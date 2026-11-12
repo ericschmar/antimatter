@@ -103,8 +103,12 @@ impl State {
     pub(crate) fn apply(&mut self, update: Update) {
         match update {
             Update::Navigation {
-                channels, unread, ..
+                site_name,
+                channels,
+                unread,
+                ..
             } => {
+                self.site_name = site_name;
                 self.channels = channels;
                 self.unread = unread;
                 self.prune_tabs();

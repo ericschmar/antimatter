@@ -63,6 +63,11 @@ their label from the peer's user (full name, then nickname, then username); a se
 `names` map (user ID to display name) resolved the same way, and failure falls back to the
 user ID. Names are cached per session and never acknowledge or alter pending sends.
 
+The server name is Mattermost's `SiteName` from `/api/v4/config/client?format=old`,
+fetched best effort once per session during navigation refresh and carried on
+`Update::Navigation { site_name }`. A failed or empty fetch is retried on the next refresh
+and the UI falls back to the saved origin; it never blocks readiness.
+
 Keep one pending send, its text and stable UUID. Match acknowledgements by server
 ID and pending identity with validated author/channel; reject conflicting IDs.
 Posted/edited/deleted events and HTTP results share deduplication. Only a definitive

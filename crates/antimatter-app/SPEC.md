@@ -140,6 +140,12 @@ its collapsed state; collapsed state is session-only and resets to expanded on l
 Channel rows keep the `channel-<id>` keys, sit one indent level in, use the small
 title font, and lead with the Phosphor `#` icon (`icons::HASH`); direct rows have no icon. Rows show the resolved DM name (see the services spec) when available.
 
+The server dropdown sits on the traffic-light row, right of the lights, and is a fixed-width
+`Select` trigger (rune-kit's inline trigger sizes to its label, so the width is set by the
+app) that opens a `Menu` of saved accounts. The trigger shows the server name (SiteName, else
+origin) and truncates before its chevron. Choosing an entry switches account through the
+existing guarded `switch_account`.
+
 ## Tabs (splits are a non-goal)
 
 The user approved this third issue #4 slice on 2026-11-11 as "Tabs (no splits)".

@@ -2,13 +2,15 @@ use crate::state::*;
 use crate::tabs::tab_strip;
 use crate::theme::workspace_theme;
 use crate::widgets::*;
+use antimatter_services::accounts::Account;
 use antimatter_services::conversation::Intent;
 use antimatter_services::mattermost::Channel;
 use antimatter_theme::icons;
 use rune::{El, Icon, col, el, icon, row as hbox, text};
-use rune_kit::{ButtonVariant, SidebarRow};
+use rune_kit::{ButtonVariant, MenuItem, Select, SidebarRow};
 
 pub(crate) const TITLEBAR: f32 = 40.0;
+const TRAFFIC_LIGHTS: f32 = 84.0;
 const MAIN_MIN: f32 = 248.0;
 const SECTION_HEADER_HEIGHT: f32 = 24.0;
 
@@ -22,6 +24,64 @@ static DISCLOSURE_CLOSED: Icon = Icon {
     view: 16.0,
     body: r#"<path d="M6 4L10 8L6 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>"#,
 };
+
+fn server_labels(s: &State) -> Vec<String> {
+    let label = |account: &Account| {
+        if s.authenticated.as_ref() == Some(&account.key) && !s.site_name.is_empty() {
+            s.site_name.clone()
+        } else {
+            account.key.origin().to_owned()
+        }
+    };
+    s.accounts
+        .iter()
+        .map(|account| {
+            let base = label(account);
+            let shared = s
+                .accounts
+                .iter()
+                .filter(|other| label(other) == base)
+                .count()
+                > 1;
+            if shared {
+                format!("{base} ({})", account.username)
+            } else {
+                base
+            }
+        })
+        .collect()
+}
+
+fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit, width: f32) -> El {
+    let names = server_labels(s);
+    let current = s
+        .accounts
+        .iter()
+        .position(|account| s.authenticated.as_ref() == Some(&account.key))
+        .map(|i| names[i].clone())
+        .or_else(|| s.account.clone())
+        .unwrap_or_default();
+    let trigger = Select::new("server", &names)
+        .current(Some(&current))
+        .open(s.server_open)
+        .on_toggle(|s: &mut State| s.server_open = !s.server_open)
+        .trigger(k)
+        .w(width);
+    let mut menu = rune_kit::Menu::new("server-menu")
+        .trigger(trigger)
+        .open(s.server_open)
+        .on_close(|s: &mut State| s.server_open = false);
+    for (i, name) in names.iter().enumerate() {
+        menu = menu.item(MenuItem::new(name.clone()).on_select(move |s: &mut State| {
+            s.server_open = false;
+            if let Some(account) = s.accounts.get(i) {
+                let key = account.key.clone();
+                s.switch_account(key);
+            }
+        }));
+    }
+    menu.build(k, layer)
+}
 
 fn section(
     key: &str,
@@ -153,14 +213,26 @@ pub(crate) fn workspace(s: &State) -> El {
         .min_w(96.0)
         .h_full()
         .fill(c.layer_01)
-        .child(el().w_full().h(TITLEBAR).window_drag())
         .child(
-            rune::row().h(24.0).w_full().px(12.0).center_y().child(
-                text(s.account.as_deref().unwrap_or_default())
-                    .font(k.ty.small)
-                    .color(c.text_muted)
-                    .truncate(),
-            ),
+            rune::row()
+                .w_full()
+                .h(TITLEBAR)
+                .pr(12.0)
+                .center_y()
+                .window_drag()
+                .child(el().w(TRAFFIC_LIGHTS).h_full().window_drag())
+                .child(
+                    rune::row()
+                        .w(s.sidebar.width() - TRAFFIC_LIGHTS - 12.0)
+                        .shrink()
+                        .window_drag()
+                        .child(server_menu(
+                            s,
+                            &mut layer,
+                            &k,
+                            s.sidebar.width() - TRAFFIC_LIGHTS - 12.0,
+                        )),
+                ),
         )
         .child(sidebar);
     let width = s.sidebar.width();

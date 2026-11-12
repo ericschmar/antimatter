@@ -720,7 +720,7 @@ async fn rune_send_checks_lost_response_delivery_without_duplicate() {
     let server = tokio::spawn(async move {
         let mut requests = vec![];
         let mut pending_id = String::new();
-        for step in 0..8 {
+        for step in 0..9 {
             let (mut socket, _) = listener.accept().await.unwrap();
             let mut bytes = Vec::new();
             loop {
@@ -750,7 +750,7 @@ async fn rune_send_checks_lost_response_delivery_without_duplicate() {
                     .contains("authorization: bearer fake")
             );
             let path = request.split_whitespace().nth(1).unwrap();
-            if step == 6 {
+            if step == 7 {
                 assert!(request.starts_with("POST /api/v4/posts "));
                 let body: Value =
                     serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
@@ -770,6 +770,8 @@ async fn rune_send_checks_lost_response_delivery_without_duplicate() {
                 json!({"channel_id":"c","msg_count":0,"mention_count":0})
             } else if path.ends_with("/users/me/teams") {
                 json!([{"id":"t","name":"team"}])
+            } else if path.starts_with("/api/v4/config/client?") {
+                json!({"SiteName":"Synthetic Site"})
             } else if path.contains("/teams/t/channels?") {
                 json!([{"id":"c","team_id":"t","name":"channel","type":"O"}])
             } else if path.ends_with("/channels/c") {
@@ -777,7 +779,7 @@ async fn rune_send_checks_lost_response_delivery_without_duplicate() {
             } else {
                 assert!(path.starts_with("/api/v4/channels/c/posts?"));
                 assert!(path.contains("per_page=60"));
-                if step == 7 {
+                if step == 8 {
                     json!({"order":["sent"],"posts":{"sent":post(&pending_id)},"prev_post_id":""})
                 } else {
                     json!({"order":[],"posts":{},"prev_post_id":""})
@@ -880,7 +882,7 @@ async fn rune_send_checks_lost_response_delivery_without_duplicate() {
             .count(),
         1
     );
-    assert_eq!(requests.len(), 8);
+    assert_eq!(requests.len(), 9);
     worker.abort();
     assert!(worker.await.unwrap_err().is_cancelled());
 }
