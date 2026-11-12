@@ -4,6 +4,7 @@ mod composer;
 mod markdown;
 mod scenes;
 mod session;
+mod settings;
 mod signin;
 mod state;
 mod tabs;
@@ -22,10 +23,32 @@ use antimatter_services::{
     accounts::{self, Persistence},
     conversation::Pending,
     mattermost::{self},
+    settings as settings_store,
 };
 use antimatter_theme::Theme;
 use rune::{AppSpec, TextEdit};
 use std::sync::Arc;
+
+fn settings_path() -> Option<std::path::PathBuf> {
+    accounts::AccountStore::<accounts::KeychainCredentials>::default_root()
+        .ok()
+        .map(|root| root.join(settings_store::FILE_NAME))
+}
+
+fn settings_prefs() -> (settings_store::Settings, Option<String>) {
+    let Some(path) = settings_path() else {
+        return (settings_store::Settings::default(), None);
+    };
+    match settings_store::load(&path) {
+        Ok(prefs) => (prefs, None),
+        Err(error) => (
+            settings_store::Settings::default(),
+            Some(format!(
+                "Settings could not be read ({error}). Defaults are shown and the file is kept."
+            )),
+        ),
+    }
+}
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -46,7 +69,7 @@ fn main() {
         eprintln!("Real-account mode forbids headless exports.");
         std::process::exit(2);
     }
-    let app = rune::App::new(AppSpec::<State> {
+    let mut app = rune::App::new(AppSpec::<State> {
         scenes: &[
             ("on", |s| {
                 s.application = false;
@@ -142,9 +165,26 @@ fn main() {
             view,
         )
     });
+    let (prefs, load_error) = settings_prefs();
     let handle = app.handle();
+    let (settings, settings_app) =
+        crate::settings::window(&mut app, prefs, settings_path(), load_error, handle.clone());
+    let app = app.menu_item(
+        rune::MenuItem::new("Settings…", |s: &mut State, _: &mut rune::Tx| {
+            if let Some(settings) = &s.settings {
+                settings.open();
+            }
+        })
+        .menu("Antimatter")
+        .after("About Antimatter")
+        .key_equivalent(",".parse().expect("valid Settings shortcut")),
+    );
     app.init(move || {
-        let mut state = State::default();
+        let mut state = State {
+            settings: Some(settings),
+            settings_app: Some(settings_app),
+            ..State::default()
+        };
         if !rune::is_headless() {
             state.application = true;
             state.runtime = Some(Arc::new(

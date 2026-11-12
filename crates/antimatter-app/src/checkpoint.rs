@@ -6,6 +6,7 @@ use antimatter_services::{
 
 impl State {
     pub(crate) fn autosave(&mut self) {
+        self.publish_settings_accounts();
         if self.durable.is_some()
             && !self.busy
             && !self.submitted

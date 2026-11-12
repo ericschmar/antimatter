@@ -55,6 +55,7 @@ Do not copy all legacy prose into new specs or add task-spec scaffolding.
 Source-adjacent implementation contracts are indexed for navigation:
 
 - [Rune application/session runtime](crates/antimatter-app/SPEC.md), ID `antimatter-rust-runtime`.
+- [Rust settings window](crates/antimatter-app/settings/SPEC.md), ID `antimatter-rust-settings`.
 - [Mattermost conversation/account services](crates/antimatter-services/SPEC.md), ID
   `antimatter-rust-services`.
 - [Antimatter theme tokens](crates/antimatter-theme/SPEC.md), ID `antimatter-theme`.

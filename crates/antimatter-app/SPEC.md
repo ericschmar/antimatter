@@ -101,7 +101,8 @@ Synthetic local transitions never publish real intents or modify durable state.
 Sidebar width is window-local for this foundation; durable pane/layout and
 preference restoration are subsequent work, not implied by presentation.
 This foundation slice does not implement incremental history anchors, rich
-message actions or Settings; tabs are specified below; splits are a decided non-goal. An in-window Kit
+message actions; the independent Settings window is specified in
+[settings/SPEC.md](settings/SPEC.md) (`antimatter-rust-settings`); tabs are specified below; splits are a decided non-goal. An in-window Kit
 Page must not replace the independent native singleton.
 
 ## Rich composer

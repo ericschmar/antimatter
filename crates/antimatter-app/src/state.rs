@@ -102,6 +102,9 @@ pub(crate) struct State {
     pub(crate) busy: bool,
     pub(crate) connection: websocket::State,
     pub(crate) error: Option<&'static str>,
+    pub(crate) settings: Option<rune::WindowHandle>,
+    pub(crate) settings_app: Option<rune::AppHandle<crate::settings::SettingsState>>,
+    pub(crate) settings_rows: Vec<crate::settings::AccountRow>,
 }
 
 impl State {
@@ -137,6 +140,41 @@ impl State {
     pub(crate) fn remove_account(&mut self, key: AccountKey) {
         self.saved_account_menu = None;
         self.sign_out(key);
+    }
+
+    pub(crate) fn publish_settings_accounts(&mut self) {
+        let Some(settings) = self.settings_app.clone() else {
+            return;
+        };
+        let rows: Vec<crate::settings::AccountRow> = self
+            .accounts
+            .iter()
+            .map(|account| crate::settings::AccountRow {
+                key: account.key.clone(),
+                origin: account.key.origin().to_owned(),
+                username: account.username.clone(),
+                active: self.authenticated.as_ref() == Some(&account.key),
+            })
+            .collect();
+        if rows == self.settings_rows {
+            return;
+        }
+        self.settings_rows = rows.clone();
+        settings.update(move |s, _| s.accounts = rows);
+    }
+
+    pub(crate) fn switch_account(&mut self, key: AccountKey) {
+        if self.blocked() {
+            return;
+        }
+        self.authenticate(Login::Saved(key));
+    }
+
+    pub(crate) fn add_account(&mut self) {
+        if self.blocked() {
+            return;
+        }
+        self.checkpoint(AfterCheckpoint::Disconnect);
     }
 }
 
@@ -197,6 +235,9 @@ impl Default for State {
             busy: false,
             connection: websocket::State::Idle,
             error: None,
+            settings: None,
+            settings_app: None,
+            settings_rows: Vec::new(),
         }
     }
 }

@@ -151,6 +151,12 @@ impl State {
 }
 
 pub(crate) fn window_key(s: &mut State, key: &rune::KeyEvent, _: &mut rune::Tx) -> bool {
+    if key.is_command(',') && !key.mods.shift {
+        if let Some(settings) = &s.settings {
+            settings.open();
+        }
+        return true;
+    }
     if s.account.is_none() || !key.is_command('w') || key.mods.shift {
         return false;
     }

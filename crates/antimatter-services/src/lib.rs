@@ -3,6 +3,7 @@ pub mod conversation;
 #[cfg(target_os = "macos")]
 pub mod macos;
 pub mod mattermost;
+pub mod settings;
 pub mod websocket;
 
 #[derive(Default)]
