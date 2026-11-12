@@ -44,6 +44,7 @@ pub enum Update {
     Timeline {
         channel_id: String,
         posts: Vec<Post>,
+        names: HashMap<String, String>,
     },
     Upsert(Post),
     Deleted {
@@ -76,6 +77,7 @@ pub async fn run(
         identities: HashMap::new(),
         pending: None,
         unread: HashMap::new(),
+        names: HashMap::new(),
         previous: None,
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
@@ -117,7 +119,14 @@ struct Worker {
     identities: HashMap<(String, String, String), String>,
     pending: Option<Pending>,
     unread: HashMap<String, Unread>,
+    names: HashMap<String, String>,
     previous: Option<String>,
+}
+
+fn direct_peer(name: &str, user_id: &str) -> Option<String> {
+    name.split("__")
+        .find(|id| *id != user_id && !id.is_empty())
+        .map(str::to_owned)
 }
 
 fn page_posts(page: &PostPage, channel: &str) -> Result<Vec<Post>, Failure> {
@@ -168,6 +177,7 @@ impl Worker {
                     self.emit(Update::Timeline {
                         channel_id: channel,
                         posts: vec![],
+                        names: HashMap::new(),
                     })
                     .await;
                     self.refresh().await
@@ -212,6 +222,42 @@ impl Worker {
         result
     }
 
+    async fn resolve_names(&mut self, ids: impl IntoIterator<Item = String>) {
+        let mut missing: Vec<_> = ids
+            .into_iter()
+            .filter(|id| !id.is_empty() && !self.names.contains_key(id))
+            .collect();
+        missing.sort();
+        missing.dedup();
+        if missing.is_empty() {
+            return;
+        }
+        let Ok(users) = self.client.users_by_ids(&missing).await else {
+            return;
+        };
+        for user in users {
+            if missing.contains(&user.id) {
+                self.names.insert(user.id.clone(), user.display_name());
+            }
+        }
+    }
+
+    async fn name_direct_channels(&mut self, channels: &mut [Channel]) {
+        let peers: Vec<_> = channels
+            .iter()
+            .filter(|c| c.kind == "D")
+            .filter_map(|c| direct_peer(&c.name, &self.user_id))
+            .collect();
+        self.resolve_names(peers).await;
+        for channel in channels.iter_mut().filter(|c| c.kind == "D") {
+            let Some(peer) = direct_peer(&channel.name, &self.user_id) else {
+                channel.display_name = "You".into();
+                continue;
+            };
+            channel.display_name = self.names.get(&peer).cloned().unwrap_or(peer);
+        }
+    }
+
     async fn refresh(&mut self) -> Result<(), Failure> {
         self.emit(Update::Ready(false)).await;
         let teams = self.client.teams().await.map_err(|_| Failure::Load)?;
@@ -249,6 +295,7 @@ impl Worker {
                 return Err(Failure::Load);
             }
         }
+        self.name_direct_channels(&mut channels).await;
         let ids: Vec<_> = channels.iter().map(|c| c.id.clone()).collect();
         let client = &self.client;
         let fetched: Vec<_> = stream::iter(ids)
@@ -322,9 +369,13 @@ impl Worker {
                 .cloned()
                 .collect();
             posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
+            self.resolve_names(posts.iter().map(|p| p.user_id.clone()))
+                .await;
+            let names = self.names.clone();
             self.emit(Update::Timeline {
                 channel_id: channel.clone(),
                 posts,
+                names,
             })
             .await;
             self.view(&channel).await;
@@ -579,6 +630,13 @@ mod tests {
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpListener,
     };
+
+    #[test]
+    fn direct_channels_are_named_from_the_other_participant() {
+        assert_eq!(direct_peer("me__them", "me").as_deref(), Some("them"));
+        assert_eq!(direct_peer("them__me", "me").as_deref(), Some("them"));
+        assert_eq!(direct_peer("me__me", "me"), None);
+    }
 
     fn post(id: &str, pending: &str) -> Post {
         Post {
@@ -900,6 +958,7 @@ mod tests {
                 posts: HashMap::new(),
                 identities: HashMap::new(),
                 unread: HashMap::new(),
+                names: HashMap::new(),
                 previous: None,
                 pending: Some(Pending {
                     post: CreatePost {
@@ -1366,6 +1425,7 @@ mod tests {
             posts: HashMap::new(),
             identities: HashMap::new(),
             unread: HashMap::new(),
+            names: HashMap::new(),
             previous: None,
             pending: Some(pending.clone()),
         };

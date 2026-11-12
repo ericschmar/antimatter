@@ -35,6 +35,7 @@ impl State {
         self.channel = None;
         self.channels.clear();
         self.unread.clear();
+        self.names.clear();
         self.posts.clear();
         self.pending = None;
         self.clear_draft();

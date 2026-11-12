@@ -176,6 +176,25 @@ pub struct User {
     pub delete_at: i64,
 }
 
+impl User {
+    pub fn display_name(&self) -> String {
+        let full = [self.first_name.trim(), self.last_name.trim()]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        if !full.is_empty() {
+            full
+        } else if !self.nickname.trim().is_empty() {
+            self.nickname.trim().to_owned()
+        } else if !self.username.trim().is_empty() {
+            self.username.trim().to_owned()
+        } else {
+            self.id.clone()
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Team {
     pub id: String,

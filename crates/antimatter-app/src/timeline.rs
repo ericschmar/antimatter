@@ -110,9 +110,14 @@ impl State {
                 self.prune_tabs();
             }
             Update::Unread(unread) => self.unread = unread,
-            Update::Timeline { channel_id, posts } => {
+            Update::Timeline {
+                channel_id,
+                posts,
+                names,
+            } => {
                 if self.channel.as_deref() == Some(&channel_id) {
                     self.posts = posts;
+                    self.names.extend(names);
                 }
             }
             Update::Upsert(post) => {

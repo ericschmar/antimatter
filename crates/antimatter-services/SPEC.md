@@ -57,6 +57,12 @@ advisory on failure) and, after the active channel's timeline is published, post
 the channel-view request (best effort, idempotent). `posted`/`channel_viewed`
 events adjust counts without ever acknowledging pending sends.
 
+Display names are best effort and advisory. Direct channels (`D`, `id1__id2`) resolve
+their label from the peer's user (full name, then nickname, then username); a self-DM is
+"You"; a failed lookup falls back to the peer user ID. Timeline posts carry a
+`names` map (user ID to display name) resolved the same way, and failure falls back to the
+user ID. Names are cached per session and never acknowledge or alter pending sends.
+
 Keep one pending send, its text and stable UUID. Match acknowledgements by server
 ID and pending identity with validated author/channel; reject conflicting IDs.
 Posted/edited/deleted events and HTTP results share deduplication. Only a definitive
