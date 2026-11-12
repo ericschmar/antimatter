@@ -7,7 +7,7 @@ use antimatter_services::conversation::Intent;
 use antimatter_services::mattermost::Channel;
 use antimatter_theme::icons;
 use rune::{El, Icon, col, el, icon, row as hbox, text};
-use rune_kit::{ButtonVariant, MenuItem, Select, SidebarRow};
+use rune_kit::{ButtonVariant, MenuItem, Select, SelectAppearance, SidebarRow};
 
 pub(crate) const TITLEBAR: f32 = 40.0;
 const TRAFFIC_LIGHTS: f32 = 84.0;
@@ -63,10 +63,12 @@ fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit, width: f32) ->
         .unwrap_or_default();
     let trigger = Select::new("server", &names)
         .current(Some(&current))
+        .appearance(SelectAppearance::Field)
         .open(s.server_open)
         .on_toggle(|s: &mut State| s.server_open = !s.server_open)
         .trigger(k)
-        .w(width);
+        .w(width)
+        .h(24.0);
     let mut menu = rune_kit::Menu::new("server-menu")
         .trigger(trigger)
         .open(s.server_open)
