@@ -11,6 +11,7 @@ use rune_kit::{ButtonVariant, MenuItem, Select, SelectAppearance, SidebarRow};
 
 pub(crate) const TITLEBAR: f32 = 40.0;
 const TRAFFIC_LIGHTS: f32 = 84.0;
+const SERVER_MAX_WIDTH: f32 = 160.0;
 const MAIN_MIN: f32 = 248.0;
 const SECTION_HEADER_HEIGHT: f32 = 24.0;
 
@@ -52,7 +53,7 @@ fn server_labels(s: &State) -> Vec<String> {
         .collect()
 }
 
-fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit, width: f32) -> El {
+fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
     let names = server_labels(s);
     let current = s
         .accounts
@@ -63,11 +64,11 @@ fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit, width: f32) ->
         .unwrap_or_default();
     let trigger = Select::new("server", &names)
         .current(Some(&current))
-        .appearance(SelectAppearance::Field)
+        .appearance(SelectAppearance::Inline)
         .open(s.server_open)
         .on_toggle(|s: &mut State| s.server_open = !s.server_open)
         .trigger(k)
-        .w(width)
+        .max_w(SERVER_MAX_WIDTH)
         .h(24.0);
     let mut menu = rune_kit::Menu::new("server-menu")
         .trigger(trigger)
@@ -225,15 +226,9 @@ pub(crate) fn workspace(s: &State) -> El {
                 .child(el().w(TRAFFIC_LIGHTS).h_full().window_drag())
                 .child(
                     rune::row()
-                        .w(s.sidebar.width() - TRAFFIC_LIGHTS - 12.0)
                         .shrink()
                         .window_drag()
-                        .child(server_menu(
-                            s,
-                            &mut layer,
-                            &k,
-                            s.sidebar.width() - TRAFFIC_LIGHTS - 12.0,
-                        )),
+                        .child(server_menu(s, &mut layer, &k)),
                 ),
         )
         .child(sidebar);
