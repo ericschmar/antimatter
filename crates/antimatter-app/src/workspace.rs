@@ -3,51 +3,150 @@ use crate::tabs::tab_strip;
 use crate::theme::workspace_theme;
 use crate::widgets::*;
 use antimatter_services::conversation::Intent;
-use rune::{El, col, el, text};
-use rune_kit::{ButtonVariant, Sidebar, SidebarRow};
+use antimatter_services::mattermost::Channel;
+use antimatter_theme::icons;
+use rune::{El, Icon, col, el, icon, row as hbox, text};
+use rune_kit::{ButtonVariant, SidebarRow};
 
 pub(crate) const TITLEBAR: f32 = 40.0;
 const MAIN_MIN: f32 = 248.0;
+const SECTION_HEADER_HEIGHT: f32 = 24.0;
+
+static DISCLOSURE_OPEN: Icon = Icon {
+    name: "antimatter-disclosure-open",
+    view: 16.0,
+    body: r#"<path d="M4 6L8 10L12 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>"#,
+};
+static DISCLOSURE_CLOSED: Icon = Icon {
+    name: "antimatter-disclosure-closed",
+    view: 16.0,
+    body: r#"<path d="M6 4L10 8L6 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>"#,
+};
+
+fn section(
+    key: &str,
+    title: &str,
+    count: usize,
+    collapsed: bool,
+    toggle: fn(&mut State, &mut rune::Tx),
+    rows: Vec<El>,
+    k: &rune_kit::Kit,
+) -> El {
+    let c = &k.c;
+    let disclosure = if collapsed {
+        &DISCLOSURE_CLOSED
+    } else {
+        &DISCLOSURE_OPEN
+    };
+    let header = hbox()
+        .key(format!("{key}-header"))
+        .role("button")
+        .label(title)
+        .expanded(!collapsed)
+        .w_full()
+        .h(SECTION_HEADER_HEIGHT)
+        .px(8.0)
+        .gap(4.0)
+        .center_y()
+        .child(icon(disclosure, 12.0).color(c.icon_faint).a11y_hidden())
+        .child(
+            text(title.to_uppercase())
+                .font(k.ty.text_xsmall)
+                .color(c.text_muted)
+                .truncate()
+                .shrink(),
+        )
+        .child(el().grow(1.0).a11y_hidden())
+        .child(
+            text(count.to_string())
+                .font(k.ty.text_xsmall)
+                .color(c.text_faint)
+                .a11y_hidden(),
+        );
+    let header = k.interactive(header).on_press_tx(toggle).focusable(false);
+    let mut group = col()
+        .key(key)
+        .role("group")
+        .label(title)
+        .w_full()
+        .gap(2.0)
+        .child(header);
+    if !collapsed {
+        group = group.children(rows);
+    }
+    group
+}
+
+fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) -> El {
+    let id = channel.id.clone();
+    let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
+    let mut row = SidebarRow::new(&channel.display_name)
+        .height(28.0)
+        .depth(1)
+        .title_style(k.ty.small);
+    if !matches!(channel.kind.as_str(), "D" | "G") {
+        row = row.icon(&icons::HASH);
+    }
+    if unread.mentions > 0 {
+        row = row.badge(format!("@{}", unread.mentions));
+    } else if unread.messages > 0 {
+        row = row.status(rune_kit::shell::RowStatus::Unread);
+    }
+    let open = channel.id.clone();
+    let row = row
+        .selected(s.channel.as_deref() == Some(&channel.id))
+        .on_select(move |s: &mut State, _| {
+            if !locked {
+                s.load(id.clone());
+            }
+        })
+        .on_double_click(move |s: &mut State, _| {
+            if !locked {
+                s.open_durable(open.clone());
+            }
+        })
+        .build(k)
+        .key(format!("channel-{}", channel.id));
+    if locked {
+        row.disabled(true).inert()
+    } else {
+        row
+    }
+}
 
 pub(crate) fn workspace(s: &State) -> El {
     let mut layer = Vec::new();
     let k = workspace_theme();
     let c = &k.c;
     let locked = !s.ready || s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
-    let mut sidebar = Sidebar::new()
-        .label("Channels")
-        .header(text("CHANNELS").font(k.ty.small_medium).color(c.text_muted));
-    for channel in &s.channels {
-        let id = channel.id.clone();
-        let disabled = locked;
-        let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
-        let mut row = SidebarRow::new(&channel.display_name).height(32.0);
-        if unread.mentions > 0 {
-            row = row.badge(format!("@{}", unread.mentions));
-        } else if unread.messages > 0 {
-            row = row.status(rune_kit::shell::RowStatus::Unread);
-        }
-        let open = channel.id.clone();
-        let row = row
-            .selected(s.channel.as_deref() == Some(&channel.id))
-            .on_select(move |s: &mut State, _| {
-                if !disabled {
-                    s.load(id.clone());
-                }
-            })
-            .on_double_click(move |s: &mut State, _| {
-                if !disabled {
-                    s.open_durable(open.clone());
-                }
-            })
-            .build(&k)
-            .key(format!("channel-{}", channel.id));
-        sidebar = sidebar.child(if disabled {
-            row.disabled(true).inert()
-        } else {
-            row
-        });
-    }
+    let (direct, regular): (Vec<_>, Vec<_>) = s
+        .channels
+        .iter()
+        .partition(|channel| matches!(channel.kind.as_str(), "D" | "G"));
+    let mut sidebar = col().w_full().gap(8.0).child(section(
+        "channels",
+        "Channels",
+        regular.len(),
+        s.channels_collapsed,
+        |s: &mut State, _| s.channels_collapsed = !s.channels_collapsed,
+        regular
+            .into_iter()
+            .map(|channel| channel_row(s, channel, locked, &k))
+            .collect(),
+        &k,
+    ));
+    sidebar = sidebar.child(section(
+        "direct-messages",
+        "Direct messages",
+        direct.len(),
+        s.dms_collapsed,
+        |s: &mut State, _| s.dms_collapsed = !s.dms_collapsed,
+        direct
+            .into_iter()
+            .map(|channel| channel_row(s, channel, locked, &k))
+            .collect(),
+        &k,
+    ));
     let sidebar = col()
         .w(s.sidebar.width())
         .shrink()
@@ -63,7 +162,7 @@ pub(crate) fn workspace(s: &State) -> El {
                     .truncate(),
             ),
         )
-        .child(sidebar.build(&k));
+        .child(sidebar);
     let width = s.sidebar.width();
     let grip = el()
         .key("sidebar-grip")
@@ -98,7 +197,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .px(16.0)
                 .py(8.0)
                 .child(
-                    text(&post.user_id)
+                    text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
                         .w(96.0)
                         .shrink()
                         .font(k.ty.small)

@@ -965,6 +965,44 @@ fn sidebar_select_reuses_one_preview_tab_and_double_click_keeps_it() {
 }
 
 #[test]
+fn sidebar_groups_regular_channels_before_direct_messages_and_collapses() {
+    let mut rt = synthetic_runtime();
+    rt.state.channels.push(Channel {
+        id: "dm-peer".into(),
+        team_id: String::new(),
+        name: "me__peer".into(),
+        display_name: "Peer".into(),
+        kind: "D".into(),
+    });
+    rt.invalidate();
+    rt.frame(0.0);
+    let keys = |rt: &Runtime<State>| -> Vec<String> {
+        rt.elements()
+            .iter()
+            .filter_map(|e| e.key.clone())
+            .filter(|k| k.starts_with("channel-") || k == "channels" || k == "direct-messages")
+            .collect()
+    };
+    let order = keys(&rt);
+    let channels = order.iter().position(|k| k == "channels").unwrap();
+    let dms = order.iter().position(|k| k == "direct-messages").unwrap();
+    let dm = order.iter().position(|k| k == "channel-dm-peer").unwrap();
+    assert!(channels < dms && dms < dm);
+    assert!(
+        order
+            .iter()
+            .position(|k| k == "channel-synthetic-other")
+            .unwrap()
+            < dms
+    );
+    rt.state.dms_collapsed = true;
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(!keys(&rt).iter().any(|k| k == "channel-dm-peer"));
+    assert!(keys(&rt).iter().any(|k| k == "direct-messages"));
+}
+
+#[test]
 fn tab_close_activates_neighbour_and_last_tab_cannot_close() {
     let mut rt = synthetic_runtime();
     rt.state.open_durable("synthetic-channel".into());

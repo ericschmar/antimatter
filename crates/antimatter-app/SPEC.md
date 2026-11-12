@@ -132,6 +132,14 @@ clears a channel. Deltas are replaced by server counts at the next refresh/recon
 The sidebar shows `@N` for mentions or an unread dot otherwise. Counts are
 session-only and never persisted. Per-pane unread remains later work.
 
+## Sidebar grouping
+
+The sidebar shows two collapsible sections: "Channels" (every non-direct channel) first,
+then "Direct messages" (kinds `D` and `G`). Each section header shows its count and toggles
+its collapsed state; collapsed state is session-only and resets to expanded on launch.
+Channel rows keep the `channel-<id>` keys, sit one indent level in, use the small
+title font, and lead with the Phosphor `#` icon (`icons::HASH`); direct rows have no icon. Rows show the resolved DM name (see the services spec) when available.
+
 ## Tabs (splits are a non-goal)
 
 The user approved this third issue #4 slice on 2026-11-11 as "Tabs (no splits)".
@@ -164,6 +172,12 @@ it is described as "Preview tab" for accessibility); scroll anchors are not
 implemented. The user decided on 2026-11-11 that split panes will not be implemented;
 docs 01, 03, 04, 06 and 08 record the same decision, and this runtime does not
 reserve pane-tree or split-ratio state.
+
+Debug-only development exception: debug builds (`cfg(debug_assertions)`) prefill the
+server, login and password sign-in fields from git-ignored `.env.local`
+(`ANTIMATTER_DEV_SERVER`, `ANTIMATTER_DEV_LOGIN`, `ANTIMATTER_DEV_PASSWORD`). Release
+builds compile this out, and nothing is written to disk. This does not permit
+plaintext credential storage; Remember and the Keychain rules are unchanged.
 
 ## Runnable verification
 
