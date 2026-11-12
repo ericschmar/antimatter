@@ -59,8 +59,8 @@ is rewritten in Rust; existing product/workspace contracts remain in force.
 
 The Rune native entry connects fresh PAT/password accounts, with explicit opt-in
 Remember, and routes native SAML through the same validated completion. Startup
-reads Rust registry/selection metadata only; Connect saved explicitly accesses
-the credential and validates the same account identity. One dedicated persistence
+reads Rust registry metadata only; clicking a saved account is the explicit connect
+that accesses the credential and validates the same account identity. One dedicated persistence
 thread serializes Keychain/filesystem work. Saved selection and single-conversation
 navigation/drafts are durable; splits are a decided non-goal. Durable disconnect
 checkpoints before cancellation; durable sign-out removes only the chosen account.

@@ -1,6 +1,6 @@
 use antimatter_services::{
     SessionScope,
-    accounts::{Account, AccountKey, Draft, Navigation, Persistence},
+    accounts::{Account, AccountKey, Draft, LoginMethod, Navigation, Persistence},
     conversation::{Intent, Pending, Unread},
     mattermost::{self, Channel, Post, Secret, ServerOrigin},
     websocket,
@@ -21,7 +21,6 @@ pub(crate) const SUBMITTED: &str = "conversation-pending";
 pub(crate) enum AfterCheckpoint {
     Save,
     Disconnect,
-    Select(AccountKey),
     SignOut(AccountKey),
     Send(String),
     Load(String),
@@ -30,13 +29,21 @@ pub(crate) enum AfterCheckpoint {
 }
 
 pub(crate) enum Login {
-    Pat(ServerOrigin, Secret),
-    Password(ServerOrigin, String, Secret),
+    Pat(ServerOrigin, Secret, Option<AccountKey>, LoginMethod),
+    Password(
+        ServerOrigin,
+        String,
+        Secret,
+        Option<AccountKey>,
+        LoginMethod,
+    ),
     Saved(AccountKey),
     #[cfg(target_os = "macos")]
     Saml(
         mattermost::SamlAttempt,
         antimatter_services::macos::BrowserCallback,
+        Option<AccountKey>,
+        LoginMethod,
     ),
 }
 
@@ -71,12 +78,15 @@ pub(crate) struct State {
     pub(crate) preview_at: usize,
     pub(crate) tab_drag: TabDragState,
     pub(crate) tab_menu: Option<(String, PointerPress)>,
+    pub(crate) saved_account_menu: Option<(AccountKey, PointerPress)>,
+    pub(crate) editing_account: Option<AccountKey>,
     pub(crate) pat: TextEdit,
     pub(crate) password: TextEdit,
     pub(crate) server: TextEdit,
     pub(crate) login: TextEdit,
     pub(crate) draft: TextEdit,
     pub(crate) raw: bool,
+    pub(crate) caret_on: bool,
     pub(crate) source: TextEdit,
     pub(crate) handle: Option<AppHandle<State>>,
     pub(crate) runtime: Option<Arc<tokio::runtime::Runtime>>,
@@ -92,6 +102,42 @@ pub(crate) struct State {
     pub(crate) busy: bool,
     pub(crate) connection: websocket::State,
     pub(crate) error: Option<&'static str>,
+}
+
+impl State {
+    pub(crate) fn begin_edit_account(&mut self, key: AccountKey) {
+        if self.busy || self.synthetic || self.account.is_some() {
+            return;
+        }
+        let Some(account) = self.accounts.iter().find(|account| account.key == key) else {
+            return;
+        };
+        self.server.text = key.origin().to_owned();
+        self.login.text = account.username.clone();
+        self.method = match account.login_method {
+            Some(LoginMethod::Password) => 1,
+            Some(LoginMethod::Sso) if cfg!(target_os = "macos") => 2,
+            _ => 0,
+        };
+        self.editing_account = Some(key);
+        self.saved_account_menu = None;
+        self.error = None;
+    }
+
+    pub(crate) fn cancel_edit_account(&mut self) {
+        if self.busy {
+            return;
+        }
+        self.editing_account = None;
+        self.pat.clear();
+        self.password.clear();
+        self.error = None;
+    }
+
+    pub(crate) fn remove_account(&mut self, key: AccountKey) {
+        self.saved_account_menu = None;
+        self.sign_out(key);
+    }
 }
 
 impl Default for State {
@@ -127,12 +173,15 @@ impl Default for State {
             preview_at: 0,
             tab_drag: TabDragState::new(),
             tab_menu: None,
+            saved_account_menu: None,
+            editing_account: None,
             pat: TextEdit::default().secure(),
             password: TextEdit::default().secure(),
             server: TextEdit::default(),
             login: TextEdit::default(),
             draft: crate::markdown::editor(TextEdit::default().rich()),
             raw: false,
+            caret_on: true,
             source: TextEdit::default(),
             handle: None,
             runtime: None,

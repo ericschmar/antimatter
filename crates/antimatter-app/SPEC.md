@@ -30,8 +30,8 @@ The app is the `antimatter` binary crate. Modules: `state` (State, Login),
   creates one Tokio runtime. Fresh PAT/password sign-in validates `/users/me`
   before publishing an authenticated session. Fresh login is session-only unless
   Remember is explicitly enabled. Native startup reads only Rust registry/selection
-  metadata; saved credential access and `/users/me` validation require explicit
-  Connect saved. Saved identity must match the validated user. SAML uses the
+  metadata; saved credential access and `/users/me` validation require an explicit
+  saved-account click. Saved identity must match the validated user. SAML uses the
   retained native browser adapter and the same authentication completion path.
 - `lib.rs`: `SessionScope` owns session generation and cancellation. Replacement
   or disconnect checkpoints durable state before cancelling the previous future

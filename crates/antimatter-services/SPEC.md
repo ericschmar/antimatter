@@ -88,15 +88,11 @@ new and existing records before writing. Drafts/preferences are individually ato
 not a multi-file transaction: an I/O failure can commit drafts without navigation
 and must be surfaced, never reported as a successful checkpoint.
 
-Root `selection.json` is a versioned optional opaque local account ID, resolved
-through the validated registry. Missing means none; invalid/unknown/corrupt records
-fail closed and are preserved. Selection is explicit, not implied by save/restore.
-Sign-out preflights state and selection, removes the credential, clears selection
-only if it names that account, then removes account state/metadata. Failures remain
-visible/retryable; partial sign-out can leave a credential missing or selection
-cleared while metadata remains. Other accounts and unknown records are untouched.
-Production credentials use `KeychainCredentials::default()`; the private service
-override exists solely for isolated synthetic native verification.
+Account entries may record the non-secret login method for presentation; legacy
+entries default to unknown. Updating a saved connection must validate the same
+server and user identity, then replace credentials through the existing in-place
+Keychain save ordering so failed authentication or persistence retains the prior
+connection. Deletion uses the existing sign-out workflow and failure reporting.
 
 Selected legacy-token import is copy-only, opt-in and validation-first; existing
 Rust entries win. Never enumerate legacy state at startup or infer ownership of

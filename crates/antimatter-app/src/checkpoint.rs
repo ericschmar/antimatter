@@ -149,10 +149,6 @@ impl State {
             let result = async {
                 store.checkpoint(key, drafts.clone(), navigation).await?;
                 match &action {
-                    AfterCheckpoint::Select(key) => {
-                        store.select(Some(key.clone())).await?;
-                        Ok(None)
-                    }
                     AfterCheckpoint::SignOut(key) => store.sign_out(key.clone()).await.map(Some),
                     _ => Ok(None),
                 }
@@ -211,10 +207,6 @@ impl State {
                 self.error = Some("Send was not queued. Draft saved; try Send again.");
             }
             AfterCheckpoint::Disconnect => self.clear_session(),
-            AfterCheckpoint::Select(key) => {
-                self.clear_session();
-                self.selected = Some(key);
-            }
             AfterCheckpoint::SignOut(key) => {
                 self.clear_session();
                 if self.selected.as_ref() == Some(&key) {

@@ -33,13 +33,21 @@ pub(crate) async fn authenticate(
     _generation: u64,
     gate: Option<(AppHandle<State>, u64, tokio::sync::watch::Receiver<bool>)>,
 ) -> Result<Authenticated, &'static str> {
-    let mut drafts = vec![];
-    let mut navigation = Navigation::default();
     let mut expected = None;
+    let mut replace = None;
+    let mut navigation = Navigation::default();
+    let mut login_method = None;
+    let mut drafts = vec![];
     let login_request = async {
         let result = match login {
-            Login::Pat(origin, token) => mattermost::sign_in_pat(origin, token).await,
-            Login::Password(origin, login, token) => {
+            Login::Pat(origin, token, target, method) => {
+                replace = target;
+                login_method = Some(method);
+                mattermost::sign_in_pat(origin, token).await
+            }
+            Login::Password(origin, login, token, target, method) => {
+                replace = target;
+                login_method = Some(method);
                 mattermost::sign_in_password(origin, &login, token).await
             }
             Login::Saved(key) => {
@@ -59,7 +67,9 @@ pub(crate) async fn authenticate(
                 mattermost::sign_in_pat(origin, token).await
             }
             #[cfg(target_os = "macos")]
-            Login::Saml(mut attempt, callback) => {
+            Login::Saml(mut attempt, callback, target, method) => {
+                replace = target;
+                login_method = Some(method);
                 let callback = callback
                     .await
                     .map_err(|_| "Browser sign-in cancelled.")?
@@ -81,9 +91,17 @@ pub(crate) async fn authenticate(
     };
     let (client, user) = result?;
     let key = AccountKey::new(client.origin(), &user).map_err(|_| "Invalid signed-in identity.")?;
+    if let Some(target) = replace.as_ref() {
+        if target.origin() != key.origin() {
+            return Err(
+                "Edited connection must use the same server. Existing saved sign-in retained.",
+            );
+        }
+        expected = Some(target.clone());
+    }
     validate_identity(expected.as_ref(), &key)?;
     let mut saved = None;
-    let durable = if expected.is_some() || remember {
+    let durable = if expected.is_some() || remember || replace.is_some() {
         let store = store.as_ref().ok_or("Account storage unavailable.")?;
         if let Some((handle, generation, _)) = gate {
             let (tx, rx) = tokio::sync::oneshot::channel();
@@ -98,12 +116,26 @@ pub(crate) async fn authenticate(
                 return Err("Sign-in cancelled before persistence.");
             }
         }
-        if remember && expected.is_none() {
+        if let Some(target) = replace.as_ref() {
             let (accounts, saved_drafts, saved_navigation) = store
-                .save(
+                .save_with_method(
+                    target.clone(),
+                    user.username.clone(),
+                    client.credential_for_persistence(),
+                    login_method,
+                )
+                .await
+                .map_err(|_| "Could not update saved sign-in. Existing account state retained.")?;
+            saved = Some(accounts);
+            drafts = saved_drafts;
+            navigation = saved_navigation;
+        } else if remember && expected.is_none() {
+            let (accounts, saved_drafts, saved_navigation) = store
+                .save_with_method(
                     key.clone(),
                     user.username.clone(),
                     client.credential_for_persistence(),
+                    login_method,
                 )
                 .await
                 .map_err(|_| "Could not remember sign-in. Existing account state retained.")?;

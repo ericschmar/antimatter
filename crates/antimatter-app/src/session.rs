@@ -1,7 +1,7 @@
 use crate::auth::*;
 use crate::state::*;
 use antimatter_services::{
-    accounts::{self, Account, AccountKey, Navigation},
+    accounts::{self, Account, AccountKey, LoginMethod, Navigation},
     conversation::{self, Intent},
     mattermost::{self, Secret, ServerOrigin},
     websocket,
@@ -48,6 +48,7 @@ impl State {
         if self.busy || self.auth_writing || self.synthetic || self.account.is_some() {
             return;
         }
+        let edit_target = self.editing_account.clone();
         let value = if password {
             std::mem::take(&mut self.password.text)
         } else {
@@ -64,9 +65,15 @@ impl State {
             return;
         };
         self.authenticate(if password {
-            Login::Password(origin, self.login.text.clone(), token)
+            Login::Password(
+                origin,
+                self.login.text.clone(),
+                token,
+                edit_target,
+                LoginMethod::Password,
+            )
         } else {
-            Login::Pat(origin, token)
+            Login::Pat(origin, token, edit_target, LoginMethod::Pat)
         });
     }
 
@@ -86,7 +93,12 @@ impl State {
         match antimatter_services::macos::BrowserSession::start_for_app(&attempt.login_url()) {
             Ok((browser, callback)) => {
                 self.browser = Some(browser);
-                self.authenticate(Login::Saml(attempt, callback));
+                self.authenticate(Login::Saml(
+                    attempt,
+                    callback,
+                    self.editing_account.clone(),
+                    LoginMethod::Sso,
+                ));
             }
             Err(_) => {
                 self.error =
@@ -103,7 +115,7 @@ impl State {
             return;
         };
         let persistence = self.persistence.clone();
-        let remember = self.remember;
+        let remember = self.remember || self.editing_account.is_some();
         if remember && persistence.is_none() {
             self.error =
                 Some("Account storage unavailable. Disable Remember for a session-only sign-in.");
@@ -154,6 +166,7 @@ impl State {
                     s.authenticated = Some(authenticated);
                     s.auth_writing = false;
                     s.auth_task = None;
+                    s.editing_account = None;
                     s.durable = key;
                     if let Some(saved) = saved {
                         s.accounts = saved;
@@ -191,40 +204,6 @@ impl State {
                 tokio::select! {
                     _ = stop.changed() => (),
                     _ = async { tokio::join!(socket, conversation, updates); } => (),
-                }
-            });
-        }));
-    }
-
-    pub(crate) fn select_account(&mut self, key: AccountKey) {
-        if self.blocked() {
-            return;
-        }
-        if self.durable.is_some() {
-            self.checkpoint(AfterCheckpoint::Select(key));
-            return;
-        }
-        let (Some(store), Some(runtime), Some(handle)) = (
-            self.persistence.clone(),
-            self.runtime.clone(),
-            self.handle.clone(),
-        ) else {
-            return;
-        };
-        self.busy = true;
-        let epoch = self.epoch;
-        self.write_task = Some(runtime.spawn(async move {
-            let result = store.select(Some(key.clone())).await;
-            handle.update(move |s, _| {
-                if s.epoch == epoch {
-                    s.busy = false;
-                    s.write_task = None;
-                    if result.is_ok() {
-                        s.clear_session();
-                        s.selected = Some(key);
-                    } else {
-                        s.error = Some("Could not select account. Content retained.");
-                    }
                 }
             });
         }));
@@ -277,8 +256,8 @@ impl State {
             }
             Err(_) => {
                 self.error = Some(
-                    "Sign-out failed; saved state may be partially removed. Retry or sign in again.",
-                )
+                    "Could not delete saved connection; saved state may be partially removed.",
+                );
             }
         }
     }

@@ -1,9 +1,11 @@
 use crate::state::*;
 use crate::theme::workspace_theme;
 use antimatter_theme::icons;
-use rune::{Block, El, Icon, Mark, Span, TextEdit, el, row};
+use rune::{
+    Block, Color, El, Icon, Mark, RichStyle, Span, TextEdit, TextStyle, el, row, text_input,
+};
 use rune_kit::syntax::{SyntaxTheme, highlight};
-use rune_kit::{Button, ButtonVariant, ControlSize, IconButton, IconButtonVariant, Kit, TextArea};
+use rune_kit::{Button, ButtonVariant, ControlSize, IconButton, IconButtonVariant, Kit};
 
 fn code_spans(edit: &TextEdit, theme: &SyntaxTheme) -> Vec<Span> {
     let mut out = Vec::new();
@@ -187,19 +189,63 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
             |s| s.toggle_raw(),
         ));
     let area = if s.raw {
-        TextArea::new(&s.source)
-            .label("Message Markdown source")
-            .on_edit(|s: &mut State| &mut s.source)
+        field(
+            &k,
+            &s.source,
+            "Message Markdown source",
+            vec![],
+            s.caret_on,
+            locked,
+        )
+        .on_edit(|s: &mut State| &mut s.source)
     } else {
-        TextArea::new(&s.draft)
-            .label("Message")
-            .decorations(code_spans(&s.draft, &SyntaxTheme::from_kit(&k)))
+        let spans = code_spans(&s.draft, &SyntaxTheme::from_kit(&k));
+        field(&k, &s.draft, "Message", spans, s.caret_on, locked)
             .on_edit(|s: &mut State| &mut s.draft)
-    }
-    .placeholder("Write a message…")
-    .width(None)
-    .auto_grow(4, 10)
-    .disabled(locked);
-    let area = area.build(&k).key("draft");
+    };
+    let area = rune::col()
+        .role("textbox")
+        .padding(8.0)
+        .min_h(80.0)
+        .w_full()
+        .radius(k.radius.md)
+        .fill(k.c.bg_base)
+        .child(rune::auto_grow(area, 4, 10));
+    let area = k
+        .shadow_layers(k.elevation.input())
+        .fold(area, |e, sh| e.box_shadow(sh))
+        .key("draft");
     (if locked { area.inert() } else { area }, bar)
+}
+
+// ponytail: rune paints a solid caret, so the blink is the caret colour's alpha, flipped from
+// `State::caret_on` by the poll hook; it does not restart on keystrokes.
+fn field(k: &Kit, edit: &TextEdit, label: &str, spans: Vec<Span>, on: bool, locked: bool) -> El {
+    let c = &k.c;
+    let style = TextStyle {
+        line_height: (13.0f32 * 1.35 * 2.0).round() / 2.0,
+        ..k.ty.ui
+    };
+    let rich = RichStyle {
+        link: c.text_accent,
+        code_fg: None,
+        code_bg: c.layer_03,
+        code_block_bg: c.layer_02,
+        quote_bar: c.border_strong,
+        marker: Some(c.text_muted),
+    };
+    text_input(edit, style)
+        .key("input")
+        .w_full()
+        .color(c.text_base)
+        .rich_style(rich)
+        .spans(spans)
+        .placeholder("Write a message…", c.text_faint)
+        .caret(
+            if on { c.text_base } else { Color::TRANSPARENT },
+            k.selection(),
+        )
+        .label(label)
+        .description("")
+        .disabled(locked)
 }

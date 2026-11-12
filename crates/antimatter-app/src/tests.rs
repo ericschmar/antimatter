@@ -3,7 +3,7 @@ use crate::scenes::synthetic_workspace;
 use crate::state::*;
 use crate::view::view;
 use antimatter_services::{
-    accounts::{self, AccountKey, Draft, Navigation, Persistence},
+    accounts::{self, AccountKey, Draft, LoginMethod, Navigation, Persistence},
     conversation::{self, Intent, Pending, Update},
     mattermost::{self, Channel, Post, Secret, ServerOrigin},
     websocket,
@@ -193,7 +193,7 @@ fn submitted_restore_is_not_an_ordinary_draft_and_blocks_switch_send_and_signout
     rt.state.recovered_pending = true;
     assert_eq!(rt.state.snapshot(), rt.state.drafts);
     rt.state.send();
-    rt.state.select_account(saved_key("other"));
+    rt.state.authenticate(Login::Saved(saved_key("other")));
     rt.state.sign_out(saved_key("u"));
     assert!(intents.try_recv().is_err());
     assert_eq!(rt.state.draft.text, "keep text");
@@ -209,7 +209,7 @@ fn failed_durable_checkpoint_retains_content_and_navigation() {
     rt.state.draft.text = "unsaved".into();
     rt.state.posts.push(post(""));
     rt.state
-        .checkpoint(AfterCheckpoint::Select(saved_key("other")));
+        .checkpoint(AfterCheckpoint::SignOut(saved_key("other")));
     assert_eq!(rt.state.channel.as_deref(), Some("c"));
     assert_eq!(rt.state.draft.text, "unsaved");
     assert_eq!(rt.state.posts, vec![post("")]);
@@ -1011,6 +1011,91 @@ fn each_tab_keeps_its_own_draft_across_switches() {
     rt.state.close_tab("synthetic-channel");
     assert_eq!(rt.state.channel.as_deref(), Some("synthetic-other"));
     assert_eq!(rt.state.draft.text, "second");
+}
+
+#[test]
+fn saved_account_edit_prefills_identity_and_keeps_prior_entry_until_verified() {
+    let key = saved_key("u");
+    let mut rt = Runtime::new(State::default(), view, (640.0, 640.0), Env::new(true, 1.0));
+    rt.state.accounts = vec![accounts::Account {
+        local_id: "local".into(),
+        key: key.clone(),
+        username: "saved-user".into(),
+        login_method: Some(LoginMethod::Password),
+    }];
+    rt.state.begin_edit_account(key.clone());
+    assert_eq!(rt.state.server.text, "https://example.test");
+    assert_eq!(rt.state.login.text, "saved-user");
+    assert_eq!(rt.state.method, 1);
+    assert_eq!(rt.state.accounts.len(), 1);
+    assert_eq!(rt.state.accounts[0].key, key);
+    rt.state.cancel_edit_account();
+    assert!(rt.state.editing_account.is_none());
+    assert_eq!(rt.state.accounts.len(), 1);
+}
+
+#[test]
+fn saved_account_rows_are_left_aligned_with_context_menu_actions() {
+    let mut rt = Runtime::new(
+        State {
+            application: true,
+            ..State::default()
+        },
+        view,
+        (640.0, 640.0),
+        Env::new(true, 1.0),
+    );
+    rt.state.accounts = vec![accounts::Account {
+        local_id: "local".into(),
+        key: saved_key("u"),
+        username: "saved-user".into(),
+        login_method: Some(LoginMethod::Password),
+    }];
+    rt.invalidate();
+    rt.frame(0.0);
+    let elements = rt.elements();
+    assert!(
+        elements
+            .iter()
+            .any(|e| e.key.as_deref() == Some("account-local"))
+    );
+    assert!(
+        elements
+            .iter()
+            .any(|e| e.text.as_deref() == Some("saved-user"))
+    );
+    assert!(
+        elements
+            .iter()
+            .any(|e| e.text.as_deref() == Some("https://example.test"))
+    );
+    let (x, y) = rt.find("account-local").unwrap();
+    rt.secondary_down(x, y);
+    rt.secondary_up(x, y);
+    rt.frame(0.0);
+    for _ in 0..120 {
+        rt.frame(1.0 / 120.0);
+    }
+    assert!(rt.find("account-menu-local-item0").is_some());
+    assert!(rt.find("account-menu-local-item0").is_some());
+    assert!(rt.find("account-menu-local-item1").is_some());
+    let elements = rt.elements();
+    assert!(elements.iter().any(|e| e.label.as_deref() == Some("Edit")));
+    assert!(
+        elements
+            .iter()
+            .any(|e| e.label.as_deref() == Some("Delete"))
+    );
+    assert!(
+        elements
+            .iter()
+            .any(|e| e.text.as_deref() == Some("Password"))
+    );
+    assert!(!elements.iter().any(|e| {
+        e.text
+            .as_deref()
+            .is_some_and(|t| t.contains("selection does not connect"))
+    }));
 }
 
 #[test]

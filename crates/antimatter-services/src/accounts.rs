@@ -188,12 +188,32 @@ impl CredentialStore for KeychainCredentials {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoginMethod {
+    Pat,
+    Password,
+    Sso,
+}
+
+impl LoginMethod {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Pat => "PAT",
+            Self::Password => "Password",
+            Self::Sso => "SSO",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Account {
     pub local_id: String,
     pub key: AccountKey,
     pub username: String,
+    #[serde(default)]
+    pub login_method: Option<LoginMethod>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -333,16 +353,30 @@ impl<C: CredentialStore> AccountStore<C> {
         username: &str,
         token: &Secret,
     ) -> Result<Account> {
+        self.save_account_with_method(key, username, token, None)
+    }
+
+    pub fn save_account_with_method(
+        &mut self,
+        key: &AccountKey,
+        username: &str,
+        token: &Secret,
+        login_method: Option<LoginMethod>,
+    ) -> Result<Account> {
         self.check_registry()?;
         let mut next = self.registry.clone();
         let account = if let Some(account) = next.accounts.iter_mut().find(|a| &a.key == key) {
             account.username = username.to_owned();
+            if login_method.is_some() {
+                account.login_method = login_method;
+            }
             account.clone()
         } else {
             let account = Account {
                 local_id: Uuid::new_v4().to_string(),
                 key: key.clone(),
                 username: username.to_owned(),
+                login_method,
             };
             next.accounts.push(account.clone());
             account
@@ -537,6 +571,7 @@ enum Command {
         AccountKey,
         String,
         Secret,
+        Option<LoginMethod>,
         oneshot::Sender<Result<Snapshot>>,
     ),
     Checkpoint(
@@ -600,7 +635,7 @@ impl Persistence {
                             })();
                             let _ = reply.send(result);
                         }
-                        Command::Save(key, username, token, reply) => {
+                        Command::Save(key, username, token, login_method, reply) => {
                             let result = (|| {
                                 store.check_registry()?;
                                 let (drafts, navigation) =
@@ -609,7 +644,12 @@ impl Persistence {
                                     } else {
                                         (Vec::new(), Navigation::default())
                                     };
-                                store.save_account(&key, &username, &token)?;
+                                store.save_account_with_method(
+                                    &key,
+                                    &username,
+                                    &token,
+                                    login_method,
+                                )?;
                                 Ok((store.accounts().to_vec(), drafts, navigation))
                             })();
                             let _ = reply.send(result);
@@ -675,7 +715,17 @@ impl Persistence {
     }
 
     pub async fn save(&self, key: AccountKey, username: String, token: Secret) -> Result<Snapshot> {
-        self.request(|reply| Command::Save(key, username, token, reply))
+        self.save_with_method(key, username, token, None).await
+    }
+
+    pub async fn save_with_method(
+        &self,
+        key: AccountKey,
+        username: String,
+        token: Secret,
+        login_method: Option<LoginMethod>,
+    ) -> Result<Snapshot> {
+        self.request(|reply| Command::Save(key, username, token, login_method, reply))
             .await
     }
 
@@ -1089,6 +1139,7 @@ mod tests {
                 key.clone(),
                 "synthetic".into(),
                 token("synthetic"),
+                None,
                 reply,
             ))
             .await
@@ -1204,6 +1255,7 @@ mod tests {
                 local_id: "../../elsewhere".into(),
                 key: valid,
                 username: "a".into(),
+                login_method: None,
             }],
         };
         fs::write(
@@ -1215,6 +1267,30 @@ mod tests {
         registry.accounts[0].local_id = Uuid::new_v4().to_string();
         registry.accounts.push(registry.accounts[0].clone());
         assert!(registry.validate().is_err());
+    }
+
+    #[test]
+    fn login_method_is_optional_for_legacy_registry_entries_and_round_trips() {
+        let root = TempRoot::new();
+        let mut store = root.store();
+        let key = key("https://example.test", "a");
+        let saved = store
+            .save_account_with_method(&key, "a", &token("synthetic"), Some(LoginMethod::Password))
+            .unwrap();
+        assert_eq!(saved.login_method, Some(LoginMethod::Password));
+        let bytes = fs::read(store.root.join("registry.json")).unwrap();
+        let registry: Registry = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            registry.accounts[0].login_method,
+            Some(LoginMethod::Password)
+        );
+        let mut legacy = serde_json::to_value(registry).unwrap();
+        legacy["accounts"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("login_method");
+        let registry: Registry = serde_json::from_value(legacy).unwrap();
+        assert_eq!(registry.accounts[0].login_method, None);
     }
 
     #[test]
