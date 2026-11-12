@@ -1,6 +1,8 @@
 mod auth;
 mod checkpoint;
 mod composer;
+#[cfg(debug_assertions)]
+mod dev_login;
 mod markdown;
 mod scenes;
 mod session;
@@ -187,6 +189,8 @@ fn main() {
         };
         if !rune::is_headless() {
             state.application = true;
+            #[cfg(debug_assertions)]
+            dev_login::prefill(&mut state);
             state.runtime = Some(Arc::new(
                 tokio::runtime::Runtime::new().expect("background runtime"),
             ));

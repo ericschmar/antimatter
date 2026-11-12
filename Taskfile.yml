@@ -87,6 +87,7 @@ tasks:
     deps: [hot:install]
     env:
       RUNE_DEV_LOCAL: "1"
+      ANTIMATTER_DEV_ENV: "{{.ROOT_DIR}}/crates/antimatter-app/.env.local"
     cmds:
       - >-
         python3 {{.RUNE_DIR}}/scripts/rune-dev --local
