@@ -112,13 +112,6 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
 fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let me = s.authenticated.as_ref();
-    let initial = s
-        .accounts
-        .iter()
-        .find(|account| me == Some(&account.key))
-        .and_then(|account| account.username.trim().chars().next())
-        .map(|ch| ch.to_uppercase().to_string())
-        .unwrap_or_default();
     let dot = match s.presence.as_str() {
         "online" => c.success.icon,
         "away" | "dnd" => c.warning.icon,
@@ -141,9 +134,9 @@ fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
                 .a11y_hidden(),
         ),
         None => avatar.child(
-            text(initial)
-                .font(k.ty.small_medium)
-                .color(c.text_muted)
+            el().size(24.0, 24.0)
+                .radius(12.0)
+                .fill(c.layer_02)
                 .a11y_hidden(),
         ),
     };
