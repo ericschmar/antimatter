@@ -16,6 +16,7 @@ serde_json = "1"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
 url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
+wiremock = "0.6.5"
 antimatter-services = { path = "crates/antimatter-services" }
 antimatter-theme = { path = "crates/antimatter-theme" }
 

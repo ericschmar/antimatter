@@ -25,6 +25,7 @@ hot = ["rune/hot"]
 
 [dev-dependencies]
 tokio = { version = "1.54.1", features = ["test-util"] }
+wiremock.workspace = true
 
 [package.metadata.rune-hello]
 source = "https://github.com/anomalyco/rune/tree/257f5599c8e499bb7dfd7ee03f57a9932724244a/examples/hello"
