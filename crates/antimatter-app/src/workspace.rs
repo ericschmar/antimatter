@@ -191,7 +191,9 @@ fn section(
 
 fn dm_peer<'a>(s: &State, name: &'a str) -> Option<&'a str> {
     let me = s.authenticated.as_ref()?.user_id();
-    name.split("__").find(|id| *id != me && !id.is_empty())
+    name.split("__")
+        .find(|id| *id != me && !id.is_empty())
+        .or_else(|| name.split("__").find(|id| *id == me))
 }
 
 fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) -> El {

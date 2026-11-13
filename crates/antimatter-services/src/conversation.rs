@@ -139,6 +139,10 @@ fn direct_peer(name: &str, user_id: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
+fn direct_avatar_peer(name: &str, user_id: &str) -> String {
+    direct_peer(name, user_id).unwrap_or_else(|| user_id.to_owned())
+}
+
 fn page_posts(page: &PostPage, channel: &str) -> Result<Vec<Post>, Failure> {
     let mut ids = HashSet::new();
     for id in &page.order {
@@ -317,7 +321,7 @@ impl Worker {
         let peers: Vec<_> = channels
             .iter()
             .filter(|c| c.kind == "D")
-            .filter_map(|c| direct_peer(&c.name, &self.user_id))
+            .map(|c| direct_avatar_peer(&c.name, &self.user_id))
             .collect();
         if !peers.is_empty()
             && let Ok(statuses) = self.client.statuses(&peers).await
@@ -692,6 +696,8 @@ mod tests {
         assert_eq!(direct_peer("me__them", "me").as_deref(), Some("them"));
         assert_eq!(direct_peer("them__me", "me").as_deref(), Some("them"));
         assert_eq!(direct_peer("me__me", "me"), None);
+        assert_eq!(direct_avatar_peer("me__me", "me"), "me");
+        assert_eq!(direct_avatar_peer("me__them", "me"), "them");
     }
 
     fn post(id: &str, pending: &str) -> Post {
