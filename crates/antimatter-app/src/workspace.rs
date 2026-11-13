@@ -10,7 +10,6 @@ use antimatter_theme::icons;
 use rune::{El, Icon, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
     ButtonVariant, Markdown, MarkdownStyle, MenuItem, ScrollBar, Select, SelectAppearance,
-    SidebarRow,
 };
 
 pub(crate) const TITLEBAR: f32 = 40.0;
@@ -307,24 +306,28 @@ fn dm_peer<'a>(s: &State, name: &'a str) -> Option<&'a str> {
 fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) -> El {
     let id = channel.id.clone();
     let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
-    let title = if unread.mentions > 0 || unread.messages > 0 {
-        k.ty.small_medium
+    let selected = s.channel.as_deref() == Some(&channel.id);
+    let has_unread = unread.mentions > 0 || unread.messages > 0;
+    let (ink, glyph) = if selected {
+        (k.c.text_base, k.c.icon_base)
+    } else if has_unread {
+        (k.c.text_base, k.c.icon_muted)
     } else {
-        k.ty.small
+        (k.c.text_muted, k.c.icon_muted)
     };
-    let mut row = SidebarRow::new(&channel.display_name)
-        .height(28.0)
-        .depth(1)
-        .title_style(title);
+    let title = TextStyle {
+        weight: if has_unread { 600.0 } else { 400.0 },
+        ..k.ty.small
+    };
+    let mut lead = Vec::new();
     if !matches!(channel.kind.as_str(), "D" | "G") {
-        row = row.icon(&icons::HASH);
+        lead.push(
+            icon(&icons::HASH, 16.0)
+                .key("icon")
+                .color(glyph)
+                .a11y_hidden(),
+        );
     }
-    if unread.mentions > 0 {
-        row = row.badge(format!("@{}", unread.mentions));
-    } else if unread.messages > 0 {
-        row = row.status(rune_kit::shell::RowStatus::Unread);
-    }
-    let open = channel.id.clone();
     if channel.kind == "D"
         && let Some(peer) = dm_peer(s, &channel.name)
     {
@@ -337,28 +340,88 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
             Some(image) => el().size(16.0, 16.0).radius(8.0).pixels(image.pixels()),
             None => el().size(16.0, 16.0).radius(8.0).fill(k.c.layer_02),
         };
-        row = row.avatar(
-            el().size(16.0, 16.0).child(avatar).child(
-                el().size(6.0, 6.0)
-                    .radius(3.0)
-                    .fill(dot)
-                    .absolute(10.0, 10.0),
-            ),
+        lead.push(
+            hbox()
+                .key("avatar")
+                .size(16.0, 16.0)
+                .center()
+                .child(
+                    el().size(16.0, 16.0).child(avatar).child(
+                        el().size(6.0, 6.0)
+                            .radius(3.0)
+                            .fill(dot)
+                            .absolute(10.0, 10.0),
+                    ),
+                )
+                .a11y_hidden(),
         );
     }
+    let mut row = hbox()
+        .label(&channel.display_name)
+        .w_full()
+        .h(28.0)
+        .pl(8.0 + 16.0)
+        .pr(8.0)
+        .gap(6.0)
+        .center_y()
+        .radius(k.radius.md)
+        .motion(k.motion.control)
+        .hover_group()
+        .hover_motion(rune::Anim::INSTANT, rune::Anim::INSTANT)
+        .focusable(true)
+        .focus_selected(selected);
+    row = k.interactive(row);
+    if selected {
+        row = row.fill(k.c.pressed);
+    }
+    row = row.children(lead).child(
+        text(channel.display_name.clone())
+            .key("label")
+            .font(title)
+            .color(ink)
+            .truncate()
+            .grow(1.0)
+            .shrink()
+            .a11y_hidden(),
+    );
+    if unread.mentions > 0 {
+        row = row.child(
+            hbox()
+                .a11y_hidden()
+                .key("badge")
+                .h(16.0)
+                .px(5.0)
+                .center()
+                .radius(8.0)
+                .fill(k.c.layer_03)
+                .child(
+                    text(format!("@{}", unread.mentions))
+                        .font(k.ty.small_medium)
+                        .color(k.c.text_muted),
+                ),
+        );
+    } else if unread.messages > 0 {
+        row = row.child(
+            el().key("status")
+                .size(7.0, 7.0)
+                .radius(3.5)
+                .fill(k.c.bg_accent)
+                .a11y_hidden(),
+        );
+    }
+    let open = channel.id.clone();
     let row = row
-        .selected(s.channel.as_deref() == Some(&channel.id))
-        .on_select(move |s: &mut State, _| {
+        .on_press_tx(move |s: &mut State, _| {
             if !locked {
                 s.load(id.clone());
             }
         })
-        .on_double_click(move |s: &mut State, _| {
+        .on_double_press_tx(move |s: &mut State, _| {
             if !locked {
                 s.open_durable(open.clone());
             }
         })
-        .build(k)
+        .role("listitem")
         .key(format!("channel-{}", channel.id));
     let row = if locked {
         row.disabled(true).inert()

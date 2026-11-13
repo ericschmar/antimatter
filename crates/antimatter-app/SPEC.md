@@ -151,7 +151,10 @@ The sidebar shows two collapsible sections: "Channels" (every non-direct channel
 then "Direct messages" (kinds `D` and `G`). Each section header shows its count and toggles
 its collapsed state; collapsed state is session-only and resets to expanded on launch.
 Channel rows keep the `channel-<id>` keys, sit one indent level in, use the small
-title font, and lead with the Phosphor `#` icon (`icons::HASH`); direct rows have no icon. Rows show the resolved DM name (see the services spec) when available.
+title font, and lead with the Phosphor `#` icon (`icons::HASH`); direct rows have no icon.
+Rows are built in `channel_row` (not rune-kit's `SidebarRow`) so later designs, such as
+reply previews under a channel, can change them. A row with unread messages or mentions
+uses semibold, full-strength text; read rows use regular weight and muted text. Rows show the resolved DM name (see the services spec) when available.
 
 The server dropdown sits on the traffic-light row, right of the lights, and is a fixed-width
 `Select` trigger (rune-kit's inline trigger sizes to its label, so the width is set by the
