@@ -582,6 +582,15 @@ fn older_history_prepends_once_and_respects_guards() {
 }
 
 #[test]
+fn message_spacing_sets_row_padding_in_order_with_medium_as_default() {
+    use crate::workspace::post_padding;
+    use antimatter_services::settings::MessageSpacing;
+    assert!(post_padding(MessageSpacing::Small) < post_padding(MessageSpacing::Medium));
+    assert!(post_padding(MessageSpacing::Medium) < post_padding(MessageSpacing::Large));
+    assert_eq!(post_padding(MessageSpacing::default()), 8.0);
+}
+
+#[test]
 fn scrolling_to_the_top_by_hand_requests_one_older_page() {
     let (sender, mut intents) = mpsc::channel(8);
     let mut rt = ui(sender);

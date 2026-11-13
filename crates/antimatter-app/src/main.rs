@@ -136,6 +136,10 @@ fn main() {
                 synthetic_workspace(s);
                 s.has_older = true;
             }),
+            ("workspace-spacing-large-proof", |s| {
+                synthetic_workspace(s);
+                s.message_spacing = antimatter_services::settings::MessageSpacing::Large;
+            }),
             ("workspace-scroll-history-proof", synthetic_history),
             ("workspace-loading-older-proof", |s| {
                 synthetic_workspace(s);
@@ -181,6 +185,7 @@ fn main() {
     });
     let (prefs, load_error) = settings_prefs();
     let prefs_font_size = prefs.message_font_size;
+    let prefs_spacing = prefs.timeline_message_spacing;
     let handle = app.handle();
     let (settings, settings_app) =
         crate::settings::window(&mut app, prefs, settings_path(), load_error, handle.clone());
@@ -199,6 +204,7 @@ fn main() {
             settings: Some(settings),
             settings_app: Some(settings_app),
             message_font_size: prefs_font_size,
+            message_spacing: prefs_spacing,
             ..State::default()
         };
         if !rune::is_headless() {

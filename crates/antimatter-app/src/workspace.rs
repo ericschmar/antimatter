@@ -5,6 +5,7 @@ use crate::widgets::*;
 use antimatter_services::accounts::Account;
 use antimatter_services::conversation::Intent;
 use antimatter_services::mattermost::Channel;
+use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
 use rune::{El, Icon, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
@@ -58,6 +59,14 @@ fn server_labels(s: &State) -> Vec<String> {
 }
 
 const LEDGER_TOP_SLACK: f32 = 24.0;
+
+pub(crate) fn post_padding(spacing: MessageSpacing) -> f32 {
+    match spacing {
+        MessageSpacing::Small => 4.0,
+        MessageSpacing::Medium => 8.0,
+        MessageSpacing::Large => 12.0,
+    }
+}
 
 fn older_loader(s: &State, k: &rune_kit::Kit) -> El {
     if !s.loading_older {
@@ -581,7 +590,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .w_full()
                 .gap(8.0)
                 .px(16.0)
-                .py(8.0)
+                .py(post_padding(s.message_spacing))
                 .hover(c.hover)
                 .child(
                     rune::row()

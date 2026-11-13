@@ -3,6 +3,7 @@ use antimatter_services::{
     accounts::{Account, AccountKey, Draft, LoginMethod, Navigation, Persistence},
     conversation::{Intent, Pending, Unread},
     mattermost::{self, Channel, Post, Secret, ServerOrigin},
+    settings::MessageSpacing,
     websocket,
 };
 use rune::PointerPress;
@@ -79,6 +80,7 @@ pub(crate) struct State {
     pub(crate) application: bool,
     pub(crate) theme: antimatter_theme::Theme,
     pub(crate) message_font_size: u8,
+    pub(crate) message_spacing: MessageSpacing,
     pub(crate) synthetic: bool,
     pub(crate) sidebar: PaneState,
     pub(crate) channels_collapsed: bool,
@@ -229,6 +231,7 @@ impl Default for State {
             application: false,
             theme: antimatter_theme::Theme::Default,
             message_font_size: 12,
+            message_spacing: MessageSpacing::default(),
             synthetic: false,
             sidebar: PaneState::new(264.0).range(160.0, 420.0),
             channels_collapsed: false,
