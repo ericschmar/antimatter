@@ -25,5 +25,5 @@
 [x] remove the "disconnect session" button
 [x] The channel header text should be larger
 [x] message timeline -> the time is not aligned with the user's name, it's slightly higher
-[ ] message timeline -> slightly increase the width of the user + time to handle longer names
+[x] message timeline -> slightly increase the width of the user + time to handle longer names
 [ ] channel sidebar -> increase the default width slightly

@@ -530,7 +530,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .hover(c.hover)
                 .child(
                     rune::row()
-                        .w(96.0)
+                        .w(120.0)
                         .shrink()
                         .gap(6.0)
                         .center_y()
