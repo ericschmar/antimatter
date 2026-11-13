@@ -566,7 +566,6 @@ pub(crate) fn workspace(s: &State) -> El {
                 .key("sidebar-search")
                 .role("search")
                 .label("Search")
-                .w_full()
                 .h(28.0)
                 .mx(8.0)
                 .my(4.0)
