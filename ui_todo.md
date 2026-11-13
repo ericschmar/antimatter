@@ -1,4 +1,4 @@
-[ ] don't display channel user count if it's 0 or 1. 
+[x] don't display channel user count if it's 0 or 1. 
 
 ## reactions, replies, attachments, search
 Review https://apron.chat/images/demo.png
