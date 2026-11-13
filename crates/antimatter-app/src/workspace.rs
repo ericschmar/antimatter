@@ -189,6 +189,11 @@ fn section(
     group
 }
 
+fn dm_peer<'a>(s: &State, name: &'a str) -> Option<&'a str> {
+    let me = s.authenticated.as_ref()?.user_id();
+    name.split("__").find(|id| *id != me && !id.is_empty())
+}
+
 fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) -> El {
     let id = channel.id.clone();
     let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
@@ -205,6 +210,27 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
         row = row.status(rune_kit::shell::RowStatus::Unread);
     }
     let open = channel.id.clone();
+    if channel.kind == "D"
+        && let Some(peer) = dm_peer(s, &channel.name)
+    {
+        let dot = match s.peer_presence.get(peer).map(String::as_str) {
+            Some("online") => k.c.success.icon,
+            Some("away") | Some("dnd") => k.c.warning.icon,
+            _ => k.c.icon_muted,
+        };
+        let avatar = match s.avatars.get(peer) {
+            Some(image) => el().size(16.0, 16.0).radius(8.0).pixels(image.pixels()),
+            None => el().size(16.0, 16.0).radius(8.0).fill(k.c.layer_02),
+        };
+        row = row.avatar(
+            el().size(16.0, 16.0).child(avatar).child(
+                el().size(6.0, 6.0)
+                    .radius(3.0)
+                    .fill(dot)
+                    .absolute(10.0, 10.0),
+            ),
+        );
+    }
     let row = row
         .selected(s.channel.as_deref() == Some(&channel.id))
         .on_select(move |s: &mut State, _| {

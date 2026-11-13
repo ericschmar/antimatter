@@ -42,6 +42,8 @@ pub enum Update {
         unread: HashMap<String, Unread>,
     },
     Presence(String),
+    PeerPresence(HashMap<String, String>),
+    PeerAvatar(String, Vec<u8>),
     Unread(HashMap<String, Unread>),
     Timeline {
         channel_id: String,
@@ -82,6 +84,7 @@ pub async fn run(
         names: HashMap::new(),
         site_name: String::new(),
         presence: String::new(),
+        avatars: HashSet::new(),
         previous: None,
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
@@ -126,6 +129,7 @@ struct Worker {
     names: HashMap<String, String>,
     site_name: String,
     presence: String,
+    avatars: HashSet<String>,
     previous: Option<String>,
 }
 
@@ -310,6 +314,24 @@ impl Worker {
             }
         }
         self.name_direct_channels(&mut channels).await;
+        let peers: Vec<_> = channels
+            .iter()
+            .filter(|c| c.kind == "D")
+            .filter_map(|c| direct_peer(&c.name, &self.user_id))
+            .collect();
+        if !peers.is_empty()
+            && let Ok(statuses) = self.client.statuses(&peers).await
+        {
+            let statuses: HashMap<_, _> = statuses.into_iter().collect();
+            self.emit(Update::PeerPresence(statuses)).await;
+        }
+        for peer in peers {
+            if self.avatars.insert(peer.clone())
+                && let Ok(bytes) = self.client.profile_image(&peer).await
+            {
+                self.emit(Update::PeerAvatar(peer, bytes)).await;
+            }
+        }
         let ids: Vec<_> = channels.iter().map(|c| c.id.clone()).collect();
         let client = &self.client;
         let fetched: Vec<_> = stream::iter(ids)
@@ -1000,6 +1022,7 @@ mod tests {
                 names: HashMap::new(),
                 site_name: String::new(),
                 presence: String::new(),
+                avatars: HashSet::new(),
                 previous: None,
                 pending: Some(Pending {
                     post: CreatePost {
@@ -1490,6 +1513,7 @@ mod tests {
             names: HashMap::new(),
             site_name: String::new(),
             presence: String::new(),
+            avatars: HashSet::new(),
             previous: None,
             pending: Some(pending.clone()),
         };

@@ -7,4 +7,4 @@
 [x] Create a generic avatar/status loader that can be used to load user's avatarts. Ensure caching and bast practices here so we don't redo the work all the time
 [x] At the top of the side bar, under the server/user, but before the first channel group, add a placeholder search bar
 [x] Implement the concept of persisted favorite channels; add a context menu to right click a channel to favorite it. Favorite channels are grouped at the top above the "channels" group
-[ ] Add user's avatars and status to the "direct messages" grouping
+[x] Add user's avatars and status to the "direct messages" grouping

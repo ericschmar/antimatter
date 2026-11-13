@@ -412,8 +412,18 @@ impl Client {
         self.post("/users/usernames", names).await
     }
 
-    pub async fn statuses(&self, ids: &[String]) -> Result<Value, Error> {
-        self.post("/users/status/ids", ids).await
+    pub async fn statuses(&self, ids: &[String]) -> Result<Vec<(String, String)>, Error> {
+        let statuses: Value = self.post("/users/status/ids", ids).await?;
+        Ok(statuses
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|entry| {
+                let user = entry.get("user_id")?.as_str()?.to_owned();
+                let status = entry.get("status")?.as_str()?.to_owned();
+                Some((user, status))
+            })
+            .collect())
     }
 
     pub async fn status(&self, user_id: &str) -> Result<String, Error> {
@@ -909,6 +919,24 @@ mod tests {
                 .to_lowercase()
                 .contains("authorization: bearer synthetic-token")
         );
+    }
+
+    #[tokio::test]
+    async fn statuses_post_ids_and_parse_presence() {
+        let (origin, task) = server(vec![(
+            "200 OK",
+            "",
+            r#"[{"user_id":"u1","status":"online"},{"user_id":"u2","status":"away"},{"status":"dnd"}]"#,
+        )])
+        .await;
+        let client = Client::new(origin, Secret::new("fake".into()).unwrap()).unwrap();
+        assert_eq!(
+            client.statuses(&["u1".into(), "u2".into()]).await.unwrap(),
+            vec![("u1".into(), "online".into()), ("u2".into(), "away".into())]
+        );
+        let requests = task.await.unwrap();
+        assert!(requests[0].starts_with("POST /api/v4/users/status/ids "));
+        assert!(requests[0].contains(r#"["u1","u2"]"#));
     }
 
     #[tokio::test]

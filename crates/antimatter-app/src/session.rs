@@ -38,6 +38,7 @@ impl State {
         self.names.clear();
         self.site_name.clear();
         self.presence.clear();
+        self.peer_presence.clear();
         self.avatars.clear();
         self.posts.clear();
         self.pending = None;

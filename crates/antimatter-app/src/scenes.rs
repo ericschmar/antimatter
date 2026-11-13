@@ -22,7 +22,23 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
             display_name: id.into(),
             kind: "O".into(),
         })
+        .chain(std::iter::once(Channel {
+            id: "synthetic-dm".into(),
+            team_id: String::new(),
+            name: "synthetic-user__synthetic-peer".into(),
+            display_name: "synthetic-peer".into(),
+            kind: "D".into(),
+        }))
         .collect();
+    s.peer_presence = HashMap::from([("synthetic-peer".into(), "online".into())]);
+    s.authenticated =
+        antimatter_services::mattermost::ServerOrigin::new("https://synthetic.example", true)
+            .ok()
+            .and_then(|origin| {
+                let user =
+                    serde_json::from_value(serde_json::json!({"id": "synthetic-user"})).ok()?;
+                antimatter_services::accounts::AccountKey::new(&origin, &user).ok()
+            });
     s.unread = HashMap::from([(
         "synthetic-other".into(),
         Unread {
