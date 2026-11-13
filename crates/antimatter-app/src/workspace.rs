@@ -7,7 +7,7 @@ use antimatter_services::conversation::Intent;
 use antimatter_services::mattermost::Channel;
 use antimatter_theme::icons;
 use rune::{El, Icon, col, el, icon, row as hbox, text};
-use rune_kit::{ButtonVariant, MenuItem, Select, SelectAppearance, SidebarRow};
+use rune_kit::{ButtonVariant, Markdown, MenuItem, Select, SelectAppearance, SidebarRow};
 
 pub(crate) const TITLEBAR: f32 = 40.0;
 const TRAFFIC_LIGHTS: f32 = 84.0;
@@ -553,13 +553,11 @@ pub(crate) fn workspace(s: &State) -> El {
                         .shrink(),
                 )
                 .child(
-                    text(&post.message)
+                    col()
                         .grow(1.0)
                         .shrink()
                         .min_w(0.0)
-                        .font(k.ty.ui)
-                        .color(c.text_base)
-                        .wrap(),
+                        .child(Markdown::new(&post.message).build(&k)),
                 ),
         );
     }

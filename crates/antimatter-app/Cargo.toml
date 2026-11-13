@@ -14,7 +14,7 @@ antimatter-theme.workspace = true
 blobatar.workspace = true
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 rune.workspace = true
-rune-kit.workspace = true
+rune-kit = { workspace = true, features = ["markdown"] }
 serde_json.workspace = true
 tokio.workspace = true
 url.workspace = true
