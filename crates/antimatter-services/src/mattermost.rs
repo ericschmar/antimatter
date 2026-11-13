@@ -611,6 +611,11 @@ impl Client {
             .to_vec())
     }
 
+    pub async fn profile_image(&self, user_id: &str) -> Result<Vec<u8>, Error> {
+        let path = segments(&["users", user_id, "image"])?;
+        self.media(&self.origin.endpoint(&path)?).await
+    }
+
     pub async fn file(&self, id: &str, preview: bool) -> Result<Vec<u8>, Error> {
         let path = if preview {
             segments(&["files", id, "preview"])?
@@ -904,6 +909,21 @@ mod tests {
                 .to_lowercase()
                 .contains("authorization: bearer synthetic-token")
         );
+    }
+
+    #[tokio::test]
+    async fn profile_image_fetches_user_image_bytes() {
+        let (origin, task) =
+            server(vec![("200 OK", "Content-Type: image/png\r\n", "png-bytes")]).await;
+        let client = Client::new(origin, Secret::new("fake".into()).unwrap()).unwrap();
+        assert_eq!(client.profile_image("user1").await.unwrap(), b"png-bytes");
+        assert!(matches!(
+            client.profile_image("").await,
+            Err(Error::InvalidEndpoint)
+        ));
+        let requests = task.await.unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0].starts_with("GET /api/v4/users/user1/image "));
     }
 
     #[tokio::test]

@@ -38,6 +38,7 @@ impl State {
         self.names.clear();
         self.site_name.clear();
         self.presence.clear();
+        self.avatars.clear();
         self.posts.clear();
         self.pending = None;
         self.clear_draft();
@@ -162,6 +163,9 @@ impl State {
             let (intents_tx, intents_rx) = mpsc::channel(32);
             let (socket_tx, socket_rx) = mpsc::channel(64);
             let (updates_tx, mut updates_rx) = mpsc::channel(64);
+            let avatar_client = client.clone();
+            let avatar_user = user.id.clone();
+            let avatar_handle = handle.clone();
             handle.update(move |s, tx| {
                 if s.scope.accepts(generation) {
                     tx.resize_window(WORKSPACE_WINDOW_SIZE);
@@ -189,6 +193,14 @@ impl State {
                     }
                     s.dispatch(Intent::Refresh);
                 }
+            });
+            worker_runtime.spawn(async move {
+                let bytes = avatar_client.profile_image(&avatar_user).await.ok();
+                avatar_handle.update(move |s, _| {
+                    if s.scope.accepts(generation) {
+                        s.avatars.finish(avatar_user, bytes);
+                    }
+                });
             });
             worker_runtime.spawn(async move {
                 let socket_client = client.clone();

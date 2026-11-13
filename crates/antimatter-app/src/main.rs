@@ -1,4 +1,5 @@
 mod auth;
+mod avatars;
 mod checkpoint;
 mod composer;
 #[cfg(debug_assertions)]
@@ -156,6 +157,7 @@ fn main() {
             std::mem::replace(&mut s.caret_on, on) != on
         }),
         on_key: Some(crate::tabs::window_key),
+        setup: Some(|s, waker| s.avatars = crate::avatars::Avatars::new(waker)),
         ..AppSpec::new(
             "Antimatter",
             if rune::is_headless() {
