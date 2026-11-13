@@ -98,6 +98,7 @@ pub(crate) struct State {
     pub(crate) saved_account_menu: Option<(AccountKey, PointerPress)>,
     pub(crate) editing_account: Option<AccountKey>,
     pub(crate) search: TextEdit,
+    pub(crate) previews: HashMap<String, Option<antimatter_services::preview::Preview>>,
     pub(crate) emoji_picker: Option<String>,
     pub(crate) emoji_query: TextEdit,
     pub(crate) emoji_tab: Option<emojis::Group>,
@@ -243,6 +244,28 @@ impl State {
                         emoji_name: name,
                     });
                 }
+            });
+        });
+    }
+
+    pub(crate) fn fetch_preview(&mut self, url: url::Url) {
+        let key = url.to_string();
+        if self.previews.contains_key(&key) {
+            return;
+        }
+        let (Some(runtime), Some(handle)) = (self.runtime.clone(), self.handle.clone()) else {
+            return;
+        };
+        self.previews.insert(key.clone(), None);
+        runtime.spawn(async move {
+            let preview = antimatter_services::preview::fetch(url).await;
+            handle.update(move |s, _| {
+                if let Some(preview) = &preview
+                    && let Some(bytes) = preview.image.clone()
+                {
+                    s.avatars.finish(format!("preview:{key}"), Some(bytes));
+                }
+                s.previews.insert(key, preview);
             });
         });
     }
@@ -406,6 +429,7 @@ impl Default for State {
             saved_account_menu: None,
             editing_account: None,
             search: TextEdit::default(),
+            previews: HashMap::new(),
             emoji_picker: None,
             emoji_query: TextEdit::default(),
             emoji_tab: Some(emojis::Group::SmileysAndEmotion),

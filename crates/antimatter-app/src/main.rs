@@ -124,6 +124,20 @@ fn main() {
                 synthetic_workspace(s);
                 s.emoji_picker = Some("synthetic-post".into());
             }),
+            ("workspace-preview-proof", |s| {
+                synthetic_workspace(s);
+                s.posts[0].message = "Look at https://example.com/hooli".into();
+                s.previews.insert(
+                    "https://example.com/hooli".into(),
+                    Some(antimatter_services::preview::Preview {
+                        url: "https://example.com/hooli".into(),
+                        site: "Hooli Newsroom".into(),
+                        title: "Introducing Hooli Nucleus".into(),
+                        description: "Making the world a better place, through minimal message-oriented transport layers.".into(),
+                        image: None,
+                    }),
+                );
+            }),
             ("workspace-search-proof", |s| {
                 synthetic_workspace(s);
                 s.search = rune::TextEdit::new("synthetic".to_owned());

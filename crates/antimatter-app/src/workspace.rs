@@ -525,6 +525,67 @@ fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
     )
 }
 
+fn link_preview(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
+    let url = antimatter_services::preview::first_url(&post.message)?;
+    let key = url.to_string();
+    let Some(Some(preview)) = s.previews.get(&key) else {
+        let fetch = move |s: &mut State, _| s.fetch_preview(url.clone());
+        return Some(
+            el().key(format!("preview-probe-{}", post.id))
+                .h(0.0)
+                .on_layout(fetch),
+        );
+    };
+    let c = &k.c;
+    let target = key.clone();
+    let mut body = col()
+        .grow(1.0)
+        .shrink()
+        .min_w(0.0)
+        .gap(2.0)
+        .child(
+            text(preview.site.clone())
+                .font(k.ty.small)
+                .color(c.text_muted)
+                .truncate(),
+        )
+        .child(
+            text(preview.title.clone())
+                .font(k.ty.small_medium)
+                .color(c.text_accent)
+                .truncate(),
+        );
+    if !preview.description.is_empty() {
+        body = body.child(
+            text(preview.description.clone())
+                .font(k.ty.small)
+                .color(c.text_muted)
+                .wrap()
+                .max_lines(2),
+        );
+    }
+    let mut card = rune::row()
+        .key(format!("preview-{}", post.id))
+        .role("link")
+        .label(format!("Open {}", preview.title))
+        .w(420.0)
+        .padding(10.0)
+        .gap(10.0)
+        .radius(8.0)
+        .fill(c.layer_02)
+        .border(1.0, c.border_base)
+        .focusable(true)
+        .cursor(rune::Cursor::Pointer)
+        .on_press(move |_: &mut State| {
+            let _ = std::process::Command::new("open").arg(&target).status();
+        })
+        .child(body);
+    if let Some(image) = s.avatars.get(&format!("preview:{key}")) {
+        card = card.child(el().size(64.0, 64.0).radius(6.0).pixels(image.pixels()));
+    }
+    Some(card)
+}
+
 fn file_attachments(post: &Post, k: &rune_kit::Kit) -> El {
     let mut list = col().gap(4.0);
     for file in post.metadata.files.iter().filter(|f| !f.is_image()) {
@@ -1246,6 +1307,7 @@ pub(crate) fn workspace(s: &State) -> El {
                         )
                         .child(image_attachments(s, post, &mut layer, &k))
                         .child(file_attachments(post, &k))
+                        .children(link_preview(s, post, &k))
                         .child(reaction_pills(s, post, &k)),
                 )
                 .child(
