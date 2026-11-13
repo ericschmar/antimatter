@@ -167,7 +167,11 @@ impl State {
     }
 }
 
-pub(crate) fn window_key(s: &mut State, key: &rune::KeyEvent, _: &mut rune::Tx) -> bool {
+pub(crate) fn window_key(s: &mut State, key: &rune::KeyEvent, tx: &mut rune::Tx) -> bool {
+    if key.is_command('k') && !key.mods.shift {
+        tx.focus("search", false);
+        return true;
+    }
     if key.is_command(',') && !key.mods.shift {
         if let Some(settings) = &s.settings {
             settings.open();

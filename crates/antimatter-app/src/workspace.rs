@@ -580,11 +580,16 @@ pub(crate) fn workspace(s: &State) -> El {
                         .a11y_hidden(),
                 )
                 .child(
-                    text("Search")
-                        .font(k.ty.small)
-                        .color(c.text_muted)
-                        .truncate()
-                        .a11y_hidden(),
+                    rune::text_input(&s.search, k.ty.small)
+                        .key("search")
+                        .label("Search")
+                        .single_line()
+                        .grow(1.0)
+                        .min_w(0.0)
+                        .color(c.text_base)
+                        .placeholder("Search", c.text_muted)
+                        .caret(c.text_base, k.selection())
+                        .on_edit(|s: &mut State| &mut s.search),
                 ),
         )
         .child(
