@@ -109,7 +109,7 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
             ),
         );
     }
-    stack.child(
+    rune::row().gap(6.0).center_y().child(stack).child(
         text(s.members.len().to_string())
             .font(k.ty.small)
             .color(c.text_muted)
