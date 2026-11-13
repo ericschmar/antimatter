@@ -199,10 +199,15 @@ fn dm_peer<'a>(s: &State, name: &'a str) -> Option<&'a str> {
 fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) -> El {
     let id = channel.id.clone();
     let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
+    let title = if unread.mentions > 0 || unread.messages > 0 {
+        k.ty.small_medium
+    } else {
+        k.ty.small
+    };
     let mut row = SidebarRow::new(&channel.display_name)
         .height(28.0)
         .depth(1)
-        .title_style(k.ty.small);
+        .title_style(title);
     if !matches!(channel.kind.as_str(), "D" | "G") {
         row = row.icon(&icons::HASH);
     }
