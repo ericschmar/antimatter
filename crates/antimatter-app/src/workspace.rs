@@ -243,39 +243,95 @@ fn code_frame(k: &rune_kit::Kit, card: El, code: &rune_kit::CodeFrame<'_>) -> El
         .child(card)
 }
 
-fn image_attachments(post: &Post, k: &rune_kit::Kit) -> El {
-    let mut files = rune::row().gap(6.0).flex_wrap();
-    for file in post.metadata.files.iter().filter(|f| f.is_image()) {
-        let target = file.clone();
-        files = files.child(
-            rune::row()
-                .key(format!("image-{}", file.id))
-                .role("button")
-                .label(format!("Open {}", file.name))
-                .h(24.0)
-                .px(8.0)
-                .gap(6.0)
-                .center_y()
-                .radius(6.0)
-                .fill(k.c.layer_02)
-                .focusable(true)
-                .cursor(rune::Cursor::Pointer)
-                .on_press(move |s: &mut State| s.open_file(target.clone()))
-                .child(
-                    icon(&icons::IMAGE, 14.0)
-                        .color(k.c.icon_muted)
-                        .a11y_hidden(),
+fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
+    let images: Vec<_> = post
+        .metadata
+        .files
+        .iter()
+        .filter(|f| f.is_image())
+        .collect();
+    let chip = |key: String, label: String, name: String| {
+        rune::row()
+            .key(key)
+            .role("button")
+            .label(label)
+            .h(24.0)
+            .px(8.0)
+            .gap(6.0)
+            .center_y()
+            .radius(6.0)
+            .fill(k.c.layer_02)
+            .border(1.0, k.c.border_base)
+            .focusable(true)
+            .cursor(rune::Cursor::Pointer)
+            .child(
+                icon(&icons::IMAGE, 14.0)
+                    .color(k.c.icon_muted)
+                    .a11y_hidden(),
+            )
+            .child(
+                text(name)
+                    .font(k.ty.small)
+                    .color(k.c.text_accent)
+                    .truncate()
+                    .a11y_hidden(),
+            )
+    };
+    match images.as_slice() {
+        [] => rune::row(),
+        [file] => {
+            let target = (*file).clone();
+            rune::row().child(
+                chip(
+                    format!("image-{}", file.id),
+                    format!("Open {}", file.name),
+                    file.name.clone(),
                 )
-                .child(
-                    text(file.name.clone())
-                        .font(k.ty.small)
-                        .color(k.c.text_accent)
-                        .truncate()
-                        .a11y_hidden(),
-                ),
-        );
+                .on_press(move |s: &mut State| s.open_file(target.clone())),
+            )
+        }
+        many => {
+            let id = post.id.clone();
+            let open = s.image_menu.as_deref() == Some(post.id.as_str());
+            let layers = many.len().min(3) - 1;
+            let trigger = chip(
+                format!("images-{}", post.id),
+                format!("{} images", many.len()),
+                format!("{} images", many.len()),
+            )
+            .on_press({
+                let id = id.clone();
+                move |s: &mut State| s.image_menu = Some(id.clone())
+            });
+            let mut stack = rune::row().key(format!("image-stack-{}", post.id));
+            for i in (1..=layers).rev() {
+                stack = stack.child(
+                    el().w(0.0).h(24.0).child(
+                        el().size(40.0, 24.0)
+                            .absolute(i as f32 * 3.0, 0.0)
+                            .radius(6.0)
+                            .fill(k.c.layer_03)
+                            .border(1.0, k.c.border_base)
+                            .a11y_hidden(),
+                    ),
+                );
+            }
+            let mut menu = rune_kit::Menu::new(format!("images-menu-{}", post.id))
+                .trigger(stack.child(trigger))
+                .open(open)
+                .on_close(|s: &mut State| s.image_menu = None);
+            for file in many {
+                let target = (*file).clone();
+                menu = menu.item(MenuItem::new(file.name.clone()).on_select(
+                    move |s: &mut State| {
+                        s.image_menu = None;
+                        s.open_file(target.clone());
+                    },
+                ));
+            }
+            rune::row().child(menu.build(k, layer))
+        }
     }
-    files
 }
 
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
@@ -893,7 +949,7 @@ pub(crate) fn workspace(s: &State) -> El {
                                 })
                                 .build(&k),
                         )
-                        .child(image_attachments(post, &k))
+                        .child(image_attachments(s, post, &mut layer, &k))
                         .child(reaction_pills(s, post, &k)),
                 )
                 .child(

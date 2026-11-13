@@ -28,6 +28,7 @@ impl State {
         self.committed_navigation = Navigation::default();
         self.preview = None;
         self.tab_menu = None;
+        self.image_menu = None;
         self.submitted = false;
         self.recovered_pending = false;
         self.intents = None;
