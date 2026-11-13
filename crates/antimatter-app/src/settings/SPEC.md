@@ -70,7 +70,7 @@ Title "General". Subtitle "Set up the essentials for your Antimatter workspace."
 
 | Control | Storage key | Default | Values | Effect | Wiring |
 | --- | --- | --- | --- | --- | --- |
-| Message font size | `messageFontSize` | 12 | integer 10–20, step 1 | Timeline body size. Value row shows `N pt`. | Deferred |
+| Message font size | `messageFontSize` | 12 | integer 10–20, step 1 | Timeline body size. Value row shows `N pt`. | Live |
 | Message grouping | `messageGroupingIntervalMinutes` | 5 | integer 0–60, step 1 | Consecutive posts by one author within this many minutes are grouped. Value row shows `Off` at 0, else `N min`. | Deferred |
 
 ### Appearance (`appearance`)
@@ -230,10 +230,11 @@ Wiring: Live. These rows read the existing saved-account registry.
 
 ## Wiring summary
 
-- **Live** when implementation lands: Theme (applies to the launch theme), and the
-  Accounts section (Switch, Disconnect, Add account).
+- **Live** when implementation lands: Theme (applies to the launch theme), the
+  Accounts section (Switch, Disconnect, Add account), and Message font size (timeline
+  body).
 - **Deferred** (persisted or shown, no visible effect until the owning feature
-  lands): every General control, Accent color, Font, Compact timeline, Message
+  lands): every other General control, Accent color, Font, Compact timeline, Message
   spacing, Show user avatars, every Notifications control (local, server and channel
   levels), both Workspace controls, and the whole Profile form.
 - **Read-only**: Keyboard Shortcuts.

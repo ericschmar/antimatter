@@ -78,6 +78,8 @@ impl SettingsState {
             },
             None => self.error = None,
         }
+        let message_font_size = self.prefs.message_font_size;
+        self.workspace_action(move |ws| ws.message_font_size = message_font_size);
     }
 }
 

@@ -170,6 +170,7 @@ fn main() {
         )
     });
     let (prefs, load_error) = settings_prefs();
+    let prefs_font_size = prefs.message_font_size;
     let handle = app.handle();
     let (settings, settings_app) =
         crate::settings::window(&mut app, prefs, settings_path(), load_error, handle.clone());
@@ -187,6 +188,7 @@ fn main() {
         let mut state = State {
             settings: Some(settings),
             settings_app: Some(settings_app),
+            message_font_size: prefs_font_size,
             ..State::default()
         };
         if !rune::is_headless() {
