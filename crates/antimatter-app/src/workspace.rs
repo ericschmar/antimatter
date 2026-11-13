@@ -283,6 +283,33 @@ pub(crate) fn workspace(s: &State) -> El {
                 .child(el().grow(1.0).window_drag())
                 .child(user_avatar(s, &k)),
         )
+        .child(
+            rune::row()
+                .key("sidebar-search")
+                .role("search")
+                .label("Search")
+                .w_full()
+                .h(28.0)
+                .mx(8.0)
+                .my(4.0)
+                .px(8.0)
+                .gap(6.0)
+                .radius(6.0)
+                .fill(c.layer_02)
+                .center_y()
+                .child(
+                    icon(&icons::MAGNIFYING_GLASS, 14.0)
+                        .color(c.icon_muted)
+                        .a11y_hidden(),
+                )
+                .child(
+                    text("Search")
+                        .font(k.ty.small)
+                        .color(c.text_muted)
+                        .truncate()
+                        .a11y_hidden(),
+                ),
+        )
         .child(sidebar);
     let width = s.sidebar.width();
     let grip = el()
