@@ -64,6 +64,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         update_at: 0,
         delete_at: 0,
         pending_post_id: String::new(),
+        root_id: String::new(),
         metadata: antimatter_services::mattermost::PostMetadata {
             reactions: ["synthetic-user", "synthetic-peer"]
                 .iter()
@@ -101,6 +102,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         update_at: 0,
         delete_at: 0,
         pending_post_id: String::new(),
+        root_id: "synthetic-post".into(),
         metadata: Default::default(),
     });
 }
@@ -118,6 +120,7 @@ pub(crate) fn synthetic_history(s: &mut State) {
             update_at: 0,
             delete_at: 0,
             pending_post_id: String::new(),
+            root_id: String::new(),
             metadata: Default::default(),
         })
         .collect();

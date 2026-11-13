@@ -334,6 +334,38 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
     }
 }
 
+fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
+    let parent = s
+        .posts
+        .iter()
+        .find(|p| !post.root_id.is_empty() && p.id == post.root_id)?;
+    let name = s.names.get(&parent.user_id).unwrap_or(&parent.user_id);
+    let snippet = parent.message.lines().next().unwrap_or_default().to_owned();
+    Some(
+        rune::row()
+            .key(format!("reply-{}", post.id))
+            .gap(6.0)
+            .center_y()
+            .child(
+                icon(&icons::ARROW_BEND_UP_LEFT, 12.0)
+                    .color(k.c.icon_muted)
+                    .a11y_hidden(),
+            )
+            .child(
+                text(name.clone())
+                    .font(k.ty.small_medium)
+                    .color(k.c.text_muted),
+            )
+            .child(
+                text(snippet)
+                    .font(k.ty.small)
+                    .color(k.c.text_muted)
+                    .truncate()
+                    .shrink(),
+            ),
+    )
+}
+
 fn file_attachments(post: &Post, k: &rune_kit::Kit) -> El {
     let mut list = col().gap(4.0);
     for file in post.metadata.files.iter().filter(|f| !f.is_image()) {
@@ -987,6 +1019,7 @@ pub(crate) fn workspace(s: &State) -> El {
                         .shrink()
                         .min_w(0.0)
                         .gap(4.0)
+                        .children(reply_quote(s, post, &k))
                         .child(
                             Markdown::new(&post.message)
                                 .highlights(

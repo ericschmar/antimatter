@@ -585,6 +585,7 @@ fn older_history_prepends_once_and_respects_guards() {
         update_at: create_at,
         delete_at: 0,
         pending_post_id: String::new(),
+        root_id: String::new(),
         metadata: Default::default(),
     };
     rt.state.posts = vec![at("new", 200)];
@@ -634,6 +635,7 @@ fn scrolling_to_the_top_by_hand_requests_one_older_page() {
             update_at: 0,
             delete_at: 0,
             pending_post_id: String::new(),
+            root_id: String::new(),
             metadata: Default::default(),
         })
         .collect();

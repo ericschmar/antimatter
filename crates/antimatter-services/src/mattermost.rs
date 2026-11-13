@@ -239,6 +239,8 @@ pub struct Post {
     #[serde(default)]
     pub pending_post_id: String,
     #[serde(default)]
+    pub root_id: String,
+    #[serde(default)]
     pub metadata: PostMetadata,
 }
 
