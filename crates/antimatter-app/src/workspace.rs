@@ -69,6 +69,14 @@ fn post_time(create_at: i64) -> String {
         .unwrap_or_default()
 }
 
+fn presence_dot(status: Option<&str>, c: &rune_kit::Palette) -> rune::Color {
+    match status {
+        Some("online") => c.success.icon,
+        Some("away") | Some("dnd") => c.warning.icon,
+        _ => c.icon_muted,
+    }
+}
+
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let mut stack = rune::row().gap(-6.0).center_y();
@@ -491,12 +499,22 @@ pub(crate) fn workspace(s: &State) -> El {
                 .px(16.0)
                 .py(8.0)
                 .child(
-                    text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
+                    rune::row()
                         .w(96.0)
                         .shrink()
-                        .font(k.ty.small)
-                        .color(c.text_muted)
-                        .truncate(),
+                        .gap(6.0)
+                        .center_y()
+                        .child(el().size(6.0, 6.0).radius(3.0).fill(presence_dot(
+                            s.peer_presence.get(&post.user_id).map(String::as_str),
+                            c,
+                        )))
+                        .child(
+                            text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
+                                .shrink()
+                                .font(k.ty.small)
+                                .color(c.text_muted)
+                                .truncate(),
+                        ),
                 )
                 .child(
                     text(post_time(post.create_at))

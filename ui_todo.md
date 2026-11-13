@@ -16,6 +16,6 @@
 [x] Message timeline -> Use the First/Last name of user, not their user name
 [x] Message timeline -> Include timestamp (ex: 12:34 pm) 
 [x] Message timeline -> Add separator between days 
-[ ] Message timeline -> add status indicator to the left of users
+[x] Message timeline -> add status indicator to the left of users
 [ ] Message timeline -> onHover message row, highlight the background subtly
 [ ] Channels -> add right click option to archive a channel. archive puts it in a new category at the bottom of the channel sidebar. when new messages arrive in an archived channel, move it back to the proper category

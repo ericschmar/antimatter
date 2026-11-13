@@ -133,8 +133,15 @@ impl State {
                 names,
             } => {
                 if self.channel.as_deref() == Some(&channel_id) {
+                    let mut authors: Vec<String> =
+                        posts.iter().map(|p| p.user_id.clone()).collect();
+                    authors.sort();
+                    authors.dedup();
                     self.posts = posts;
                     self.names.extend(names);
+                    if let Some(sender) = &self.intents {
+                        let _ = sender.try_send(Intent::Presence(authors));
+                    }
                 }
             }
             Update::Upsert(post) => {

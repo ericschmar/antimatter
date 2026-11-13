@@ -30,7 +30,10 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
             kind: "D".into(),
         }))
         .collect();
-    s.peer_presence = HashMap::from([("synthetic-peer".into(), "online".into())]);
+    s.peer_presence = HashMap::from([
+        ("synthetic-peer".into(), "online".into()),
+        ("synthetic-user".into(), "online".into()),
+    ]);
     s.members = vec!["synthetic-user".into(), "synthetic-peer".into()];
     s.names
         .insert("synthetic-user".into(), "Ada Lovelace".into());
