@@ -333,12 +333,16 @@ pub(crate) fn workspace(s: &State) -> El {
         .channels
         .iter()
         .partition(|channel| matches!(channel.kind.as_str(), "D" | "G"));
+    let (archived, regular): (Vec<_>, Vec<_>) = regular
+        .into_iter()
+        .partition(|channel| s.navigation.archived.contains(&channel.id));
     let (favorites, regular): (Vec<_>, Vec<_>) = regular
         .into_iter()
         .partition(|channel| s.navigation.favorites.contains(&channel.id));
     let point = s.channel_menu.clone();
     let channel = point.as_ref().map(|(id, _)| id.clone()).unwrap_or_default();
     let favorite = s.navigation.favorites.contains(&channel);
+    let archive = s.navigation.archived.contains(&channel);
     let channel_menu =
         rune_kit::context_menu("channel-menu", el().w(0.0).h(0.0), point.map(|(_, p)| p))
             .on_close(|s: &mut State| s.channel_menu = None)
@@ -348,6 +352,15 @@ pub(crate) fn workspace(s: &State) -> El {
                     move |s: &mut State| {
                         s.channel_menu = None;
                         s.toggle_favorite(&channel);
+                    },
+                )
+            })
+            .item({
+                let channel = channel.clone();
+                MenuItem::new(if archive { "Unarchive" } else { "Archive" }).on_select(
+                    move |s: &mut State| {
+                        s.channel_menu = None;
+                        s.toggle_archived(&channel);
                     },
                 )
             })
@@ -391,6 +404,20 @@ pub(crate) fn workspace(s: &State) -> El {
             .collect(),
         &k,
     ));
+    if !archived.is_empty() {
+        sidebar = sidebar.child(section(
+            "archived",
+            "Archived",
+            archived.len(),
+            s.archived_collapsed,
+            |s: &mut State, _| s.archived_collapsed = !s.archived_collapsed,
+            archived
+                .into_iter()
+                .map(|channel| channel_row(s, channel, locked, &k))
+                .collect(),
+            &k,
+        ));
+    }
     let sidebar = col()
         .w(s.sidebar.width())
         .shrink()

@@ -115,7 +115,21 @@ impl State {
                 self.unread = unread;
                 self.prune_tabs();
             }
-            Update::Unread(unread) => self.unread = unread,
+            Update::Unread(unread) => {
+                let arrived: Vec<String> = unread
+                    .iter()
+                    .filter(|(id, count)| {
+                        count.messages > self.unread.get(*id).map_or(0, |u| u.messages)
+                    })
+                    .map(|(id, _)| id.clone())
+                    .collect();
+                for id in arrived {
+                    if let Some(at) = self.navigation.archived.iter().position(|a| *a == id) {
+                        self.navigation.archived.remove(at);
+                    }
+                }
+                self.unread = unread;
+            }
             Update::Presence(presence) => self.presence = presence,
             Update::PeerPresence(presence) => self.peer_presence.extend(presence),
             Update::PeerAvatar(user_id, bytes) => self.avatars.finish(user_id, bytes),

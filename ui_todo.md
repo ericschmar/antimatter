@@ -18,4 +18,4 @@
 [x] Message timeline -> Add separator between days 
 [x] Message timeline -> add status indicator to the left of users
 [x] Message timeline -> onHover message row, highlight the background subtly
-[ ] Channels -> add right click option to archive a channel. archive puts it in a new category at the bottom of the channel sidebar. when new messages arrive in an archived channel, move it back to the proper category
+[x] Channels -> add right click option to archive a channel. archive puts it in a new category at the bottom of the channel sidebar. when new messages arrive in an archived channel, move it back to the proper category

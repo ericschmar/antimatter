@@ -259,10 +259,13 @@ pub struct Navigation {
     pub tabs: Vec<String>,
     #[serde(default)]
     pub favorites: Vec<String>,
+    #[serde(default)]
+    pub archived: Vec<String>,
 }
 
 pub const MAX_TABS: usize = 32;
 pub const MAX_FAVORITES: usize = 64;
+pub const MAX_ARCHIVED: usize = 256;
 
 impl Navigation {
     fn validate(&self) -> Result<()> {
@@ -292,6 +295,16 @@ impl Navigation {
                 .any(|(i, id)| self.favorites[..i].contains(id))
         {
             return Err(Error::Invalid("invalid navigation favorites"));
+        }
+        if self.archived.len() > MAX_ARCHIVED
+            || self.archived.iter().any(|id| id.trim().is_empty())
+            || self
+                .archived
+                .iter()
+                .enumerate()
+                .any(|(i, id)| self.archived[..i].contains(id))
+        {
+            return Err(Error::Invalid("invalid navigation archived channels"));
         }
         Ok(())
     }

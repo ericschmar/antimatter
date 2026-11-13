@@ -13,7 +13,8 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
     s.channel = Some("synthetic-channel".into());
     s.navigation.tabs = vec!["synthetic-channel".into()];
     s.navigation.favorites = vec!["synthetic-other".into()];
-    s.channels = ["synthetic-channel", "synthetic-other"]
+    s.navigation.archived = vec!["synthetic-archived".into()];
+    s.channels = ["synthetic-channel", "synthetic-other", "synthetic-archived"]
         .into_iter()
         .map(|id| Channel {
             id: id.into(),
