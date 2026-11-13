@@ -12,6 +12,7 @@ path = "src/main.rs"
 antimatter-services.workspace = true
 antimatter-theme.workspace = true
 blobatar.workspace = true
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 rune.workspace = true
 rune-kit.workspace = true
 serde_json.workspace = true

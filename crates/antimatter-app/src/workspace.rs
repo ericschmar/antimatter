@@ -54,6 +54,16 @@ fn server_labels(s: &State) -> Vec<String> {
         .collect()
 }
 
+fn post_time(create_at: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(create_at)
+        .map(|at| {
+            at.with_timezone(&chrono::Local)
+                .format("%-I:%M %P")
+                .to_string()
+        })
+        .unwrap_or_default()
+}
+
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let mut stack = rune::row().gap(-6.0).center_y();
@@ -460,6 +470,12 @@ pub(crate) fn workspace(s: &State) -> El {
                         .font(k.ty.small)
                         .color(c.text_muted)
                         .truncate(),
+                )
+                .child(
+                    text(post_time(post.create_at))
+                        .font(k.ty.small)
+                        .color(c.text_muted)
+                        .shrink(),
                 )
                 .child(
                     text(&post.message)
