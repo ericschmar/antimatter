@@ -139,6 +139,7 @@ impl State {
                 .clone()
                 .or_else(|| self.navigation.channel_id.clone()),
             tabs: self.navigation.tabs.clone(),
+            favorites: self.navigation.favorites.clone(),
         };
         self.checkpoint_pending = Some((action.clone(), original_drafts, navigation.clone()));
         let epoch = self.epoch;

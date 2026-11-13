@@ -224,7 +224,16 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
     } else {
         row
     };
-    rune::row().w_full().px(ROW_GUTTER).child(row)
+    let menu = channel.id.clone();
+    rune::row()
+        .w_full()
+        .px(ROW_GUTTER)
+        .on_secondary_press(move |s: &mut State, p, _| {
+            if !locked {
+                s.channel_menu = Some((menu.clone(), p));
+            }
+        })
+        .child(row)
 }
 
 pub(crate) fn workspace(s: &State) -> El {
@@ -236,7 +245,41 @@ pub(crate) fn workspace(s: &State) -> El {
         .channels
         .iter()
         .partition(|channel| matches!(channel.kind.as_str(), "D" | "G"));
-    let mut sidebar = col().w_full().gap(8.0).child(section(
+    let (favorites, regular): (Vec<_>, Vec<_>) = regular
+        .into_iter()
+        .partition(|channel| s.navigation.favorites.contains(&channel.id));
+    let point = s.channel_menu.clone();
+    let channel = point.as_ref().map(|(id, _)| id.clone()).unwrap_or_default();
+    let favorite = s.navigation.favorites.contains(&channel);
+    let channel_menu =
+        rune_kit::context_menu("channel-menu", el().w(0.0).h(0.0), point.map(|(_, p)| p))
+            .on_close(|s: &mut State| s.channel_menu = None)
+            .item({
+                let channel = channel.clone();
+                MenuItem::new(if favorite { "Unfavorite" } else { "Favorite" }).on_select(
+                    move |s: &mut State| {
+                        s.channel_menu = None;
+                        s.toggle_favorite(&channel);
+                    },
+                )
+            })
+            .build(&k, &mut layer);
+    let mut sidebar = col().w_full().gap(8.0);
+    if !favorites.is_empty() {
+        sidebar = sidebar.child(section(
+            "favorites",
+            "Favorites",
+            favorites.len(),
+            s.favorites_collapsed,
+            |s: &mut State, _| s.favorites_collapsed = !s.favorites_collapsed,
+            favorites
+                .into_iter()
+                .map(|channel| channel_row(s, channel, locked, &k))
+                .collect(),
+            &k,
+        ));
+    }
+    sidebar = sidebar.child(section(
         "channels",
         "Channels",
         regular.len(),
@@ -310,7 +353,8 @@ pub(crate) fn workspace(s: &State) -> El {
                         .a11y_hidden(),
                 ),
         )
-        .child(sidebar);
+        .child(sidebar)
+        .child(channel_menu);
     let width = s.sidebar.width();
     let grip = el()
         .key("sidebar-grip")

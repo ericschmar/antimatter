@@ -1,6 +1,6 @@
 use crate::state::*;
 use crate::theme::workspace_theme;
-use antimatter_services::accounts::MAX_TABS;
+use antimatter_services::accounts::{MAX_FAVORITES, MAX_TABS};
 use rune::{El, Icon, el};
 use rune_kit::{
     MenuItem,
@@ -123,6 +123,14 @@ impl State {
         self.navigation.tabs.retain(|t| t != id);
         if self.preview.as_deref() == Some(id) {
             self.preview = None;
+        }
+    }
+
+    pub(crate) fn toggle_favorite(&mut self, id: &str) {
+        if let Some(at) = self.navigation.favorites.iter().position(|f| f == id) {
+            self.navigation.favorites.remove(at);
+        } else if self.navigation.favorites.len() < MAX_FAVORITES {
+            self.navigation.favorites.push(id.to_owned());
         }
     }
 

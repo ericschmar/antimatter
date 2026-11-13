@@ -257,9 +257,12 @@ pub struct Navigation {
     pub channel_id: Option<String>,
     #[serde(default)]
     pub tabs: Vec<String>,
+    #[serde(default)]
+    pub favorites: Vec<String>,
 }
 
 pub const MAX_TABS: usize = 32;
+pub const MAX_FAVORITES: usize = 64;
 
 impl Navigation {
     fn validate(&self) -> Result<()> {
@@ -279,6 +282,16 @@ impl Navigation {
                 .any(|(i, id)| self.tabs[..i].contains(id))
         {
             return Err(Error::Invalid("invalid navigation tabs"));
+        }
+        if self.favorites.len() > MAX_FAVORITES
+            || self.favorites.iter().any(|id| id.trim().is_empty())
+            || self
+                .favorites
+                .iter()
+                .enumerate()
+                .any(|(i, id)| self.favorites[..i].contains(id))
+        {
+            return Err(Error::Invalid("invalid navigation favorites"));
         }
         Ok(())
     }
@@ -983,6 +996,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn favorites_persist_across_reopen() {
+        let root = TempRoot::new();
+        let key = key("https://example.test", "a");
+        let actor = Persistence::open(root.0.clone(), FakeCredentials::default())
+            .await
+            .unwrap();
+        actor
+            .save(key.clone(), "a".into(), token("a"))
+            .await
+            .unwrap();
+        actor
+            .checkpoint(
+                key.clone(),
+                vec![],
+                Navigation {
+                    favorites: vec!["c1".into(), "c2".into()],
+                    ..Navigation::default()
+                },
+            )
+            .await
+            .unwrap();
+        drop(actor);
+        let navigation = root
+            .store()
+            .load_preferences::<Navigation>(&key)
+            .unwrap()
+            .unwrap();
+        assert_eq!(navigation.favorites, vec!["c1", "c2"]);
+    }
+
+    #[tokio::test]
     async fn actor_corruption_and_validation_never_overwrite() {
         let root = TempRoot::new();
         let actor = Persistence::open(root.0.clone(), FakeCredentials::default())
@@ -1006,6 +1050,20 @@ mod tests {
                     vec![draft("after")],
                     Navigation {
                         channel_id: Some(" ".into()),
+                        ..Navigation::default()
+                    }
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(fs::read(directory.join("drafts.json")).unwrap(), drafts);
+        assert!(
+            actor
+                .checkpoint(
+                    key.clone(),
+                    vec![draft("after")],
+                    Navigation {
+                        favorites: vec!["a".into(), "a".into()],
                         ..Navigation::default()
                     }
                 )
