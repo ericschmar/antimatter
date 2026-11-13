@@ -32,5 +32,5 @@
 [x] make chat loader be centered horizontally
 [x] control row height through "Message spacing" setting
 [x] show user's avatars instead of the status icon (controlled by setting)
-[ ] hook up "send" button to the enter key press
+[x] hook up "send" button to the enter key press
 [ ] fix: unread channel does not have channel name in bold.

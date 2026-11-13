@@ -248,4 +248,5 @@ fn field(k: &Kit, edit: &TextEdit, label: &str, spans: Vec<Span>, on: bool, lock
         .label(label)
         .description("")
         .disabled(locked)
+        .on_submit(|s: &mut State, _| s.send())
 }

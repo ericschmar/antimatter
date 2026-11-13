@@ -56,6 +56,33 @@ fn send_tap_locks_composer_before_worker_acknowledges() {
 }
 
 #[test]
+fn enter_in_the_composer_sends_and_shift_enter_breaks_the_line() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.draft.text = "hello".into();
+    rt.invalidate();
+    rt.frame(0.0);
+    tap(&mut rt, "draft");
+    rt.key(rune::KeyEvent {
+        key: rune::Key::Enter,
+        mods: rune::Mods {
+            shift: true,
+            ..rune::Mods::default()
+        },
+    });
+    rt.frame(0.0);
+    assert_eq!(rt.state.draft.text, "hello\n");
+    assert!(intents.try_recv().is_err());
+    rt.key(rune::KeyEvent {
+        key: rune::Key::Enter,
+        mods: rune::Mods::default(),
+    });
+    rt.frame(0.0);
+    assert!(matches!(intents.try_recv(), Ok(Intent::Send(message)) if message == "hello\n"));
+    assert!(intents.try_recv().is_err());
+}
+
+#[test]
 fn pending_acknowledgement_does_not_unlock_refresh() {
     let (sender, _intents) = mpsc::channel(8);
     let mut rt = ui(sender);
