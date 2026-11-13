@@ -33,4 +33,4 @@
 [x] control row height through "Message spacing" setting
 [x] show user's avatars instead of the status icon (controlled by setting)
 [x] hook up "send" button to the enter key press
-[ ] fix: unread channel does not have channel name in bold.
+[x] fix: unread channel does not have channel name in bold.
