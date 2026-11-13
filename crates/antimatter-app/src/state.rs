@@ -119,6 +119,7 @@ pub(crate) struct State {
     pub(crate) peer_presence: HashMap<String, String>,
     pub(crate) members: Vec<String>,
     pub(crate) avatars: crate::avatars::Avatars,
+    pub(crate) client: Option<antimatter_services::mattermost::Client>,
     pub(crate) posts: Vec<Post>,
     pub(crate) has_older: bool,
     pub(crate) ledger_offset: Arc<AtomicU32>,
@@ -167,6 +168,25 @@ impl State {
     pub(crate) fn remove_account(&mut self, key: AccountKey) {
         self.saved_account_menu = None;
         self.sign_out(key);
+    }
+
+    pub(crate) fn open_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        let (Some(client), Some(runtime)) = (self.client.clone(), self.runtime.clone()) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let Ok(bytes) = client.file(&file.id, false).await else {
+                return;
+            };
+            let name = std::path::Path::new(&file.name)
+                .file_name()
+                .map_or_else(|| file.id.clone().into(), ToOwned::to_owned);
+            let dir = std::env::temp_dir().join("antimatter-files").join(&file.id);
+            let path = dir.join(name);
+            if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(&path, bytes).is_ok() {
+                let _ = std::process::Command::new("open").arg(path).status();
+            }
+        });
     }
 
     pub(crate) fn my_username(&self) -> Option<&str> {
@@ -280,6 +300,7 @@ impl Default for State {
             peer_presence: HashMap::new(),
             members: Vec::new(),
             avatars: crate::avatars::Avatars::default(),
+            client: None,
             posts: vec![],
             has_older: false,
             ledger_offset: Arc::new(AtomicU32::new(0)),

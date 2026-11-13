@@ -41,6 +41,7 @@ impl State {
         self.peer_presence.clear();
         self.members.clear();
         self.avatars.clear();
+        self.client = None;
         self.posts.clear();
         self.has_older = false;
         self.loading_older = false;
@@ -167,12 +168,14 @@ impl State {
             let (socket_tx, socket_rx) = mpsc::channel(64);
             let (updates_tx, mut updates_rx) = mpsc::channel(64);
             let avatar_client = client.clone();
+            let state_client = client.clone();
             let avatar_user = user.id.clone();
             let avatar_handle = handle.clone();
             handle.update(move |s, tx| {
                 if s.scope.accepts(generation) {
                     tx.resize_window(WORKSPACE_WINDOW_SIZE);
                     s.account = Some(account);
+                    s.client = Some(state_client);
                     s.authenticated = Some(authenticated);
                     s.auth_writing = false;
                     s.auth_task = None;

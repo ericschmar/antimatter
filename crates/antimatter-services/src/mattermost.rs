@@ -246,6 +246,27 @@ pub struct Post {
 pub struct PostMetadata {
     #[serde(default)]
     pub reactions: Vec<Reaction>,
+    #[serde(default)]
+    pub files: Vec<FileInfo>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct FileInfo {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub extension: String,
+    #[serde(default)]
+    pub size: u64,
+    #[serde(default)]
+    pub mime_type: String,
+}
+
+impl FileInfo {
+    pub fn is_image(&self) -> bool {
+        self.mime_type.starts_with("image/")
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

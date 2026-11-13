@@ -243,6 +243,41 @@ fn code_frame(k: &rune_kit::Kit, card: El, code: &rune_kit::CodeFrame<'_>) -> El
         .child(card)
 }
 
+fn image_attachments(post: &Post, k: &rune_kit::Kit) -> El {
+    let mut files = rune::row().gap(6.0).flex_wrap();
+    for file in post.metadata.files.iter().filter(|f| f.is_image()) {
+        let target = file.clone();
+        files = files.child(
+            rune::row()
+                .key(format!("image-{}", file.id))
+                .role("button")
+                .label(format!("Open {}", file.name))
+                .h(24.0)
+                .px(8.0)
+                .gap(6.0)
+                .center_y()
+                .radius(6.0)
+                .fill(k.c.layer_02)
+                .focusable(true)
+                .cursor(rune::Cursor::Pointer)
+                .on_press(move |s: &mut State| s.open_file(target.clone()))
+                .child(
+                    icon(&icons::IMAGE, 14.0)
+                        .color(k.c.icon_muted)
+                        .a11y_hidden(),
+                )
+                .child(
+                    text(file.name.clone())
+                        .font(k.ty.small)
+                        .color(k.c.text_accent)
+                        .truncate()
+                        .a11y_hidden(),
+                ),
+        );
+    }
+    files
+}
+
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let mut stack = rune::row().gap(-6.0).center_y();
@@ -858,6 +893,7 @@ pub(crate) fn workspace(s: &State) -> El {
                                 })
                                 .build(&k),
                         )
+                        .child(image_attachments(post, &k))
                         .child(reaction_pills(s, post, &k)),
                 )
                 .child(
