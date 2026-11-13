@@ -87,8 +87,16 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
             _ => c.icon_muted,
         };
         let avatar = match s.avatars.get(user_id) {
-            Some(image) => el().size(24.0, 24.0).radius(12.0).pixels(image.pixels()),
-            None => el().size(24.0, 24.0).radius(12.0).fill(c.layer_02),
+            Some(image) => el()
+                .size(24.0, 24.0)
+                .radius(12.0)
+                .border(1.5, c.bg_base)
+                .pixels(image.pixels()),
+            None => el()
+                .size(24.0, 24.0)
+                .radius(12.0)
+                .border(1.5, c.bg_base)
+                .fill(c.layer_02),
         };
         stack = stack.child(
             el().size(24.0, 24.0).child(avatar).child(

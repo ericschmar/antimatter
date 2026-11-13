@@ -20,7 +20,7 @@
 [x] Message timeline -> onHover message row, highlight the background subtly
 [x] Channels -> add right click option to archive a channel. archive puts it in a new category at the bottom of the channel sidebar. when new messages arrive in an archived channel, move it back to the proper category
 [x] Update our avatars to use the blobatars, rn they fallback to just the first letter of the name. 
-[ ] for the avatar stack, there should be a slight outline to the avatars
+[x] for the avatar stack, there should be a slight outline to the avatars
 [ ] the avatar stack overlays the member count
 [ ] remove the "disconnect session" button
 [ ] The channel header text should be larger
