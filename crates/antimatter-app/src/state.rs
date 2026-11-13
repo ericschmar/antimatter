@@ -218,7 +218,7 @@ impl Default for State {
             application: false,
             theme: antimatter_theme::Theme::Default,
             synthetic: false,
-            sidebar: PaneState::new(248.0).range(160.0, 420.0),
+            sidebar: PaneState::new(264.0).range(160.0, 420.0),
             channels_collapsed: false,
             favorites_collapsed: false,
             archived_collapsed: false,

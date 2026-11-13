@@ -4,7 +4,7 @@ use super::*;
 fn synthetic_workspace_selection_and_lock_stay_local() {
     let mut s = State::default();
     synthetic_workspace(&mut s);
-    assert_eq!(s.sidebar.width(), 248.0);
+    assert_eq!(s.sidebar.width(), 264.0);
     assert_eq!(s.channels.len(), 4);
     s.load("synthetic-other".into());
     assert_eq!(s.channel.as_deref(), Some("synthetic-other"));
