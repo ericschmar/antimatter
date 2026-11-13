@@ -27,3 +27,10 @@
 [x] message timeline -> the time is not aligned with the user's name, it's slightly higher
 [x] message timeline -> slightly increase the width of the user + time to handle longer names
 [x] channel sidebar -> increase the default width slightly
+[ ] for multiline messages, the status/name/date should be aligned at the top of the message
+[ ] add scroll bar to the message list and channel side bar
+[ ] make chat loader be centered horizontally
+[ ] control row height through "Message spacing" setting
+[ ] show user's avatars instead of the status icon (controlled by setting)
+[ ] hook up "send" button to the enter key press
+[ ] fix: unread channel does not have channel name in bold.

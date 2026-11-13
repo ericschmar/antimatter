@@ -563,6 +563,7 @@ pub(crate) fn workspace(s: &State) -> El {
             );
         }
         previous_day = day;
+        let line = f32::from(s.message_font_size) * 1.6;
         ledger = ledger.child(
             rune::row()
                 .key(format!("post-{}", post.id))
@@ -570,11 +571,11 @@ pub(crate) fn workspace(s: &State) -> El {
                 .gap(8.0)
                 .px(16.0)
                 .py(8.0)
-                .center_y()
                 .hover(c.hover)
                 .child(
                     rune::row()
                         .w(120.0)
+                        .h(line)
                         .shrink()
                         .gap(6.0)
                         .center_y()
@@ -594,6 +595,8 @@ pub(crate) fn workspace(s: &State) -> El {
                     text(post_time(post.create_at))
                         .font(k.ty.small)
                         .color(c.text_muted)
+                        .h(line)
+                        .center_y()
                         .shrink(),
                 )
                 .child(

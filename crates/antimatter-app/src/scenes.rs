@@ -65,6 +65,16 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         delete_at: 0,
         pending_post_id: String::new(),
     });
+    s.posts.push(Post {
+        id: "synthetic-multiline".into(),
+        channel_id: "synthetic-channel".into(),
+        user_id: "synthetic-user".into(),
+        message: "Synthetic multiline message\n\nSecond paragraph, so the header must sit on the first line.".into(),
+        create_at: 2,
+        update_at: 0,
+        delete_at: 0,
+        pending_post_id: String::new(),
+    });
 }
 
 pub(crate) fn synthetic_history(s: &mut State) {
