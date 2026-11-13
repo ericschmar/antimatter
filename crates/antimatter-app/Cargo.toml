@@ -13,6 +13,7 @@ antimatter-services.workspace = true
 antimatter-theme.workspace = true
 blobatar.workspace = true
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+emojis = "0.9.1"
 rune.workspace = true
 rune-kit = { workspace = true, features = ["markdown"] }
 serde_json.workspace = true

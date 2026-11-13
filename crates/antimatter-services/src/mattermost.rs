@@ -271,6 +271,12 @@ impl FileInfo {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct CustomEmoji {
+    pub id: String,
+    pub name: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Reaction {
     pub user_id: String,
@@ -671,6 +677,15 @@ impl Client {
             Some(user) if user.last_picture_update > 0 => self.profile_image(user_id).await,
             _ => Err(Error::InvalidUser),
         }
+    }
+
+    pub async fn custom_emojis(&self) -> Result<Vec<CustomEmoji>, Error> {
+        self.get("/emoji?page=0&per_page=200&sort=name").await
+    }
+
+    pub async fn custom_emoji_image(&self, id: &str) -> Result<Vec<u8>, Error> {
+        let path = segments(&["emoji", id, "image"])?;
+        self.media(&self.origin.endpoint(&path)?).await
     }
 
     pub async fn file(&self, id: &str, preview: bool) -> Result<Vec<u8>, Error> {

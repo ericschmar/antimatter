@@ -7,7 +7,7 @@ use antimatter_services::conversation::Intent;
 use antimatter_services::mattermost::{Channel, Post};
 use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
-use rune::{El, Icon, TextStyle, col, el, icon, row as hbox, text};
+use rune::{El, Icon, TextEdit, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
     ButtonVariant, ControlSize, Highlight, IconButton, IconButtonVariant, Markdown, MarkdownStyle,
     MenuItem, ScrollBar, Select, SelectAppearance,
@@ -130,22 +130,175 @@ fn author_marker(s: &State, post: &Post, c: &rune_kit::Palette) -> El {
 }
 
 fn emoji_glyph(name: &str) -> String {
-    match name {
-        "+1" | "thumbsup" => "👍",
-        "-1" | "thumbsdown" => "👎",
-        "heart" => "❤️",
-        "smile" => "😄",
-        "joy" => "😂",
-        "tada" => "🎉",
-        "eyes" => "👀",
-        "pray" => "🙏",
-        "fire" => "🔥",
-        "white_check_mark" => "✅",
-        "100" => "💯",
-        "rocket" => "🚀",
-        _ => return format!(":{name}:"),
+    emojis::get_by_shortcode(name).map_or_else(|| format!(":{name}:"), |e| e.as_str().to_owned())
+}
+
+fn emoji_face(s: &State, name: &str, k: &rune_kit::Kit) -> El {
+    match s.avatars.get(&format!("emoji:{name}")) {
+        Some(image) => el().size(16.0, 16.0).pixels(image.pixels()),
+        None => text(emoji_glyph(name)).font(k.ty.small).a11y_hidden(),
     }
-    .into()
+}
+
+const EMOJI_TABS: [emojis::Group; 9] = [
+    emojis::Group::SmileysAndEmotion,
+    emojis::Group::PeopleAndBody,
+    emojis::Group::AnimalsAndNature,
+    emojis::Group::FoodAndDrink,
+    emojis::Group::TravelAndPlaces,
+    emojis::Group::Activities,
+    emojis::Group::Objects,
+    emojis::Group::Symbols,
+    emojis::Group::Flags,
+];
+
+fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
+    let c = &k.c;
+    let query = s.emoji_query.text.trim().to_lowercase();
+    let pick = |post_id: &str, name: String| {
+        let post_id = post_id.to_owned();
+        move |s: &mut State| s.toggle_reaction(post_id.clone(), name.clone())
+    };
+    let cell = |key: String, label: String, face: El, name: String| {
+        rune::row()
+            .key(key)
+            .role("button")
+            .label(label)
+            .size(28.0, 28.0)
+            .center()
+            .radius(6.0)
+            .hover(c.hover)
+            .focusable(true)
+            .cursor(rune::Cursor::Pointer)
+            .on_press(pick(&post.id, name))
+            .child(face)
+    };
+    let mut grid = rune::row().gap(2.0).flex_wrap();
+    if !query.is_empty() {
+        for e in emojis::iter()
+            .filter(|e| e.name().contains(&query) || e.shortcodes().any(|c| c.contains(&query)))
+        {
+            let Some(name) = e.shortcode() else { continue };
+            grid = grid.child(cell(
+                format!("emoji-{name}"),
+                e.name().to_owned(),
+                text(e.as_str()).font(k.ty.body).a11y_hidden(),
+                name.to_owned(),
+            ));
+        }
+        for name in s.custom_emoji.iter().filter(|n| n.contains(&query)) {
+            grid = grid.child(cell(
+                format!("emoji-custom-{name}"),
+                name.clone(),
+                emoji_face(s, name, k),
+                name.clone(),
+            ));
+        }
+    } else if let Some(group) = s.emoji_tab {
+        for e in group
+            .emojis()
+            .filter(|e| e.skin_tone().is_none_or(|t| t == emojis::SkinTone::Default))
+        {
+            let Some(name) = e.shortcode() else { continue };
+            grid = grid.child(cell(
+                format!("emoji-{name}"),
+                e.name().to_owned(),
+                text(e.as_str()).font(k.ty.body).a11y_hidden(),
+                name.to_owned(),
+            ));
+        }
+    } else {
+        for name in &s.custom_emoji {
+            grid = grid.child(cell(
+                format!("emoji-custom-{name}"),
+                name.clone(),
+                emoji_face(s, name, k),
+                name.clone(),
+            ));
+        }
+    }
+    let tab = |key: String, label: &str, face: El, on: bool, group: Option<emojis::Group>| {
+        rune::row()
+            .key(key)
+            .role("button")
+            .label(label.to_owned())
+            .size(28.0, 28.0)
+            .center()
+            .radius(6.0)
+            .fill(if on { c.layer_03 } else { c.layer_02 })
+            .focusable(true)
+            .cursor(rune::Cursor::Pointer)
+            .on_press(move |s: &mut State| s.emoji_tab = group)
+            .child(face)
+    };
+    let mut tabs = rune::row().gap(2.0);
+    for group in EMOJI_TABS {
+        let glyph = group.emojis().next().map_or("", |e| e.as_str());
+        tabs = tabs.child(tab(
+            format!("emoji-tab-{group:?}"),
+            &format!("{group:?}"),
+            text(glyph).font(k.ty.body).a11y_hidden(),
+            s.emoji_tab == Some(group),
+            Some(group),
+        ));
+    }
+    if !s.custom_emoji.is_empty() {
+        tabs = tabs.child(tab(
+            "emoji-tab-custom".into(),
+            "Custom",
+            icon(&icons::STAR, 16.0).color(c.icon_muted).a11y_hidden(),
+            s.emoji_tab.is_none(),
+            None,
+        ));
+    }
+    let open = s.emoji_picker.as_deref() == Some(post.id.as_str());
+    let id = post.id.clone();
+    rune_kit::Popover::new(format!("emoji-picker-{}", post.id))
+        .trigger(
+            IconButton::new(&icons::SMILEY)
+                .label("Add reaction")
+                .control_size(ControlSize::Small)
+                .variant(IconButtonVariant::Ghost)
+                .on_press(move |s: &mut State| {
+                    s.emoji_query = TextEdit::default();
+                    s.emoji_picker = Some(id.clone());
+                })
+                .build(k)
+                .key("post-react"),
+        )
+        .open(open)
+        .padding(8.0)
+        .on_close(|s: &mut State| s.emoji_picker = None)
+        .child(
+            col()
+                .w(284.0)
+                .gap(8.0)
+                .child(
+                    rune::text_input(&s.emoji_query, k.ty.small)
+                        .key("emoji-search")
+                        .label("Search emoji")
+                        .single_line()
+                        .h(28.0)
+                        .px(8.0)
+                        .radius(6.0)
+                        .fill(c.layer_02)
+                        .color(c.text_base)
+                        .placeholder("Search emoji", c.text_muted)
+                        .caret(c.text_base, k.selection())
+                        .on_edit(|s: &mut State| &mut s.emoji_query),
+                )
+                .child(tabs)
+                .child(
+                    col()
+                        .key("emoji-grid")
+                        .h(220.0)
+                        .scroll(rune::ScrollSpec {
+                            stick_bottom: false,
+                        })
+                        .child(grid),
+                ),
+        )
+        .build(k, layer)
 }
 
 fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
@@ -167,8 +320,14 @@ fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
         pills = pills.child(
             rune::row()
                 .key(format!("reaction-{}-{name}", post.id))
-                .role("img")
+                .role("button")
                 .label(format!("{name} {count}"))
+                .focusable(true)
+                .cursor(rune::Cursor::Pointer)
+                .on_press({
+                    let (id, name) = (post.id.clone(), name.to_owned());
+                    move |s: &mut State| s.toggle_reaction(id.clone(), name.clone())
+                })
                 .h(22.0)
                 .px(8.0)
                 .gap(4.0)
@@ -176,7 +335,7 @@ fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
                 .radius(11.0)
                 .fill(c.layer_02)
                 .border(1.0, if mine { c.bg_accent } else { c.border_base })
-                .child(text(emoji_glyph(name)).font(k.ty.small).a11y_hidden())
+                .child(emoji_face(s, name, k))
                 .child(
                     text(count.to_string())
                         .font(k.ty.small)
@@ -1107,14 +1266,7 @@ pub(crate) fn workspace(s: &State) -> El {
                                 .build(&k)
                                 .key("post-reply"),
                         )
-                        .child(
-                            IconButton::new(&icons::SMILEY)
-                                .label("Add reaction")
-                                .control_size(ControlSize::Small)
-                                .variant(IconButtonVariant::Ghost)
-                                .build(&k)
-                                .key("post-react"),
-                        ),
+                        .child(emoji_picker(s, post, &k, &mut layer)),
                 ),
         );
     }

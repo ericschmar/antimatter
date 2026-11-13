@@ -98,6 +98,10 @@ pub(crate) struct State {
     pub(crate) saved_account_menu: Option<(AccountKey, PointerPress)>,
     pub(crate) editing_account: Option<AccountKey>,
     pub(crate) search: TextEdit,
+    pub(crate) emoji_picker: Option<String>,
+    pub(crate) emoji_query: TextEdit,
+    pub(crate) emoji_tab: Option<emojis::Group>,
+    pub(crate) custom_emoji: Vec<String>,
     pub(crate) search_results: Option<Vec<antimatter_services::mattermost::Post>>,
     pub(crate) pat: TextEdit,
     pub(crate) password: TextEdit,
@@ -170,6 +174,77 @@ impl State {
     pub(crate) fn remove_account(&mut self, key: AccountKey) {
         self.saved_account_menu = None;
         self.sign_out(key);
+    }
+
+    pub(crate) fn load_custom_emoji(&mut self) {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let Ok(list) = client.custom_emojis().await else {
+                return;
+            };
+            let names = list.iter().map(|e| e.name.clone()).collect();
+            handle.update(move |s, _| s.custom_emoji = names);
+            for emoji in list {
+                let Ok(bytes) = client.custom_emoji_image(&emoji.id).await else {
+                    continue;
+                };
+                handle.update(move |s, _| {
+                    s.avatars
+                        .finish(format!("emoji:{}", emoji.name), Some(bytes))
+                });
+            }
+        });
+    }
+
+    pub(crate) fn toggle_reaction(&mut self, post_id: String, name: String) {
+        self.emoji_picker = None;
+        let me = self.authenticated.as_ref().map(|k| k.user_id().to_owned());
+        let (Some(client), Some(runtime), Some(handle), Some(me)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            me,
+        ) else {
+            return;
+        };
+        let Some(post) = self.posts.iter().find(|p| p.id == post_id) else {
+            return;
+        };
+        let mine = post
+            .metadata
+            .reactions
+            .iter()
+            .any(|r| r.user_id == me && r.emoji_name == name);
+        runtime.spawn(async move {
+            let done = if mine {
+                client.remove_reaction(&me, &post_id, &name).await
+            } else {
+                client.add_reaction(&me, &post_id, &name).await
+            };
+            if done.is_err() {
+                return;
+            }
+            handle.update(move |s, _| {
+                let Some(post) = s.posts.iter_mut().find(|p| p.id == post_id) else {
+                    return;
+                };
+                let reactions = &mut post.metadata.reactions;
+                if mine {
+                    reactions.retain(|r| !(r.user_id == me && r.emoji_name == name));
+                } else {
+                    reactions.push(antimatter_services::mattermost::Reaction {
+                        user_id: me,
+                        emoji_name: name,
+                    });
+                }
+            });
+        });
     }
 
     pub(crate) fn run_search(&mut self) {
@@ -331,6 +406,10 @@ impl Default for State {
             saved_account_menu: None,
             editing_account: None,
             search: TextEdit::default(),
+            emoji_picker: None,
+            emoji_query: TextEdit::default(),
+            emoji_tab: Some(emojis::Group::SmileysAndEmotion),
+            custom_emoji: Vec::new(),
             search_results: None,
             pat: TextEdit::default().secure(),
             password: TextEdit::default().secure(),

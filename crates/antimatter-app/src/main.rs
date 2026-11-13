@@ -120,6 +120,10 @@ fn main() {
             }),
             ("conversation-proof", synthetic_workspace),
             ("workspace-proof", synthetic_workspace),
+            ("workspace-emoji-proof", |s| {
+                synthetic_workspace(s);
+                s.emoji_picker = Some("synthetic-post".into());
+            }),
             ("workspace-search-proof", |s| {
                 synthetic_workspace(s);
                 s.search = rune::TextEdit::new("synthetic".to_owned());

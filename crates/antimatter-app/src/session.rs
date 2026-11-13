@@ -199,6 +199,7 @@ impl State {
                         s.browser = None;
                     }
                     s.dispatch(Intent::Refresh);
+                    s.load_custom_emoji();
                 }
             });
             worker_runtime.spawn(async move {

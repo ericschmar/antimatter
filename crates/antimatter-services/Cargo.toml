@@ -8,6 +8,7 @@ description = "Mattermost conversation, account and websocket services. No UI de
 [dependencies]
 futures-util = { version = "0.3", features = ["sink"] }
 reqwest = { version = "0.12.28", default-features = false, features = ["json", "multipart", "rustls-tls-native-roots"] }
+scraper = "0.29.0"
 serde = { version = "1", features = ["derive"] }
 serde_json.workspace = true
 tokio.workspace = true
