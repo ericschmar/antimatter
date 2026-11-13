@@ -636,12 +636,12 @@ pub(crate) fn workspace(s: &State) -> El {
                         ),
                 )
                 .child(
-                    text(post_time(post.create_at))
-                        .font(k.ty.small)
-                        .color(c.text_muted)
-                        .h(line)
-                        .center_y()
-                        .shrink(),
+                    rune::row().h(line).center_y().shrink().child(
+                        text(post_time(post.create_at))
+                            .font(k.ty.small)
+                            .color(c.text_muted)
+                            .shrink(),
+                    ),
                 )
                 .child(
                     col().grow(1.0).shrink().min_w(0.0).child(
