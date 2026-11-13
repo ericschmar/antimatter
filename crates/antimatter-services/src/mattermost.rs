@@ -939,6 +939,28 @@ mod tests {
         assert!(requests[0].contains(r#"["u1","u2"]"#));
     }
 
+    #[test]
+    fn display_name_prefers_first_and_last_name() {
+        let user = |first: &str, last: &str, nickname: &str, username: &str| {
+            serde_json::from_value::<User>(serde_json::json!({
+                "id": "u1",
+                "username": username,
+                "first_name": first,
+                "last_name": last,
+                "nickname": nickname,
+            }))
+            .unwrap()
+        };
+        assert_eq!(
+            user("Ada", "Lovelace", "ada", "alovelace").display_name(),
+            "Ada Lovelace"
+        );
+        assert_eq!(user("Ada", "", "ada", "alovelace").display_name(), "Ada");
+        assert_eq!(user("", "", "ada", "alovelace").display_name(), "ada");
+        assert_eq!(user("", "", "", "alovelace").display_name(), "alovelace");
+        assert_eq!(user("", "", "", "").display_name(), "u1");
+    }
+
     #[tokio::test]
     async fn profile_image_fetches_user_image_bytes() {
         let (origin, task) =

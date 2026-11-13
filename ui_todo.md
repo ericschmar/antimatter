@@ -13,7 +13,7 @@
 [x] For channels that have unread messages, can we also make the channel name bold
 [x] Update the header for a selected channel to remove the status stuff and reload button. 
 [x] Channel Header -> Channel name left aligned; Avatar horizontal stack (max 5) with statuses & total user count right aligned
-[ ] Message timeline -> Use the First/Last name of user, not their user name
+[x] Message timeline -> Use the First/Last name of user, not their user name
 [ ] Message timeline -> Include timestamp (ex: 12:34 pm) 
 [ ] Message timeline -> Add separator between days 
 [ ] Message timeline -> add status indicator to the left of users
