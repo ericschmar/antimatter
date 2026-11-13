@@ -8,7 +8,8 @@ use antimatter_services::mattermost::Channel;
 use antimatter_theme::icons;
 use rune::{El, Icon, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
-    ButtonVariant, Markdown, MarkdownStyle, MenuItem, Select, SelectAppearance, SidebarRow,
+    ButtonVariant, Markdown, MarkdownStyle, MenuItem, ScrollBar, Select, SelectAppearance,
+    SidebarRow,
 };
 
 pub(crate) const TITLEBAR: f32 = 40.0;
@@ -484,7 +485,16 @@ pub(crate) fn workspace(s: &State) -> El {
                         .a11y_hidden(),
                 ),
         )
-        .child(sidebar)
+        .child(
+            sidebar
+                .key("sidebar-channels")
+                .grow(1.0)
+                .min_h(0.0)
+                .scroll(rune::ScrollSpec {
+                    stick_bottom: false,
+                })
+                .scroll_bar(&k),
+        )
         .child(channel_menu);
     let width = s.sidebar.width();
     let grip = el()
@@ -733,7 +743,7 @@ pub(crate) fn workspace(s: &State) -> El {
     {
         main = main.child(status);
     }
-    main = main.child(ledger).child(
+    main = main.child(ledger.scroll_bar(&k)).child(
         col()
             .w_full()
             .px(16.0)
