@@ -618,6 +618,7 @@ fn pending_acknowledgement_does_not_unlock_refresh() {
     let mut rt = ui(sender);
     rt.state.draft.text = "keep text".into();
     rt.state.apply(Update::Pending(Some(pending())));
+    rt.state.error = Some("Could not refresh conversation. Reload to try again.");
     tap(&mut rt, "reload");
     assert!(!rt.state.ready);
     rt.state.apply(Update::Pending(None));

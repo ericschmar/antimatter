@@ -454,30 +454,8 @@ pub(crate) fn workspace(s: &State) -> El {
                 .center_y()
                 .gap(12.0)
                 .window_drag()
-                .child(tab_strip(s, &mut layer))
-                .child(button(
-                    "reload",
-                    "Reload",
-                    s.busy || (!s.ready && s.error.is_none()),
-                    |s| {
-                        if s.dispatch(Intent::Refresh) {
-                            s.ready = false;
-                            s.error = None;
-                        }
-                    },
-                )),
+                .child(tab_strip(s, &mut layer)),
         );
-    let notice = if s.durable.is_some() {
-        if s.checkpoint_retry.is_some() {
-            "UNSAVED: retry durable update before closing. Closing cannot be blocked; failed writes lose the latest edits."
-        } else if s.busy {
-            "Saving durable state… wait before closing. Accepted writes cannot be cancelled or rolled back."
-        } else {
-            "Drafts autosave after edits. A crash or failed write can lose the latest edit. Pending delivery blocks switching/sign-out."
-        }
-    } else {
-        "Session-only: per-tab drafts are kept in memory; closing/disconnecting discards them. Use Remember for durable autosave."
-    };
     let mut actions = rune::row().w_full().gap(8.0).flex_wrap().child(button(
         "disconnect",
         "Disconnect session",
@@ -492,24 +470,7 @@ pub(crate) fn workspace(s: &State) -> El {
             |s| s.checkpoint(AfterCheckpoint::Save),
         ));
     }
-    main = main.child(
-        col()
-            .w_full()
-            .px(16.0)
-            .pb(8.0)
-            .gap(4.0)
-            .child(
-                text(format!(
-                    "Connection: {:?}{}",
-                    s.connection,
-                    if s.ready { "" } else { " · refreshing" }
-                ))
-                .font(k.ty.small)
-                .color(c.text_muted),
-            )
-            .child(text(notice).font(k.ty.small).color(c.text_muted).wrap())
-            .child(actions),
-    );
+    main = main.child(col().w_full().px(16.0).pb(8.0).gap(4.0).child(actions));
     let mut status = col().w_full().px(16.0).pb(8.0).gap(8.0);
     if s.recovered_pending {
         status = status.child(text("Unresolved durable submission. Text is retained below and cannot be resent, switched or signed out; delivery recovery requires manual verification.").color(c.warning.fg).wrap());
@@ -566,7 +527,15 @@ pub(crate) fn workspace(s: &State) -> El {
             );
     }
     if let Some(error) = s.error {
-        status = status.child(text(error).color(c.warning.fg).wrap());
+        status = status.child(text(error).color(c.warning.fg).wrap()).child(
+            button("reload", "Reload", s.busy, |s| {
+                if s.dispatch(Intent::Refresh) {
+                    s.ready = false;
+                    s.error = None;
+                }
+            })
+            .self_start(),
+        );
     }
     if s.recovered_pending
         || s.checkpoint_retry.is_some()
