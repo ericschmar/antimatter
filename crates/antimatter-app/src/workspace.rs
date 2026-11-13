@@ -54,6 +54,38 @@ fn server_labels(s: &State) -> Vec<String> {
         .collect()
 }
 
+fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
+    let c = &k.c;
+    let mut stack = rune::row().gap(-6.0).center_y();
+    for user_id in s.members.iter().take(5) {
+        let dot = match s.peer_presence.get(user_id).map(String::as_str) {
+            Some("online") => c.success.icon,
+            Some("away") | Some("dnd") => c.warning.icon,
+            _ => c.icon_muted,
+        };
+        let avatar = match s.avatars.get(user_id) {
+            Some(image) => el().size(24.0, 24.0).radius(12.0).pixels(image.pixels()),
+            None => el().size(24.0, 24.0).radius(12.0).fill(c.layer_02),
+        };
+        stack = stack.child(
+            el().size(24.0, 24.0).child(avatar).child(
+                el().key("status-dot")
+                    .size(6.0, 6.0)
+                    .radius(3.0)
+                    .fill(dot)
+                    .absolute(18.0, 18.0)
+                    .a11y_hidden(),
+            ),
+        );
+    }
+    stack.child(
+        text(s.members.len().to_string())
+            .font(k.ty.small)
+            .color(c.text_muted)
+            .a11y_hidden(),
+    )
+}
+
 fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let me = s.authenticated.as_ref();
@@ -456,6 +488,28 @@ pub(crate) fn workspace(s: &State) -> El {
                 .window_drag()
                 .child(tab_strip(s, &mut layer)),
         );
+    let channel_name = s
+        .channel
+        .as_deref()
+        .and_then(|id| s.channels.iter().find(|c| c.id == id))
+        .map(|c| c.display_name.clone())
+        .unwrap_or_default();
+    main = main.child(
+        rune::row()
+            .w_full()
+            .px(16.0)
+            .pt(8.0)
+            .center_y()
+            .child(
+                text(channel_name)
+                    .font(k.ty.small_medium)
+                    .color(c.text_base)
+                    .grow(1.0)
+                    .min_w(0.0)
+                    .truncate(),
+            )
+            .child(member_stack(s, &k)),
+    );
     let mut actions = rune::row().w_full().gap(8.0).flex_wrap().child(button(
         "disconnect",
         "Disconnect session",

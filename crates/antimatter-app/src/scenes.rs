@@ -31,6 +31,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         }))
         .collect();
     s.peer_presence = HashMap::from([("synthetic-peer".into(), "online".into())]);
+    s.members = vec!["synthetic-user".into(), "synthetic-peer".into()];
     s.authenticated =
         antimatter_services::mattermost::ServerOrigin::new("https://synthetic.example", true)
             .ok()

@@ -14,6 +14,7 @@ pub struct Unread {
 
 pub enum Intent {
     Load(String),
+    Members(String),
     Send(String),
     Retry,
     Refresh,
@@ -49,6 +50,10 @@ pub enum Update {
         channel_id: String,
         posts: Vec<Post>,
         names: HashMap<String, String>,
+    },
+    Members {
+        channel_id: String,
+        user_ids: Vec<String>,
     },
     Upsert(Post),
     Deleted {
@@ -197,6 +202,13 @@ impl Worker {
                     self.refresh().await
                 }
                 Intent::Refresh => self.refresh().await,
+                Intent::Members(channel) => {
+                    if channel.trim().is_empty() {
+                        return Err(Failure::InvalidInput);
+                    }
+                    self.members(&channel).await;
+                    Ok(())
+                }
                 Intent::Send(message) => {
                     if self.pending.is_some() || message.trim().is_empty() {
                         return Err(Failure::InvalidInput);
@@ -422,6 +434,37 @@ impl Worker {
         }
         self.emit(Update::Ready(true)).await;
         Ok(())
+    }
+
+    // Best effort: a failed member lookup leaves the header without a stack.
+    async fn members(&mut self, channel: &str) {
+        let Ok(members) = self.client.channel_members(channel, 0).await else {
+            return;
+        };
+        let ids: Vec<String> = members
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|member| member.get("user_id")?.as_str().map(str::to_owned))
+            .collect();
+        let shown: Vec<_> = ids.iter().take(5).cloned().collect();
+        if !shown.is_empty()
+            && let Ok(statuses) = self.client.statuses(&shown).await
+        {
+            let statuses: HashMap<_, _> = statuses.into_iter().collect();
+            self.emit(Update::PeerPresence(statuses)).await;
+        }
+        for peer in shown {
+            if self.avatars.insert(peer.clone()) {
+                let bytes = self.client.profile_image(&peer).await.ok();
+                self.emit(Update::PeerAvatar(peer, bytes)).await;
+            }
+        }
+        self.emit(Update::Members {
+            channel_id: channel.to_owned(),
+            user_ids: ids,
+        })
+        .await;
     }
 
     // Best effort and idempotent: failure leaves the server counts for the next refresh.

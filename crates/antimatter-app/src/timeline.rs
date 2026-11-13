@@ -81,8 +81,10 @@ impl State {
             self.navigation.channel_id = Some(channel.clone());
             self.restore_draft(&channel);
             self.posts.clear();
+            self.members.clear();
             self.ready = false;
             self.error = None;
+            self.dispatch(Intent::Members(channel));
         }
     }
 
@@ -115,8 +117,16 @@ impl State {
             }
             Update::Unread(unread) => self.unread = unread,
             Update::Presence(presence) => self.presence = presence,
-            Update::PeerPresence(presence) => self.peer_presence = presence,
+            Update::PeerPresence(presence) => self.peer_presence.extend(presence),
             Update::PeerAvatar(user_id, bytes) => self.avatars.finish(user_id, bytes),
+            Update::Members {
+                channel_id,
+                user_ids,
+            } => {
+                if self.channel.as_deref() == Some(&channel_id) {
+                    self.members = user_ids;
+                }
+            }
             Update::Timeline {
                 channel_id,
                 posts,
