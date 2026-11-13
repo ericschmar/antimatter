@@ -4,7 +4,7 @@ use crate::theme::workspace_theme;
 use crate::widgets::*;
 use antimatter_services::accounts::Account;
 use antimatter_services::conversation::Intent;
-use antimatter_services::mattermost::Channel;
+use antimatter_services::mattermost::{Channel, Post};
 use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
 use rune::{El, Icon, TextStyle, col, el, icon, row as hbox, text};
@@ -100,6 +100,33 @@ fn presence_dot(status: Option<&str>, c: &rune_kit::Palette) -> rune::Color {
         Some("away") | Some("dnd") => c.warning.icon,
         _ => c.icon_muted,
     }
+}
+
+fn author_marker(s: &State, post: &Post, c: &rune_kit::Palette) -> El {
+    let dot = presence_dot(s.peer_presence.get(&post.user_id).map(String::as_str), c);
+    if !s.show_timeline_avatars {
+        return el().size(6.0, 6.0).radius(3.0).fill(dot);
+    }
+    let avatar = match s.avatars.get(&post.user_id) {
+        Some(image) => el()
+            .size(24.0, 24.0)
+            .radius(12.0)
+            .border(1.5, c.bg_base)
+            .pixels(image.pixels()),
+        None => el()
+            .size(24.0, 24.0)
+            .radius(12.0)
+            .border(1.5, c.bg_base)
+            .fill(c.layer_02),
+    };
+    el().size(24.0, 24.0).child(avatar).child(
+        el().key("status-dot")
+            .size(6.0, 6.0)
+            .radius(3.0)
+            .fill(dot)
+            .absolute(18.0, 18.0)
+            .a11y_hidden(),
+    )
 }
 
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
@@ -599,10 +626,7 @@ pub(crate) fn workspace(s: &State) -> El {
                         .shrink()
                         .gap(6.0)
                         .center_y()
-                        .child(el().size(6.0, 6.0).radius(3.0).fill(presence_dot(
-                            s.peer_presence.get(&post.user_id).map(String::as_str),
-                            c,
-                        )))
+                        .child(author_marker(s, post, c))
                         .child(
                             text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
                                 .shrink()

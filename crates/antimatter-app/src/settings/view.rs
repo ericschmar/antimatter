@@ -80,9 +80,11 @@ impl SettingsState {
         }
         let message_font_size = self.prefs.message_font_size;
         let message_spacing = self.prefs.timeline_message_spacing;
+        let show_timeline_avatars = self.prefs.show_timeline_avatars;
         self.workspace_action(move |ws| {
             ws.message_font_size = message_font_size;
             ws.message_spacing = message_spacing;
+            ws.show_timeline_avatars = show_timeline_avatars;
         });
     }
 }

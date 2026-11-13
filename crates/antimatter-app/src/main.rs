@@ -140,6 +140,10 @@ fn main() {
                 synthetic_workspace(s);
                 s.message_spacing = antimatter_services::settings::MessageSpacing::Large;
             }),
+            ("workspace-avatars-off-proof", |s| {
+                synthetic_workspace(s);
+                s.show_timeline_avatars = false;
+            }),
             ("workspace-scroll-history-proof", synthetic_history),
             ("workspace-loading-older-proof", |s| {
                 synthetic_workspace(s);
@@ -186,6 +190,7 @@ fn main() {
     let (prefs, load_error) = settings_prefs();
     let prefs_font_size = prefs.message_font_size;
     let prefs_spacing = prefs.timeline_message_spacing;
+    let prefs_avatars = prefs.show_timeline_avatars;
     let handle = app.handle();
     let (settings, settings_app) =
         crate::settings::window(&mut app, prefs, settings_path(), load_error, handle.clone());
@@ -205,6 +210,7 @@ fn main() {
             settings_app: Some(settings_app),
             message_font_size: prefs_font_size,
             message_spacing: prefs_spacing,
+            show_timeline_avatars: prefs_avatars,
             ..State::default()
         };
         if !rune::is_headless() {

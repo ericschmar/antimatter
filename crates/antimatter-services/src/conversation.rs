@@ -234,6 +234,12 @@ impl Worker {
                         let statuses: HashMap<_, _> = statuses.into_iter().collect();
                         self.emit(Update::PeerPresence(statuses)).await;
                     }
+                    for id in ids {
+                        if self.avatars.insert(id.clone()) {
+                            let bytes = self.client.custom_profile_image(&id).await.ok();
+                            self.emit(Update::PeerAvatar(id, bytes)).await;
+                        }
+                    }
                     Ok(())
                 }
                 Intent::Send(message) => {
