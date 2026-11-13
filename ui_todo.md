@@ -8,7 +8,7 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [ ] Handle mattermost server-specific emojis as a category in our picker and within pills.  
 [x] Do NOT implement the full row highlight. Just highlight the text within a colored badge for "@here" and the "@<me>"
 [ ] https://github.com/ZhangHanDong/url-preview for generating preview cards within the message
-[ ] I really like the code block in that screenshot, so let's copy that 
+[x] I really like the code block in that screenshot, so let's copy that 
 [ ] I like image viewing opening in the default OS preview
 [ ] For messages with multiple images, draw them as a stack, give them a little border radius, and when clicked on.. maybe a context menu with the different image names, and you can click on one and open it in the preview
 [ ] I also like the reply UI in that screenshot, so let's do ours like that. 

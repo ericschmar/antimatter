@@ -82,7 +82,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         id: "synthetic-multiline".into(),
         channel_id: "synthetic-channel".into(),
         user_id: "synthetic-user".into(),
-        message: "Synthetic multiline message\n\nSecond paragraph, so the header must sit on the first line.".into(),
+        message: "Synthetic multiline message\n\nSecond paragraph, so the header must sit on the first line.\n\n```sh\n$ pied-piper bench\nratio 2.61\n```".into(),
         create_at: 2,
         update_at: 0,
         delete_at: 0,

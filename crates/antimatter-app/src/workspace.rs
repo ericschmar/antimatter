@@ -213,6 +213,36 @@ fn mentions(message: &str, me: Option<&str>) -> Vec<(std::ops::Range<usize>, boo
     out
 }
 
+fn code_frame(k: &rune_kit::Kit, card: El, code: &rune_kit::CodeFrame<'_>) -> El {
+    let source = code.source.to_owned();
+    col()
+        .key(format!("code-{}", code.index))
+        .w_full()
+        .gap(4.0)
+        .child(
+            rune::row()
+                .w_full()
+                .px(4.0)
+                .center_y()
+                .child(
+                    text(code.language.unwrap_or("code").to_owned())
+                        .font(k.ty.small_medium)
+                        .color(k.c.text_muted)
+                        .grow(1.0),
+                )
+                .child(
+                    IconButton::new(&icons::COPY)
+                        .label("Copy code")
+                        .control_size(ControlSize::Small)
+                        .variant(IconButtonVariant::Ghost)
+                        .on_press_tx(move |_: &mut State, tx| tx.copy(source.clone()))
+                        .build(k)
+                        .key(format!("code-copy-{}", code.index)),
+                ),
+        )
+        .child(card)
+}
+
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let mut stack = rune::row().gap(-6.0).center_y();
@@ -822,6 +852,10 @@ pub(crate) fn workspace(s: &State) -> El {
                                     line_height: f32::from(s.message_font_size) * 1.6,
                                     ..k.ty.ui
                                 }))
+                                .code_frame({
+                                    let k = k.clone();
+                                    move |card, code| code_frame(&k, card, code)
+                                })
                                 .build(&k),
                         )
                         .child(reaction_pills(s, post, &k)),
