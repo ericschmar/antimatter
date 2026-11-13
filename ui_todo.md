@@ -28,7 +28,7 @@
 [x] message timeline -> slightly increase the width of the user + time to handle longer names
 [x] channel sidebar -> increase the default width slightly
 [x] for multiline messages, the status/name/date should be aligned at the top of the message
-[ ] add scroll bar to the message list and channel side bar
+[x] add scroll bar to the message list and channel side bar
 [ ] make chat loader be centered horizontally
 [ ] control row height through "Message spacing" setting
 [ ] show user's avatars instead of the status icon (controlled by setting)
