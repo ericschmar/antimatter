@@ -160,12 +160,16 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
             ),
         );
     }
-    rune::row().gap(6.0).center_y().child(stack).child(
-        text(s.members.len().to_string())
-            .font(k.ty.small)
-            .color(c.text_muted)
-            .a11y_hidden(),
-    )
+    let mut group = rune::row().gap(6.0).center_y().child(stack);
+    if s.members.len() > 1 {
+        group = group.child(
+            text(s.members.len().to_string())
+                .font(k.ty.small)
+                .color(c.text_muted)
+                .a11y_hidden(),
+        );
+    }
+    group
 }
 
 fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
