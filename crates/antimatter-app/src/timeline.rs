@@ -83,8 +83,25 @@ impl State {
             self.posts.clear();
             self.members.clear();
             self.ready = false;
-            self.error = None;
+            self.loading_older = false;
             self.dispatch(Intent::Members(channel));
+        }
+    }
+
+    pub(crate) fn load_older(&mut self) {
+        if !self.ready
+            || self.busy
+            || self.submitted
+            || self.recovered_pending
+            || self.pending.is_some()
+            || !self.has_older
+            || self.synthetic
+        {
+            return;
+        }
+        if self.dispatch(Intent::Older) {
+            self.ready = false;
+            self.loading_older = true;
         }
     }
 
@@ -145,6 +162,7 @@ impl State {
                 channel_id,
                 posts,
                 names,
+                has_older,
             } => {
                 if self.channel.as_deref() == Some(&channel_id) {
                     let mut authors: Vec<String> =
@@ -152,10 +170,30 @@ impl State {
                     authors.sort();
                     authors.dedup();
                     self.posts = posts;
+                    self.has_older = has_older;
                     self.names.extend(names);
                     if let Some(sender) = &self.intents {
                         let _ = sender.try_send(Intent::Presence(authors));
                     }
+                }
+            }
+            Update::Older {
+                channel_id,
+                posts,
+                names,
+                has_older,
+            } => {
+                if self.channel.as_deref() == Some(&channel_id) {
+                    self.has_older = has_older;
+                    self.loading_older = false;
+                    self.names.extend(names);
+                    for post in posts {
+                        if !self.posts.iter().any(|p| p.id == post.id) {
+                            self.posts.push(post);
+                        }
+                    }
+                    self.posts
+                        .sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
                 }
             }
             Update::Upsert(post) => {
@@ -200,6 +238,7 @@ impl State {
             }
             Update::Connection(connection) => self.connection = connection,
             Update::Failed(failure) => {
+                self.loading_older = false;
                 self.error = Some(match failure {
                     conversation::Failure::Send => {
                         "Send failed. Draft retained; check delivery before retrying."

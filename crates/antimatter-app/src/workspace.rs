@@ -56,6 +56,19 @@ fn server_labels(s: &State) -> Vec<String> {
         .collect()
 }
 
+const LEDGER_TOP_SLACK: f32 = 24.0;
+
+fn older_loader(s: &State, k: &rune_kit::Kit) -> El {
+    if !s.loading_older {
+        return el().h(0.0);
+    }
+    rune::icon(&antimatter_theme::loader::SPINNER, 16.0)
+        .color(k.c.icon_muted)
+        .looping(rune::LoopSpec::rotation(0.9))
+        .label("Loading older messages")
+        .role("progressbar")
+}
+
 fn post_day(create_at: i64) -> Option<chrono::NaiveDate> {
     chrono::DateTime::from_timestamp_millis(create_at)
         .map(|at| at.with_timezone(&chrono::Local).date_naive())
@@ -493,11 +506,40 @@ pub(crate) fn workspace(s: &State) -> El {
             rune::Phase::Move => s.sidebar.drag_to(d.data + d.dx),
             rune::Phase::Up => {}
         });
+    let offset = s.ledger_offset.clone();
+    let hand_scrolled = s.ledger_hand_scrolled.clone();
     let mut ledger = col()
         .key("timeline")
         .grow(1.0)
         .min_h(0.0)
-        .scroll(rune::ScrollSpec { stick_bottom: true });
+        .scroll(rune::ScrollSpec { stick_bottom: true })
+        .scroll_anchor()
+        .on_scroll_offset(move |at| {
+            offset.store(at.offset[1].to_bits(), std::sync::atomic::Ordering::Relaxed);
+            if rune::scroll_watch_state().0 {
+                hand_scrolled.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        });
+    if s.has_older {
+        ledger = ledger.child(
+            rune::row()
+                .key("older-sentinel")
+                .w_full()
+                .px(16.0)
+                .py(8.0)
+                .on_layout(|s: &mut State, _| {
+                    let offset =
+                        f32::from_bits(s.ledger_offset.load(std::sync::atomic::Ordering::Relaxed));
+                    if offset <= LEDGER_TOP_SLACK
+                        && s.ledger_hand_scrolled
+                            .swap(false, std::sync::atomic::Ordering::Relaxed)
+                    {
+                        s.load_older();
+                    }
+                })
+                .child(older_loader(s, &k)),
+        );
+    }
     let mut previous_day = None;
     for post in &s.posts {
         let day = post_day(post.create_at);

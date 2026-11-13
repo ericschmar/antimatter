@@ -42,7 +42,8 @@ impl State {
         self.members.clear();
         self.avatars.clear();
         self.posts.clear();
-        self.pending = None;
+        self.has_older = false;
+        self.loading_older = false;
         self.clear_draft();
         self.ready = false;
         self.busy = false;

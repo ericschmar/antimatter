@@ -66,3 +66,20 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         pending_post_id: String::new(),
     });
 }
+
+pub(crate) fn synthetic_history(s: &mut State) {
+    synthetic_workspace(s);
+    s.has_older = true;
+    s.posts = (0..40)
+        .map(|i| Post {
+            id: format!("synthetic-history-{i}"),
+            channel_id: "synthetic-channel".into(),
+            user_id: "synthetic-user".into(),
+            message: format!("Synthetic history message {i}"),
+            create_at: 1_000 + i as i64,
+            update_at: 0,
+            delete_at: 0,
+            pending_post_id: String::new(),
+        })
+        .collect();
+}

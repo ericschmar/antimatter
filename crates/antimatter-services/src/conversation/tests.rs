@@ -308,6 +308,8 @@ fn worker(origin: ServerOrigin, pending: Option<Pending>) -> (Worker, mpsc::Rece
             presence: String::new(),
             avatars: HashSet::new(),
             previous: None,
+            has_older: false,
+            older: HashSet::new(),
             pending,
         },
         rx,
@@ -747,7 +749,7 @@ async fn reconcile_allows_repeated_unordered_parents_and_acknowledges_extra() {
 async fn refresh_replaces_offline_snapshot_and_rejects_invalid_extras_atomically() {
     let mut impostor = post("spoof", "pending");
     impostor.user_id = "other".into();
-    let navigation = vec![
+    let navigation = [
         Some((200, json!([{"id":"t","name":"team"}]))),
         Some((
             200,
@@ -974,6 +976,8 @@ async fn retry_fails_closed_on_missing_terminal_proof() {
         presence: String::new(),
         avatars: HashSet::new(),
         previous: None,
+        has_older: false,
+        older: HashSet::new(),
         pending: Some(pending.clone()),
     };
     assert_eq!(worker.intent(Intent::Retry).await, Err(Failure::Reconcile));
@@ -984,4 +988,53 @@ async fn retry_fails_closed_on_missing_terminal_proof() {
     assert!(matches!(rx.try_recv(), Ok(Update::Ready(true))));
     assert!(rx.try_recv().is_err());
     server.await.unwrap();
+}
+
+#[tokio::test]
+async fn older_page_requests_the_cursor_and_clears_at_history_start() {
+    let mut newest = post("newest", "");
+    newest.create_at = 300;
+    let mut middle = post("middle", "");
+    middle.create_at = 200;
+    let mut oldest = post("oldest", "");
+    oldest.create_at = 100;
+    let (mut worker, mut rx, server) = scripted(vec![
+        Some((
+            200,
+            json!({"order":["middle"],"posts":{"middle":middle.clone()},"prev_post_id":"oldest"}),
+        )),
+        Some((200, json!([{"id":"u","username":"user"}]))),
+        Some((
+            200,
+            json!({"order":["oldest"],"posts":{"oldest":oldest.clone()},"prev_post_id":""}),
+        )),
+        Some((200, json!([{"id":"u","username":"user"}]))),
+    ])
+    .await;
+    worker.pending = None;
+    worker.channel = Some("c".into());
+    worker.has_older = true;
+    worker.posts.insert(newest.id.clone(), newest.clone());
+    worker.intent(Intent::Older).await.unwrap();
+    assert!(worker.has_older);
+    worker.intent(Intent::Older).await.unwrap();
+    assert!(!worker.has_older);
+    assert!(worker.posts.contains_key("oldest") && worker.posts.contains_key("middle"));
+    let mut seen = vec![];
+    while let Ok(update) = rx.try_recv() {
+        if let Update::Older {
+            posts, has_older, ..
+        } = update
+        {
+            seen.push((posts.len(), has_older));
+        }
+    }
+    assert_eq!(seen, [(1, true), (1, false)]);
+    let requests = server.finish().await;
+    assert!(
+        requests[0].starts_with("GET /api/v4/channels/c/posts?per_page=60&page=0&before=newest ")
+    );
+    assert!(
+        requests[2].starts_with("GET /api/v4/channels/c/posts?per_page=60&page=0&before=middle ")
+    );
 }

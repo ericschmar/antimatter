@@ -100,7 +100,20 @@ locked/retry states without services, credential/storage access or OS actions.
 Synthetic local transitions never publish real intents or modify durable state.
 Sidebar width is window-local for this foundation; durable pane/layout and
 preference restoration are subsequent work, not implied by presentation.
-This foundation slice does not implement incremental history anchors, rich
+Incremental history (approved 2026-11-12): older history loads automatically, and only after the
+user has scrolled by hand to the top of a channel (`scroll_watch_state` reports a hand scroll).
+Opening a channel, a prepend anchoring the view, or a short channel never pages. The ledger
+reports its offset and a hand-scroll flag through `on_scroll_offset` into shared atomics; a
+sentinel row at the top takes that flag from its `on_layout` handler, consumes it, and requests
+`load_older` when the offset is within 24 pt of the top, so one hand scroll buys one page. A
+loading page shows Phosphor's spinner (`ph-spinner`, `antimatter-theme/src/loader.rs`) in place
+of the sentinel; there is no load button. Requests are inert while busy,
+submitted, pending, recovered, not ready, synthetic, or when no older history is known.
+The ledger uses `scroll_anchor()` so prepended rows keep the visible row in place.
+Synthetic scenes `workspace-history-proof`, `workspace-loading-older-proof` and
+`workspace-scroll-history-proof` show the control, spinner and scrollable history; live
+paging is not verified.
+This foundation slice does not implement rich
 message actions; the independent Settings window is specified in
 [settings/SPEC.md](settings/SPEC.md) (`antimatter-rust-settings`); tabs are specified below; splits are a decided non-goal. An in-window Kit
 Page must not replace the independent native singleton.
@@ -174,8 +187,7 @@ so existing preferences restore with no tabs); an invalid list is rejected like
 an invalid channel ID. Tabs whose channel is no longer navigable are dropped on
 the next navigation update. Unread/mention status appears on inactive tabs.
 Known gaps: the preview tab is not italic (the kit tab has no title-style hook;
-it is described as "Preview tab" for accessibility); scroll anchors are not
-implemented. The user decided on 2026-11-11 that split panes will not be implemented;
+it is described as "Preview tab" for accessibility). The user decided on 2026-11-11 that split panes will not be implemented;
 docs 01, 03, 04, 06 and 08 record the same decision, and this runtime does not
 reserve pane-tree or split-ratio state.
 

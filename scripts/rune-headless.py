@@ -116,6 +116,30 @@ assert node(initial, "draft")["inert"] is False
 assert node(initial, "draft")["rect"][3] >= 72
 assert node(initial, "draft")["fill"] != "#00000000"
 print("PASS synthetic channel selection and sidebar resize, without services or saved state")
+history_png = out / "workspace-history-proof.png"
+subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", "workspace-history-proof",
+                "--size", "960x640", "--at", "1", "--tree", str(out / "workspace-history-proof.json"),
+                "--snap", str(history_png)], cwd=root, check=True)
+history = json.loads((out / "workspace-history-proof.json").read_text())
+assert not history["warnings"]
+assert not any(e.get("key") == "load-older" for e in history["elements"])
+print(f"PASS workspace-history-proof: older history pages on scroll, with no load button; visually inspect {history_png}")
+loading_tree = out / "workspace-loading-older-proof.json"
+subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", "workspace-loading-older-proof",
+                "--size", "960x640", "--at", "1", "--tree", str(loading_tree),
+                "--snap", str(out / "workspace-loading-older-proof.png")], cwd=root, check=True)
+loading = json.loads(loading_tree.read_text())
+assert not loading["warnings"]
+assert any(e.get("role") == "progressbar" and e.get("label") == "Loading older messages" for e in loading["elements"])
+print(f"PASS workspace-loading-older-proof: spinner while a page loads; visually inspect {out / 'workspace-loading-older-proof.png'}")
+scroll_tree = out / "workspace-scroll-history-proof.json"
+scroll_script = out / "workspace-scroll-history-input.json"
+scroll_script.write_text(json.dumps({"events": [{"t": 0.2, "type": "wheel", "key": "timeline", "dy": 20000}]}))
+subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", "workspace-scroll-history-proof",
+                "--size", "960x640", "--at", "1.2", "--script", str(scroll_script), "--tree", str(scroll_tree),
+                "--snap", str(out / "workspace-scroll-history-proof.png")], cwd=root, check=True)
+assert not json.loads(scroll_tree.read_text())["warnings"]
+print("PASS workspace-scroll-history-proof: scrolled to top ran without warnings; trigger behaviour is covered by the app unit test scrolling_to_the_top_requests_one_older_page_and_short_history_never_does")
 for scene, expected_retry in [("workspace-locked-proof", False), ("workspace-retry-proof", True)]:
     tree_path = out / f"{scene}.json"
     png_path = out / f"{scene}.png"

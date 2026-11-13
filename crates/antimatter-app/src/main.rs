@@ -19,7 +19,7 @@ mod view;
 mod widgets;
 mod workspace;
 
-use crate::scenes::synthetic_workspace;
+use crate::scenes::{synthetic_history, synthetic_workspace};
 use crate::state::*;
 use crate::view::view;
 use antimatter_services::{
@@ -131,6 +131,16 @@ fn main() {
                     display_name: "synthetic-third".into(),
                     kind: "O".into(),
                 });
+            }),
+            ("workspace-history-proof", |s| {
+                synthetic_workspace(s);
+                s.has_older = true;
+            }),
+            ("workspace-scroll-history-proof", synthetic_history),
+            ("workspace-loading-older-proof", |s| {
+                synthetic_workspace(s);
+                s.has_older = true;
+                s.loading_older = true;
             }),
             ("workspace-locked-proof", |s| {
                 synthetic_workspace(s);

@@ -8,7 +8,13 @@ use antimatter_services::{
 use rune::PointerPress;
 use rune::{AppHandle, TextEdit};
 use rune_kit::{PaneState, shell::TabDragState};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU32},
+    },
+};
 use tokio::sync::mpsc;
 
 pub(crate) const COMPOSER: &str = "conversation";
@@ -110,6 +116,10 @@ pub(crate) struct State {
     pub(crate) members: Vec<String>,
     pub(crate) avatars: crate::avatars::Avatars,
     pub(crate) posts: Vec<Post>,
+    pub(crate) has_older: bool,
+    pub(crate) ledger_offset: Arc<AtomicU32>,
+    pub(crate) ledger_hand_scrolled: Arc<AtomicBool>,
+    pub(crate) loading_older: bool,
     pub(crate) pending: Option<Pending>,
     pub(crate) ready: bool,
     pub(crate) busy: bool,
@@ -256,6 +266,10 @@ impl Default for State {
             members: Vec::new(),
             avatars: crate::avatars::Avatars::default(),
             posts: vec![],
+            has_older: false,
+            ledger_offset: Arc::new(AtomicU32::new(0)),
+            ledger_hand_scrolled: Arc::new(AtomicBool::new(false)),
+            loading_older: false,
             pending: None,
             ready: false,
             busy: false,

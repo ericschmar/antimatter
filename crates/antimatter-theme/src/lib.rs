@@ -4,6 +4,7 @@
 //! is set here; nothing is inherited from `Kit::neutral` or `Kit::from_palette`.
 
 pub mod icons;
+pub mod loader;
 
 use rune::{Color, Shadow, Spring, TextStyle, color::hex};
 use rune_kit::{Elevation, Kit, Motion, Palette, Radius, StateColors, Type, glyphs};

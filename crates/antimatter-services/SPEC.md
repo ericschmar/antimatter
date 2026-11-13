@@ -52,6 +52,10 @@ Refresh replaces the latest-page snapshot, removing offline deletions, and refre
 navigation/history before `Ready(true)`. Authentication triggers refresh even on
 the first connection. Nonfatal malformed frames do not imply connectivity loss.
 
+Older history is an explicit `Older` intent: one page (60 posts) before the oldest
+loaded post, using the `before` cursor, prepended as `Update::Older` with `has_older`
+(from `prev_post_id`). Refresh keeps previously paged-back posts only while they are
+absent from the newest page, so offline deletions in the newest window still drop.
 Refresh also reads per-channel unread counts (`ChannelUnread`, bounded concurrency,
 advisory on failure) and, after the active channel's timeline is published, posts
 the channel-view request (best effort, idempotent). `posted`/`channel_viewed`

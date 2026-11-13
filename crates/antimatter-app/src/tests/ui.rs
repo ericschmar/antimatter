@@ -543,3 +543,105 @@ fn toolbar_at_caret_arms_style_and_keeps_focus() {
     tap(&mut rt, "bold");
     assert!(rt.state.draft.has_mark(&rune::Mark::Bold));
 }
+
+#[test]
+fn older_history_prepends_once_and_respects_guards() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.ready = true;
+    let at = |id: &str, create_at: i64| Post {
+        id: id.into(),
+        channel_id: "c".into(),
+        user_id: "u".into(),
+        message: "m".into(),
+        create_at,
+        update_at: create_at,
+        delete_at: 0,
+        pending_post_id: String::new(),
+    };
+    rt.state.posts = vec![at("new", 200)];
+    rt.state.has_older = false;
+    rt.state.load_older();
+    assert!(intents.try_recv().is_err());
+    rt.state.has_older = true;
+    rt.state.submitted = true;
+    rt.state.load_older();
+    assert!(intents.try_recv().is_err());
+    rt.state.submitted = false;
+    rt.state.load_older();
+    assert!(matches!(intents.try_recv(), Ok(Intent::Older)));
+    assert!(!rt.state.ready);
+    rt.state.apply(Update::Older {
+        channel_id: "c".into(),
+        posts: vec![at("old", 100), at("new", 200)],
+        names: HashMap::new(),
+        has_older: false,
+    });
+    let ids: Vec<_> = rt.state.posts.iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(ids, ["old", "new"]);
+}
+
+#[test]
+fn scrolling_to_the_top_by_hand_requests_one_older_page() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.ready = true;
+    rt.state.has_older = true;
+    rt.state.posts = (0..40)
+        .map(|i| Post {
+            id: format!("p{i}"),
+            channel_id: "c".into(),
+            user_id: "u".into(),
+            message: "m".into(),
+            create_at: 1_000 + i as i64,
+            update_at: 0,
+            delete_at: 0,
+            pending_post_id: String::new(),
+        })
+        .collect();
+    let set = |s: &State, offset: f32, hand: bool| {
+        s.ledger_offset
+            .store(offset.to_bits(), std::sync::atomic::Ordering::Relaxed);
+        s.ledger_hand_scrolled
+            .store(hand, std::sync::atomic::Ordering::Relaxed);
+    };
+    set(&rt.state, 0.0, false);
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(
+        intents.try_recv().is_err(),
+        "opening the channel never pages"
+    );
+    set(&rt.state, 0.0, true);
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(matches!(intents.try_recv(), Ok(Intent::Older)));
+    assert!(rt.state.loading_older);
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(
+        intents.try_recv().is_err(),
+        "a loading page blocks a second request"
+    );
+    rt.state.apply(Update::Older {
+        channel_id: "c".into(),
+        posts: vec![],
+        names: HashMap::new(),
+        has_older: true,
+    });
+    assert!(!rt.state.loading_older);
+    set(&rt.state, 300.0, true);
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(
+        intents.try_recv().is_err(),
+        "scrolling away from the top never pages"
+    );
+    set(&rt.state, 0.0, false);
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(
+        intents.try_recv().is_err(),
+        "prepend anchoring at the top is not a hand scroll"
+    );
+}

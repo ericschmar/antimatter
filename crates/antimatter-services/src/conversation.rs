@@ -14,6 +14,7 @@ pub struct Unread {
 
 pub enum Intent {
     Load(String),
+    Older,
     Members(String),
     Presence(Vec<String>),
     Send(String),
@@ -51,6 +52,13 @@ pub enum Update {
         channel_id: String,
         posts: Vec<Post>,
         names: HashMap<String, String>,
+        has_older: bool,
+    },
+    Older {
+        channel_id: String,
+        posts: Vec<Post>,
+        names: HashMap<String, String>,
+        has_older: bool,
     },
     Members {
         channel_id: String,
@@ -92,6 +100,8 @@ pub async fn run(
         presence: String::new(),
         avatars: HashSet::new(),
         previous: None,
+        has_older: false,
+        older: HashSet::new(),
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
     // and blocks channel switches while unready/pending; use pane generations for supersession.
@@ -137,6 +147,8 @@ struct Worker {
     presence: String,
     avatars: HashSet<String>,
     previous: Option<String>,
+    has_older: bool,
+    older: HashSet<String>,
 }
 
 fn direct_peer(name: &str, user_id: &str) -> Option<String> {
@@ -185,7 +197,7 @@ impl Worker {
     }
 
     async fn intent(&mut self, intent: Intent) -> Result<(), Failure> {
-        let standalone = matches!(intent, Intent::Send(_) | Intent::Retry);
+        let standalone = matches!(intent, Intent::Send(_) | Intent::Retry | Intent::Older);
         let result = async {
             match intent {
                 Intent::Load(channel) => {
@@ -194,14 +206,18 @@ impl Worker {
                     }
                     self.previous = self.channel.replace(channel.clone());
                     self.posts.clear();
+                    self.has_older = false;
+                    self.older.clear();
                     self.emit(Update::Timeline {
                         channel_id: channel,
                         posts: vec![],
                         names: HashMap::new(),
+                        has_older: false,
                     })
                     .await;
                     self.refresh().await
                 }
+                Intent::Older => self.older().await,
                 Intent::Refresh => self.refresh().await,
                 Intent::Members(channel) => {
                     if channel.trim().is_empty() {
@@ -405,6 +421,10 @@ impl Worker {
                 .await
                 .map_err(|_| Failure::Load)?;
             let posts = page_posts(&page, &channel).map_err(|_| Failure::Load)?;
+            let latest_has_older = page
+                .prev_post_id
+                .as_deref()
+                .is_some_and(|id| !id.is_empty());
             let old_posts = std::mem::take(&mut self.posts);
             let old_identities = self.identities.clone();
             let pending = self.pending.take();
@@ -425,6 +445,18 @@ impl Worker {
             for post in posts {
                 self.accept(post, false).await?;
             }
+            let mut restored = Vec::new();
+            for (id, post) in old_posts {
+                if self.older.contains(&id)
+                    && !self.posts.contains_key(&id)
+                    && post.channel_id == channel
+                {
+                    restored.push(id.clone());
+                    self.posts.insert(id, post);
+                }
+            }
+            self.older = restored.into_iter().collect();
+            self.has_older = self.has_older || latest_has_older;
             let mut posts: Vec<_> = self
                 .posts
                 .values()
@@ -439,11 +471,58 @@ impl Worker {
                 channel_id: channel.clone(),
                 posts,
                 names,
+                has_older: self.has_older,
             })
             .await;
             self.view(&channel).await;
         }
         self.emit(Update::Ready(true)).await;
+        Ok(())
+    }
+
+    // One older page before the oldest loaded post; a refresh keeps paged-back history.
+    async fn older(&mut self) -> Result<(), Failure> {
+        let channel = self.channel.clone().ok_or(Failure::InvalidInput)?;
+        if !self.has_older {
+            return Ok(());
+        }
+        let before = self
+            .posts
+            .values()
+            .min_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)))
+            .map(|p| p.id.clone())
+            .ok_or(Failure::InvalidInput)?;
+        let page = self
+            .client
+            .posts(&channel, Some(&before))
+            .await
+            .map_err(|_| Failure::Load)?;
+        let posts = page_posts(&page, &channel).map_err(|_| Failure::Load)?;
+        let has_older = page
+            .prev_post_id
+            .as_deref()
+            .is_some_and(|id| !id.is_empty());
+        let mut fresh = Vec::new();
+        for post in posts {
+            if !self.posts.contains_key(&post.id) {
+                fresh.push(post.clone());
+            }
+            self.older.insert(post.id.clone());
+            self.accept(post, false).await?;
+        }
+        self.has_older = has_older;
+        let mut posts: Vec<_> = fresh.into_iter().filter(|p| p.delete_at == 0).collect();
+        posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
+        self.resolve_names(posts.iter().map(|p| p.user_id.clone()))
+            .await;
+        let names = self.names.clone();
+        self.emit(Update::Older {
+            channel_id: channel,
+            posts,
+            names,
+            has_older,
+        })
+        .await;
         Ok(())
     }
 
