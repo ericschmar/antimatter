@@ -22,7 +22,7 @@
 [x] Update our avatars to use the blobatars, rn they fallback to just the first letter of the name. 
 [x] for the avatar stack, there should be a slight outline to the avatars
 [x] the avatar stack overlays the member count
-[ ] remove the "disconnect session" button
+[x] remove the "disconnect session" button
 [ ] The channel header text should be larger
 [ ] message timeline -> the time is not aligned with the user's name, it's slightly higher
 [ ] message timeline -> slightly increase the width of the user + time to handle longer names

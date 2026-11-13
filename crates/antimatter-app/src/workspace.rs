@@ -600,12 +600,7 @@ pub(crate) fn workspace(s: &State) -> El {
             )
             .child(member_stack(s, &k)),
     );
-    let mut actions = rune::row().w_full().gap(8.0).flex_wrap().child(button(
-        "disconnect",
-        "Disconnect session",
-        s.busy || s.submitted || s.pending.is_some() || s.recovered_pending,
-        |s| s.checkpoint(AfterCheckpoint::Disconnect),
-    ));
+    let mut actions = rune::row().w_full().gap(8.0).flex_wrap();
     if s.durable.is_some() {
         actions = actions.child(button(
             "save-draft",

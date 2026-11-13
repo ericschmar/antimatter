@@ -117,12 +117,10 @@ fn disconnect_rejects_late_updates_from_cancelled_scope() {
     rt.state.draft.text = "keep text".into();
     rt.state.pending = Some(pending());
     rt.state.posts.push(post(""));
-    tap(&mut rt, "disconnect");
     assert!(!*stop.borrow());
     assert_eq!(rt.state.draft.text, "keep text");
-    assert!(inert(&rt, "disconnect"));
     rt.state.pending = None;
-    tap(&mut rt, "disconnect");
+    rt.state.checkpoint(AfterCheckpoint::Disconnect);
     assert!(*stop.borrow());
     assert!(!rt.state.scope.accepts(generation));
     let (replacement, _stop) = rt.state.scope.replace();
