@@ -98,6 +98,7 @@ pub(crate) struct State {
     pub(crate) saved_account_menu: Option<(AccountKey, PointerPress)>,
     pub(crate) editing_account: Option<AccountKey>,
     pub(crate) search: TextEdit,
+    pub(crate) search_results: Option<Vec<antimatter_services::mattermost::Post>>,
     pub(crate) pat: TextEdit,
     pub(crate) password: TextEdit,
     pub(crate) server: TextEdit,
@@ -169,6 +170,39 @@ impl State {
     pub(crate) fn remove_account(&mut self, key: AccountKey) {
         self.saved_account_menu = None;
         self.sign_out(key);
+    }
+
+    pub(crate) fn run_search(&mut self) {
+        let terms = self.search.text.trim().to_owned();
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        if terms.is_empty() {
+            self.search_results = None;
+            return;
+        }
+        runtime.spawn(async move {
+            let Ok(page) = client.search_posts(&terms, false).await else {
+                return;
+            };
+            let mut posts: Vec<_> = page
+                .order
+                .iter()
+                .filter_map(|id| page.posts.get(id).cloned())
+                .collect();
+            posts.sort_by_key(|p| p.create_at);
+            let ids: Vec<_> = posts.iter().map(|p| p.user_id.clone()).collect();
+            let users = client.users_by_ids(&ids).await.unwrap_or_default();
+            handle.update(move |s, _| {
+                s.names
+                    .extend(users.into_iter().map(|u| (u.id.clone(), u.display_name())));
+                s.search_results = Some(posts);
+            });
+        });
     }
 
     pub(crate) fn open_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
@@ -297,6 +331,7 @@ impl Default for State {
             saved_account_menu: None,
             editing_account: None,
             search: TextEdit::default(),
+            search_results: None,
             pat: TextEdit::default().secure(),
             password: TextEdit::default().secure(),
             server: TextEdit::default(),

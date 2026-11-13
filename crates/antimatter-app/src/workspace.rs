@@ -887,7 +887,8 @@ pub(crate) fn workspace(s: &State) -> El {
                         .color(c.text_base)
                         .placeholder("Search", c.text_muted)
                         .caret(c.text_base, k.selection())
-                        .on_edit(|s: &mut State| &mut s.search),
+                        .on_edit(|s: &mut State| &mut s.search)
+                        .on_submit(|s: &mut State, _| s.run_search()),
                 ),
         )
         .child(
@@ -935,7 +936,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 hand_scrolled.store(true, std::sync::atomic::Ordering::Relaxed);
             }
         });
-    if s.has_older {
+    if s.has_older && s.search_results.is_none() {
         ledger = ledger.child(
             rune::row()
                 .key("older-sentinel")
@@ -957,7 +958,38 @@ pub(crate) fn workspace(s: &State) -> El {
         );
     }
     let mut previous_day = None;
-    for post in &s.posts {
+    let searching = s.search_results.is_some();
+    if let Some(results) = &s.search_results {
+        ledger = ledger.child(
+            rune::row()
+                .key("search-header")
+                .w_full()
+                .px(16.0)
+                .py(8.0)
+                .gap(8.0)
+                .center_y()
+                .child(
+                    text(format!(
+                        "{} results for “{}”",
+                        results.len(),
+                        s.search.text.trim()
+                    ))
+                    .font(k.ty.small_medium)
+                    .color(c.text_muted)
+                    .grow(1.0),
+                )
+                .child(
+                    IconButton::new(&icons::X)
+                        .label("Clear search")
+                        .control_size(ControlSize::Small)
+                        .variant(IconButtonVariant::Ghost)
+                        .on_press(|s: &mut State| s.search_results = None)
+                        .build(&k)
+                        .key("search-clear"),
+                ),
+        );
+    }
+    for post in s.search_results.as_ref().unwrap_or(&s.posts) {
         let day = post_day(post.create_at);
         if day != previous_day
             && let Some(day) = day
@@ -980,10 +1012,21 @@ pub(crate) fn workspace(s: &State) -> El {
         }
         previous_day = day;
         let line = f32::from(s.message_font_size) * 1.6;
+        let target = post.channel_id.clone();
+        let mut row = rune::row().key(format!("post-{}", post.id));
+        if searching {
+            row = row
+                .role("button")
+                .label(format!("Open {}", post.message))
+                .focusable(true)
+                .cursor(rune::Cursor::Pointer)
+                .on_press(move |s: &mut State| {
+                    s.search_results = None;
+                    s.load(target.clone());
+                });
+        }
         ledger = ledger.child(
-            rune::row()
-                .key(format!("post-{}", post.id))
-                .w_full()
+            row.w_full()
                 .gap(8.0)
                 .px(16.0)
                 .py(post_padding(s.message_spacing))

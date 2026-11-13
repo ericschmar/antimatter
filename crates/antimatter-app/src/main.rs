@@ -120,6 +120,11 @@ fn main() {
             }),
             ("conversation-proof", synthetic_workspace),
             ("workspace-proof", synthetic_workspace),
+            ("workspace-search-proof", |s| {
+                synthetic_workspace(s);
+                s.search = rune::TextEdit::new("synthetic".to_owned());
+                s.search_results = Some(s.posts.clone());
+            }),
             ("workspace-tabs-proof", |s| {
                 synthetic_workspace(s);
                 s.navigation.tabs.push("synthetic-other".into());

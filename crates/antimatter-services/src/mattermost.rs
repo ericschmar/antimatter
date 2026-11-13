@@ -559,7 +559,7 @@ impl Client {
         self.get(&segments(&["posts", post_id, "thread"])?).await
     }
 
-    pub async fn search_posts(&self, terms: &str, is_or_search: bool) -> Result<Value, Error> {
+    pub async fn search_posts(&self, terms: &str, is_or_search: bool) -> Result<PostPage, Error> {
         self.post(
             "/posts/search",
             &serde_json::json!({"terms": terms, "is_or_search": is_or_search}),
