@@ -59,7 +59,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         id: "synthetic-post".into(),
         channel_id: "synthetic-channel".into(),
         user_id: "synthetic-user".into(),
-        message: "Synthetic service conversation".into(),
+        message: "Synthetic service conversation, ping @here and @synthetic".into(),
         create_at: 1,
         update_at: 0,
         delete_at: 0,

@@ -9,8 +9,8 @@ use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
 use rune::{El, Icon, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
-    ButtonVariant, ControlSize, IconButton, IconButtonVariant, Markdown, MarkdownStyle, MenuItem,
-    ScrollBar, Select, SelectAppearance,
+    ButtonVariant, ControlSize, Highlight, IconButton, IconButtonVariant, Markdown, MarkdownStyle,
+    MenuItem, ScrollBar, Select, SelectAppearance,
 };
 
 pub(crate) const TITLEBAR: f32 = 40.0;
@@ -186,6 +186,31 @@ fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
         );
     }
     pills
+}
+
+fn mentions(message: &str, me: Option<&str>) -> Vec<(std::ops::Range<usize>, bool)> {
+    let mut out = Vec::new();
+    for (start, _) in message.match_indices('@') {
+        if message[..start]
+            .chars()
+            .next_back()
+            .is_some_and(|c| c.is_alphanumeric() || c == '@')
+        {
+            continue;
+        }
+        let word: String = message[start + 1..]
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || matches!(c, '.' | '_' | '-'))
+            .collect();
+        let word = word.trim_end_matches(['.', '-']);
+        let end = start + 1 + word.len();
+        if word == "here" {
+            out.push((start..end, false));
+        } else if !word.is_empty() && me.is_some_and(|m| m.eq_ignore_ascii_case(word)) {
+            out.push((start..end, true));
+        }
+    }
+    out
 }
 
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
@@ -783,6 +808,15 @@ pub(crate) fn workspace(s: &State) -> El {
                         .gap(4.0)
                         .child(
                             Markdown::new(&post.message)
+                                .highlights(
+                                    mentions(&post.message, s.my_username())
+                                        .into_iter()
+                                        .map(|(range, me)| {
+                                            let bg = if me { c.bg_accent } else { c.warning.icon };
+                                            (range, Highlight::new().bg(bg).fg(c.bg_base))
+                                        })
+                                        .collect::<Vec<_>>(),
+                                )
                                 .style(MarkdownStyle::from_kit(&k).body_font(TextStyle {
                                     size: f32::from(s.message_font_size),
                                     line_height: f32::from(s.message_font_size) * 1.6,
@@ -973,4 +1007,15 @@ pub(crate) fn workspace(s: &State) -> El {
         .child(grip)
         .child(main);
     rune_kit::root(body, layer)
+}
+
+#[cfg(test)]
+mod mention_tests {
+    use super::mentions;
+
+    #[test]
+    fn finds_here_and_me_only_at_word_starts() {
+        let m = "@here hi @Ada, not a@ada or @bob";
+        assert_eq!(mentions(m, Some("ada")), vec![(0..5, false), (9..13, true)]);
+    }
 }

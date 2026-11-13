@@ -169,6 +169,14 @@ impl State {
         self.sign_out(key);
     }
 
+    pub(crate) fn my_username(&self) -> Option<&str> {
+        let key = self.authenticated.as_ref()?;
+        self.accounts
+            .iter()
+            .find(|a| &a.key == key)
+            .map(|a| a.username.as_str())
+    }
+
     pub(crate) fn publish_settings_accounts(&mut self) {
         let Some(settings) = self.settings_app.clone() else {
             return;
