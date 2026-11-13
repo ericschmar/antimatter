@@ -1,36 +1,18 @@
-[x] Channel headers -> uppercase
-[x] Channel headers -> move count to be right aligned, and the dropdown arrow to be to the left of the header name
-[x] Channels -> The padding looks slightly too big for the font size. 
-[x] Channels -> in general, reduce the foint weight a little bit for the channels and headers
-[x] Move our active server to a drop down menu that will sit on the same row as the stop lights. The active selection should show the server name, not url
-[x] On the same row as the server drop down, but alignt to the right of the side bar, add our logged in user avatar, with a status indicator (using the mattermost api for keeping that updated)
-[x] Create a generic avatar/status loader that can be used to load user's avatarts. Ensure caching and bast practices here so we don't redo the work all the time
-[x] At the top of the side bar, under the server/user, but before the first channel group, add a placeholder search bar
-[x] Implement the concept of persisted favorite channels; add a context menu to right click a channel to favorite it. Favorite channels are grouped at the top above the "channels" group
-[x] Add user's avatars and status to the "direct messages" grouping
-[x] I created a rust blobatar library. Let's use that for fallback when a user doesn't have a avatar
-[x] We also need to add a special case to add an avatar for a DM that is with yourself
-[x] For channels that have unread messages, can we also make the channel name bold
-[x] Update the header for a selected channel to remove the status stuff and reload button. 
-[x] Channel Header -> Channel name left aligned; Avatar horizontal stack (max 5) with statuses & total user count right aligned
-[x] Message timeline -> Use the First/Last name of user, not their user name
-[x] Message timeline -> Include timestamp (ex: 12:34 pm) 
-[x] Message timeline -> Add separator between days 
-[x] Message timeline -> add status indicator to the left of users
-[x] Message timeline -> onHover message row, highlight the background subtly
-[x] Channels -> add right click option to archive a channel. archive puts it in a new category at the bottom of the channel sidebar. when new messages arrive in an archived channel, move it back to the proper category
-[x] Update our avatars to use the blobatars, rn they fallback to just the first letter of the name. 
-[x] for the avatar stack, there should be a slight outline to the avatars
-[x] the avatar stack overlays the member count
-[x] remove the "disconnect session" button
-[x] The channel header text should be larger
-[x] message timeline -> the time is not aligned with the user's name, it's slightly higher
-[x] message timeline -> slightly increase the width of the user + time to handle longer names
-[x] channel sidebar -> increase the default width slightly
-[x] for multiline messages, the status/name/date should be aligned at the top of the message
-[x] add scroll bar to the message list and channel side bar
-[x] make chat loader be centered horizontally
-[x] control row height through "Message spacing" setting
-[x] show user's avatars instead of the status icon (controlled by setting)
-[x] hook up "send" button to the enter key press
-[x] fix: unread channel does not have channel name in bold.
+[ ] don't display channel user count if it's 0 or 1. 
+
+## reactions, replies, attachments, search
+Review https://apron.chat/images/demo.png
+Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window for a spec that defines an emoji window popup. I think we might have to roll our own?
+[ ] for each message row, on mouseover, draw an absolute located action bar on the top right of the message that contains a reply, and emoji button for now. reply: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polyline points="80 152 32 104 80 56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M224,200a96,96,0,0,0-96-96H32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>  emoji: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="92" cy="108" r="12"/><circle cx="164" cy="108" r="12"/><path d="M168,152c-8.3,14.35-22.23,24-40,24s-31.7-9.65-40-24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
+[ ] I like the reactions in that picture. a reaction pill should highlight its border if the current user also reacted that
+[ ] Handle mattermost server-specific emojis as a category in our picker and within pills.  
+[ ] Do NOT implement the full row highlight. Just highlight the text within a colored badge for "@here" and the "@<me>"
+[ ] https://github.com/ZhangHanDong/url-preview for generating preview cards within the message
+[ ] I really like the code block in that screenshot, so let's copy that 
+[ ] I like image viewing opening in the default OS preview
+[ ] For messages with multiple images, draw them as a stack, give them a little border radius, and when clicked on.. maybe a context menu with the different image names, and you can click on one and open it in the preview
+[ ] I also like the reply UI in that screenshot, so let's do ours like that. 
+[ ] attachments that aren't images/gifs/videos, we need to create a beautiful download ui element that contains the file name, file type, size, and a download button (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M184,128h40a8,8,0,0,1,8,8v64a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V136a8,8,0,0,1,8-8H72" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="24" x2="128" y2="128" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="80 80 128 128 176 80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="188" cy="168" r="12"/></svg>)
+[ ] Our search bar extends past the edge of the side bar--it needs to be contained to the width
+[ ] cmd + k highlights the search bar
+[ ] searching uses mattermost's search with a new page that is opened with the results. results need to look like our existing message row. clicking on a result will eventually take them to the channel, and scroll the channel to that location
