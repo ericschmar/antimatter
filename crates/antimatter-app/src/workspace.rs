@@ -592,7 +592,7 @@ pub(crate) fn workspace(s: &State) -> El {
             .center_y()
             .child(
                 text(channel_name)
-                    .font(k.ty.small_medium)
+                    .font(k.ty.body_medium)
                     .color(c.text_base)
                     .grow(1.0)
                     .min_w(0.0)
