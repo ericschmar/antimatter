@@ -54,6 +54,44 @@ fn server_labels(s: &State) -> Vec<String> {
         .collect()
 }
 
+fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
+    let c = &k.c;
+    let initial = s
+        .accounts
+        .iter()
+        .find(|account| s.authenticated.as_ref() == Some(&account.key))
+        .and_then(|account| account.username.trim().chars().next())
+        .map(|ch| ch.to_uppercase().to_string())
+        .unwrap_or_default();
+    let dot = match s.presence.as_str() {
+        "online" => c.success.icon,
+        "away" | "dnd" => c.warning.icon,
+        _ => c.icon_muted,
+    };
+    rune::row()
+        .key("user-avatar")
+        .role("img")
+        .label(format!("Your status: {}", s.presence))
+        .size(24.0, 24.0)
+        .radius(12.0)
+        .fill(c.layer_02)
+        .center()
+        .child(
+            text(initial)
+                .font(k.ty.small_medium)
+                .color(c.text_muted)
+                .a11y_hidden(),
+        )
+        .child(
+            el().key("status-dot")
+                .size(8.0, 8.0)
+                .radius(4.0)
+                .fill(dot)
+                .absolute(16.0, 16.0)
+                .a11y_hidden(),
+        )
+}
+
 fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
     let names = server_labels(s);
     let current = s
@@ -231,7 +269,9 @@ pub(crate) fn workspace(s: &State) -> El {
                         .shrink()
                         .window_drag()
                         .child(server_menu(s, &mut layer, &k)),
-                ),
+                )
+                .child(el().grow(1.0).window_drag())
+                .child(user_avatar(s, &k)),
         )
         .child(sidebar);
     let width = s.sidebar.width();

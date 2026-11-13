@@ -37,6 +37,7 @@ impl State {
         self.unread.clear();
         self.names.clear();
         self.site_name.clear();
+        self.presence.clear();
         self.posts.clear();
         self.pending = None;
         self.clear_draft();

@@ -114,6 +114,7 @@ impl State {
                 self.prune_tabs();
             }
             Update::Unread(unread) => self.unread = unread,
+            Update::Presence(presence) => self.presence = presence,
             Update::Timeline {
                 channel_id,
                 posts,

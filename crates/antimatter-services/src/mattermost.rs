@@ -416,6 +416,15 @@ impl Client {
         self.post("/users/status/ids", ids).await
     }
 
+    pub async fn status(&self, user_id: &str) -> Result<String, Error> {
+        let status: Value = self.get(&segments(&["users", user_id, "status"])?).await?;
+        Ok(status
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned())
+    }
+
     pub async fn channels(&self, team_id: &str, page: u32) -> Result<Vec<Channel>, Error> {
         let path = segments(&["users", "me", "teams", team_id, "channels"])?;
         self.get(&format!("{path}?page={page}&per_page=200")).await

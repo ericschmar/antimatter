@@ -41,6 +41,7 @@ pub enum Update {
         channels: Vec<Channel>,
         unread: HashMap<String, Unread>,
     },
+    Presence(String),
     Unread(HashMap<String, Unread>),
     Timeline {
         channel_id: String,
@@ -80,6 +81,7 @@ pub async fn run(
         unread: HashMap::new(),
         names: HashMap::new(),
         site_name: String::new(),
+        presence: String::new(),
         previous: None,
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
@@ -123,6 +125,7 @@ struct Worker {
     unread: HashMap<String, Unread>,
     names: HashMap<String, String>,
     site_name: String,
+    presence: String,
     previous: Option<String>,
 }
 
@@ -266,6 +269,11 @@ impl Worker {
         let teams = self.client.teams().await.map_err(|_| Failure::Load)?;
         if self.site_name.is_empty() {
             self.site_name = self.client.site_name().await.unwrap_or_default();
+        }
+        let presence = self.client.status(&self.user_id).await.unwrap_or_default();
+        if !presence.is_empty() && presence != self.presence {
+            self.presence = presence.clone();
+            self.emit(Update::Presence(presence)).await;
         }
         let mut channels = Vec::new();
         let mut seen = HashSet::new();
@@ -571,6 +579,23 @@ impl Worker {
         Ok(())
     }
 
+    async fn status(&mut self, event: &WireEvent) -> Result<(), Failure> {
+        if event.data.get("user_id").and_then(|v| v.as_str()) != Some(self.user_id.as_str()) {
+            return Ok(());
+        }
+        let presence = event
+            .data
+            .get("status")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .ok_or(Failure::InvalidInput)?;
+        if presence != self.presence {
+            self.presence = presence.to_owned();
+            self.emit(Update::Presence(self.presence.clone())).await;
+        }
+        Ok(())
+    }
+
     // Advisory delta; the next refresh replaces it with server counts.
     async fn count(&mut self, post: &Post, event: &WireEvent) {
         if post.user_id == self.user_id {
@@ -591,6 +616,9 @@ impl Worker {
     }
 
     async fn wire(&mut self, event: WireEvent) -> Result<(), Failure> {
+        if event.event == "status_change" {
+            return self.status(&event).await;
+        }
         if event.event == "channel_viewed" {
             return self.viewed(&event).await;
         }
@@ -665,8 +693,8 @@ mod tests {
         let task = tokio::spawn(async move {
             let mut requests = vec![];
             let mut pending = String::new();
-            // Load (7), lost send (1), retry across two pages (2), reconnect refresh (6).
-            for step in 0..16 {
+            // Load (8), lost send (1), retry across two pages (2), reconnect refresh (6).
+            for step in 0..17 {
                 let (mut socket, _) = listener.accept().await.unwrap();
                 let mut bytes = Vec::new();
                 loop {
@@ -697,7 +725,7 @@ mod tests {
                 );
                 let path = request.split_whitespace().nth(1).unwrap().to_owned();
                 requests.push(request.clone());
-                if step == 7 {
+                if step == 8 {
                     let body: Value =
                         serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
                     pending = body["pending_post_id"].as_str().unwrap().to_owned();
@@ -710,6 +738,8 @@ mod tests {
                     json!([{"id":"t","name":"team"}])
                 } else if path.ends_with("/config/client?format=old") {
                     json!({"SiteName":"Test"})
+                } else if path.ends_with("/users/u/status") {
+                    json!({"user_id":"u","status":"online"})
                 } else if path.contains("/teams/t/channels?") {
                     assert!(path.contains("per_page=200"));
                     json!([{"id":"c","team_id":"t","name":"channel","type":"O"}])
@@ -721,9 +751,9 @@ mod tests {
                     json!({"id":"c","team_id":"t","name":"channel","type":"O"})
                 } else {
                     assert!(path.contains("per_page=60"));
-                    if step == 8 {
+                    if step == 9 {
                         json!({"order":["new"],"posts":{"new":post("new", "")},"prev_post_id":"older"})
-                    } else if step == 9 {
+                    } else if step == 10 {
                         assert!(path.contains("before=new"));
                         json!({"order":["sent"],"posts":{"sent":post("sent", &pending)},"prev_post_id":""})
                     } else {
@@ -969,6 +999,7 @@ mod tests {
                 unread: HashMap::new(),
                 names: HashMap::new(),
                 site_name: String::new(),
+                presence: String::new(),
                 previous: None,
                 pending: Some(Pending {
                     post: CreatePost {
@@ -990,8 +1021,11 @@ mod tests {
         let (worker, _, server) = scripted(vec![
             Some((200, json!([]))),
             Some((200, json!({"SiteName":"Test"}))),
+            Some((200, json!({"user_id":"u","status":"online"}))),
             Some((200, json!([]))),
+            Some((200, json!({"user_id":"u","status":"online"}))),
             Some((200, json!([]))),
+            Some((200, json!({"user_id":"u","status":"online"}))),
         ])
         .await;
         let (intents, rx) = mpsc::channel(16);
@@ -1000,6 +1034,7 @@ mod tests {
         let task = tokio::spawn(run(worker.client, "u".into(), rx, events, tx));
         intents.send(Intent::Refresh).await.unwrap();
         assert!(matches!(next(&mut updates).await, Update::Ready(false)));
+        assert!(matches!(next(&mut updates).await, Update::Presence(p) if p == "online"));
         assert!(matches!(
             next(&mut updates).await,
             Update::Navigation { .. }
@@ -1046,7 +1081,7 @@ mod tests {
         }
         drop(intents);
         task.await.unwrap();
-        assert_eq!(server.await.unwrap().len(), 4);
+        assert_eq!(server.await.unwrap().len(), 7);
     }
 
     #[tokio::test]
@@ -1069,6 +1104,7 @@ mod tests {
         let (mut worker, mut updates, server) = scripted(vec![
             Some((200, json!([]))),
             Some((200, json!({"SiteName":"Test"}))),
+            Some((200, json!({"user_id":"u","status":"online"}))),
             Some((
                 200,
                 json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
@@ -1083,6 +1119,7 @@ mod tests {
         .await;
         worker.refresh().await.unwrap();
         assert!(matches!(next(&mut updates).await, Update::Ready(false)));
+        assert!(matches!(next(&mut updates).await, Update::Presence(p) if p == "online"));
         assert!(matches!(
             next(&mut updates).await,
             Update::Navigation { .. }
@@ -1249,12 +1286,15 @@ mod tests {
         let mut responses = vec![
             Some((200, json!([{"id":"t","name":"team"}]))),
             Some((200, json!({"SiteName":"Test"}))),
+            Some((200, json!({"user_id":"u","status":"online"}))),
         ];
         responses.extend(navigation[1..].iter().cloned());
         responses.push(Some((200, json!({"order":["reply"],"posts":{"reply":post("reply", ""),"parent":post("parent", "")}}))));
         responses.push(Some((200, json!([{"id":"u","username":"user"}]))));
         responses.push(Some((200, json!({"status":"OK"}))));
-        responses.extend(navigation);
+        responses.extend(navigation[..1].iter().cloned());
+        responses.push(Some((200, json!({"user_id":"u","status":"online"}))));
+        responses.extend(navigation[1..].iter().cloned());
         responses.push(Some((
             200,
             json!({"order":["new"],"posts":{"new":post("new", ""),"spoof":impostor}}),
@@ -1293,6 +1333,7 @@ mod tests {
         let (mut worker, mut rx, server) = scripted(vec![
             Some((200, json!([{"id":"t","name":"team"}]))),
             Some((200, json!({"SiteName":"Test"}))),
+            Some((200, json!({"user_id":"u","status":"online"}))),
             Some((
                 200,
                 json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
@@ -1308,6 +1349,7 @@ mod tests {
             Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
             Some((200, json!({"status":"OK"}))),
             Some((200, json!([{"id":"t","name":"team"}]))),
+            Some((200, json!({"user_id":"u","status":"online"}))),
             Some((
                 200,
                 json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
@@ -1359,9 +1401,9 @@ mod tests {
         );
         let requests = server.await.unwrap();
         assert!(requests[1].starts_with("GET /api/v4/config/client?format=old "));
-        assert!(requests[3].starts_with("GET /api/v4/users/me/channels/c/unread "));
-        assert!(requests[6].starts_with("POST /api/v4/channels/members/u/view "));
-        assert!(requests[6].contains(r#""prev_channel_id":"old""#));
+        assert!(requests[4].starts_with("GET /api/v4/users/me/channels/c/unread "));
+        assert!(requests[7].starts_with("POST /api/v4/channels/members/u/view "));
+        assert!(requests[7].contains(r#""prev_channel_id":"old""#));
     }
 
     #[tokio::test]
@@ -1447,6 +1489,7 @@ mod tests {
             unread: HashMap::new(),
             names: HashMap::new(),
             site_name: String::new(),
+            presence: String::new(),
             previous: None,
             pending: Some(pending.clone()),
         };
