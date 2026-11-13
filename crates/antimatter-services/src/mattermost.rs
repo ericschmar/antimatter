@@ -238,6 +238,20 @@ pub struct Post {
     pub delete_at: i64,
     #[serde(default)]
     pub pending_post_id: String,
+    #[serde(default)]
+    pub metadata: PostMetadata,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct PostMetadata {
+    #[serde(default)]
+    pub reactions: Vec<Reaction>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Reaction {
+    pub user_id: String,
+    pub emoji_name: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

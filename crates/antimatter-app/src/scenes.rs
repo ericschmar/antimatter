@@ -64,6 +64,19 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         update_at: 0,
         delete_at: 0,
         pending_post_id: String::new(),
+        metadata: antimatter_services::mattermost::PostMetadata {
+            reactions: ["synthetic-user", "synthetic-peer"]
+                .iter()
+                .map(|u| antimatter_services::mattermost::Reaction {
+                    user_id: (*u).into(),
+                    emoji_name: "+1".into(),
+                })
+                .chain([antimatter_services::mattermost::Reaction {
+                    user_id: "synthetic-peer".into(),
+                    emoji_name: "tada".into(),
+                }])
+                .collect(),
+        },
     });
     s.posts.push(Post {
         id: "synthetic-multiline".into(),
@@ -74,6 +87,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         update_at: 0,
         delete_at: 0,
         pending_post_id: String::new(),
+        metadata: Default::default(),
     });
 }
 
@@ -90,6 +104,7 @@ pub(crate) fn synthetic_history(s: &mut State) {
             update_at: 0,
             delete_at: 0,
             pending_post_id: String::new(),
+            metadata: Default::default(),
         })
         .collect();
 }

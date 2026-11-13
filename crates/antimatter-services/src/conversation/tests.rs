@@ -37,6 +37,7 @@ fn post(id: &str, pending: &str) -> Post {
         update_at: 100,
         delete_at: 0,
         pending_post_id: pending.into(),
+        metadata: Default::default(),
     }
 }
 

@@ -129,6 +129,65 @@ fn author_marker(s: &State, post: &Post, c: &rune_kit::Palette) -> El {
     )
 }
 
+fn emoji_glyph(name: &str) -> String {
+    match name {
+        "+1" | "thumbsup" => "👍",
+        "-1" | "thumbsdown" => "👎",
+        "heart" => "❤️",
+        "smile" => "😄",
+        "joy" => "😂",
+        "tada" => "🎉",
+        "eyes" => "👀",
+        "pray" => "🙏",
+        "fire" => "🔥",
+        "white_check_mark" => "✅",
+        "100" => "💯",
+        "rocket" => "🚀",
+        _ => return format!(":{name}:"),
+    }
+    .into()
+}
+
+fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
+    let c = &k.c;
+    let me = s.authenticated.as_ref().map(|key| key.user_id());
+    let mut groups: Vec<(&str, usize, bool)> = Vec::new();
+    for r in &post.metadata.reactions {
+        let mine = me == Some(r.user_id.as_str());
+        match groups.iter_mut().find(|g| g.0 == r.emoji_name) {
+            Some(g) => {
+                g.1 += 1;
+                g.2 |= mine;
+            }
+            None => groups.push((&r.emoji_name, 1, mine)),
+        }
+    }
+    let mut pills = rune::row().gap(4.0).flex_wrap();
+    for (name, count, mine) in groups {
+        pills = pills.child(
+            rune::row()
+                .key(format!("reaction-{}-{name}", post.id))
+                .role("img")
+                .label(format!("{name} {count}"))
+                .h(22.0)
+                .px(8.0)
+                .gap(4.0)
+                .center_y()
+                .radius(11.0)
+                .fill(c.layer_02)
+                .border(1.0, if mine { c.bg_accent } else { c.border_base })
+                .child(text(emoji_glyph(name)).font(k.ty.small).a11y_hidden())
+                .child(
+                    text(count.to_string())
+                        .font(k.ty.small)
+                        .color(c.text_muted)
+                        .a11y_hidden(),
+                ),
+        );
+    }
+    pills
+}
+
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let mut stack = rune::row().gap(-6.0).center_y();
@@ -717,15 +776,21 @@ pub(crate) fn workspace(s: &State) -> El {
                     ),
                 )
                 .child(
-                    col().grow(1.0).shrink().min_w(0.0).child(
-                        Markdown::new(&post.message)
-                            .style(MarkdownStyle::from_kit(&k).body_font(TextStyle {
-                                size: f32::from(s.message_font_size),
-                                line_height: f32::from(s.message_font_size) * 1.6,
-                                ..k.ty.ui
-                            }))
-                            .build(&k),
-                    ),
+                    col()
+                        .grow(1.0)
+                        .shrink()
+                        .min_w(0.0)
+                        .gap(4.0)
+                        .child(
+                            Markdown::new(&post.message)
+                                .style(MarkdownStyle::from_kit(&k).body_font(TextStyle {
+                                    size: f32::from(s.message_font_size),
+                                    line_height: f32::from(s.message_font_size) * 1.6,
+                                    ..k.ty.ui
+                                }))
+                                .build(&k),
+                        )
+                        .child(reaction_pills(s, post, &k)),
                 )
                 .child(
                     rune::row()
