@@ -43,7 +43,7 @@ pub enum Update {
     },
     Presence(String),
     PeerPresence(HashMap<String, String>),
-    PeerAvatar(String, Vec<u8>),
+    PeerAvatar(String, Option<Vec<u8>>),
     Unread(HashMap<String, Unread>),
     Timeline {
         channel_id: String,
@@ -326,9 +326,8 @@ impl Worker {
             self.emit(Update::PeerPresence(statuses)).await;
         }
         for peer in peers {
-            if self.avatars.insert(peer.clone())
-                && let Ok(bytes) = self.client.profile_image(&peer).await
-            {
+            if self.avatars.insert(peer.clone()) {
+                let bytes = self.client.profile_image(&peer).await.ok();
                 self.emit(Update::PeerAvatar(peer, bytes)).await;
             }
         }

@@ -8,3 +8,13 @@
 [x] At the top of the side bar, under the server/user, but before the first channel group, add a placeholder search bar
 [x] Implement the concept of persisted favorite channels; add a context menu to right click a channel to favorite it. Favorite channels are grouped at the top above the "channels" group
 [x] Add user's avatars and status to the "direct messages" grouping
+[x] I created a rust blobatar library. Let's use that for fallback when a user doesn't have a avatar
+[ ] We also need to add a special case to add an avatar for a DM that is with yourself
+[ ] For channels that have unread messages, can we also make the channel name bold
+[ ] Update the header for a selected channel to remove the status stuff and reload button. 
+[ ] Channel Header -> Channel name left aligned; Avatar horizontal stack (max 5) with statuses & total user count right aligned
+[ ] Message timeline -> Use the First/Last name of user, not their user name
+[ ] Message timeline -> Include timestamp (ex: 12:34 pm) 
+[ ] Message timeline -> Add separator between days 
+[ ] Message timeline -> add status indicator to the left of users
+[ ] Message timeline -> onHover message row, highlight the background subtly

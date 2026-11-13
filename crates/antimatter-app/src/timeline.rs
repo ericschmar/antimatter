@@ -116,7 +116,7 @@ impl State {
             Update::Unread(unread) => self.unread = unread,
             Update::Presence(presence) => self.presence = presence,
             Update::PeerPresence(presence) => self.peer_presence = presence,
-            Update::PeerAvatar(user_id, bytes) => self.avatars.finish(user_id, Some(bytes)),
+            Update::PeerAvatar(user_id, bytes) => self.avatars.finish(user_id, bytes),
             Update::Timeline {
                 channel_id,
                 posts,

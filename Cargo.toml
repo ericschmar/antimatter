@@ -11,6 +11,7 @@ license = "MIT"
 [workspace.dependencies]
 rune = { git = "https://github.com/anomalyco/rune", rev = "257f5599c8e499bb7dfd7ee03f57a9932724244a" }
 rune-kit = { git = "https://github.com/anomalyco/rune", rev = "257f5599c8e499bb7dfd7ee03f57a9932724244a" }
+blobatar = { package = "blobatar-rs", git = "https://github.com/ericschmar/blobatar-rs.git" }
 serde_json = "1"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
 url = { version = "2", features = ["serde"] }

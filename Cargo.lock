@@ -146,6 +146,7 @@ version = "0.0.1"
 dependencies = [
  "antimatter-services",
  "antimatter-theme",
+ "blobatar-rs",
  "rune",
  "rune-kit",
  "serde_json",
@@ -468,6 +469,11 @@ dependencies = [
  "constant_time_eq",
  "cpufeatures 0.3.1",
 ]
+
+[[package]]
+name = "blobatar-rs"
+version = "0.1.0"
+source = "git+https://github.com/ericschmar/blobatar-rs.git#af90e5f193ae51fb9edd205324ef462edd801893"
 
 [[package]]
 name = "block-buffer"

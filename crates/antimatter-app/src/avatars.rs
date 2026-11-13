@@ -20,9 +20,18 @@ impl Avatars {
     }
 
     pub(crate) fn finish(&mut self, user_id: String, bytes: Option<Vec<u8>>) {
-        if let (Some(cache), Some(bytes)) = (&self.cache, bytes) {
-            self.images.insert(user_id, cache.load(bytes));
-        }
+        let Some(cache) = &self.cache else { return };
+        let image = match bytes {
+            Some(bytes) => cache.load(bytes),
+            None => {
+                let options = blobatar::BlobatarOptions {
+                    size: Some(96),
+                    ..Default::default()
+                };
+                cache.load(blobatar::render(&user_id, &options).into_bytes())
+            }
+        };
+        self.images.insert(user_id, image);
     }
 
     pub(crate) fn clear(&mut self) {
