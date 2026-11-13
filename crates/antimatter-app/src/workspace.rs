@@ -54,6 +54,11 @@ fn server_labels(s: &State) -> Vec<String> {
         .collect()
 }
 
+fn post_day(create_at: i64) -> Option<chrono::NaiveDate> {
+    chrono::DateTime::from_timestamp_millis(create_at)
+        .map(|at| at.with_timezone(&chrono::Local).date_naive())
+}
+
 fn post_time(create_at: i64) -> String {
     chrono::DateTime::from_timestamp_millis(create_at)
         .map(|at| {
@@ -455,7 +460,29 @@ pub(crate) fn workspace(s: &State) -> El {
         .grow(1.0)
         .min_h(0.0)
         .scroll(rune::ScrollSpec { stick_bottom: true });
+    let mut previous_day = None;
     for post in &s.posts {
+        let day = post_day(post.create_at);
+        if day != previous_day
+            && let Some(day) = day
+        {
+            ledger = ledger.child(
+                rune::row()
+                    .w_full()
+                    .px(16.0)
+                    .py(8.0)
+                    .gap(8.0)
+                    .center_y()
+                    .child(el().grow(1.0).h(1.0).fill(c.border_muted))
+                    .child(
+                        text(day.format("%B %-d, %Y").to_string())
+                            .font(k.ty.small)
+                            .color(c.text_muted),
+                    )
+                    .child(el().grow(1.0).h(1.0).fill(c.border_muted)),
+            );
+        }
+        previous_day = day;
         ledger = ledger.child(
             rune::row()
                 .key(format!("post-{}", post.id))
