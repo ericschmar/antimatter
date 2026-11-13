@@ -9,7 +9,8 @@ use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
 use rune::{El, Icon, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
-    ButtonVariant, Markdown, MarkdownStyle, MenuItem, ScrollBar, Select, SelectAppearance,
+    ButtonVariant, ControlSize, IconButton, IconButtonVariant, Markdown, MarkdownStyle, MenuItem,
+    ScrollBar, Select, SelectAppearance,
 };
 
 pub(crate) const TITLEBAR: f32 = 40.0;
@@ -690,6 +691,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .px(16.0)
                 .py(post_padding(s.message_spacing))
                 .hover(c.hover)
+                .hover_group()
                 .child(
                     rune::row()
                         .w(120.0)
@@ -724,6 +726,33 @@ pub(crate) fn workspace(s: &State) -> El {
                             }))
                             .build(&k),
                     ),
+                )
+                .child(
+                    rune::row()
+                        .key("post-actions")
+                        .gap(2.0)
+                        .padding(2.0)
+                        .radius(6.0)
+                        .fill(c.layer_02)
+                        .border(1.0, c.border_base)
+                        .pin(None, Some(-6.0), Some(16.0), None)
+                        .group_opacity(0.0, 1.0)
+                        .child(
+                            IconButton::new(&icons::ARROW_BEND_UP_LEFT)
+                                .label("Reply")
+                                .control_size(ControlSize::Small)
+                                .variant(IconButtonVariant::Ghost)
+                                .build(&k)
+                                .key("post-reply"),
+                        )
+                        .child(
+                            IconButton::new(&icons::SMILEY)
+                                .label("Add reaction")
+                                .control_size(ControlSize::Small)
+                                .variant(IconButtonVariant::Ghost)
+                                .build(&k)
+                                .key("post-react"),
+                        ),
                 ),
         );
     }
