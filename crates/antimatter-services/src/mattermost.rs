@@ -174,6 +174,8 @@ pub struct User {
     pub locale: String,
     #[serde(default)]
     pub delete_at: i64,
+    #[serde(default)]
+    pub last_picture_update: i64,
 }
 
 impl User {
@@ -624,6 +626,14 @@ impl Client {
     pub async fn profile_image(&self, user_id: &str) -> Result<Vec<u8>, Error> {
         let path = segments(&["users", user_id, "image"])?;
         self.media(&self.origin.endpoint(&path)?).await
+    }
+
+    pub async fn custom_profile_image(&self, user_id: &str) -> Result<Vec<u8>, Error> {
+        let users = self.users_by_ids(&[user_id.to_owned()]).await?;
+        match users.iter().find(|user| user.id == user_id) {
+            Some(user) if user.last_picture_update > 0 => self.profile_image(user_id).await,
+            _ => Err(Error::InvalidUser),
+        }
     }
 
     pub async fn file(&self, id: &str, preview: bool) -> Result<Vec<u8>, Error> {

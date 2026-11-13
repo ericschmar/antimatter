@@ -173,6 +173,31 @@ async fn profile_image_fetches_user_image_bytes() {
 }
 
 #[tokio::test]
+async fn custom_profile_image_skips_default_pictures() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v4/users/ids"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+            {"id":"custom","last_picture_update":1700000000000_i64},
+            {"id":"default","last_picture_update":0}
+        ])))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v4/users/custom/image"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"png-bytes".to_vec()))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = Client::new(local(&server), Secret::new("fake".into()).unwrap()).unwrap();
+    assert_eq!(
+        client.custom_profile_image("custom").await.unwrap(),
+        b"png-bytes"
+    );
+    assert!(client.custom_profile_image("default").await.is_err());
+}
+
+#[tokio::test]
 async fn pat_and_saml_validate_identity() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

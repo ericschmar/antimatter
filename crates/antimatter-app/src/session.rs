@@ -197,7 +197,7 @@ impl State {
                 }
             });
             worker_runtime.spawn(async move {
-                let bytes = avatar_client.profile_image(&avatar_user).await.ok();
+                let bytes = avatar_client.custom_profile_image(&avatar_user).await.ok();
                 avatar_handle.update(move |s, _| {
                     if s.scope.accepts(generation) {
                         s.avatars.finish(avatar_user, bytes);

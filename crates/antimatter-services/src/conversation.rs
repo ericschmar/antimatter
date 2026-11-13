@@ -354,7 +354,7 @@ impl Worker {
         }
         for peer in peers {
             if self.avatars.insert(peer.clone()) {
-                let bytes = self.client.profile_image(&peer).await.ok();
+                let bytes = self.client.custom_profile_image(&peer).await.ok();
                 self.emit(Update::PeerAvatar(peer, bytes)).await;
             }
         }
@@ -467,7 +467,7 @@ impl Worker {
         }
         for peer in shown {
             if self.avatars.insert(peer.clone()) {
-                let bytes = self.client.profile_image(&peer).await.ok();
+                let bytes = self.client.custom_profile_image(&peer).await.ok();
                 self.emit(Update::PeerAvatar(peer, bytes)).await;
             }
         }
