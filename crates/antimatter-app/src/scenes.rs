@@ -76,14 +76,18 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
                     emoji_name: "tada".into(),
                 }])
                 .collect(),
-            files: ["diagram.png", "photo.jpg"]
+            files: ["diagram.png", "photo.jpg", "report.pdf"]
                 .iter()
                 .map(|name| antimatter_services::mattermost::FileInfo {
                     id: format!("synthetic-{name}"),
                     name: (*name).into(),
-                    extension: "png".into(),
-                    size: 2048,
-                    mime_type: "image/png".into(),
+                    extension: name.rsplit('.').next().unwrap_or_default().into(),
+                    size: 2048 * 600,
+                    mime_type: if name.ends_with("pdf") {
+                        "application/pdf".into()
+                    } else {
+                        "image/png".into()
+                    },
                 })
                 .collect(),
         },

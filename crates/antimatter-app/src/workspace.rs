@@ -334,6 +334,66 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
     }
 }
 
+fn file_attachments(post: &Post, k: &rune_kit::Kit) -> El {
+    let mut list = col().gap(4.0);
+    for file in post.metadata.files.iter().filter(|f| !f.is_image()) {
+        let target = file.clone();
+        let kind = if file.extension.is_empty() {
+            file.mime_type.clone()
+        } else {
+            file.extension.to_uppercase()
+        };
+        list = list.child(
+            rune::row()
+                .key(format!("file-{}", file.id))
+                .role("button")
+                .label(format!("Download {}", file.name))
+                .w(320.0)
+                .padding(8.0)
+                .gap(10.0)
+                .center_y()
+                .radius(8.0)
+                .fill(k.c.layer_02)
+                .border(1.0, k.c.border_base)
+                .focusable(true)
+                .cursor(rune::Cursor::Pointer)
+                .on_press(move |s: &mut State| s.download_file(target.clone()))
+                .child(icon(&icons::FILE, 24.0).color(k.c.icon_muted).a11y_hidden())
+                .child(
+                    col()
+                        .grow(1.0)
+                        .child(
+                            text(file.name.clone())
+                                .font(k.ty.small_medium)
+                                .color(k.c.text_base)
+                                .truncate()
+                                .a11y_hidden(),
+                        )
+                        .child(
+                            text(format!("{kind} · {}", file_size(file.size)))
+                                .font(k.ty.small)
+                                .color(k.c.text_muted)
+                                .a11y_hidden(),
+                        ),
+                )
+                .child(
+                    icon(&icons::DOWNLOAD, 18.0)
+                        .color(k.c.icon_muted)
+                        .a11y_hidden(),
+                ),
+        );
+    }
+    list
+}
+
+fn file_size(bytes: u64) -> String {
+    match bytes {
+        b if b >= 1 << 20 => format!("{:.1} MB", b as f64 / f64::from(1 << 20)),
+        b if b >= 1 << 10 => format!("{:.1} KB", b as f64 / f64::from(1 << 10)),
+        b => format!("{b} B"),
+    }
+}
+
 fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let mut stack = rune::row().gap(-6.0).center_y();
@@ -950,6 +1010,7 @@ pub(crate) fn workspace(s: &State) -> El {
                                 .build(&k),
                         )
                         .child(image_attachments(s, post, &mut layer, &k))
+                        .child(file_attachments(post, &k))
                         .child(reaction_pills(s, post, &k)),
                 )
                 .child(

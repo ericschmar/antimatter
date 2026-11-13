@@ -172,6 +172,14 @@ impl State {
     }
 
     pub(crate) fn open_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        self.fetch_file(file, false);
+    }
+
+    pub(crate) fn download_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        self.fetch_file(file, true);
+    }
+
+    fn fetch_file(&mut self, file: antimatter_services::mattermost::FileInfo, save: bool) {
         let (Some(client), Some(runtime)) = (self.client.clone(), self.runtime.clone()) else {
             return;
         };
@@ -182,10 +190,19 @@ impl State {
             let name = std::path::Path::new(&file.name)
                 .file_name()
                 .map_or_else(|| file.id.clone().into(), ToOwned::to_owned);
-            let dir = std::env::temp_dir().join("antimatter-files").join(&file.id);
+            let downloads =
+                std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join("Downloads"));
+            let dir = match downloads {
+                Some(dir) if save => dir,
+                _ => std::env::temp_dir().join("antimatter-files").join(&file.id),
+            };
             let path = dir.join(name);
             if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(&path, bytes).is_ok() {
-                let _ = std::process::Command::new("open").arg(path).status();
+                let mut open = std::process::Command::new("open");
+                if save {
+                    open.arg("-R");
+                }
+                let _ = open.arg(path).status();
             }
         });
     }

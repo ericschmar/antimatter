@@ -22,5 +22,7 @@ for name in NAMES:
     kebab = snake.lower().replace('_', '-')
     body = "".join(f'<path d="{d}" fill="currentColor"/>' for d in paths)
     out.append(f'pub static {snake}: Icon = Icon {{ name: "ph-{kebab}", view: 256.0, body: r#"{body}"# }};')
+S = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"'
+out.append(f'pub static DOWNLOAD: Icon = Icon {{ name: "download", view: 256.0, body: r#"<path d="M184,128h40a8,8,0,0,1,8,8v64a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V136a8,8,0,0,1,8-8H72" {S}/><line x1="128" y1="24" x2="128" y2="128" {S}/><polyline points="80 80 128 128 176 80" {S}/><circle cx="188" cy="168" r="12" fill="currentColor"/>"# }};')
 pathlib.Path(__file__).resolve().parent.parent.joinpath("crates/antimatter-theme/src/icons.rs").write_text("\n".join(out) + "\n")
 print(len(NAMES), "icons")
