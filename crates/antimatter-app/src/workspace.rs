@@ -537,6 +537,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .w_full()
                 .px(16.0)
                 .py(8.0)
+                .center()
                 .on_layout(|s: &mut State, _| {
                     let offset =
                         f32::from_bits(s.ledger_offset.load(std::sync::atomic::Ordering::Relaxed));
