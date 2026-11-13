@@ -498,6 +498,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .gap(8.0)
                 .px(16.0)
                 .py(8.0)
+                .hover(c.hover)
                 .child(
                     rune::row()
                         .w(96.0)
