@@ -115,12 +115,12 @@ Local delivery:
 
 | Control | Storage key | Default | Effect | Wiring |
 | --- | --- | --- | --- | --- |
-| Enable notifications | `notificationsEnabled` | on | Master switch for local delivery. | Deferred |
-| Play notification sounds | `notificationSoundsEnabled` | on | Disabled while notifications are off. | Deferred |
+| Enable notifications | `notificationsEnabled` | on | Master switch for local delivery (macOS banner via `osascript` when a message arrives in a channel that is not open). | Live |
+| Play notification sounds | `notificationSoundsEnabled` | on | Disabled while notifications are off. | Live |
 
 Mattermost preferences for the connected account (read and written through the
 Mattermost `preferences` API, category `notifications`, values `"true"`/`"false"`).
-The Rust services crate has no preference API yet, so these are Deferred:
+These are read from and written to the user's `notify_props` (`PATCH /users/me/patch`); the controls appear once the section loads. Live:
 
 | Control | Name | Default | Wiring |
 | --- | --- | --- | --- |
@@ -143,7 +143,7 @@ ID, value:
 
 Each joined channel of the active server is listed in navigation order, with its
 display name and a level picker. Missing server values read as `default`. Wiring:
-Deferred.
+Live (`PUT /channels/{id}/members/{user}/notify_props`).
 
 A server preference write is applied only after the server accepts it. A failed
 write shows the error on the row and keeps the previous value.

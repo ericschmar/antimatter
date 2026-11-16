@@ -20,6 +20,7 @@ pub(crate) struct SettingsState {
     pub(crate) accounts: Vec<AccountRow>,
     pub(crate) workspace: Option<rune::AppHandle<crate::state::State>>,
     pub(crate) profile: crate::profile::ProfileForm,
+    pub(crate) notify: crate::notifications::ServerNotify,
 }
 
 /// One saved account as Settings shows it. The workspace owns the account data.
@@ -59,6 +60,7 @@ impl SettingsState {
             accounts: Vec::new(),
             workspace: None,
             profile: Default::default(),
+            notify: Default::default(),
         }
     }
 
@@ -84,9 +86,15 @@ impl SettingsState {
         let message_spacing = self.prefs.timeline_message_spacing;
         let show_timeline_avatars = self.prefs.show_timeline_avatars;
         let accent = self.prefs.accent_color;
+        let notify = (
+            self.prefs.notifications_enabled,
+            self.prefs.notification_sounds_enabled,
+        );
         let theme = theme_for(self.prefs.theme);
         self.workspace_action(move |ws| {
             ws.accent = accent;
+            ws.notifications_enabled = notify.0;
+            ws.notification_sounds_enabled = notify.1;
             ws.theme = theme;
             ws.message_font_size = message_font_size;
             ws.message_spacing = message_spacing;
@@ -142,6 +150,9 @@ pub(crate) fn settings_view(s: &SettingsState, _: &mut rune::Cx<SettingsState>) 
                 .on_press_tx(move |s: &mut SettingsState, tx: &mut rune::Tx| {
                     tx.instant();
                     s.section = section;
+                    if section == Section::Notifications && !s.notify.loaded {
+                        s.workspace_action(|ws| ws.load_notify());
+                    }
                     if section == Section::Profile && !s.profile.loaded {
                         s.workspace_action(|ws| ws.load_profile());
                     }
@@ -224,8 +235,7 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
             for accent in ACCENTS {
                 let (r, g, b) = accent_rgb(accent);
                 swatches = swatches.child(
-                    el()
-                        .key(format!("accent-{accent:?}"))
+                    el().key(format!("accent-{accent:?}"))
                         .role("button")
                         .label(accent_name(accent))
                         .checked(s.prefs.accent_color == accent)
@@ -258,13 +268,9 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                     k,
                     vec![
                         row_frame(k, "Accent color").child(swatches),
-                        choice_row(
-                            k,
-                            "Font",
-                            &FONTS.map(font_name),
-                            font_index,
-                            |s, i, _| s.change(|p| p.app_font_family = FONTS[i]),
-                        ),
+                        choice_row(k, "Font", &FONTS.map(font_name), font_index, |s, i, _| {
+                            s.change(|p| p.app_font_family = FONTS[i])
+                        }),
                         choice_row(
                             k,
                             "Theme",
@@ -327,24 +333,7 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                     ),
                 ],
             ))
-            .child(deferred_group(
-                k,
-                "Mattermost preferences",
-                &[
-                    "Desktop notifications",
-                    "Email notifications",
-                    "Push notifications",
-                    "Mention notifications",
-                    "Thread reply notifications",
-                ],
-            ))
-            .child(deferred_group(k, "Channel notification levels", &[]))
-            .child(text(
-                "Channel levels appear once this account has joined channels. Server writes are deferred.",
-            )
-            .font(k.ty.small)
-            .color(c.text_muted)
-            .wrap()),
+            .child(server_notifications(s, k)),
         Section::Workspace => group(
             k,
             vec![
@@ -421,21 +410,144 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                 );
                 card = card.child(row);
             }
-            col()
-                .w_full()
-                .gap(14.0)
-                .child(group(k, vec![card]))
-                .child(
-                    Button::new("Add account")
-                        .variant(ButtonVariant::Contrast)
-                        .on_press_tx(|s: &mut SettingsState, _| {
-                            s.workspace_action(|ws| ws.add_account())
-                        })
-                        .build(k)
-                        .key("add-account"),
-                )
+            col().w_full().gap(14.0).child(group(k, vec![card])).child(
+                Button::new("Add account")
+                    .variant(ButtonVariant::Contrast)
+                    .on_press_tx(|s: &mut SettingsState, _| {
+                        s.workspace_action(|ws| ws.add_account())
+                    })
+                    .build(k)
+                    .key("add-account"),
+            )
         }
     }
+}
+
+fn server_notifications(s: &SettingsState, k: &rune_kit::Kit) -> El {
+    let n = &s.notify;
+    let c = &k.c;
+    if !n.loaded {
+        return text(
+            n.message.clone().unwrap_or_else(|| {
+                "Mattermost preferences load once a server is connected.".into()
+            }),
+        )
+        .font(k.ty.small)
+        .color(c.text_muted)
+        .wrap();
+    }
+    const TRIPLE: [&str; 3] = ["All", "Mentions", "None"];
+    const TRIPLE_VALUES: [&str; 3] = ["all", "mention", "none"];
+    const REPLIES: [&str; 3] = ["Any", "Mine", "None"];
+    const REPLY_VALUES: [&str; 3] = ["any", "root", "never"];
+    let at = |values: &[&str], current: String| values.iter().position(|v| *v == current);
+    let flag = |key: &str| n.get(key, "true") == "true";
+    let mut page = col().w_full().gap(14.0).child(group(
+        k,
+        vec![
+            choice_row(
+                k,
+                "Desktop notifications",
+                &TRIPLE,
+                at(&TRIPLE_VALUES, n.get("desktop", "mention")),
+                |s, i, _| {
+                    let v = TRIPLE_VALUES[i].to_owned();
+                    s.workspace_action(move |ws| ws.set_notify_prop("desktop", v));
+                },
+            ),
+            toggle_row(
+                k,
+                "Email notifications",
+                flag("email"),
+                "notify-email",
+                |s| {
+                    let next = if s.notify.get("email", "true") == "true" {
+                        "false"
+                    } else {
+                        "true"
+                    };
+                    s.workspace_action(move |ws| ws.set_notify_prop("email", next.into()));
+                },
+            ),
+            choice_row(
+                k,
+                "Push notifications",
+                &TRIPLE,
+                at(&TRIPLE_VALUES, n.get("push", "mention")),
+                |s, i, _| {
+                    let v = TRIPLE_VALUES[i].to_owned();
+                    s.workspace_action(move |ws| ws.set_notify_prop("push", v));
+                },
+            ),
+            toggle_row(
+                k,
+                "Mention notifications",
+                flag("channel"),
+                "notify-channel",
+                |s| {
+                    let next = if s.notify.get("channel", "true") == "true" {
+                        "false"
+                    } else {
+                        "true"
+                    };
+                    s.workspace_action(move |ws| ws.set_notify_prop("channel", next.into()));
+                },
+            ),
+            choice_row(
+                k,
+                "Thread reply notifications",
+                &REPLIES,
+                at(&REPLY_VALUES, n.get("comments", "never")),
+                |s, i, _| {
+                    let v = REPLY_VALUES[i].to_owned();
+                    s.workspace_action(move |ws| ws.set_notify_prop("comments", v));
+                },
+            ),
+        ],
+    ));
+    if !n.channels.is_empty() {
+        page = page.child(
+            text("Channel notification levels")
+                .font(k.ty.small_medium)
+                .color(c.text_muted),
+        );
+        let labels: [&str; 4] = [
+            crate::notifications::LEVELS[0].1,
+            crate::notifications::LEVELS[1].1,
+            crate::notifications::LEVELS[2].1,
+            crate::notifications::LEVELS[3].1,
+        ];
+        let rows = n
+            .channels
+            .iter()
+            .map(|(id, name, level)| {
+                let id = id.clone();
+                choice_row(
+                    k,
+                    name,
+                    &labels,
+                    crate::notifications::LEVELS
+                        .iter()
+                        .position(|(v, _)| v == level),
+                    move |s, i, _| {
+                        let id = id.clone();
+                        let level = crate::notifications::LEVELS[i].0;
+                        s.workspace_action(move |ws| ws.set_channel_level(id, level));
+                    },
+                )
+            })
+            .collect();
+        page = page.child(group(k, rows));
+    }
+    if let Some(message) = &n.message {
+        page = page.child(
+            text(message.clone())
+                .font(k.ty.small)
+                .color(c.danger.fg)
+                .wrap(),
+        );
+    }
+    page
 }
 
 fn profile_page(s: &SettingsState, k: &rune_kit::Kit) -> El {
@@ -626,23 +738,6 @@ fn choice_row<const N: usize>(
                 .on_pick(pick)
                 .build(k),
         )
-}
-
-fn deferred_group(k: &rune_kit::Kit, heading: &str, rows: &[&str]) -> El {
-    let mut card = col().w_full().gap(10.0).child(
-        text(heading)
-            .font(k.ty.small_medium)
-            .color(k.c.text_muted)
-            .wrap(),
-    );
-    for label in rows {
-        card = card.child(
-            row_frame(k, label)
-                .child(text("Deferred").font(k.ty.text_small).color(k.c.text_muted))
-                .inert(),
-        );
-    }
-    card
 }
 
 #[cfg(test)]

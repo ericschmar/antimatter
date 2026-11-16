@@ -235,6 +235,19 @@ fn empty_channel_switch_autosaves_navigation() {
     assert!(intents.try_recv().is_err());
 }
 
+#[test]
+fn archived_and_favorite_changes_survive_close_and_restore() {
+    let executor = tokio::runtime::Runtime::new().unwrap();
+    let (sender, _intents) = mpsc::channel(8);
+    let (_root, mut rt) = executor.block_on(durable_ui(sender));
+    let store = rt.state.persistence.clone().unwrap();
+    let key = rt.state.durable.clone().unwrap();
+    rt.state.toggle_archived("old");
+    rt.state.close();
+    let (_, _, navigation) = executor.block_on(store.restore(key)).unwrap();
+    assert_eq!(navigation.archived, vec!["old".to_string()]);
+}
+
 #[tokio::test]
 async fn delayed_ack_completion_cannot_resurrect_marker_on_close() {
     let (sender, _intents) = mpsc::channel(8);

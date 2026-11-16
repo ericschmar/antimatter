@@ -155,11 +155,16 @@ impl State {
                 let arrived: Vec<String> = unread
                     .iter()
                     .filter(|(id, count)| {
-                        count.messages > self.unread.get(*id).map_or(0, |u| u.messages)
+                        self.unread
+                            .get(*id)
+                            .is_some_and(|u| count.messages > u.messages)
                     })
                     .map(|(id, _)| id.clone())
                     .collect();
                 for id in arrived {
+                    if self.channel.as_deref() != Some(id.as_str()) && !self.synthetic {
+                        self.notify_local(&id);
+                    }
                     if let Some(at) = self.navigation.archived.iter().position(|a| *a == id) {
                         self.navigation.archived.remove(at);
                     }

@@ -5,6 +5,7 @@ mod composer;
 #[cfg(debug_assertions)]
 mod dev_login;
 mod markdown;
+mod notifications;
 mod profile;
 mod scenes;
 mod session;
@@ -245,6 +246,10 @@ fn main() {
     let prefs_font_size = prefs.message_font_size;
     let prefs_spacing = prefs.timeline_message_spacing;
     let prefs_avatars = prefs.show_timeline_avatars;
+    let prefs_notify = (
+        prefs.notifications_enabled,
+        prefs.notification_sounds_enabled,
+    );
     let prefs_accent = prefs.accent_color;
     let prefs_theme = crate::settings::theme_for(prefs.theme);
     let handle = app.handle();
@@ -268,6 +273,8 @@ fn main() {
             message_spacing: prefs_spacing,
             show_timeline_avatars: prefs_avatars,
             accent: prefs_accent,
+            notifications_enabled: prefs_notify.0,
+            notification_sounds_enabled: prefs_notify.1,
             ..State::default()
         };
         if !rune::is_headless() {

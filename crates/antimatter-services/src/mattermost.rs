@@ -178,6 +178,8 @@ pub struct User {
     pub last_picture_update: i64,
     #[serde(default)]
     pub props: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub notify_props: std::collections::HashMap<String, String>,
 }
 
 impl User {
@@ -499,6 +501,26 @@ impl Client {
             .await
             .map_err(|_| Error::Transport)?;
         decode(checked(response).await?).await
+    }
+
+    pub async fn my_channel_members(&self, team_id: &str) -> Result<Value, Error> {
+        self.get(&segments(&[
+            "users", "me", "teams", team_id, "channels", "members",
+        ])?)
+        .await
+    }
+
+    pub async fn set_channel_notify(
+        &self,
+        channel_id: &str,
+        user_id: &str,
+        level: &str,
+    ) -> Result<Value, Error> {
+        self.put(
+            &segments(&["channels", channel_id, "members", user_id, "notify_props"])?,
+            &serde_json::json!({"desktop": level, "push": level}),
+        )
+        .await
     }
 
     pub async fn teams(&self) -> Result<Vec<Team>, Error> {

@@ -96,6 +96,8 @@ pub(crate) struct State {
     pub(crate) archived_collapsed: bool,
     pub(crate) dms_collapsed: bool,
     pub(crate) server_open: bool,
+    pub(crate) notifications_enabled: bool,
+    pub(crate) notification_sounds_enabled: bool,
     pub(crate) last_active: Option<std::time::Instant>,
     pub(crate) new_menu: bool,
     pub(crate) new_dialog: Option<NewKind>,
@@ -228,7 +230,10 @@ impl State {
             return;
         }
         let now = std::time::Instant::now();
-        if self.last_active.is_some_and(|t| now.duration_since(t) < EVERY) {
+        if self
+            .last_active
+            .is_some_and(|t| now.duration_since(t) < EVERY)
+        {
             return;
         }
         let sent = self
@@ -547,6 +552,7 @@ impl State {
         settings.update(move |s, _| {
             s.accounts = rows;
             s.profile = Default::default();
+            s.notify = Default::default();
         });
     }
 
@@ -603,6 +609,8 @@ impl Default for State {
             archived_collapsed: false,
             dms_collapsed: false,
             server_open: false,
+            notifications_enabled: true,
+            notification_sounds_enabled: true,
             last_active: None,
             new_menu: false,
             new_dialog: None,
