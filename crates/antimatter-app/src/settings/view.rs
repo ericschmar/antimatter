@@ -280,9 +280,27 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                         .radial_gradient(
                             [0.5, 0.5],
                             12.0,
-                            [(0.0, rune::Color::WHITE), (0.75, rune::Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0 })],
+                            [
+                                (0.0, rune::Color::WHITE),
+                                (
+                                    0.75,
+                                    rune::Color {
+                                        r: 1.0,
+                                        g: 1.0,
+                                        b: 1.0,
+                                        a: 0.0,
+                                    },
+                                ),
+                            ],
                         )
-                        .border(2.0, if custom { k.c.text_base } else { rune::Color::TRANSPARENT }),
+                        .border(
+                            2.0,
+                            if custom {
+                                k.c.text_base
+                            } else {
+                                rune::Color::TRANSPARENT
+                            },
+                        ),
                 )
                 .on_press(move |s: &mut SettingsState| {
                     s.picker_open = !s.picker_open;
@@ -769,7 +787,12 @@ fn hue_wheel(size: f32) -> rune::Shape {
             [c + r * angle.cos(), c + r * angle.sin()]
         };
         let (cr, cg, cb) = hsv_to_rgb((a0 + a1) / 2.0, 1.0, 1.0);
-        let color = rune::Color { r: cr as f32 / 255.0, g: cg as f32 / 255.0, b: cb as f32 / 255.0, a: 1.0 };
+        let color = rune::Color {
+            r: cr as f32 / 255.0,
+            g: cg as f32 / 255.0,
+            b: cb as f32 / 255.0,
+            a: 1.0,
+        };
         shape = shape.fill(vec![[c, c], point(a0 - 0.002), point(a1 + 0.002)], color);
     }
     shape
@@ -781,7 +804,12 @@ fn rainbow_stops() -> Vec<(f32, rune::Color)> {
             let (r, g, b) = hsv_to_rgb(i as f32 / 6.0, 1.0, 1.0);
             (
                 i as f32 / 6.0,
-                rune::Color { r: r as f32 / 255.0, g: g as f32 / 255.0, b: b as f32 / 255.0, a: 1.0 },
+                rune::Color {
+                    r: r as f32 / 255.0,
+                    g: g as f32 / 255.0,
+                    b: b as f32 / 255.0,
+                    a: 1.0,
+                },
             )
         })
         .collect()
@@ -800,10 +828,30 @@ fn color_picker(s: &SettingsState) -> El {
     let (h, sat, val) = s.picker_hsv;
     let unit = |x: f32, w: f32| (x / w.max(1.0)).clamp(0.0, 1.0);
     let (hr, hg, hb) = hsv_to_rgb(h, 1.0, 1.0);
-    let hue = Color { r: hr as f32 / 255.0, g: hg as f32 / 255.0, b: hb as f32 / 255.0, a: 1.0 };
-    let white = Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
-    let clear = Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-    let black = Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
+    let hue = Color {
+        r: hr as f32 / 255.0,
+        g: hg as f32 / 255.0,
+        b: hb as f32 / 255.0,
+        a: 1.0,
+    };
+    let white = Color {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    let clear = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+    };
+    let black = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
     let (w, hgt) = (220.0, 120.0);
     let square = el()
         .key("picker-square")
@@ -872,9 +920,7 @@ fn choice_row<const N: usize>(
                 .color(k.c.text_base)
                 .truncate(),
         )
-        .child(
-            accent_segments(k, label, options, selected, pick),
-        )
+        .child(accent_segments(k, label, options, selected, pick))
 }
 
 /// A full-width segmented control whose selected segment is filled with the accent.
@@ -889,11 +935,19 @@ fn accent_segments<const N: usize>(
     let accent = c.bg_accent;
     let luma = 0.2126 * accent.r + 0.7152 * accent.g + 0.0722 * accent.b;
     let on_accent = if luma > 0.6 {
-        rune::Color { r: 0.1, g: 0.1, b: 0.1, a: 1.0 }
+        rune::Color {
+            r: 0.1,
+            g: 0.1,
+            b: 0.1,
+            a: 1.0,
+        }
     } else {
         rune::Color::WHITE
     };
-    let font = rune::TextStyle { line_height: 13.0, ..k.ty.text_xsmall };
+    let font = rune::TextStyle {
+        line_height: 13.0,
+        ..k.ty.text_xsmall
+    };
     let mut root = row()
         .role("radiogroup")
         .label(label)
@@ -903,7 +957,11 @@ fn accent_segments<const N: usize>(
         .center_y()
         .radius(6.0)
         .fill(c.layer_01)
-        .box_shadow(rune::Shadow { spread: 0.5, color: c.border_base, ..Default::default() });
+        .box_shadow(rune::Shadow {
+            spread: 0.5,
+            color: c.border_base,
+            ..Default::default()
+        });
     for (i, name) in options.iter().enumerate() {
         let on = selected == Some(i);
         let pick = pick.clone();

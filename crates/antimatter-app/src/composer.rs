@@ -67,7 +67,11 @@ fn bar_button(
     on_press: impl Fn(&mut State) + 'static,
 ) -> El {
     let b = Button::new(label)
-        .help(if active { "Show rendered message" } else { "Show Markdown source" })
+        .help(if active {
+            "Show rendered message"
+        } else {
+            "Show Markdown source"
+        })
         .control_size(ControlSize::Small)
         .variant(if active {
             ButtonVariant::Contrast

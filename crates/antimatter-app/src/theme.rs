@@ -3,7 +3,7 @@ use antimatter_services::settings::AccentColor;
 use antimatter_theme::Theme;
 use rune::{Color, TextStyle};
 use rune_kit::Kit;
-use std::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 
 // ponytail: a process-wide selection read by the widget helpers, set once per frame from
 // `State::theme`; ceiling is one theme per process. Upgrade: pass `&Kit` through the helpers.

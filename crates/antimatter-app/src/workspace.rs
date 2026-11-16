@@ -1504,7 +1504,12 @@ pub(crate) fn workspace(s: &State) -> El {
         regular
             .into_iter()
             .map(|channel| channel_row(s, channel, locked, &k))
-            .chain([new_row("create-channel", "Create channel…", NewKind::Channel, &k)])
+            .chain([new_row(
+                "create-channel",
+                "Create channel…",
+                NewKind::Channel,
+                &k,
+            )])
             .collect(),
         &k,
     ));
@@ -1517,7 +1522,12 @@ pub(crate) fn workspace(s: &State) -> El {
         direct
             .into_iter()
             .map(|channel| channel_row(s, channel, locked, &k))
-            .chain([new_row("start-dm", "Start direct message…", NewKind::Dm, &k)])
+            .chain([new_row(
+                "start-dm",
+                "Start direct message…",
+                NewKind::Dm,
+                &k,
+            )])
             .collect(),
         &k,
     ));
