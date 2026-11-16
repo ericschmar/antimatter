@@ -183,6 +183,7 @@ fn main() {
                     name: "synthetic-third".into(),
                     display_name: "synthetic-third".into(),
                     kind: "O".into(),
+                    members: Vec::new(),
                 });
             }),
             ("workspace-history-proof", |s| {
@@ -202,6 +203,12 @@ fn main() {
                 synthetic_workspace(s);
                 s.has_older = true;
                 s.loading_older = true;
+            }),
+            ("empty-channel-proof", |s| {
+                synthetic_workspace(s);
+                s.channel = None;
+                s.posts.clear();
+                s.navigation.tabs.clear();
             }),
             ("workspace-locked-proof", |s| {
                 synthetic_workspace(s);

@@ -489,37 +489,79 @@ impl State {
     }
 
     pub(crate) fn open_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
-        self.fetch_file(file, false);
+        self.fetch_file(file);
     }
 
-    pub(crate) fn download_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
-        self.fetch_file(file, true);
+    pub(crate) fn download_file(
+        &mut self,
+        file: antimatter_services::mattermost::FileInfo,
+        tx: &mut rune::Tx,
+    ) {
+        let options = rune::FileDialogOptions {
+            title: "Save file".into(),
+            file_name: Some(
+                std::path::Path::new(&file.name)
+                    .file_name()
+                    .map_or_else(|| file.id.clone(), |n| n.to_string_lossy().into_owned()),
+            ),
+            ..Default::default()
+        };
+        tx.save_file(options, move |s: &mut State, result, _| {
+            if let Ok(Some(path)) = result {
+                s.save_file_to(file.clone(), path);
+            }
+        });
     }
 
-    fn fetch_file(&mut self, file: antimatter_services::mattermost::FileInfo, save: bool) {
-        let (Some(client), Some(runtime)) = (self.client.clone(), self.runtime.clone()) else {
+    fn save_file_to(&mut self, file: antimatter_services::mattermost::FileInfo, path: std::path::PathBuf) {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
             return;
         };
         runtime.spawn(async move {
-            let Ok(bytes) = client.file(&file.id, false).await else {
-                return;
+            let result = match client.file(&file.id, false).await {
+                Ok(bytes) => std::fs::write(&path, bytes).map_err(|e| e.to_string()),
+                Err(error) => Err(error.to_string()),
+            };
+            if let Err(reason) = result {
+                eprintln!("Download failed for {}: {reason}", file.name);
+                handle.update(|s, _| {
+                    s.error = Some("Could not download the file. See the terminal for details.");
+                });
+            }
+        });
+    }
+
+    fn fetch_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let fail = |handle: &AppHandle<State>, reason: String| {
+                eprintln!("Could not open {}: {reason}", file.name);
+                handle.update(|s, _| s.error = Some("Could not open the file. See the terminal for details."));
+            };
+            let bytes = match client.file(&file.id, false).await {
+                Ok(bytes) => bytes,
+                Err(error) => return fail(&handle, error.to_string()),
             };
             let name = std::path::Path::new(&file.name)
                 .file_name()
                 .map_or_else(|| file.id.clone().into(), ToOwned::to_owned);
-            let downloads =
-                std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join("Downloads"));
-            let dir = match downloads {
-                Some(dir) if save => dir,
-                _ => std::env::temp_dir().join("antimatter-files").join(&file.id),
-            };
+            let dir = std::env::temp_dir().join("antimatter-files").join(&file.id);
             let path = dir.join(name);
-            if std::fs::create_dir_all(&dir).is_ok() && std::fs::write(&path, bytes).is_ok() {
-                let mut open = std::process::Command::new("open");
-                if save {
-                    open.arg("-R");
-                }
-                let _ = open.arg(path).status();
+            if let Err(error) = std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, bytes)) {
+                return fail(&handle, error.to_string());
+            }
+            if let Err(error) = std::process::Command::new("open").arg(path).status() {
+                fail(&handle, error.to_string());
             }
         });
     }

@@ -387,6 +387,37 @@ impl Worker {
             .filter_map(|c| direct_peer(&c.name, &self.user_id))
             .collect();
         self.resolve_names(peers).await;
+        let mut group_members = Vec::new();
+        for channel in channels.iter().filter(|c| c.kind == "G") {
+            let ids: Vec<String> = match self.client.channel_members(&channel.id, 0).await {
+                Ok(members) => members
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|m| m.get("user_id")?.as_str().map(str::to_owned))
+                    .filter(|id| *id != self.user_id)
+                    .collect(),
+                Err(_) => Vec::new(),
+            };
+            group_members.push((channel.id.clone(), ids));
+        }
+        self.resolve_names(group_members.iter().flat_map(|(_, ids)| ids.clone()))
+            .await;
+        for (id, ids) in group_members {
+            if ids.is_empty() {
+                continue;
+            }
+            let Some(channel) = channels.iter_mut().find(|c| c.id == id) else {
+                continue;
+            };
+            let mut names: Vec<String> = ids
+                .iter()
+                .map(|id| self.names.get(id).cloned().unwrap_or_else(|| id.clone()))
+                .collect();
+            names.sort_by_key(|n| n.to_lowercase());
+            channel.display_name = names.join(", ");
+            channel.members = ids;
+        }
         for channel in channels.iter_mut().filter(|c| c.kind == "D") {
             let Some(peer) = direct_peer(&channel.name, &self.user_id) else {
                 channel.display_name = "You".into();
@@ -442,11 +473,16 @@ impl Worker {
             }
         }
         self.name_direct_channels(&mut channels).await;
-        let peers: Vec<_> = channels
+        let mut peers: Vec<_> = channels
             .iter()
             .filter(|c| c.kind == "D")
             .map(|c| direct_avatar_peer(&c.name, &self.user_id))
             .collect();
+        for channel in channels.iter().filter(|c| c.kind == "G") {
+            peers.extend(channel.members.iter().take(3).cloned());
+        }
+        peers.sort();
+        peers.dedup();
         if !peers.is_empty()
             && let Ok(statuses) = self.client.statuses(&peers).await
         {

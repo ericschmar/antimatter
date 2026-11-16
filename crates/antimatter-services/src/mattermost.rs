@@ -218,6 +218,8 @@ pub struct Channel {
     pub display_name: String,
     #[serde(rename = "type")]
     pub kind: String,
+    #[serde(default, skip_serializing)]
+    pub members: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -100,6 +100,7 @@ fn ui(sender: mpsc::Sender<Intent>) -> Runtime<State> {
             name: "other".into(),
             display_name: "Other".into(),
             kind: "O".into(),
+            members: Vec::new(),
         }],
         intents: Some(sender),
         ready: true,

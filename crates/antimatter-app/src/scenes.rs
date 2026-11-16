@@ -22,6 +22,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
             name: id.into(),
             display_name: id.into(),
             kind: "O".into(),
+            members: Vec::new(),
         })
         .chain(std::iter::once(Channel {
             id: "synthetic-dm".into(),
@@ -29,6 +30,7 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
             name: "synthetic-user__synthetic-peer".into(),
             display_name: "synthetic-peer".into(),
             kind: "D".into(),
+            members: Vec::new(),
         }))
         .collect();
     s.peer_presence = HashMap::from([

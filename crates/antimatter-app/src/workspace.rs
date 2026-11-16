@@ -19,6 +19,7 @@ const SERVER_MAX_WIDTH: f32 = 160.0;
 const MAIN_MIN: f32 = 248.0;
 const SECTION_HEADER_HEIGHT: f32 = 24.0;
 const ROW_GUTTER: f32 = 6.0;
+const EMPTY_ART: &str = include_str!("empty_art.txt");
 
 static DISCLOSURE_OPEN: Icon = Icon {
     name: "antimatter-disclosure-open",
@@ -892,7 +893,7 @@ fn file_attachments(post: &Post, k: &rune_kit::Kit) -> Option<El> {
                 .border(1.0, k.c.border_base)
                 .focusable(true)
                 .cursor(rune::Cursor::Pointer)
-                .on_press(move |s: &mut State| s.download_file(target.clone()))
+                .on_press_tx(move |s: &mut State, tx| s.download_file(target.clone(), tx))
                 .child(icon(&icons::FILE, 24.0).color(k.c.icon_muted).a11y_hidden())
                 .child(
                     col()
@@ -1210,6 +1211,25 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
                 .a11y_hidden(),
         );
     }
+    if channel.kind == "G" && !channel.members.is_empty() {
+        let mut stack = rune::row().gap(-8.0).center_y();
+        for member in channel.members.iter().take(3) {
+            let face = match s.avatars.user(member) {
+                Some(image) => el()
+                    .size(18.0, 18.0)
+                    .radius(9.0)
+                    .border(1.5, k.c.layer_01)
+                    .pixels(image.pixels()),
+                None => el()
+                    .size(18.0, 18.0)
+                    .radius(9.0)
+                    .border(1.5, k.c.layer_01)
+                    .fill(k.c.layer_03),
+            };
+            stack = stack.child(face);
+        }
+        lead.push(stack.key("avatar-stack").a11y_hidden());
+    }
     if channel.kind == "D"
         && let Some(peer) = dm_peer(s, &channel.name)
     {
@@ -1443,16 +1463,16 @@ pub(crate) fn workspace(s: &State) -> El {
     let k = workspace_theme();
     let c = &k.c;
     let locked = !s.ready || s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
-    let (direct, regular): (Vec<_>, Vec<_>) = s
+    let (archived, rest): (Vec<_>, Vec<_>) = s
         .channels
         .iter()
-        .partition(|channel| matches!(channel.kind.as_str(), "D" | "G"));
-    let (archived, regular): (Vec<_>, Vec<_>) = regular
-        .into_iter()
         .partition(|channel| s.navigation.archived.contains(&channel.id));
-    let (favorites, regular): (Vec<_>, Vec<_>) = regular
+    let (favorites, rest): (Vec<_>, Vec<_>) = rest
         .into_iter()
         .partition(|channel| s.navigation.favorites.contains(&channel.id));
+    let (direct, regular): (Vec<_>, Vec<_>) = rest
+        .into_iter()
+        .partition(|channel| matches!(channel.kind.as_str(), "D" | "G"));
     let point = s.channel_menu.clone();
     let channel = point.as_ref().map(|(id, _)| id.clone()).unwrap_or_default();
     let favorite = s.navigation.favorites.contains(&channel);
@@ -1830,6 +1850,10 @@ pub(crate) fn workspace(s: &State) -> El {
                                 .style(
                                     MarkdownStyle::from_kit(&k)
                                         .code_block(c.layer_03, c.border_base)
+                                        .code_block_font(TextStyle {
+                                            family: rune::Family::SystemMono,
+                                            ..k.ty.mono
+                                        })
                                         .body_font(TextStyle {
                                             size: f32::from(s.message_font_size),
                                             line_height: f32::from(s.message_font_size) * 1.6,
@@ -1917,14 +1941,6 @@ pub(crate) fn workspace(s: &State) -> El {
         );
     }
     let mut actions = rune::row().w_full().gap(8.0).flex_wrap();
-    if s.durable.is_some() {
-        actions = actions.child(button(
-            "save-draft",
-            "Save draft",
-            s.busy || s.submitted || s.pending.is_some() || s.recovered_pending,
-            |s| s.checkpoint(AfterCheckpoint::Save),
-        ));
-    }
     main = main.child(col().w_full().px(16.0).pb(8.0).gap(4.0).child(actions));
     let mut status = col().w_full().px(16.0).pb(8.0).gap(8.0);
     if s.recovered_pending {
@@ -1998,6 +2014,16 @@ pub(crate) fn workspace(s: &State) -> El {
         || s.error.is_some()
     {
         main = main.child(status);
+    }
+    if s.channel.is_none() && !searching {
+        ledger = ledger.child(
+            rune::row().w_full().pt(24.0).center().child(
+                text(EMPTY_ART.trim_end())
+                    .font(k.ty.mono.family(rune::Family::SystemMono))
+                    .color(c.text_faint)
+                    .a11y_hidden(),
+            ),
+        );
     }
     main = main.child(ledger.scroll_bar(&k));
     if !searching {

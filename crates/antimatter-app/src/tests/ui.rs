@@ -235,6 +235,7 @@ fn sidebar_groups_regular_channels_before_direct_messages_and_collapses() {
         name: "me__peer".into(),
         display_name: "Peer".into(),
         kind: "D".into(),
+        members: Vec::new(),
     });
     rt.invalidate();
     rt.frame(0.0);
