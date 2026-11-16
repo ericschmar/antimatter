@@ -961,7 +961,17 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
                 .a11y_hidden(),
         );
     }
-    group
+    let mut names: Vec<String> = s
+        .members
+        .iter()
+        .map(|id| s.names.get(id).cloned().unwrap_or_else(|| id.clone()))
+        .collect();
+    names.sort_by_key(|n| n.to_lowercase());
+    if names.is_empty() {
+        group
+    } else {
+        group.help(names.join("\n"))
+    }
 }
 
 fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {

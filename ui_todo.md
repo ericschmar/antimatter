@@ -37,7 +37,7 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] Wire up the theme selector to the app so changing the theme, changes the accent color (also highlight the current accent)
 [x] Change the font of our right-click context menu to be smaller
 [x] Make double-clicking a channel pin it
-[ ] Add a tooltip to the channel's avatar stack that lists the users in the channel
+[x] Add a tooltip to the channel's avatar stack that lists the users in the channel
 [ ] Add a "create channel" and "start dm" options in the sidebar 
 [ ] Wire up the Profile page
 [ ] Wire up interacting with the app as telling mattermost that we're active
