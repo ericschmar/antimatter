@@ -78,6 +78,7 @@ pub struct Settings {
     pub compact_timeline: bool,
     pub timeline_message_spacing: MessageSpacing,
     pub show_timeline_avatars: bool,
+    pub timeline_avatar_size: u8,
     pub notifications_enabled: bool,
     pub notification_sounds_enabled: bool,
     pub workspace_open_previews: bool,
@@ -95,6 +96,7 @@ impl Default for Settings {
             compact_timeline: true,
             timeline_message_spacing: MessageSpacing::default(),
             show_timeline_avatars: true,
+            timeline_avatar_size: 32,
             notifications_enabled: true,
             notification_sounds_enabled: true,
             workspace_open_previews: true,
@@ -174,6 +176,7 @@ mod tests {
         assert_eq!(defaults.app_font_family, AppFontFamily::System);
         assert_eq!(defaults.theme, ThemePreference::System);
         assert!(defaults.compact_timeline && defaults.show_timeline_avatars);
+        assert_eq!(defaults.timeline_avatar_size, 32);
         assert_eq!(defaults.timeline_message_spacing, MessageSpacing::Medium);
         assert!(defaults.notifications_enabled && defaults.notification_sounds_enabled);
         assert!(defaults.workspace_open_previews);

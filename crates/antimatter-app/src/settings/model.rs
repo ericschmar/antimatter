@@ -164,6 +164,18 @@ pub(crate) fn step_font_size(settings: &mut Settings, delta: i8) {
         .clamp(10, 20);
 }
 
+pub(crate) fn avatar_size_label(points: u8) -> String {
+    format!("{points} pt")
+}
+
+/// Clamps the avatar stepper to 20...48 points in steps of 4.
+pub(crate) fn step_avatar_size(settings: &mut Settings, delta: i8) {
+    settings.timeline_avatar_size = settings
+        .timeline_avatar_size
+        .saturating_add_signed(delta.saturating_mul(4))
+        .clamp(20, 48);
+}
+
 pub(crate) fn step_grouping(settings: &mut Settings, delta: i8) {
     settings.message_grouping_interval_minutes = settings
         .message_grouping_interval_minutes
@@ -197,6 +209,19 @@ mod tests {
         assert_eq!(accent_rgb(AccentColor::OceanBlue), (0.00, 0.48, 1.00));
         assert_eq!(accent_rgb(AccentColor::Violet), (0.60, 0.35, 0.85));
         assert_eq!(accent_name(AccentColor::OceanBlue), "Ocean Blue");
+    }
+
+    #[test]
+    fn avatar_size_stays_between_20_and_48() {
+        let mut settings = Settings::default();
+        for _ in 0..20 {
+            step_avatar_size(&mut settings, 1);
+        }
+        assert_eq!(settings.timeline_avatar_size, 48);
+        for _ in 0..20 {
+            step_avatar_size(&mut settings, -1);
+        }
+        assert_eq!(settings.timeline_avatar_size, 20);
     }
 
     #[test]

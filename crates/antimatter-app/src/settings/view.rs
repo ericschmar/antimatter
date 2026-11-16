@@ -89,6 +89,7 @@ impl SettingsState {
         let message_font_size = self.prefs.message_font_size;
         let message_spacing = self.prefs.timeline_message_spacing;
         let show_timeline_avatars = self.prefs.show_timeline_avatars;
+        let avatar_size = self.prefs.timeline_avatar_size;
         let accent = self.prefs.accent_color;
         let notify = (
             self.prefs.notifications_enabled,
@@ -103,6 +104,7 @@ impl SettingsState {
             ws.message_font_size = message_font_size;
             ws.message_spacing = message_spacing;
             ws.show_timeline_avatars = show_timeline_avatars;
+            ws.avatar_size = avatar_size;
         });
     }
 }
@@ -365,6 +367,14 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                             s.prefs.show_timeline_avatars,
                             "show-avatars",
                             |s| s.change(|p| p.show_timeline_avatars = !p.show_timeline_avatars),
+                        ),
+                        stepper_row(
+                            k,
+                            "Avatar size",
+                            &avatar_size_label(s.prefs.timeline_avatar_size),
+                            "avatar-size",
+                            |s| s.change(|p| step_avatar_size(p, -1)),
+                            |s| s.change(|p| step_avatar_size(p, 1)),
                         ),
                     ],
                 ))

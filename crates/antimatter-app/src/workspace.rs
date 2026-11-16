@@ -19,7 +19,6 @@ const SERVER_MAX_WIDTH: f32 = 160.0;
 const MAIN_MIN: f32 = 248.0;
 const SECTION_HEADER_HEIGHT: f32 = 24.0;
 const ROW_GUTTER: f32 = 6.0;
-const AVATAR: f32 = 32.0;
 
 static DISCLOSURE_OPEN: Icon = Icon {
     name: "antimatter-disclosure-open",
@@ -307,28 +306,29 @@ fn presence_dot(status: Option<&str>, c: &rune_kit::Palette) -> rune::Color {
 }
 
 fn author_marker(s: &State, post: &Post, c: &rune_kit::Palette) -> El {
+    let avatar_size = f32::from(s.avatar_size);
     let dot = presence_dot(s.peer_presence.get(&post.user_id).map(String::as_str), c);
     if !s.show_timeline_avatars {
         return el().size(6.0, 6.0).radius(3.0).fill(dot);
     }
     let avatar = match s.avatars.user(&post.user_id) {
         Some(image) => el()
-            .size(AVATAR, AVATAR)
-            .radius(AVATAR / 2.0)
+            .size(avatar_size, avatar_size)
+            .radius(avatar_size / 2.0)
             .border(1.5, c.bg_base)
             .pixels(image.pixels()),
         None => el()
-            .size(AVATAR, AVATAR)
-            .radius(AVATAR / 2.0)
+            .size(avatar_size, avatar_size)
+            .radius(avatar_size / 2.0)
             .border(1.5, c.bg_base)
             .fill(c.layer_02),
     };
-    el().size(AVATAR, AVATAR).child(avatar).child(
+    el().size(avatar_size, avatar_size).child(avatar).child(
         el().key("status-dot")
             .size(6.0, 6.0)
             .radius(3.0)
             .fill(dot)
-            .absolute(AVATAR - 6.0, AVATAR - 6.0)
+            .absolute(avatar_size - 6.0, avatar_size - 6.0)
             .a11y_hidden(),
     )
 }
@@ -752,7 +752,7 @@ fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
     };
     let elbow_x = 16.0
         + if s.show_timeline_avatars {
-            AVATAR / 2.0
+            f32::from(s.avatar_size) / 2.0
         } else {
             3.0
         };
@@ -1752,7 +1752,7 @@ pub(crate) fn workspace(s: &State) -> El {
         }
         previous_day = day;
         let line = (f32::from(s.message_font_size) * 1.6).max(if s.show_timeline_avatars {
-            AVATAR
+            f32::from(s.avatar_size)
         } else {
             0.0
         });

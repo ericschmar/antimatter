@@ -246,6 +246,7 @@ fn main() {
     let prefs_font_size = prefs.message_font_size;
     let prefs_spacing = prefs.timeline_message_spacing;
     let prefs_avatars = prefs.show_timeline_avatars;
+    let prefs_avatar_size = prefs.timeline_avatar_size;
     let prefs_notify = (
         prefs.notifications_enabled,
         prefs.notification_sounds_enabled,
@@ -271,6 +272,7 @@ fn main() {
             message_font_size: prefs_font_size,
             message_spacing: prefs_spacing,
             show_timeline_avatars: prefs_avatars,
+            avatar_size: prefs_avatar_size,
             accent: prefs_accent,
             notifications_enabled: prefs_notify.0,
             notification_sounds_enabled: prefs_notify.1,
