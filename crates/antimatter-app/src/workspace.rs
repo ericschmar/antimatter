@@ -1338,6 +1338,13 @@ pub(crate) fn workspace(s: &State) -> El {
                                 .label("Reply")
                                 .control_size(ControlSize::Small)
                                 .variant(IconButtonVariant::Ghost)
+                                .on_press_tx({
+                                    let post = post.clone();
+                                    move |s: &mut State, tx| {
+                                        s.quote_reply(&post);
+                                        tx.focus("draft", false);
+                                    }
+                                })
                                 .build(&k)
                                 .key("post-reply"),
                         )

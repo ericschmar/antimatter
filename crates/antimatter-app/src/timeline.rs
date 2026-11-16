@@ -65,6 +65,17 @@ impl State {
         self.draft = from_markdown("");
     }
 
+    pub(crate) fn quote_reply(&mut self, post: &antimatter_services::mattermost::Post) {
+        let quote: String = post.message.lines().map(|l| format!("> {l}\n")).collect();
+        let rest = self.markdown();
+        let md = format!("{quote}\n{rest}");
+        if self.raw {
+            self.source = TextEdit::new(md);
+        } else {
+            self.draft = from_markdown(&md);
+        }
+    }
+
     pub(crate) fn toggle_raw(&mut self) {
         if self.raw {
             self.draft = from_markdown(&self.source.text);
