@@ -81,11 +81,31 @@ impl SettingsState {
         let message_font_size = self.prefs.message_font_size;
         let message_spacing = self.prefs.timeline_message_spacing;
         let show_timeline_avatars = self.prefs.show_timeline_avatars;
+        let accent = self.prefs.accent_color;
+        let theme = theme_for(self.prefs.theme);
         self.workspace_action(move |ws| {
+            ws.accent = accent;
+            ws.theme = theme;
             ws.message_font_size = message_font_size;
             ws.message_spacing = message_spacing;
             ws.show_timeline_avatars = show_timeline_avatars;
         });
+    }
+}
+
+pub(crate) fn theme_for(pref: settings::ThemePreference) -> antimatter_theme::Theme {
+    use antimatter_theme::Theme;
+    match pref {
+        settings::ThemePreference::Light => Theme::Light,
+        settings::ThemePreference::Dark => Theme::Warm,
+        settings::ThemePreference::System => {
+            let dark = std::process::Command::new("defaults")
+                .args(["read", "-g", "AppleInterfaceStyle"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(true);
+            if dark { Theme::Warm } else { Theme::Light }
+        }
     }
 }
 
@@ -208,6 +228,14 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                         .size(24.0, 24.0)
                         .radius(12.0)
                         .fill(rune::Color { r, g, b, a: 1.0 })
+                        .border(
+                            2.0,
+                            if s.prefs.accent_color == accent {
+                                k.c.text_base
+                            } else {
+                                rune::Color::TRANSPARENT
+                            },
+                        )
                         .on_press(move |s: &mut SettingsState| {
                             s.change(|p| p.accent_color = accent)
                         }),

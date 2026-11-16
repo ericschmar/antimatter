@@ -34,7 +34,7 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 
 ------- User Review --------
 [x] The server dropdown should show a checkmark for the selected server
-[ ] Wire up the theme selector to the app so changing the theme, changes the accent color (also highlight the current accent)
+[x] Wire up the theme selector to the app so changing the theme, changes the accent color (also highlight the current accent)
 [ ] Change the font of our right-click context menu to be smaller
 [ ] Make double-clicking a channel pin it
 [ ] Add a tooltip to the channel's avatar stack that lists the users in the channel

@@ -4,7 +4,7 @@ use crate::theme::{select, workspace_theme};
 use rune::{Cx, El, col, el, text, text_input};
 
 pub(crate) fn view(s: &State, _: &mut Cx<State>) -> El {
-    select(s.theme);
+    select(s.theme, s.accent);
     let k = workspace_theme();
     let t = &k.c;
     if s.application {

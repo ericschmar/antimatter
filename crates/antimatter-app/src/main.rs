@@ -244,6 +244,8 @@ fn main() {
     let prefs_font_size = prefs.message_font_size;
     let prefs_spacing = prefs.timeline_message_spacing;
     let prefs_avatars = prefs.show_timeline_avatars;
+    let prefs_accent = prefs.accent_color;
+    let prefs_theme = crate::settings::theme_for(prefs.theme);
     let handle = app.handle();
     let (settings, settings_app) =
         crate::settings::window(&mut app, prefs, settings_path(), load_error, handle.clone());
@@ -264,6 +266,7 @@ fn main() {
             message_font_size: prefs_font_size,
             message_spacing: prefs_spacing,
             show_timeline_avatars: prefs_avatars,
+            accent: prefs_accent,
             ..State::default()
         };
         if !rune::is_headless() {
@@ -273,7 +276,7 @@ fn main() {
             state.runtime = Some(Arc::new(
                 tokio::runtime::Runtime::new().expect("background runtime"),
             ));
-            state.theme = Theme::Warm;
+            state.theme = prefs_theme;
             state.handle = Some(handle.clone());
             state.busy = true;
             state.runtime.as_ref().unwrap().spawn(async move {
