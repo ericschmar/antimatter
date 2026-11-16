@@ -1203,10 +1203,35 @@ pub(crate) fn workspace(s: &State) -> El {
                         .min_w(0.0)
                         .color(c.text_base)
                         .placeholder("Search", c.text_muted)
-                        .caret(c.text_base, k.selection())
+                        .caret(
+                            if s.caret_on {
+                                c.text_base
+                            } else {
+                                rune::Color::TRANSPARENT
+                            },
+                            k.selection(),
+                        )
                         .on_edit(|s: &mut State| &mut s.search)
                         .on_submit(|s: &mut State, _| s.run_search()),
-                ),
+                )
+                .children(s.search_busy.then(|| {
+                    rune::icon(&antimatter_theme::loader::SPINNER, 14.0)
+                        .color(c.icon_muted)
+                        .looping(rune::LoopSpec::rotation(0.9))
+                        .label("Searching")
+                        .role("progressbar")
+                }))
+                .children(s.search.text.is_empty().then(|| {
+                    hbox()
+                        .key("search-hint")
+                        .h(18.0)
+                        .px(5.0)
+                        .center()
+                        .radius(4.0)
+                        .border(1.0, c.border_base)
+                        .a11y_hidden()
+                        .child(text("⌘K").font(k.ty.small).color(c.text_muted))
+                })),
         )
         .child(
             sidebar

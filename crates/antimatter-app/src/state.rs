@@ -98,6 +98,7 @@ pub(crate) struct State {
     pub(crate) saved_account_menu: Option<(AccountKey, PointerPress)>,
     pub(crate) editing_account: Option<AccountKey>,
     pub(crate) search: TextEdit,
+    pub(crate) search_busy: bool,
     pub(crate) attachments: Vec<std::path::PathBuf>,
     pub(crate) previews: HashMap<String, Option<antimatter_services::preview::Preview>>,
     pub(crate) emoji_picker: Option<String>,
@@ -284,8 +285,10 @@ impl State {
             self.search_results = None;
             return;
         }
+        self.search_busy = true;
         runtime.spawn(async move {
             let Ok(page) = client.search_posts(&terms, false).await else {
+                handle.update(|s, _| s.search_busy = false);
                 return;
             };
             let mut posts: Vec<_> = page
@@ -299,6 +302,7 @@ impl State {
             handle.update(move |s, _| {
                 s.names
                     .extend(users.into_iter().map(|u| (u.id.clone(), u.display_name())));
+                s.search_busy = false;
                 s.search_results = Some(posts);
             });
         });
@@ -430,6 +434,7 @@ impl Default for State {
             saved_account_menu: None,
             editing_account: None,
             search: TextEdit::default(),
+            search_busy: false,
             attachments: Vec::new(),
             previews: HashMap::new(),
             emoji_picker: None,
