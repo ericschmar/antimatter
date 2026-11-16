@@ -79,7 +79,7 @@ Title "Appearance". Subtitle "Control the density and visual treatment of your t
 
 | Control | Storage key | Default | Values (label) | Effect | Wiring |
 | --- | --- | --- | --- | --- | --- |
-| Accent color | `accentColor` | `oceanBlue` | `onyx` (Onyx), `coral` (Coral), `oceanBlue` (Ocean Blue), `fern` (Fern), `amber` (Amber), `violet` (Violet) | Accent for selection, primary buttons and the profile camera badge. Shown as swatches with names and selected state. | Deferred |
+| Accent color | `accentColor` | `oceanBlue` | `onyx` (Onyx), `coral` (Coral), `oceanBlue` (Ocean Blue), `fern` (Fern), `amber` (Amber), `violet` (Violet), `custom` (Custom: `{"custom":[r,g,b]}`, bytes) | Accent for selection, primary buttons and the profile camera badge. Shown as swatches with names and selected state, plus a rainbow swatch that opens an inline saturation/value square and hue strip for a custom colour. | Deferred |
 | Font | `appFontFamily` | `system` | `system` (System), `rounded` (Rounded), `serif` (Serif), `monospaced` (Monospaced) | App font family. | Deferred |
 | Theme | `theme` | `system` | `light` (Light), `dark` (Dark), `system` (System) | Selects the app theme. See Theme below. | Live |
 | Use compact message timeline | `compactTimeline` | on | boolean | Compact ledger rows. | Deferred |

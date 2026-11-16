@@ -82,6 +82,7 @@ pub(crate) fn accent_name(accent: AccentColor) -> &'static str {
         AccentColor::Fern => "Fern",
         AccentColor::Amber => "Amber",
         AccentColor::Violet => "Violet",
+        AccentColor::Custom(..) => "Custom",
     }
 }
 
@@ -94,6 +95,7 @@ pub(crate) fn accent_rgb(accent: AccentColor) -> (f32, f32, f32) {
         AccentColor::Fern => (0.20, 0.70, 0.42),
         AccentColor::Amber => (0.98, 0.62, 0.11),
         AccentColor::Violet => (0.60, 0.35, 0.85),
+        AccentColor::Custom(r, g, b) => (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0),
     }
 }
 
@@ -229,5 +231,52 @@ mod tests {
     fn shortcut_reference_lists_every_documented_binding() {
         assert_eq!(SHORTCUTS.len(), 8);
         assert_eq!(SHORTCUTS[7], ("Open settings", "⌘,"));
+    }
+}
+
+/// HSV (each 0..=1) to sRGB bytes.
+pub(crate) fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
+    let h = h.clamp(0.0, 1.0) * 6.0;
+    let (s, v) = (s.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
+    let f = h - h.floor();
+    let (p, q, t) = (v * (1.0 - s), v * (1.0 - s * f), v * (1.0 - s * (1.0 - f)));
+    let (r, g, b) = match h.floor() as u8 % 6 {
+        0 => (v, t, p),
+        1 => (q, v, p),
+        2 => (p, v, t),
+        3 => (p, q, v),
+        4 => (t, p, v),
+        _ => (v, p, q),
+    };
+    let byte = |x: f32| (x * 255.0).round() as u8;
+    (byte(r), byte(g), byte(b))
+}
+
+pub(crate) fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
+    let (r, g, b) = (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0);
+    let max = r.max(g).max(b);
+    let d = max - r.min(g).min(b);
+    let h = if d == 0.0 {
+        0.0
+    } else if max == r {
+        ((g - b) / d).rem_euclid(6.0)
+    } else if max == g {
+        (b - r) / d + 2.0
+    } else {
+        (r - g) / d + 4.0
+    } / 6.0;
+    (h, if max == 0.0 { 0.0 } else { d / max }, max)
+}
+
+#[cfg(test)]
+mod picker_tests {
+    use super::*;
+
+    #[test]
+    fn hsv_round_trips() {
+        for rgb in [(255, 0, 0), (10, 200, 90), (128, 128, 128), (0, 122, 255)] {
+            let (h, s, v) = rgb_to_hsv(rgb.0, rgb.1, rgb.2);
+            assert_eq!(hsv_to_rgb(h, s, v), rgb);
+        }
     }
 }

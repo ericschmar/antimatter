@@ -35,6 +35,8 @@ pub enum AccentColor {
     Fern,
     Amber,
     Violet,
+    /// A user-picked sRGB colour.
+    Custom(u8, u8, u8),
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

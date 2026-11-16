@@ -1,7 +1,7 @@
 mod model;
 mod view;
 
-pub(crate) use model::accent_rgb;
+pub(crate) use model::{ACCENTS, accent_rgb};
 pub(crate) use view::{AccountRow, SettingsState, settings_view, theme_for};
 
 use antimatter_services::settings::Settings;

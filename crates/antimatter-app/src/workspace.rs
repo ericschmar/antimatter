@@ -1061,27 +1061,32 @@ fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
     menu.build(k, layer)
 }
 
-fn new_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
-    let trigger = IconButton::new(&icons::PLUS)
-        .label("New")
-        .control_size(ControlSize::Small)
-        .variant(IconButtonVariant::Ghost)
-        .on_press(|s: &mut State| s.new_menu = !s.new_menu)
-        .build(k)
-        .key("new-trigger");
-    let menu = rune_kit::Menu::new("new-menu")
-        .trigger(trigger)
-        .open(s.new_menu)
-        .on_close(|s: &mut State| s.new_menu = false)
-        .item(
-            MenuItem::new("Create channel…")
-                .on_select(|s: &mut State| s.open_new(NewKind::Channel)),
-        )
-        .item(
-            MenuItem::new("Start direct message…")
-                .on_select(|s: &mut State| s.open_new(NewKind::Dm)),
-        )
-        .build(&crate::theme::menu_theme(k), layer);
+fn new_row(key: &str, label: &str, kind: NewKind, k: &rune_kit::Kit) -> El {
+    let row = hbox()
+        .key(key)
+        .role("button")
+        .label(label)
+        .w_full()
+        .h(28.0)
+        .pl(8.0 + 16.0)
+        .pr(8.0)
+        .gap(6.0)
+        .center_y()
+        .radius(k.radius.md)
+        .focusable(true)
+        .child(icon(&icons::PLUS, 16.0).color(k.c.icon_muted).a11y_hidden())
+        .child(
+            text(label)
+                .font(k.ty.small)
+                .color(k.c.text_muted)
+                .truncate()
+                .grow(1.0),
+        );
+    k.interactive(row)
+        .on_press(move |s: &mut State| s.open_new(kind))
+}
+
+fn new_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
     if let Some(kind) = s.new_dialog {
         let (title, hint, action) = match kind {
             NewKind::Channel => ("Create channel", "Channel name", "Create"),
@@ -1116,7 +1121,6 @@ fn new_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
             .child(body)
             .build(k, layer);
     }
-    menu
 }
 
 fn section(
@@ -1489,6 +1493,7 @@ pub(crate) fn workspace(s: &State) -> El {
             &k,
         ));
     }
+    new_dialog(s, &mut layer, &k);
     sidebar = sidebar.child(section(
         "channels",
         "Channels",
@@ -1498,6 +1503,7 @@ pub(crate) fn workspace(s: &State) -> El {
         regular
             .into_iter()
             .map(|channel| channel_row(s, channel, locked, &k))
+            .chain([new_row("create-channel", "Create channel…", NewKind::Channel, &k)])
             .collect(),
         &k,
     ));
@@ -1510,6 +1516,7 @@ pub(crate) fn workspace(s: &State) -> El {
         direct
             .into_iter()
             .map(|channel| channel_row(s, channel, locked, &k))
+            .chain([new_row("start-dm", "Start direct message…", NewKind::Dm, &k)])
             .collect(),
         &k,
     ));
@@ -1548,7 +1555,6 @@ pub(crate) fn workspace(s: &State) -> El {
                         .child(server_menu(s, &mut layer, &k)),
                 )
                 .child(el().grow(1.0).window_drag())
-                .child(new_menu(s, &mut layer, &k))
                 .child(user_avatar(s, &k)),
         )
         .child(

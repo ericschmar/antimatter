@@ -1,5 +1,4 @@
 use super::model::*;
-use crate::theme::workspace_theme;
 use crate::workspace::TITLEBAR;
 use antimatter_services::settings::{self, Settings};
 use rune::{El, col, el, row, text};
@@ -21,6 +20,9 @@ pub(crate) struct SettingsState {
     pub(crate) workspace: Option<rune::AppHandle<crate::state::State>>,
     pub(crate) profile: crate::profile::ProfileForm,
     pub(crate) notify: crate::notifications::ServerNotify,
+    /// The custom-colour picker is expanded, and its colour as hue, saturation, value.
+    pub(crate) picker_open: bool,
+    pub(crate) picker_hsv: (f32, f32, f32),
 }
 
 /// One saved account as Settings shows it. The workspace owns the account data.
@@ -61,6 +63,8 @@ impl SettingsState {
             workspace: None,
             profile: Default::default(),
             notify: Default::default(),
+            picker_open: false,
+            picker_hsv: (0.0, 0.0, 1.0),
         }
     }
 
@@ -120,7 +124,8 @@ pub(crate) fn theme_for(pref: settings::ThemePreference) -> antimatter_theme::Th
 }
 
 pub(crate) fn settings_view(s: &SettingsState, _: &mut rune::Cx<SettingsState>) -> El {
-    let k = workspace_theme();
+    let mut layer = Vec::new();
+    let k = crate::theme::with_accent(s.prefs.accent_color);
     let c = &k.c;
     let mut sidebar = col()
         .w(190.0)
@@ -196,17 +201,18 @@ pub(crate) fn settings_view(s: &SettingsState, _: &mut rune::Cx<SettingsState>) 
                 stick_bottom: false,
             })
             .transition(rune::Transition::none())
-            .child(page(s, &k)),
+            .child(page(s, &k, &mut layer)),
     );
-    row()
+    let base = row()
         .w_full()
         .h_full()
         .fill(c.bg_base)
         .child(sidebar)
-        .child(detail.max_w(520.0))
+        .child(detail.max_w(520.0));
+    rune_kit::root(base, layer)
 }
 
-fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
+fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
     let c = &k.c;
     match s.section {
         Section::General => group(
@@ -256,6 +262,44 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                         }),
                 );
             }
+            let custom = matches!(s.prefs.accent_color, settings::AccentColor::Custom(..));
+            let swatch = el()
+                .key("accent-Custom")
+                .role("button")
+                .label("Custom color")
+                .checked(custom)
+                .expanded(s.picker_open)
+                .focusable(true)
+                .size(24.0, 24.0)
+                .radius(12.0)
+                .clip_rounded(12.0)
+                .shape(hue_wheel(24.0))
+                .child(
+                    el().size(24.0, 24.0)
+                        .radius(12.0)
+                        .radial_gradient(
+                            [0.5, 0.5],
+                            12.0,
+                            [(0.0, rune::Color::WHITE), (0.75, rune::Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0 })],
+                        )
+                        .border(2.0, if custom { k.c.text_base } else { rune::Color::TRANSPARENT }),
+                )
+                .on_press(move |s: &mut SettingsState| {
+                    s.picker_open = !s.picker_open;
+                    if let settings::AccentColor::Custom(r, g, b) = s.prefs.accent_color {
+                        s.picker_hsv = rgb_to_hsv(r, g, b);
+                    }
+                });
+            let picker = rune_kit::Popover::new("accent-picker")
+                .trigger(swatch)
+                .label("Custom color")
+                .open(s.picker_open)
+                .placement(rune_kit::Placement::BottomStart)
+                .on_close(|s: &mut SettingsState| s.picker_open = false)
+                .child(color_picker(s))
+                .build(k, layer);
+            swatches = swatches.child(picker);
+            let accent_cell = swatches;
             let font_index = FONTS.iter().position(|f| *f == s.prefs.app_font_family);
             let theme_index = THEMES.iter().position(|t| *t == s.prefs.theme);
             let spacing_index = SPACINGS
@@ -267,7 +311,7 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                 .child(group(
                     k,
                     vec![
-                        row_frame(k, "Accent color").child(swatches),
+                        row_frame(k, "Accent color").child(accent_cell),
                         choice_row(k, "Font", &FONTS.map(font_name), font_index, |s, i, _| {
                             s.change(|p| p.app_font_family = FONTS[i])
                         }),
@@ -711,6 +755,103 @@ fn stepper_row(
                 .build(k)
                 .key(format!("{key}-plus")),
         )
+}
+
+/// A hue wheel (hue by angle) as a fan of wedges in a `size` square.
+fn hue_wheel(size: f32) -> rune::Shape {
+    const WEDGES: usize = 72;
+    let (c, r) = (size / 2.0, size / 2.0 + 0.5);
+    let mut shape = rune::Shape::new();
+    for i in 0..WEDGES {
+        let (a0, a1) = (i as f32 / WEDGES as f32, (i + 1) as f32 / WEDGES as f32);
+        let point = |t: f32| {
+            let angle = t * std::f32::consts::TAU;
+            [c + r * angle.cos(), c + r * angle.sin()]
+        };
+        let (cr, cg, cb) = hsv_to_rgb((a0 + a1) / 2.0, 1.0, 1.0);
+        let color = rune::Color { r: cr as f32 / 255.0, g: cg as f32 / 255.0, b: cb as f32 / 255.0, a: 1.0 };
+        shape = shape.fill(vec![[c, c], point(a0 - 0.002), point(a1 + 0.002)], color);
+    }
+    shape
+}
+
+fn rainbow_stops() -> Vec<(f32, rune::Color)> {
+    (0..=6)
+        .map(|i| {
+            let (r, g, b) = hsv_to_rgb(i as f32 / 6.0, 1.0, 1.0);
+            (
+                i as f32 / 6.0,
+                rune::Color { r: r as f32 / 255.0, g: g as f32 / 255.0, b: b as f32 / 255.0, a: 1.0 },
+            )
+        })
+        .collect()
+}
+
+fn apply_hsv(s: &mut SettingsState, hsv: (f32, f32, f32)) {
+    s.picker_hsv = hsv;
+    let (r, g, b) = hsv_to_rgb(hsv.0, hsv.1, hsv.2);
+    // ponytail: every drag step persists settings.json; upgrade is saving on pointer-up only.
+    s.change(|p| p.accent_color = settings::AccentColor::Custom(r, g, b));
+}
+
+/// A saturation/value square over the chosen hue, and a hue strip.
+fn color_picker(s: &SettingsState) -> El {
+    use rune::Color;
+    let (h, sat, val) = s.picker_hsv;
+    let unit = |x: f32, w: f32| (x / w.max(1.0)).clamp(0.0, 1.0);
+    let (hr, hg, hb) = hsv_to_rgb(h, 1.0, 1.0);
+    let hue = Color { r: hr as f32 / 255.0, g: hg as f32 / 255.0, b: hb as f32 / 255.0, a: 1.0 };
+    let white = Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
+    let clear = Color { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    let black = Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
+    let (w, hgt) = (220.0, 120.0);
+    let square = el()
+        .key("picker-square")
+        .role("slider")
+        .label("Saturation and brightness")
+        .size(w, hgt)
+        .radius(6.0)
+        .fill(hue)
+        .clip_rounded(6.0)
+        .child(
+            el().w_full()
+                .h_full()
+                .linear_gradient(std::f32::consts::FRAC_PI_2, [(0.0, white), (1.0, clear)]),
+        )
+        .child(
+            el().w_full()
+                .h_full()
+                .absolute(0.0, 0.0)
+                .linear_gradient(std::f32::consts::PI, [(0.0, clear), (1.0, black)]),
+        )
+        .child(
+            el().size(10.0, 10.0)
+                .radius(5.0)
+                .border(2.0, white)
+                .absolute(sat * w - 5.0, (1.0 - val) * hgt - 5.0),
+        )
+        .on_drag(move |s: &mut SettingsState, d: &mut rune::Drag, _| {
+            let hue = s.picker_hsv.0;
+            apply_hsv(s, (hue, unit(d.x, d.w), 1.0 - unit(d.y, d.h)));
+        });
+    let strip = el()
+        .key("picker-hue")
+        .role("slider")
+        .label("Hue")
+        .size(w, 14.0)
+        .radius(7.0)
+        .linear_gradient(std::f32::consts::FRAC_PI_2, rainbow_stops())
+        .child(
+            el().size(6.0, 18.0)
+                .radius(3.0)
+                .border(2.0, white)
+                .absolute(h * (w - 6.0), -2.0),
+        )
+        .on_drag(move |s: &mut SettingsState, d: &mut rune::Drag, _| {
+            let (_, sat, val) = s.picker_hsv;
+            apply_hsv(s, (unit(d.x, d.w), sat, val));
+        });
+    col().gap(8.0).child(square).child(strip)
 }
 
 fn choice_row<const N: usize>(
