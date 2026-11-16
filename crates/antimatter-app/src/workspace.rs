@@ -740,7 +740,16 @@ fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
     let c = &k.c;
     let pad = post_padding(s.message_spacing);
     let name = s.names.get(&parent.user_id).unwrap_or(&parent.user_id);
-    let snippet = parent.message.lines().next().unwrap_or_default().to_owned();
+    let snippet = match parent.message.lines().find(|l| !l.trim().is_empty()) {
+        Some(line) => line.to_owned(),
+        None => parent
+            .metadata
+            .files
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
+    };
     let elbow_x = 16.0
         + if s.show_timeline_avatars {
             AVATAR / 2.0
@@ -1334,7 +1343,16 @@ fn attach_button(
 fn reply_chip(s: &State, k: &rune_kit::Kit) -> Option<El> {
     let post = s.reply_to.as_ref()?;
     let name = s.names.get(&post.user_id).unwrap_or(&post.user_id);
-    let snippet = post.message.lines().next().unwrap_or_default().to_owned();
+    let snippet = match post.message.lines().find(|l| !l.trim().is_empty()) {
+        Some(line) => line.to_owned(),
+        None => post
+            .metadata
+            .files
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
+    };
     Some(
         rune::row()
             .key("reply-chip")

@@ -43,4 +43,4 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] Wire up interacting with the app as telling mattermost that we're active
 [x] Finish and wire up the notifications section in the settings
 [x] Archived chats are not persisted between runs
-[ ] Replying to images don't render anything in the root message body, but should just render the image name.
+[x] Replying to images don't render anything in the root message body, but should just render the image name.
