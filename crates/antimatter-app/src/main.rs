@@ -5,6 +5,7 @@ mod composer;
 #[cfg(debug_assertions)]
 mod dev_login;
 mod markdown;
+mod profile;
 mod scenes;
 mod session;
 mod settings;

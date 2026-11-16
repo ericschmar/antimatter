@@ -525,7 +525,10 @@ impl State {
             return;
         }
         self.settings_rows = rows.clone();
-        settings.update(move |s, _| s.accounts = rows);
+        settings.update(move |s, _| {
+            s.accounts = rows;
+            s.profile = Default::default();
+        });
     }
 
     pub(crate) fn switch_account(&mut self, key: AccountKey) {

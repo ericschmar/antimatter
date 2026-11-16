@@ -194,8 +194,9 @@ Form for the connected user's Mattermost profile:
 - Save: one "Save profile" button. While a save is in flight it reads "Saving…" and
   is disabled. A server error is shown below the form and keeps the edited values.
 
-Editing never changes another account's profile. Wiring: Deferred (no Rust profile
-API yet).
+Editing never changes another account's profile. Wiring: Live (`PUT /users/me/patch`,
+`PUT /users/{id}/status`, `PUT|DELETE /users/me/status/custom`, `POST /users/{id}/image`).
+The form loads when the section is first opened and resets on account change.
 
 ### Accounts (`account`)
 

@@ -19,6 +19,7 @@ pub(crate) struct SettingsState {
     /// Saved accounts mirrored from the workspace; account actions go back through it.
     pub(crate) accounts: Vec<AccountRow>,
     pub(crate) workspace: Option<rune::AppHandle<crate::state::State>>,
+    pub(crate) profile: crate::profile::ProfileForm,
 }
 
 /// One saved account as Settings shows it. The workspace owns the account data.
@@ -57,6 +58,7 @@ impl SettingsState {
             error: load_error,
             accounts: Vec::new(),
             workspace: None,
+            profile: Default::default(),
         }
     }
 
@@ -140,6 +142,9 @@ pub(crate) fn settings_view(s: &SettingsState, _: &mut rune::Cx<SettingsState>) 
                 .on_press_tx(move |s: &mut SettingsState, tx: &mut rune::Tx| {
                     tx.instant();
                     s.section = section;
+                    if section == Section::Profile && !s.profile.loaded {
+                        s.workspace_action(|ws| ws.load_profile());
+                    }
                 })
                 .child(
                     text(section.title())
@@ -373,20 +378,7 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                 })
                 .collect(),
         ),
-        Section::Profile => deferred_group(
-            k,
-            "Profile",
-            &[
-                "Choose photo",
-                "First name",
-                "Last name",
-                "Nickname",
-                "Username",
-                "Email",
-                "Status",
-                "Custom status",
-            ],
-        ),
+        Section::Profile => profile_page(s, k),
         Section::Accounts => {
             let mut card = col().w_full().gap(0.0);
             if s.accounts.is_empty() {
@@ -444,6 +436,97 @@ fn page(s: &SettingsState, k: &rune_kit::Kit) -> El {
                 )
         }
     }
+}
+
+fn profile_page(s: &SettingsState, k: &rune_kit::Kit) -> El {
+    let p = &s.profile;
+    let input =
+        |label: &str, edit: &rune::TextEdit, on: fn(&mut SettingsState) -> &mut rune::TextEdit| {
+            row_frame(k, label).child(
+                rune_kit::TextInput::new(edit)
+                    .label(label)
+                    .placeholder(label)
+                    .width(Some(260.0))
+                    .height(28.0)
+                    .on_edit(on)
+                    .build(k)
+                    .key(format!(
+                        "profile-{}",
+                        label.to_lowercase().replace(' ', "-")
+                    )),
+            )
+        };
+    let names: Vec<&str> = crate::profile::STATUSES.iter().map(|(_, n)| *n).collect();
+    let names: [&str; 4] = [names[0], names[1], names[2], names[3]];
+    let mut page = col().w_full().gap(14.0);
+    page = page.child(group(
+        k,
+        vec![
+            row_frame(k, "Photo").child(
+                Button::new("Choose photo")
+                    .variant(ButtonVariant::Outline)
+                    .on_press_tx(|_: &mut SettingsState, tx| {
+                        let options = rune::FileDialogOptions {
+                            title: "Choose photo".into(),
+                            ..Default::default()
+                        }
+                        .filter("Images", &["png", "jpg", "jpeg", "gif", "webp"]);
+                        tx.open_file(options, |s: &mut SettingsState, result, _| {
+                            if let Ok(Some(path)) = result {
+                                s.workspace_action(move |ws| ws.upload_avatar(path));
+                            }
+                        });
+                    })
+                    .build(k)
+                    .key("profile-photo"),
+            ),
+        ],
+    ));
+    page = page.child(group(
+        k,
+        vec![
+            input("First name", &p.first_name, |s| &mut s.profile.first_name),
+            input("Last name", &p.last_name, |s| &mut s.profile.last_name),
+            input("Nickname", &p.nickname, |s| &mut s.profile.nickname),
+            input("Username", &p.username, |s| &mut s.profile.username),
+            input("Email", &p.email, |s| &mut s.profile.email),
+            input("Custom status", &p.custom_status, |s| {
+                &mut s.profile.custom_status
+            }),
+            choice_row(k, "Status", &names, Some(p.status), |s, i, _| {
+                s.profile.status = i
+            }),
+        ],
+    ));
+    if let Some(message) = &p.message {
+        page = page.child(
+            text(message.clone())
+                .font(k.ty.text_small)
+                .color(k.c.text_muted),
+        );
+    }
+    page.child(
+        Button::new(if p.busy { "Saving…" } else { "Save profile" })
+            .variant(ButtonVariant::Contrast)
+            .disabled(p.busy || !p.loaded)
+            .on_press_tx(|s: &mut SettingsState, _| {
+                let p = &mut s.profile;
+                p.busy = true;
+                p.message = None;
+                let values = [
+                    p.first_name.text.clone(),
+                    p.last_name.text.clone(),
+                    p.nickname.text.clone(),
+                    p.username.text.clone(),
+                    p.email.text.clone(),
+                    p.custom_status.text.clone(),
+                ];
+                let status = crate::profile::STATUSES[p.status].0;
+                s.workspace_action(move |ws| ws.save_profile(values, status));
+            })
+            .build(k)
+            .key("profile-save"),
+    )
 }
 
 fn group(k: &rune_kit::Kit, rows: Vec<El>) -> El {

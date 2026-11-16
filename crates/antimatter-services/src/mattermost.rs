@@ -176,6 +176,8 @@ pub struct User {
     pub delete_at: i64,
     #[serde(default)]
     pub last_picture_update: i64,
+    #[serde(default)]
+    pub props: std::collections::HashMap<String, String>,
 }
 
 impl User {
@@ -454,6 +456,49 @@ impl Client {
         body: &B,
     ) -> Result<T, Error> {
         self.json(Method::PATCH, path, Some(body)).await
+    }
+
+    pub async fn patch_me<B: Serialize + ?Sized>(&self, body: &B) -> Result<User, Error> {
+        self.put("/users/me/patch", body).await
+    }
+
+    pub async fn set_status(&self, user_id: &str, status: &str) -> Result<Value, Error> {
+        self.put(
+            &segments(&["users", user_id, "status"])?,
+            &serde_json::json!({"user_id": user_id, "status": status}),
+        )
+        .await
+    }
+
+    pub async fn set_custom_status(&self, text: &str) -> Result<Value, Error> {
+        if text.trim().is_empty() {
+            return self.delete("/users/me/status/custom").await;
+        }
+        self.put(
+            "/users/me/status/custom",
+            &serde_json::json!({"emoji": "speech_balloon", "text": text}),
+        )
+        .await
+    }
+
+    pub async fn upload_profile_image(
+        &self,
+        user_id: &str,
+        filename: &str,
+        bytes: Vec<u8>,
+    ) -> Result<Value, Error> {
+        let form = reqwest::multipart::Form::new().part(
+            "image",
+            reqwest::multipart::Part::bytes(bytes).file_name(filename.to_owned()),
+        );
+        let path = segments(&["users", user_id, "image"])?;
+        let response = self
+            .request(Method::POST, self.origin.endpoint(&path)?)?
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|_| Error::Transport)?;
+        decode(checked(response).await?).await
     }
 
     pub async fn teams(&self) -> Result<Vec<Team>, Error> {
