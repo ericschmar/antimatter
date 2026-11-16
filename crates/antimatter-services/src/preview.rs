@@ -61,7 +61,7 @@ pub async fn fetch(url: Url) -> Option<Preview> {
     let http = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (compatible; Antimatter link preview)")
+        .user_agent("Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)")
         .build()
         .ok()?;
     let response = http.get(url.clone()).send().await.ok()?;
