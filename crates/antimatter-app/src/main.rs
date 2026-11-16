@@ -261,7 +261,6 @@ fn main() {
                 settings.open();
             }
         })
-        .menu("Antimatter")
         .after("About Antimatter")
         .key_equivalent(",".parse().expect("valid Settings shortcut")),
     );
