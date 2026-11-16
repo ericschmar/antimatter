@@ -135,8 +135,8 @@ fn emoji_glyph(name: &str) -> String {
 
 fn emoji_face(s: &State, name: &str, k: &rune_kit::Kit) -> El {
     match s.avatars.get(&format!("emoji:{name}")) {
-        Some(image) => el().size(16.0, 16.0).pixels(image.pixels()),
-        None => text(emoji_glyph(name)).font(k.ty.small).a11y_hidden(),
+        Some(image) => el().size(20.0, 20.0).pixels(image.pixels()),
+        None => text(emoji_glyph(name)).font(k.ty.body).a11y_hidden(),
     }
 }
 
@@ -301,7 +301,7 @@ fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) 
         .build(k, layer)
 }
 
-fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
+fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
     let c = &k.c;
     let me = s.authenticated.as_ref().map(|key| key.user_id());
     let mut groups: Vec<(&str, usize, bool)> = Vec::new();
@@ -314,6 +314,9 @@ fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
             }
             None => groups.push((&r.emoji_name, 1, mine)),
         }
+    }
+    if groups.is_empty() {
+        return None;
     }
     let mut pills = rune::row().gap(4.0).flex_wrap();
     for (name, count, mine) in groups {
@@ -328,23 +331,23 @@ fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
                     let (id, name) = (post.id.clone(), name.to_owned());
                     move |s: &mut State| s.toggle_reaction(id.clone(), name.clone())
                 })
-                .h(22.0)
-                .px(8.0)
-                .gap(4.0)
+                .h(28.0)
+                .px(10.0)
+                .gap(6.0)
                 .center_y()
-                .radius(11.0)
+                .radius(14.0)
                 .fill(c.layer_02)
                 .border(1.0, if mine { c.bg_accent } else { c.border_base })
                 .child(emoji_face(s, name, k))
                 .child(
                     text(count.to_string())
-                        .font(k.ty.small)
+                        .font(k.ty.body)
                         .color(c.text_muted)
                         .a11y_hidden(),
                 ),
         );
     }
-    pills
+    Some(pills)
 }
 
 fn mentions(message: &str, me: Option<&str>) -> Vec<(std::ops::Range<usize>, bool)> {
@@ -402,7 +405,7 @@ fn code_frame(k: &rune_kit::Kit, card: El, code: &rune_kit::CodeFrame<'_>) -> El
         .child(card)
 }
 
-fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
+fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::Kit) -> Option<El> {
     let images: Vec<_> = post
         .metadata
         .files
@@ -437,17 +440,17 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
             )
     };
     match images.as_slice() {
-        [] => rune::row(),
+        [] => return None,
         [file] => {
             let target = (*file).clone();
-            rune::row().child(
+            Some(rune::row().child(
                 chip(
                     format!("image-{}", file.id),
                     format!("Open {}", file.name),
                     file.name.clone(),
                 )
                 .on_press(move |s: &mut State| s.open_file(target.clone())),
-            )
+            ))
         }
         many => {
             let id = post.id.clone();
@@ -488,7 +491,7 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
                     },
                 ));
             }
-            rune::row().child(menu.build(k, layer))
+            Some(rune::row().child(menu.build(k, layer)))
         }
     }
 }
@@ -586,7 +589,10 @@ fn link_preview(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
     Some(card)
 }
 
-fn file_attachments(post: &Post, k: &rune_kit::Kit) -> El {
+fn file_attachments(post: &Post, k: &rune_kit::Kit) -> Option<El> {
+    if post.metadata.files.iter().all(|f| f.is_image()) {
+        return None;
+    }
     let mut list = col().gap(4.0);
     for file in post.metadata.files.iter().filter(|f| !f.is_image()) {
         let target = file.clone();
@@ -635,7 +641,7 @@ fn file_attachments(post: &Post, k: &rune_kit::Kit) -> El {
                 ),
         );
     }
-    list
+    Some(list)
 }
 
 fn file_size(bytes: u64) -> String {
@@ -1133,7 +1139,7 @@ pub(crate) fn workspace(s: &State) -> El {
             f64::from(s.sidebar.max_width()),
         )
         .range_step(8.0)
-        .w(2.0)
+        .w(1.0)
         .h_full()
         .cursor(rune::Cursor::ResizeColumn)
         .fill(c.border_base)
@@ -1305,10 +1311,10 @@ pub(crate) fn workspace(s: &State) -> El {
                                 })
                                 .build(&k),
                         )
-                        .child(image_attachments(s, post, &mut layer, &k))
-                        .child(file_attachments(post, &k))
+                        .children(image_attachments(s, post, &mut layer, &k))
+                        .children(file_attachments(post, &k))
                         .children(link_preview(s, post, &k))
-                        .child(reaction_pills(s, post, &k)),
+                        .children(reaction_pills(s, post, &k)),
                 )
                 .child(
                     rune::row()

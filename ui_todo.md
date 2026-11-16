@@ -16,3 +16,18 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] Our search bar extends past the edge of the side bar--it needs to be contained to the width
 [x] cmd + k highlights the search bar
 [x] searching uses mattermost's search with a new page that is opened with the results. results need to look like our existing message row. clicking on a result will eventually take them to the channel, and scroll the channel to that location
+
+----- User Review -----
+[ ] Emoji replies are a little too small, they're hard to read. 
+[ ] There's an extra padding under a message--I presume from adding the emoji row but it's there even when there are no emojis, so it adds extra space between messages
+[ ] Our custom code blocks are not being rendered, I only see a copy icon. I want them to look like those in the apron demo
+[ ] Our link previews are also not being rendered (test url: https://apnews.com/article/microsoft-outage-outlook-email-365-status-down-d92547a821930290db2964388016979a) I guess it works with https://mattermost.com/ so that's weird
+[ ] I can't test replies beause our reply button doesn't do anything. It should add a `> quotted text` right above the composer, and then a user can add a reply that way
+[ ] Our emoji window -> "search Emoji" is not centered in the search box"; our custom mattermost category button extends outside the bounds of the window. 
+[ ] add an image attach button to the message composer that opens a native attachment window (also support dropping files https://github.com/anomalyco/rune/tree/dev/examples/drop-files)--when a file is attached, show a pill above the composer with the file name, and an "x" that removes the file from being sent. I guess we need a button for images and one for files. (img: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><rect x="32" y="48" width="192" height="160" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="156" cy="100" r="12"/><path d="M147.31,164,173,138.34a8,8,0,0,1,11.31,0L224,178.06" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,168.69l54.34-54.35a8,8,0,0,1,11.32,0L191.31,208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>) (file: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M160,80,76.69,164.69a16,16,0,0,0,22.63,22.62L198.63,86.63a32,32,0,0,0-45.26-45.26L54.06,142.06a48,48,0,0,0,67.88,67.88L204,128" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>)
+[ ] global search breaks our chat. It should open its own tab, that has a custom layout. Right now, it poisons our chat history, and switching between chats retains the search results. 
+[ ] make search cursor blink when it is focused
+[ ] add loading spinner to the right end of the search bar
+[ ] add a "cmd+k" little badge in the search bar to indicate there's hotkeys
+[ ] archived chats don't persist between app close/reopen
+[ ] I want to make our avatars a little bigger. they're hard to see right now
