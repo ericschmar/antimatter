@@ -380,11 +380,16 @@ fn code_frame(k: &rune_kit::Kit, card: El, code: &rune_kit::CodeFrame<'_>) -> El
     col()
         .key(format!("code-{}", code.index))
         .w_full()
-        .gap(4.0)
+        .radius(10.0)
+        .fill(k.c.layer_02)
+        .border(1.0, k.c.border_base)
+        .clip_rounded(10.0)
         .child(
             rune::row()
                 .w_full()
-                .px(4.0)
+                .h(32.0)
+                .pl(12.0)
+                .pr(4.0)
                 .center_y()
                 .child(
                     text(code.language.unwrap_or("code").to_owned())
@@ -1300,7 +1305,9 @@ pub(crate) fn workspace(s: &State) -> El {
                                         })
                                         .collect::<Vec<_>>(),
                                 )
-                                .style(MarkdownStyle::from_kit(&k).body_font(TextStyle {
+                                .style(MarkdownStyle::from_kit(&k)
+                                    .code_block(c.layer_03, c.border_base)
+                                    .body_font(TextStyle {
                                     size: f32::from(s.message_font_size),
                                     line_height: f32::from(s.message_font_size) * 1.6,
                                     ..k.ty.ui

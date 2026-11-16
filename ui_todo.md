@@ -20,7 +20,7 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 ----- User Review -----
 [x] Emoji replies are a little too small, they're hard to read. 
 [x] There's an extra padding under a message--I presume from adding the emoji row but it's there even when there are no emojis, so it adds extra space between messages
-[ ] Our custom code blocks are not being rendered, I only see a copy icon. I want them to look like those in the apron demo
+[x] Our custom code blocks are not being rendered, I only see a copy icon. I want them to look like those in the apron demo
 [x] Our link previews are also not being rendered (test url: https://apnews.com/article/microsoft-outage-outlook-email-365-status-down-d92547a821930290db2964388016979a) I guess it works with https://mattermost.com/ so that's weird
 [ ] I can't test replies beause our reply button doesn't do anything. It should add a `> quotted text` right above the composer, and then a user can add a reply that way
 [ ] Our emoji window -> "search Emoji" is not centered in the search box"; our custom mattermost category button extends outside the bounds of the window. 
