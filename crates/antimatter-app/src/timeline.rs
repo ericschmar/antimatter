@@ -45,6 +45,7 @@ impl State {
     fn restore_draft(&mut self, channel: &str) {
         self.raw = false;
         self.attachments.clear();
+        self.reply_to = None;
         self.draft = from_markdown(
             self.drafts
                 .iter()
@@ -64,6 +65,7 @@ impl State {
     pub(crate) fn clear_draft(&mut self) {
         self.raw = false;
         self.attachments.clear();
+        self.reply_to = None;
         self.draft = from_markdown("");
     }
 
@@ -76,14 +78,7 @@ impl State {
     }
 
     pub(crate) fn quote_reply(&mut self, post: &antimatter_services::mattermost::Post) {
-        let quote: String = post.message.lines().map(|l| format!("> {l}\n")).collect();
-        let rest = self.markdown();
-        let md = format!("{quote}\n{rest}");
-        if self.raw {
-            self.source = TextEdit::new(md);
-        } else {
-            self.draft = from_markdown(&md);
-        }
+        self.reply_to = Some(post.clone());
     }
 
     pub(crate) fn toggle_raw(&mut self) {

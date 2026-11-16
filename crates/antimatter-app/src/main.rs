@@ -186,6 +186,7 @@ fn main() {
                         message: "synthetic draft".into(),
                         pending_post_id: "synthetic-pending".into(),
                         file_ids: vec![],
+                        root_id: String::new(),
                     },
                     failed: true,
                     retryable: false,

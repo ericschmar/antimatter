@@ -298,6 +298,8 @@ pub struct CreatePost {
     pub pending_post_id: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub file_ids: Vec<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub root_id: String,
 }
 
 #[derive(Clone)]

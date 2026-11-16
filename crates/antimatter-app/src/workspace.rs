@@ -108,7 +108,7 @@ fn author_marker(s: &State, post: &Post, c: &rune_kit::Palette) -> El {
     if !s.show_timeline_avatars {
         return el().size(6.0, 6.0).radius(3.0).fill(dot);
     }
-    let avatar = match s.avatars.get(&post.user_id) {
+    let avatar = match s.avatars.user(&post.user_id) {
         Some(image) => el()
             .size(AVATAR, AVATAR)
             .radius(AVATAR / 2.0)
@@ -134,10 +134,15 @@ fn emoji_glyph(name: &str) -> String {
     emojis::get_by_shortcode(name).map_or_else(|| format!(":{name}:"), |e| e.as_str().to_owned())
 }
 
-fn emoji_face(s: &State, name: &str, k: &rune_kit::Kit) -> El {
+fn emoji_face(s: &State, name: &str, size: f32, k: &rune_kit::Kit) -> El {
     match s.avatars.get(&format!("emoji:{name}")) {
-        Some(image) => el().size(20.0, 20.0).pixels(image.pixels()),
-        None => text(emoji_glyph(name)).font(k.ty.body).a11y_hidden(),
+        Some(image) => el().size(size, size).pixels(image.pixels()),
+        None => text(emoji_glyph(name))
+            .font(TextStyle {
+                size: size * 0.8,
+                ..k.ty.body
+            })
+            .a11y_hidden(),
     }
 }
 
@@ -191,7 +196,7 @@ fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) 
             grid = grid.child(cell(
                 format!("emoji-custom-{name}"),
                 name.clone(),
-                emoji_face(s, name, k),
+                emoji_face(s, name, 20.0, k),
                 name.clone(),
             ));
         }
@@ -213,7 +218,7 @@ fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) 
             grid = grid.child(cell(
                 format!("emoji-custom-{name}"),
                 name.clone(),
-                emoji_face(s, name, k),
+                emoji_face(s, name, 20.0, k),
                 name.clone(),
             ));
         }
@@ -312,44 +317,55 @@ fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) 
 fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
     let c = &k.c;
     let me = s.authenticated.as_ref().map(|key| key.user_id());
-    let mut groups: Vec<(&str, usize, bool)> = Vec::new();
+    let mut groups: Vec<(&str, usize, bool, Vec<String>)> = Vec::new();
     for r in &post.metadata.reactions {
         let mine = me == Some(r.user_id.as_str());
+        let who = if mine {
+            "You".to_owned()
+        } else {
+            s.names.get(&r.user_id).unwrap_or(&r.user_id).clone()
+        };
         match groups.iter_mut().find(|g| g.0 == r.emoji_name) {
             Some(g) => {
                 g.1 += 1;
                 g.2 |= mine;
+                g.3.push(who);
             }
-            None => groups.push((&r.emoji_name, 1, mine)),
+            None => groups.push((&r.emoji_name, 1, mine, vec![who])),
         }
     }
     if groups.is_empty() {
         return None;
     }
     let mut pills = rune::row().gap(4.0).flex_wrap();
-    for (name, count, mine) in groups {
+    for (name, count, mine, who) in groups {
         pills = pills.child(
             rune::row()
                 .key(format!("reaction-{}-{name}", post.id))
                 .role("button")
                 .label(format!("{name} {count}"))
+                .help(format!("{} reacted with :{name}:", who.join(", ")))
                 .focusable(true)
                 .cursor(rune::Cursor::Pointer)
                 .on_press({
                     let (id, name) = (post.id.clone(), name.to_owned());
                     move |s: &mut State| s.toggle_reaction(id.clone(), name.clone())
                 })
-                .h(28.0)
-                .px(10.0)
-                .gap(6.0)
+                .h(24.0)
+                .px(8.0)
+                .gap(4.0)
                 .center_y()
-                .radius(14.0)
+                .radius(12.0)
                 .fill(c.layer_02)
                 .border(1.0, if mine { c.bg_accent } else { c.border_base })
-                .child(emoji_face(s, name, k))
+                .child(emoji_face(s, name, 16.0, k))
                 .child(
                     text(count.to_string())
-                        .font(k.ty.body)
+                        .font(TextStyle {
+                            size: f32::from(s.message_font_size),
+                            line_height: f32::from(s.message_font_size) * 1.6,
+                            ..k.ty.ui
+                        })
                         .color(c.text_muted)
                         .a11y_hidden(),
                 ),
@@ -512,33 +528,62 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
 }
 
 fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
+    const HEIGHT: f32 = 24.0;
+    const SMALL: f32 = 20.0;
     let parent = s
         .posts
         .iter()
         .find(|p| !post.root_id.is_empty() && p.id == post.root_id)?;
+    let c = &k.c;
+    let pad = post_padding(s.message_spacing);
     let name = s.names.get(&parent.user_id).unwrap_or(&parent.user_id);
     let snippet = parent.message.lines().next().unwrap_or_default().to_owned();
+    let elbow_x = 16.0 + if s.show_timeline_avatars { AVATAR / 2.0 } else { 3.0 };
+    let avatar = match s.avatars.user(&parent.user_id) {
+        Some(image) => el()
+            .size(SMALL, SMALL)
+            .radius(SMALL / 2.0)
+            .pixels(image.pixels()),
+        None => el().size(SMALL, SMALL).radius(SMALL / 2.0).fill(c.layer_02),
+    };
+    let start = elbow_x + 8.0;
     Some(
-        rune::row()
-            .key(format!("reply-{}", post.id))
-            .gap(6.0)
-            .center_y()
+        el().key(format!("reply-{}", post.id))
+            .w_full()
+            .h(HEIGHT + pad)
             .child(
-                icon(&icons::ARROW_BEND_UP_LEFT, 12.0)
-                    .color(k.c.icon_muted)
+                el().size(1.5, HEIGHT / 2.0 + pad)
+                    .fill(c.border_base)
+                    .absolute(elbow_x, HEIGHT / 2.0)
                     .a11y_hidden(),
             )
             .child(
-                text(name.clone())
-                    .font(k.ty.small_medium)
-                    .color(k.c.text_muted),
+                el().size(start - elbow_x - 2.0, 1.5)
+                    .fill(c.border_base)
+                    .absolute(elbow_x, HEIGHT / 2.0)
+                    .a11y_hidden(),
             )
             .child(
-                text(snippet)
-                    .font(k.ty.small)
-                    .color(k.c.text_muted)
-                    .truncate()
-                    .shrink(),
+                rune::row()
+                    .gap(6.0)
+                    .h(HEIGHT)
+                    .center_y()
+                    .absolute(start, 0.0)
+                    .child(avatar)
+                    .child(
+                        text(name.clone())
+                            .font(k.ty.small_medium)
+                            .color(c.text_faint)
+                            .selectable(true),
+                    )
+                    .child(
+                        text(snippet)
+                            .font(k.ty.small)
+                            .color(c.text_faint)
+                            .selectable(true)
+                            .truncate()
+                            .shrink(),
+                    ),
             ),
     )
 }
@@ -676,7 +721,7 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
             Some("away") | Some("dnd") => c.warning.icon,
             _ => c.icon_muted,
         };
-        let avatar = match s.avatars.get(user_id) {
+        let avatar = match s.avatars.user(user_id) {
             Some(image) => el()
                 .size(24.0, 24.0)
                 .radius(12.0)
@@ -719,7 +764,7 @@ fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
         "away" | "dnd" => c.warning.icon,
         _ => c.icon_muted,
     };
-    let image = me.and_then(|key| s.avatars.get(key.user_id()));
+    let image = me.and_then(|key| s.avatars.user(key.user_id()));
     let mut avatar = rune::row()
         .key("user-avatar")
         .role("img")
@@ -879,7 +924,7 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
             Some("away") | Some("dnd") => k.c.warning.icon,
             _ => k.c.icon_muted,
         };
-        let avatar = match s.avatars.get(peer) {
+        let avatar = match s.avatars.user(peer) {
             Some(image) => el().size(22.0, 22.0).radius(11.0).pixels(image.pixels()),
             None => el().size(22.0, 22.0).radius(11.0).fill(k.c.layer_02),
         };
@@ -1013,6 +1058,45 @@ fn attach_button(
         .build(k)
         .key(key);
     if locked { b.inert() } else { b }
+}
+
+fn reply_chip(s: &State, k: &rune_kit::Kit) -> Option<El> {
+    let post = s.reply_to.as_ref()?;
+    let name = s.names.get(&post.user_id).unwrap_or(&post.user_id);
+    let snippet = post.message.lines().next().unwrap_or_default().to_owned();
+    Some(
+        rune::row()
+            .key("reply-chip")
+            .w_full()
+            .gap(6.0)
+            .center_y()
+            .child(
+                icon(&icons::ARROW_BEND_UP_LEFT, 12.0)
+                    .color(k.c.icon_muted)
+                    .a11y_hidden(),
+            )
+            .child(
+                text(format!("Replying to {name}"))
+                    .font(k.ty.small_medium)
+                    .color(k.c.text_muted),
+            )
+            .child(
+                text(snippet)
+                    .font(k.ty.small)
+                    .color(k.c.text_faint)
+                    .truncate()
+                    .shrink(),
+            )
+            .child(
+                IconButton::new(&icons::X)
+                    .label("Cancel reply")
+                    .control_size(ControlSize::Small)
+                    .variant(IconButtonVariant::Ghost)
+                    .on_press(|s: &mut State| s.reply_to = None)
+                    .build(k)
+                    .key("reply-cancel"),
+            ),
+    )
 }
 
 fn attachment_pills(s: &State, k: &rune_kit::Kit) -> Option<El> {
@@ -1378,7 +1462,7 @@ pub(crate) fn workspace(s: &State) -> El {
                     s.load(target.clone());
                 });
         }
-        ledger = ledger.child(
+        ledger = ledger.children(reply_quote(s, post, &k)).child(
             row.w_full()
                 .gap(8.0)
                 .px(16.0)
@@ -1416,9 +1500,9 @@ pub(crate) fn workspace(s: &State) -> El {
                         .min_w(0.0)
                         .gap(4.0)
                         .pt((line - f32::from(s.message_font_size) * 1.6) / 2.0)
-                        .children(reply_quote(s, post, &k))
                         .child(
                             Markdown::new(&post.message)
+                                .selectable(true)
                                 .highlights(
                                     mentions(&post.message, s.my_username())
                                         .into_iter()
@@ -1611,6 +1695,7 @@ pub(crate) fn workspace(s: &State) -> El {
                     .py(8.0)
                     .gap(8.0)
                     .fill(c.layer_01)
+                    .children(reply_chip(s, &k))
                     .children(attachment_pills(s, &k))
                     .child(composer)
                     .child(

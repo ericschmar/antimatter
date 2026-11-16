@@ -396,6 +396,7 @@ async fn pagination_writes_and_empty_delete() {
             message: "synthetic".into(),
             pending_post_id: "stable".into(),
             file_ids: vec![],
+            root_id: String::new(),
         })
         .await
         .unwrap();
@@ -440,6 +441,7 @@ async fn ambiguous_write_is_not_retried() {
                 message: "synthetic".into(),
                 pending_post_id: "stable".into(),
                 file_ids: vec![],
+                root_id: String::new(),
             })
             .await,
         Err(Error::Transport)

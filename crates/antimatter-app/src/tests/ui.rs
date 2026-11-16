@@ -687,7 +687,7 @@ fn scrolling_to_the_top_by_hand_requests_one_older_page() {
 }
 
 #[test]
-fn reply_quotes_the_post_in_the_draft() {
+fn reply_targets_the_post() {
     let mut s = State::default();
     let mut post: antimatter_services::mattermost::Post = serde_json::from_value(
         serde_json::json!({"id":"p","channel_id":"c","user_id":"u","message":"","create_at":0}),
@@ -695,5 +695,6 @@ fn reply_quotes_the_post_in_the_draft() {
     .unwrap();
     post.message = "hello\nthere".into();
     s.quote_reply(&post);
-    assert_eq!(s.markdown(), "> hello\n> there\n\n");
+    assert_eq!(s.reply_to.as_ref().map(|p| p.id.as_str()), Some("p"));
+    assert_eq!(s.markdown(), "");
 }

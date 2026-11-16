@@ -222,7 +222,11 @@ impl State {
             AfterCheckpoint::Send(message) => {
                 let attached = self.attachments.is_empty()
                     || self.dispatch(Intent::Attach(self.attachments.clone()));
-                if attached && self.dispatch(Intent::Send(message)) {
+                let root = self.reply_to.as_ref().map(|p| {
+                    if p.root_id.is_empty() { p.id.clone() } else { p.root_id.clone() }
+                });
+                let rooted = root.is_none_or(|root| self.dispatch(Intent::Root(root)));
+                if attached && rooted && self.dispatch(Intent::Send(message)) {
                     self.submitted = true;
                     self.ready = false;
                 } else if self.durable.is_some() {

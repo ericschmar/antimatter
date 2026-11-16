@@ -19,6 +19,7 @@ pub enum Intent {
     Presence(Vec<String>),
     Send(String),
     Attach(Vec<std::path::PathBuf>),
+    Root(String),
     Retry,
     Refresh,
 }
@@ -104,6 +105,7 @@ pub async fn run(
         has_older: false,
         older: HashSet::new(),
         uploads: Vec::new(),
+        root: String::new(),
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
     // and blocks channel switches while unready/pending; use pane generations for supersession.
@@ -152,6 +154,18 @@ struct Worker {
     has_older: bool,
     older: HashSet<String>,
     uploads: Vec<std::path::PathBuf>,
+    root: String,
+}
+
+fn post_user_ids(posts: &[Post]) -> Vec<String> {
+    let mut ids = Vec::new();
+    for post in posts {
+        ids.push(post.user_id.clone());
+        for reaction in &post.metadata.reactions {
+            ids.push(reaction.user_id.clone());
+        }
+    }
+    ids
 }
 
 fn direct_peer(name: &str, user_id: &str) -> Option<String> {
@@ -249,6 +263,10 @@ impl Worker {
                     self.uploads = paths;
                     Ok(())
                 }
+                Intent::Root(root) => {
+                    self.root = root;
+                    Ok(())
+                }
                 Intent::Send(message) => {
                     if self.pending.is_some()
                         || (message.trim().is_empty() && self.uploads.is_empty())
@@ -262,6 +280,7 @@ impl Worker {
                             message,
                             pending_post_id: uuid::Uuid::new_v4().to_string(),
                             file_ids: Vec::new(),
+                            root_id: std::mem::take(&mut self.root),
                         },
                         failed: false,
                         retryable: false,
@@ -480,7 +499,7 @@ impl Worker {
                 .cloned()
                 .collect();
             posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
-            self.resolve_names(posts.iter().map(|p| p.user_id.clone()))
+            self.resolve_names(post_user_ids(&posts))
                 .await;
             let names = self.names.clone();
             self.emit(Update::Timeline {
@@ -529,7 +548,7 @@ impl Worker {
         self.has_older = has_older;
         let mut posts: Vec<_> = fresh.into_iter().filter(|p| p.delete_at == 0).collect();
         posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
-        self.resolve_names(posts.iter().map(|p| p.user_id.clone()))
+        self.resolve_names(post_user_ids(&posts))
             .await;
         let names = self.names.clone();
         self.emit(Update::Older {
