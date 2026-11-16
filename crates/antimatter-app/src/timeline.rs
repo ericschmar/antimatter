@@ -140,10 +140,11 @@ impl State {
         match update {
             Update::Navigation {
                 site_name,
+                teams,
                 channels,
                 unread,
-                ..
             } => {
+                self.team_ids = teams.into_iter().map(|t| t.id).collect();
                 self.site_name = site_name;
                 self.channels = channels;
                 self.unread = unread;

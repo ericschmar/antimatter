@@ -37,6 +37,8 @@ impl State {
         self.channels.clear();
         self.unread.clear();
         self.threads.clear();
+        self.team_ids.clear();
+        self.new_dialog = None;
         self.focus_post = None;
         self.names.clear();
         self.site_name.clear();

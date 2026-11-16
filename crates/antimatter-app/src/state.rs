@@ -54,6 +54,12 @@ pub(crate) enum Login {
     ),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NewKind {
+    Channel,
+    Dm,
+}
+
 pub(crate) struct State {
     pub(crate) epoch: u64,
     pub(crate) persistence: Option<Persistence>,
@@ -90,6 +96,12 @@ pub(crate) struct State {
     pub(crate) archived_collapsed: bool,
     pub(crate) dms_collapsed: bool,
     pub(crate) server_open: bool,
+    pub(crate) new_menu: bool,
+    pub(crate) new_dialog: Option<NewKind>,
+    pub(crate) new_name: TextEdit,
+    pub(crate) new_error: Option<String>,
+    pub(crate) new_busy: bool,
+    pub(crate) team_ids: Vec<String>,
     pub(crate) preview: Option<String>,
     pub(crate) preview_at: usize,
     pub(crate) tab_drag: TabDragState,
@@ -206,6 +218,94 @@ impl State {
                         .finish(format!("emoji:{}", emoji.name), Some(bytes))
                 });
             }
+        });
+    }
+
+    pub(crate) fn open_new(&mut self, kind: NewKind) {
+        self.new_menu = false;
+        self.new_dialog = Some(kind);
+        self.new_name = TextEdit::default();
+        self.new_error = None;
+        self.new_busy = false;
+    }
+
+    pub(crate) fn close_new(&mut self) {
+        self.new_dialog = None;
+        self.new_busy = false;
+    }
+
+    pub(crate) fn submit_new(&mut self) {
+        let Some(kind) = self.new_dialog else {
+            return;
+        };
+        let input = self.new_name.text.trim().trim_start_matches('@').to_owned();
+        let me = self.authenticated.as_ref().map(|k| k.user_id().to_owned());
+        let (Some(client), Some(runtime), Some(handle), Some(me)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            me,
+        ) else {
+            return;
+        };
+        if self.new_busy || input.is_empty() {
+            return;
+        }
+        let team = self.team_ids.first().cloned().unwrap_or_default();
+        self.new_busy = true;
+        self.new_error = None;
+        runtime.spawn(async move {
+            let result: Result<String, &'static str> = async {
+                let created = match kind {
+                    NewKind::Channel => {
+                        let slug: String = input
+                            .to_lowercase()
+                            .chars()
+                            .map(|c| if c.is_alphanumeric() { c } else { '-' })
+                            .collect();
+                        let slug = slug.trim_matches('-').chars().take(64).collect::<String>();
+                        if slug.is_empty() || team.is_empty() {
+                            return Err("Enter a valid channel name.");
+                        }
+                        client
+                            .create_channel(&serde_json::json!({
+                                "team_id": team,
+                                "name": slug,
+                                "display_name": input,
+                                "type": "O",
+                            }))
+                            .await
+                            .map_err(|_| "Could not create the channel.")?
+                    }
+                    NewKind::Dm => {
+                        let users = client
+                            .users_by_usernames(std::slice::from_ref(&input))
+                            .await
+                            .map_err(|_| "Could not look up that user.")?;
+                        let user = users.first().ok_or("No user with that username.")?;
+                        client
+                            .direct_channel(&[me, user.id.clone()])
+                            .await
+                            .map_err(|_| "Could not start the conversation.")?
+                    }
+                };
+                created
+                    .get("id")
+                    .and_then(|id| id.as_str())
+                    .map(str::to_owned)
+                    .ok_or("The server returned no channel.")
+            }
+            .await;
+            handle.update(move |s, _| {
+                s.new_busy = false;
+                match result {
+                    Ok(id) => {
+                        s.new_dialog = None;
+                        s.load(id);
+                    }
+                    Err(message) => s.new_error = Some(message.to_owned()),
+                }
+            });
         });
     }
 
@@ -481,6 +581,12 @@ impl Default for State {
             archived_collapsed: false,
             dms_collapsed: false,
             server_open: false,
+            new_menu: false,
+            new_dialog: None,
+            new_name: TextEdit::default(),
+            new_error: None,
+            new_busy: false,
+            team_ids: Vec::new(),
             preview: None,
             preview_at: 0,
             tab_drag: TabDragState::new(),

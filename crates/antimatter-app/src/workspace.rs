@@ -1052,6 +1052,64 @@ fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
     menu.build(k, layer)
 }
 
+fn new_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
+    let trigger = IconButton::new(&icons::PLUS)
+        .label("New")
+        .control_size(ControlSize::Small)
+        .variant(IconButtonVariant::Ghost)
+        .on_press(|s: &mut State| s.new_menu = !s.new_menu)
+        .build(k)
+        .key("new-trigger");
+    let menu = rune_kit::Menu::new("new-menu")
+        .trigger(trigger)
+        .open(s.new_menu)
+        .on_close(|s: &mut State| s.new_menu = false)
+        .item(
+            MenuItem::new("Create channel…")
+                .on_select(|s: &mut State| s.open_new(NewKind::Channel)),
+        )
+        .item(
+            MenuItem::new("Start direct message…")
+                .on_select(|s: &mut State| s.open_new(NewKind::Dm)),
+        )
+        .build(&crate::theme::menu_theme(k), layer);
+    if let Some(kind) = s.new_dialog {
+        let (title, hint, action) = match kind {
+            NewKind::Channel => ("Create channel", "Channel name", "Create"),
+            NewKind::Dm => ("Start direct message", "Username", "Start"),
+        };
+        let mut body = col().w_full().gap(8.0).px(16.0).pb(16.0).child(
+            rune_kit::TextInput::new(&s.new_name)
+                .label(hint)
+                .placeholder(hint)
+                .width(None)
+                .height(32.0)
+                .on_edit(|s: &mut State| &mut s.new_name)
+                .on_submit(|s: &mut State, _| s.submit_new())
+                .build(k)
+                .key("new-name"),
+        );
+        if let Some(error) = &s.new_error {
+            body = body.child(text(error.clone()).font(k.ty.small).color(k.c.danger.fg));
+        }
+        body = body.child(hbox().w_full().justify_end().child(button_as(
+            rune_kit::ButtonVariant::Submit,
+            "new-submit",
+            action,
+            s.new_busy || s.new_name.text.trim().is_empty(),
+            |s| s.submit_new(),
+        )));
+        rune_kit::Dialog::new("new-dialog", title)
+            .open(true)
+            .width(360.0)
+            .fit()
+            .on_close(|s: &mut State| s.close_new())
+            .child(body)
+            .build(k, layer);
+    }
+    menu
+}
+
 fn section(
     key: &str,
     title: &str,
@@ -1472,6 +1530,7 @@ pub(crate) fn workspace(s: &State) -> El {
                         .child(server_menu(s, &mut layer, &k)),
                 )
                 .child(el().grow(1.0).window_drag())
+                .child(new_menu(s, &mut layer, &k))
                 .child(user_avatar(s, &k)),
         )
         .child(
