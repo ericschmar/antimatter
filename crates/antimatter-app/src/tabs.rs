@@ -280,7 +280,7 @@ pub(crate) fn tab_strip(s: &State, layer: &mut Vec<El>) -> El {
                     s.keep_tab(&id);
                 })
         })
-        .build(&k, layer);
+        .build(&crate::theme::menu_theme(&k), layer);
     rune::row()
         .grow(1.0)
         .shrink()

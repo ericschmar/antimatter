@@ -1,7 +1,7 @@
 use crate::settings::accent_rgb;
 use antimatter_services::settings::AccentColor;
 use antimatter_theme::Theme;
-use rune::Color;
+use rune::{Color, TextStyle};
 use rune_kit::Kit;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -13,6 +13,17 @@ static ACCENT: AtomicU8 = AtomicU8::new(0);
 pub(crate) fn select(theme: Theme, accent: AccentColor) {
     ACTIVE.store(theme as u8, Ordering::Relaxed);
     ACCENT.store(accent as u8, Ordering::Relaxed);
+}
+
+/// The kit for context menus: the same tokens with a smaller menu-item font.
+pub(crate) fn menu_theme(k: &Kit) -> Kit {
+    let mut k = k.clone();
+    k.ty.ui_compact = TextStyle {
+        size: 12.0,
+        line_height: 16.0,
+        ..k.ty.ui_compact
+    };
+    k
 }
 
 pub(crate) fn workspace_theme() -> Kit {

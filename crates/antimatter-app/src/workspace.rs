@@ -1396,7 +1396,7 @@ pub(crate) fn workspace(s: &State) -> El {
                     },
                 )
             })
-            .build(&k, &mut layer);
+            .build(&crate::theme::menu_theme(&k), &mut layer);
     let mut sidebar = col().w_full().gap(8.0).children(threads_section(s, &k));
     if !favorites.is_empty() {
         sidebar = sidebar.child(section(

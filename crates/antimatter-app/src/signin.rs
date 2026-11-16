@@ -220,7 +220,7 @@ pub(crate) fn application(s: &State) -> El {
                         .on_select(move |s: &mut State| s.remove_account(key.clone()))
                 })
                 .on_close(|s: &mut State| s.saved_account_menu = None)
-                .build(&k, &mut layer);
+                .build(&crate::theme::menu_theme(&k), &mut layer);
             card = card.child(menu);
         }
     }
