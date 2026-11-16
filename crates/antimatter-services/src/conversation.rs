@@ -250,7 +250,9 @@ impl Worker {
                     Ok(())
                 }
                 Intent::Send(message) => {
-                    if self.pending.is_some() || (message.trim().is_empty() && self.uploads.is_empty()) {
+                    if self.pending.is_some()
+                        || (message.trim().is_empty() && self.uploads.is_empty())
+                    {
                         return Err(Failure::InvalidInput);
                     }
                     let channel_id = self.channel.clone().ok_or(Failure::InvalidInput)?;
@@ -649,9 +651,15 @@ impl Worker {
         let channel = self.channel.as_deref().ok_or(())?;
         let mut ids = Vec::new();
         for path in &self.uploads {
-            let name = path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+            let name = path
+                .file_name()
+                .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
             let bytes = std::fs::read(path).map_err(|_| ())?;
-            let reply = self.client.upload_file(channel, &name, bytes).await.map_err(|_| ())?;
+            let reply = self
+                .client
+                .upload_file(channel, &name, bytes)
+                .await
+                .map_err(|_| ())?;
             let id = reply["file_infos"][0]["id"].as_str().ok_or(())?;
             ids.push(id.to_owned());
         }

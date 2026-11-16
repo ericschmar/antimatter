@@ -395,7 +395,7 @@ async fn pagination_writes_and_empty_delete() {
             channel_id: "channel1".into(),
             message: "synthetic".into(),
             pending_post_id: "stable".into(),
-        file_ids: vec![],
+            file_ids: vec![],
         })
         .await
         .unwrap();
@@ -439,7 +439,7 @@ async fn ambiguous_write_is_not_retried() {
                 channel_id: "channel1".into(),
                 message: "synthetic".into(),
                 pending_post_id: "stable".into(),
-            file_ids: vec![],
+                file_ids: vec![],
             })
             .await,
         Err(Error::Transport)

@@ -185,7 +185,7 @@ fn main() {
                         channel_id: "synthetic-channel".into(),
                         message: "synthetic draft".into(),
                         pending_post_id: "synthetic-pending".into(),
-                    file_ids: vec![],
+                        file_ids: vec![],
                     },
                     failed: true,
                     retryable: false,

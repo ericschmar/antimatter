@@ -45,6 +45,7 @@ impl State {
         self.client = None;
         self.posts.clear();
         self.has_older = false;
+        self.search_results = None;
         self.loading_older = false;
         self.clear_draft();
         self.ready = false;

@@ -96,6 +96,7 @@ impl State {
     }
 
     pub(crate) fn load_now(&mut self, channel: String) {
+        self.search_results = None;
         if self.dispatch(Intent::Load(channel.clone())) {
             self.note_open(&channel);
             self.channel = Some(channel.clone());

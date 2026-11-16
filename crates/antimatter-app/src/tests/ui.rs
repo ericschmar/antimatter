@@ -689,7 +689,10 @@ fn scrolling_to_the_top_by_hand_requests_one_older_page() {
 #[test]
 fn reply_quotes_the_post_in_the_draft() {
     let mut s = State::default();
-    let mut post: antimatter_services::mattermost::Post = serde_json::from_value(serde_json::json!({"id":"p","channel_id":"c","user_id":"u","message":"","create_at":0})).unwrap();
+    let mut post: antimatter_services::mattermost::Post = serde_json::from_value(
+        serde_json::json!({"id":"p","channel_id":"c","user_id":"u","message":"","create_at":0}),
+    )
+    .unwrap();
     post.message = "hello\nthere".into();
     s.quote_reply(&post);
     assert_eq!(s.markdown(), "> hello\n> there\n\n");

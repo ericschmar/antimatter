@@ -455,14 +455,16 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
         [] => return None,
         [file] => {
             let target = (*file).clone();
-            Some(rune::row().child(
-                chip(
-                    format!("image-{}", file.id),
-                    format!("Open {}", file.name),
-                    file.name.clone(),
-                )
-                .on_press(move |s: &mut State| s.open_file(target.clone())),
-            ))
+            Some(
+                rune::row().child(
+                    chip(
+                        format!("image-{}", file.id),
+                        format!("Open {}", file.name),
+                        file.name.clone(),
+                    )
+                    .on_press(move |s: &mut State| s.open_file(target.clone())),
+                ),
+            )
         }
         many => {
             let id = post.id.clone();
@@ -1239,11 +1241,18 @@ pub(crate) fn workspace(s: &State) -> El {
         });
     let offset = s.ledger_offset.clone();
     let hand_scrolled = s.ledger_hand_scrolled.clone();
+    let searching = s.search_results.is_some();
     let mut ledger = col()
-        .key("timeline")
+        .key(if searching {
+            "search-results"
+        } else {
+            "timeline"
+        })
         .grow(1.0)
         .min_h(0.0)
-        .scroll(rune::ScrollSpec { stick_bottom: true })
+        .scroll(rune::ScrollSpec {
+            stick_bottom: !searching,
+        })
         .scroll_anchor()
         .on_scroll_offset(move |at| {
             offset.store(at.offset[1].to_bits(), std::sync::atomic::Ordering::Relaxed);
@@ -1273,7 +1282,6 @@ pub(crate) fn workspace(s: &State) -> El {
         );
     }
     let mut previous_day = None;
-    let searching = s.search_results.is_some();
     if let Some(results) = &s.search_results {
         ledger = ledger.child(
             rune::row()
@@ -1389,13 +1397,15 @@ pub(crate) fn workspace(s: &State) -> El {
                                         })
                                         .collect::<Vec<_>>(),
                                 )
-                                .style(MarkdownStyle::from_kit(&k)
-                                    .code_block(c.layer_03, c.border_base)
-                                    .body_font(TextStyle {
-                                    size: f32::from(s.message_font_size),
-                                    line_height: f32::from(s.message_font_size) * 1.6,
-                                    ..k.ty.ui
-                                }))
+                                .style(
+                                    MarkdownStyle::from_kit(&k)
+                                        .code_block(c.layer_03, c.border_base)
+                                        .body_font(TextStyle {
+                                            size: f32::from(s.message_font_size),
+                                            line_height: f32::from(s.message_font_size) * 1.6,
+                                            ..k.ty.ui
+                                        }),
+                                )
                                 .code_frame({
                                     let k = k.clone();
                                     move |card, code| code_frame(&k, card, code)
@@ -1458,22 +1468,24 @@ pub(crate) fn workspace(s: &State) -> El {
         .and_then(|id| s.channels.iter().find(|c| c.id == id))
         .map(|c| c.display_name.clone())
         .unwrap_or_default();
-    main = main.child(
-        rune::row()
-            .w_full()
-            .px(16.0)
-            .pt(8.0)
-            .center_y()
-            .child(
-                text(channel_name)
-                    .font(k.ty.body_medium)
-                    .color(c.text_base)
-                    .grow(1.0)
-                    .min_w(0.0)
-                    .truncate(),
-            )
-            .child(member_stack(s, &k)),
-    );
+    if !searching {
+        main = main.child(
+            rune::row()
+                .w_full()
+                .px(16.0)
+                .pt(8.0)
+                .center_y()
+                .child(
+                    text(channel_name)
+                        .font(k.ty.body_medium)
+                        .color(c.text_base)
+                        .grow(1.0)
+                        .min_w(0.0)
+                        .truncate(),
+                )
+                .child(member_stack(s, &k)),
+        );
+    }
     let mut actions = rune::row().w_full().gap(8.0).flex_wrap();
     if s.durable.is_some() {
         actions = actions.child(button(
@@ -1557,37 +1569,53 @@ pub(crate) fn workspace(s: &State) -> El {
     {
         main = main.child(status);
     }
-    main = main
-        .on_drop_files(|s: &mut State, files, _| s.attach(files))
-        .child(ledger.scroll_bar(&k))
-        .child(
-        col()
-            .w_full()
-            .px(16.0)
-            .py(8.0)
-            .gap(8.0)
-            .fill(c.layer_01)
-            .children(attachment_pills(s, &k))
-            .child(composer)
+    main = main.child(ledger.scroll_bar(&k));
+    if !searching {
+        main = main
+            .on_drop_files(|s: &mut State, files, _| s.attach(files))
             .child(
-                rune::row()
+                col()
                     .w_full()
+                    .px(16.0)
+                    .py(8.0)
                     .gap(8.0)
-                    .center_y()
-                    .child(toolbar)
-                    .child(attach_button(&k, "attach-image", "Attach image", &icons::IMAGE, true, locked))
-                    .child(attach_button(&k, "attach-file", "Attach file", &icons::PAPERCLIP, false, locked))
-                    .child(button_as(
-                        ButtonVariant::Contrast,
-                        "send",
-                        "Send",
-                        locked
-                            || s.channel.is_none()
-                            || (s.markdown().trim().is_empty() && s.attachments.is_empty()),
-                        |s| s.send(),
-                    )),
-            ),
-    );
+                    .fill(c.layer_01)
+                    .children(attachment_pills(s, &k))
+                    .child(composer)
+                    .child(
+                        rune::row()
+                            .w_full()
+                            .gap(8.0)
+                            .center_y()
+                            .child(toolbar)
+                            .child(attach_button(
+                                &k,
+                                "attach-image",
+                                "Attach image",
+                                &icons::IMAGE,
+                                true,
+                                locked,
+                            ))
+                            .child(attach_button(
+                                &k,
+                                "attach-file",
+                                "Attach file",
+                                &icons::PAPERCLIP,
+                                false,
+                                locked,
+                            ))
+                            .child(button_as(
+                                ButtonVariant::Contrast,
+                                "send",
+                                "Send",
+                                locked
+                                    || s.channel.is_none()
+                                    || (s.markdown().trim().is_empty() && s.attachments.is_empty()),
+                                |s| s.send(),
+                            )),
+                    ),
+            );
+    }
     let body = rune::row()
         .w_full()
         .h_full()
