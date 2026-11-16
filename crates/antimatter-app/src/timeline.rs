@@ -18,6 +18,7 @@ impl State {
     }
 
     pub(crate) fn load(&mut self, channel: String) {
+        self.last_active = None;
         if !self.ready
             || self.busy
             || self.submitted

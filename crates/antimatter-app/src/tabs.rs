@@ -172,6 +172,7 @@ impl State {
 }
 
 pub(crate) fn window_key(s: &mut State, key: &rune::KeyEvent, tx: &mut rune::Tx) -> bool {
+    s.touch_active();
     if key.is_command('k') && !key.mods.shift {
         tx.focus("search", false);
         return true;

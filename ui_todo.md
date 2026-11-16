@@ -40,7 +40,7 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] Add a tooltip to the channel's avatar stack that lists the users in the channel
 [x] Add a "create channel" and "start dm" options in the sidebar 
 [x] Wire up the Profile page
-[ ] Wire up interacting with the app as telling mattermost that we're active
+[x] Wire up interacting with the app as telling mattermost that we're active
 [ ] Finish and wire up the notifications section in the settings
 [ ] Archived chats are not persisted between runs
 [ ] Replying to images don't render anything in the root message body, but should just render the image name.

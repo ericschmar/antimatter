@@ -96,6 +96,7 @@ pub(crate) struct State {
     pub(crate) archived_collapsed: bool,
     pub(crate) dms_collapsed: bool,
     pub(crate) server_open: bool,
+    pub(crate) last_active: Option<std::time::Instant>,
     pub(crate) new_menu: bool,
     pub(crate) new_dialog: Option<NewKind>,
     pub(crate) new_name: TextEdit,
@@ -219,6 +220,24 @@ impl State {
                 });
             }
         });
+    }
+
+    pub(crate) fn touch_active(&mut self) {
+        const EVERY: std::time::Duration = std::time::Duration::from_secs(60);
+        if self.synthetic || self.intents.is_none() || self.channel.is_none() || !self.ready {
+            return;
+        }
+        let now = std::time::Instant::now();
+        if self.last_active.is_some_and(|t| now.duration_since(t) < EVERY) {
+            return;
+        }
+        let sent = self
+            .intents
+            .as_ref()
+            .is_some_and(|tx| tx.try_send(Intent::Active).is_ok());
+        if sent {
+            self.last_active = Some(now);
+        }
     }
 
     pub(crate) fn open_new(&mut self, kind: NewKind) {
@@ -584,6 +603,7 @@ impl Default for State {
             archived_collapsed: false,
             dms_collapsed: false,
             server_open: false,
+            last_active: None,
             new_menu: false,
             new_dialog: None,
             new_name: TextEdit::default(),

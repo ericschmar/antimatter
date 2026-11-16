@@ -36,6 +36,7 @@ pub enum Intent {
     Retry,
     Refresh,
     Threads,
+    Active,
 }
 
 #[derive(Clone)]
@@ -274,6 +275,12 @@ impl Worker {
                 }
                 Intent::Older => self.older().await,
                 Intent::Refresh => self.refresh().await,
+                Intent::Active => {
+                    if let Some(channel) = self.channel.clone() {
+                        let _ = self.client.view_channel(&self.user_id, &channel, "").await;
+                    }
+                    Ok(())
+                }
                 Intent::Threads => {
                     self.all_threads().await;
                     Ok(())
