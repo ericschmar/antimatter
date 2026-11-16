@@ -223,7 +223,11 @@ impl State {
                 let attached = self.attachments.is_empty()
                     || self.dispatch(Intent::Attach(self.attachments.clone()));
                 let root = self.reply_to.as_ref().map(|p| {
-                    if p.root_id.is_empty() { p.id.clone() } else { p.root_id.clone() }
+                    if p.root_id.is_empty() {
+                        p.id.clone()
+                    } else {
+                        p.root_id.clone()
+                    }
                 });
                 let rooted = root.is_none_or(|root| self.dispatch(Intent::Root(root)));
                 if attached && rooted && self.dispatch(Intent::Send(message)) {

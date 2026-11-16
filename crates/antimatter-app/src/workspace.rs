@@ -1027,13 +1027,17 @@ fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
         .open(s.server_open)
         .on_close(|s: &mut State| s.server_open = false);
     for (i, name) in names.iter().enumerate() {
-        menu = menu.item(MenuItem::new(name.clone()).on_select(move |s: &mut State| {
-            s.server_open = false;
-            if let Some(account) = s.accounts.get(i) {
-                let key = account.key.clone();
-                s.switch_account(key);
-            }
-        }));
+        menu = menu.item(
+            MenuItem::new(name.clone())
+                .checked(*name == current)
+                .on_select(move |s: &mut State| {
+                    s.server_open = false;
+                    if let Some(account) = s.accounts.get(i) {
+                        let key = account.key.clone();
+                        s.switch_account(key);
+                    }
+                }),
+        );
     }
     menu.build(k, layer)
 }

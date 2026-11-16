@@ -31,3 +31,16 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] add a "cmd+k" little badge in the search bar to indicate there's hotkeys
 [x] archived chats don't persist between app close/reopen
 [x] I want to make our avatars a little bigger. they're hard to see right now
+
+------- User Review --------
+[x] The server dropdown should show a checkmark for the selected server
+[ ] Wire up the theme selector to the app so changing the theme, changes the accent color (also highlight the current accent)
+[ ] Change the font of our right-click context menu to be smaller
+[ ] Make double-clicking a channel pin it
+[ ] Add a tooltip to the channel's avatar stack that lists the users in the channel
+[ ] Add a "create channel" and "start dm" options in the sidebar 
+[ ] Wire up the Profile page
+[ ] Wire up interacting with the app as telling mattermost that we're active
+[ ] Finish and wire up the notifications section in the settings
+[ ] Archived chats are not persisted between runs
+[ ] Replying to images don't render anything in the root message body, but should just render the image name.
