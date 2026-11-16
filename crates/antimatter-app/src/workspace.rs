@@ -880,20 +880,20 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
             _ => k.c.icon_muted,
         };
         let avatar = match s.avatars.get(peer) {
-            Some(image) => el().size(16.0, 16.0).radius(8.0).pixels(image.pixels()),
-            None => el().size(16.0, 16.0).radius(8.0).fill(k.c.layer_02),
+            Some(image) => el().size(22.0, 22.0).radius(11.0).pixels(image.pixels()),
+            None => el().size(22.0, 22.0).radius(11.0).fill(k.c.layer_02),
         };
         lead.push(
             hbox()
                 .key("avatar")
-                .size(16.0, 16.0)
+                .size(22.0, 22.0)
                 .center()
                 .child(
-                    el().size(16.0, 16.0).child(avatar).child(
-                        el().size(6.0, 6.0)
-                            .radius(3.0)
+                    el().size(22.0, 22.0).child(avatar).child(
+                        el().size(8.0, 8.0)
+                            .radius(4.0)
                             .fill(dot)
-                            .absolute(10.0, 10.0),
+                            .absolute(14.0, 14.0),
                     ),
                 )
                 .a11y_hidden(),
@@ -1415,6 +1415,7 @@ pub(crate) fn workspace(s: &State) -> El {
                         .shrink()
                         .min_w(0.0)
                         .gap(4.0)
+                        .pt((line - f32::from(s.message_font_size) * 1.6) / 2.0)
                         .children(reply_quote(s, post, &k))
                         .child(
                             Markdown::new(&post.message)
