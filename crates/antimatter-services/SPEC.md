@@ -31,7 +31,7 @@ generation-bound and shape-validated before exchange.
 `macos.rs` owns Rust-authored `ASWebAuthenticationSession` bindings, retained
 session/presentation anchor and cancellation completion. Start/cancel on the UI
 thread; no embedded browser or Swift FFI. The user-authorized bundle identity is `antimatter.ericschmar.dev`, with
-`mattermost-dev` callback. Browser start validates actual main-bundle declarations
+`mattermost` callback. Browser start validates actual main-bundle declarations
 and retains the native key/main window; the ignored native bundle helper does not
 launch, register or sign it. Actual callback delivery remains native verification,
 not a Cargo or plist guarantee.

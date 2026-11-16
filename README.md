@@ -11,7 +11,7 @@ This project is under active development. Native execution offers fresh PAT/pass
 ## Features
 
 - Connect with a personal access token, username/password, or SSO.
-- Rust SAML wiring uses Mattermost's desktop-token flow through ASWebAuthenticationSession; no embedded-browser fallback. Build the unsigned, unregistered native bundle with `python3 scripts/rune-native.py`; `--check` verifies metadata/binary only. It reuses `antimatter.ericschmar.dev` with `mattermost-dev` as authorized; native callback and SAML acceptance remain unverified.
+- Rust SAML wiring uses Mattermost's desktop-token flow through ASWebAuthenticationSession; no embedded-browser fallback. Build the unsigned, unregistered native bundle with `python3 scripts/rune-native.py`; `--check` verifies metadata/binary only. It reuses `antimatter.ericschmar.dev` with `mattermost` as authorized; native callback and SAML acceptance remain unverified.
 - Real-time post, reaction, and status updates over the Mattermost WebSocket API.
 - Channel, group message, and direct message navigation.
 - Message search, user search, public channel search, and command palette access.

@@ -37,6 +37,7 @@ pub(crate) fn field(
     key: &str,
     label: &str,
     on_edit: fn(&mut State) -> &mut TextEdit,
+    on_submit: fn(&mut State),
 ) -> El {
     TextInput::new(edit)
         .label(label)
@@ -44,6 +45,7 @@ pub(crate) fn field(
         .width(None)
         .height(36.0)
         .on_edit(on_edit)
+        .on_submit(move |s: &mut State, _| on_submit(s))
         .build(&workspace_theme())
         .key(key)
 }

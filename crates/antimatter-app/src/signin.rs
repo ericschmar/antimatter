@@ -35,9 +35,7 @@ pub(crate) fn application(s: &State) -> El {
             .color(c.text_muted)
             .wrap(),
         )
-        .child(field(&s.server, "server", "Server HTTPS origin", |s| {
-            &mut s.server
-        }))
+        .child(field(&s.server, "server", "Server HTTPS origin", |s| &mut s.server, State::submit_login))
         .child(
             SegmentedControl::new(METHODS, Some(s.method.min(METHODS.len() - 1)))
                 .label("Sign-in method")
@@ -52,9 +50,7 @@ pub(crate) fn application(s: &State) -> El {
         );
     card = match s.method {
         0 => card
-            .child(field(&s.pat, "pat", "Personal access token", |s| {
-                &mut s.pat
-            }))
+            .child(field(&s.pat, "pat", "Personal access token", |s| &mut s.pat, State::submit_login))
             .child(primary(
                 "connect-pat",
                 if s.editing_account.is_some() {
@@ -66,12 +62,8 @@ pub(crate) fn application(s: &State) -> El {
                 |s| s.connect(false),
             )),
         1 => card
-            .child(field(&s.login, "login", "Username or email", |s| {
-                &mut s.login
-            }))
-            .child(field(&s.password, "password", "Password", |s| {
-                &mut s.password
-            }))
+            .child(field(&s.login, "login", "Username or email", |s| &mut s.login, State::submit_login))
+            .child(field(&s.password, "password", "Password", |s| &mut s.password, State::submit_login))
             .child(primary(
                 "connect-password",
                 if s.editing_account.is_some() {

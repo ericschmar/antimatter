@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 use zeroize::Zeroizing;
 
 pub const BUNDLE_IDENTIFIER: &str = "antimatter.ericschmar.dev";
-pub const CALLBACK_SCHEME: &str = "mattermost-dev";
+pub const CALLBACK_SCHEME: &str = "mattermost";
 
 declare_class!(
     struct PresentationProvider;

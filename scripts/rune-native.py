@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT / "build/rune-native/Antimatter.app"
 BINARY = ROOT / "target/debug/antimatter"
 BUNDLE_IDENTIFIER = "antimatter.ericschmar.dev"
-CALLBACK_SCHEME = "mattermost-dev"
+CALLBACK_SCHEME = "mattermost"
 INFO = {
     "CFBundleIdentifier": BUNDLE_IDENTIFIER,
     "CFBundleName": "Antimatter",
@@ -75,7 +75,7 @@ def self_test():
         ("CFBundleIdentifier", "wrong.synthetic.bundle"),
         ("CFBundleExecutable", "wrong"),
         ("CFBundlePackageType", "BNDL"),
-        ("CFBundleURLTypes", [{"CFBundleURLSchemes": "mattermost-dev"}]),
+        ("CFBundleURLTypes", [{"CFBundleURLSchemes": "mattermost"}]),
         ("CFBundleURLTypes", [{"CFBundleURLSchemes": ["wrong-synthetic"]}]),
         ("CFBundleURLTypes", [None]),
     ):

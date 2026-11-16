@@ -895,13 +895,23 @@ impl SamlAttempt {
     pub fn consume(&mut self, callback: &Url, generation: u64) -> Result<Secret, Error> {
         if std::mem::replace(&mut self.consumed, true)
             || generation != self.generation
-            || callback.scheme() != "mattermost-dev"
-            || callback.host_str() != Some("login")
-            || !matches!(callback.path(), "" | "/")
-            || callback.port().is_some()
+            || callback.scheme() != "mattermost"
             || !callback.username().is_empty()
             || callback.password().is_some()
             || callback.fragment().is_some()
+        {
+            return Err(Error::InvalidCallback);
+        }
+        let origin = Url::parse(self.origin.as_str()).map_err(|_| Error::InvalidCallback)?;
+        let expected_path = format!("{}/login/desktop", origin.path().trim_end_matches('/'));
+        let host_matches = callback.host_str().is_some_and(|host| {
+            origin
+                .host_str()
+                .is_some_and(|expected| host.eq_ignore_ascii_case(expected))
+        });
+        if !host_matches
+            || callback.port() != origin.port()
+            || callback.path().trim_end_matches('/') != expected_path
         {
             return Err(Error::InvalidCallback);
         }

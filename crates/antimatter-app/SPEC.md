@@ -230,6 +230,6 @@ Native Keychain/browser callback delivery, authorized live-server conversation,
 full pending-delivery recovery, legacy import UI and full workspace behavior
 require separate checks and implementation; this contract grants no claim of
 their completion. The native helper builds an unsigned, unregistered bundle with
-`antimatter.ericschmar.dev` (the user-authorized Swift identity) and `mattermost-dev`.
+`antimatter.ericschmar.dev` (the user-authorized Swift identity) and `mattermost`.
 Browser start fails closed unless the running main bundle declares both. Metadata
 checks do not prove LaunchServices delivery or authorized live/SAML acceptance.

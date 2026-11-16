@@ -58,6 +58,17 @@ impl State {
         self.error = None;
     }
 
+    pub(crate) fn submit_login(&mut self) {
+        match self.method {
+            0 => self.connect(false),
+            1 => self.connect(true),
+            #[cfg(target_os = "macos")]
+            _ => self.saml(),
+            #[cfg(not(target_os = "macos"))]
+            _ => {}
+        }
+    }
+
     pub(crate) fn connect(&mut self, password: bool) {
         if self.busy || self.auth_writing || self.synthetic || self.account.is_some() {
             return;
