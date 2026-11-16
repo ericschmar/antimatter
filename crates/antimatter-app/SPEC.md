@@ -73,6 +73,16 @@ guarantee. Explicit save/retry remains available. Sign-out cancels the matching
 authenticated identity even for a session-only connection to a saved account.
 Session-only disconnect warns that in-memory drafts/pending state are discarded.
 
+## Thread previews
+
+The sidebar lists followed threads with unread replies above the channel sections, grouped by
+channel under a total badge. Each row shows the root's first line, its next non-empty line, and
+the latest reply (author and first line). The conversation worker publishes `Update::Threads`
+after refresh, socket connect and thread/reply socket events; lookups are advisory and a failure
+keeps the last list. Pressing a row opens the channel (honouring the usual load guards), scrolls
+to the latest reply when it is in the loaded page, drops the row at once and marks the thread read
+on the server. Scene: `workspace-threads-proof`.
+
 ## Rendering and export boundary
 
 Native default is the conversation entry. Headless default and the `hello`/`on`

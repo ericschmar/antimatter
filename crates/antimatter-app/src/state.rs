@@ -1,7 +1,7 @@
 use antimatter_services::{
     SessionScope,
     accounts::{Account, AccountKey, Draft, LoginMethod, Navigation, Persistence},
-    conversation::{Intent, Pending, Unread},
+    conversation::{Intent, Pending, ThreadPreview, Unread},
     mattermost::{self, Channel, Post, Secret, ServerOrigin},
     settings::MessageSpacing,
     websocket,
@@ -123,6 +123,8 @@ pub(crate) struct State {
     pub(crate) channel: Option<String>,
     pub(crate) channels: Vec<Channel>,
     pub(crate) unread: HashMap<String, Unread>,
+    pub(crate) threads: Vec<ThreadPreview>,
+    pub(crate) focus_post: Option<String>,
     pub(crate) names: HashMap<String, String>,
     pub(crate) site_name: String,
     pub(crate) presence: String,
@@ -287,6 +289,12 @@ impl State {
             return;
         }
         self.search_busy = true;
+        let known: std::collections::HashSet<String> = self
+            .posts
+            .iter()
+            .map(|p| p.user_id.clone())
+            .filter(|id| self.avatars.get(id).is_some())
+            .collect();
         runtime.spawn(async move {
             let Ok(page) = client.search_posts(&terms, false).await else {
                 handle.update(|s, _| s.search_busy = false);
@@ -306,6 +314,51 @@ impl State {
                 s.search_busy = false;
                 s.search_results = Some(posts);
             });
+            let mut missing: Vec<String> =
+                ids.into_iter().filter(|id| !known.contains(id)).collect();
+            missing.sort();
+            missing.dedup();
+            for user_id in missing {
+                let bytes = client.custom_profile_image(&user_id).await.ok();
+                handle.update(move |s, _| s.avatars.finish(user_id, bytes));
+            }
+        });
+    }
+
+    pub(crate) fn open_thread(&mut self, id: &str, tx: &mut rune::Tx) {
+        let Some(thread) = self.threads.iter().find(|t| t.id == id).cloned() else {
+            return;
+        };
+        if self.channel.as_deref() == Some(&thread.channel_id) {
+            if self.posts.iter().any(|p| p.id == thread.reply_id) {
+                tx.scroll_into_view(format!("post-{}", thread.reply_id));
+            }
+        } else {
+            let locked = !self.ready
+                || self.busy
+                || self.submitted
+                || self.pending.is_some()
+                || self.recovered_pending;
+            if locked {
+                return;
+            }
+            self.focus_post = Some(thread.reply_id.clone());
+            self.load(thread.channel_id.clone());
+            if self.channel.as_deref() != Some(&thread.channel_id) {
+                self.focus_post = None;
+                return;
+            }
+        }
+        self.threads.retain(|t| t.id != id);
+        let (Some(client), Some(runtime), Some(me)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.authenticated.as_ref().map(|k| k.user_id().to_owned()),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let _ = client.read_thread(&me, &thread.team_id, &thread.id).await;
         });
     }
 
@@ -460,6 +513,8 @@ impl Default for State {
             channel: None,
             channels: vec![],
             unread: HashMap::new(),
+            threads: Vec::new(),
+            focus_post: None,
             names: HashMap::new(),
             site_name: String::new(),
             presence: String::new(),

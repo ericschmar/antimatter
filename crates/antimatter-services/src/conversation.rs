@@ -12,6 +12,19 @@ pub struct Unread {
     pub mentions: u64,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ThreadPreview {
+    pub id: String,
+    pub team_id: String,
+    pub channel_id: String,
+    pub root_message: String,
+    pub unread_replies: u64,
+    pub unread_mentions: u64,
+    pub reply_id: String,
+    pub reply_user_id: String,
+    pub reply_message: String,
+}
+
 pub enum Intent {
     Load(String),
     Older,
@@ -22,6 +35,7 @@ pub enum Intent {
     Root(String),
     Retry,
     Refresh,
+    Threads,
 }
 
 #[derive(Clone)]
@@ -50,6 +64,10 @@ pub enum Update {
     PeerPresence(HashMap<String, String>),
     PeerAvatar(String, Option<Vec<u8>>),
     Unread(HashMap<String, Unread>),
+    Threads {
+        threads: Vec<ThreadPreview>,
+        names: HashMap<String, String>,
+    },
     Timeline {
         channel_id: String,
         posts: Vec<Post>,
@@ -97,6 +115,8 @@ pub async fn run(
         identities: HashMap::new(),
         pending: None,
         unread: HashMap::new(),
+        team_ids: Vec::new(),
+        live_threads: HashMap::new(),
         names: HashMap::new(),
         site_name: String::new(),
         presence: String::new(),
@@ -116,13 +136,23 @@ pub async fn run(
                 None => break,
             },
             event = socket.recv(), if !socket.is_closed() || !socket.is_empty() => match event {
-                Some(Event::Refresh) => worker.refresh().await,
+                Some(Event::Refresh) => {
+                    let result = worker.refresh().await;
+                    worker.all_threads().await;
+                    result
+                }
                 Some(Event::State(state)) => {
                     if !matches!(state, State::Connected | State::Error(crate::websocket::Failure::MalformedFrame)) {
                         worker.emit(Update::Ready(false)).await;
                     }
                     worker.emit(Update::Connection(state)).await;
-                    if state == State::Connected { worker.refresh().await } else { Ok(()) }
+                    if state == State::Connected {
+                        let result = worker.refresh().await;
+                        worker.all_threads().await;
+                        result
+                    } else {
+                        Ok(())
+                    }
                 }
                 Some(Event::Wire(event)) => worker.wire(event).await,
                 None => Ok(()),
@@ -146,6 +176,8 @@ struct Worker {
     identities: HashMap<(String, String, String), String>,
     pending: Option<Pending>,
     unread: HashMap<String, Unread>,
+    team_ids: Vec<String>,
+    live_threads: HashMap<String, ThreadPreview>,
     names: HashMap<String, String>,
     site_name: String,
     presence: String,
@@ -221,6 +253,9 @@ impl Worker {
                     if channel.trim().is_empty() {
                         return Err(Failure::InvalidInput);
                     }
+                    let before = self.live_threads.len();
+                    self.live_threads.retain(|_, t| t.channel_id != channel);
+                    let dropped = self.live_threads.len() != before;
                     self.previous = self.channel.replace(channel.clone());
                     self.posts.clear();
                     self.has_older = false;
@@ -232,10 +267,17 @@ impl Worker {
                         has_older: false,
                     })
                     .await;
+                    if dropped {
+                        self.all_threads().await;
+                    }
                     self.refresh().await
                 }
                 Intent::Older => self.older().await,
                 Intent::Refresh => self.refresh().await,
+                Intent::Threads => {
+                    self.all_threads().await;
+                    Ok(())
+                }
                 Intent::Members(channel) => {
                     if channel.trim().is_empty() {
                         return Err(Failure::InvalidInput);
@@ -434,6 +476,7 @@ impl Worker {
             }
         }
         self.unread = unread.clone();
+        self.team_ids = teams.iter().map(|t| t.id.clone()).collect();
         self.emit(Update::Navigation {
             site_name: self.site_name.clone(),
             teams,
@@ -499,8 +542,7 @@ impl Worker {
                 .cloned()
                 .collect();
             posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
-            self.resolve_names(post_user_ids(&posts))
-                .await;
+            self.resolve_names(post_user_ids(&posts)).await;
             let names = self.names.clone();
             self.emit(Update::Timeline {
                 channel_id: channel.clone(),
@@ -548,8 +590,7 @@ impl Worker {
         self.has_older = has_older;
         let mut posts: Vec<_> = fresh.into_iter().filter(|p| p.delete_at == 0).collect();
         posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
-        self.resolve_names(post_user_ids(&posts))
-            .await;
+        self.resolve_names(post_user_ids(&posts)).await;
         let names = self.names.clone();
         self.emit(Update::Older {
             channel_id: channel,
@@ -808,6 +849,10 @@ impl Worker {
             self.unread.insert(id.into(), Unread::default());
             self.emit(Update::Unread(self.unread.clone())).await;
         }
+        if self.live_threads.values().any(|t| t.channel_id == id) {
+            self.live_threads.retain(|_, t| t.channel_id != id);
+            self.all_threads().await;
+        }
         Ok(())
     }
 
@@ -847,7 +892,144 @@ impl Worker {
         self.emit(Update::Unread(self.unread.clone())).await;
     }
 
+    // Advisory: a failed lookup (collapsed threads off, offline) keeps the last known list.
+    async fn threads(&mut self, team_ids: &[String]) {
+        let mut found = Vec::new();
+        for team_id in team_ids {
+            let Ok(page) = self.client.threads(&self.user_id, team_id).await else {
+                return;
+            };
+            for thread in page.threads {
+                if thread.unread_replies == 0 && thread.unread_mentions == 0 {
+                    continue;
+                }
+                if self.live_threads.contains_key(&thread.id) {
+                    continue;
+                }
+                let Some(reply) = self.latest_reply(&thread.id).await else {
+                    continue;
+                };
+                found.push(ThreadPreview {
+                    id: thread.id,
+                    team_id: team_id.clone(),
+                    channel_id: thread.post.channel_id,
+                    root_message: thread.post.message,
+                    unread_replies: thread.unread_replies,
+                    unread_mentions: thread.unread_mentions,
+                    reply_id: reply.id,
+                    reply_user_id: reply.user_id,
+                    reply_message: reply.message,
+                });
+            }
+        }
+        found.extend(self.live_threads.values().cloned());
+        self.resolve_names(found.iter().map(|t| t.reply_user_id.clone()))
+            .await;
+        let names = self.names.clone();
+        self.emit(Update::Threads {
+            threads: found,
+            names,
+        })
+        .await;
+    }
+
+    async fn all_threads(&mut self) {
+        let ids = self.team_ids.clone();
+        if !ids.is_empty() {
+            self.threads(&ids).await;
+        }
+    }
+
+    async fn latest_reply(&self, root: &str) -> Option<Post> {
+        let page: PostPage = serde_json::from_value(self.client.thread(root).await.ok()?).ok()?;
+        page.posts
+            .into_values()
+            .filter(|p| p.root_id == root && p.delete_at == 0)
+            .max_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)))
+    }
+
+    // A reply in a channel that is not open is an unread thread preview, whoever wrote it:
+    // the server's unread list leaves out the user's own replies (for example from the web app).
+    async fn track_reply(&mut self, post: &Post, mentioned: bool) -> bool {
+        if post.root_id.is_empty()
+            || post.delete_at != 0
+            || self.channel.as_deref() == Some(&post.channel_id)
+        {
+            return false;
+        }
+        let known = self.live_threads.get(&post.root_id).cloned();
+        let (root_message, team_id) = match &known {
+            Some(t) => (t.root_message.clone(), t.team_id.clone()),
+            None => {
+                let Some(root) = self.root_post(&post.root_id).await else {
+                    return false;
+                };
+                let team_id = match self.client.channel(&post.channel_id).await {
+                    Ok(c) if !c.team_id.is_empty() => c.team_id,
+                    _ => self.team_ids.first().cloned().unwrap_or_default(),
+                };
+                (root.message, team_id)
+            }
+        };
+        let (replies, mentions) = known.map_or((0, 0), |t| (t.unread_replies, t.unread_mentions));
+        self.live_threads.insert(
+            post.root_id.clone(),
+            ThreadPreview {
+                id: post.root_id.clone(),
+                team_id,
+                channel_id: post.channel_id.clone(),
+                root_message,
+                unread_replies: replies + 1,
+                unread_mentions: mentions + u64::from(mentioned),
+                reply_id: post.id.clone(),
+                reply_user_id: post.user_id.clone(),
+                reply_message: post.message.clone(),
+            },
+        );
+        true
+    }
+
+    async fn root_post(&self, root: &str) -> Option<Post> {
+        let page: PostPage = serde_json::from_value(self.client.thread(root).await.ok()?).ok()?;
+        page.posts
+            .into_iter()
+            .find(|(id, _)| id == root)
+            .map(|(_, p)| p)
+    }
+
     async fn wire(&mut self, event: WireEvent) -> Result<(), Failure> {
+        let mut threads = match event.event.as_str() {
+            "thread_updated" | "thread_read_changed" | "thread_follow_changed" => true,
+            "posted" => event
+                .nested::<Post>("post")
+                .is_ok_and(|p| !p.root_id.is_empty() && p.user_id != self.user_id),
+            _ => false,
+        };
+        if event.event == "posted"
+            && let Ok(post) = event.nested::<Post>("post")
+        {
+            let mentioned = post.user_id != self.user_id
+                && event
+                    .data
+                    .get("mentions")
+                    .and_then(|v| v.as_str())
+                    .and_then(|v| serde_json::from_str::<Vec<String>>(v).ok())
+                    .is_some_and(|ids| ids.contains(&self.user_id));
+            threads |= self.track_reply(&post, mentioned).await;
+        }
+        if event.event == "thread_read_changed"
+            && let Some(id) = event.data.get("thread_id").and_then(|v| v.as_str())
+        {
+            self.live_threads.remove(id);
+        }
+        let result = self.dispatch_wire(event).await;
+        if threads {
+            self.all_threads().await;
+        }
+        result
+    }
+
+    async fn dispatch_wire(&mut self, event: WireEvent) -> Result<(), Failure> {
         if event.event == "status_change" {
             return self.status(&event).await;
         }

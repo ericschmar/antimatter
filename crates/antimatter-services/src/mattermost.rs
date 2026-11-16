@@ -284,6 +284,22 @@ pub struct Reaction {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub struct Thread {
+    pub id: String,
+    pub post: Post,
+    #[serde(default)]
+    pub unread_replies: u64,
+    #[serde(default)]
+    pub unread_mentions: u64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct ThreadPage {
+    #[serde(default)]
+    pub threads: Vec<Thread>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct PostPage {
     pub order: Vec<String>,
     pub posts: std::collections::HashMap<String, Post>,
@@ -567,6 +583,27 @@ impl Client {
 
     pub async fn thread(&self, post_id: &str) -> Result<Value, Error> {
         self.get(&segments(&["posts", post_id, "thread"])?).await
+    }
+
+    pub async fn threads(&self, user_id: &str, team_id: &str) -> Result<ThreadPage, Error> {
+        let path = segments(&["users", user_id, "teams", team_id, "threads"])?;
+        self.get(&format!("{path}?unread=true&pageSize=25")).await
+    }
+
+    pub async fn read_thread(
+        &self,
+        user_id: &str,
+        team_id: &str,
+        thread_id: &str,
+    ) -> Result<Value, Error> {
+        let at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis())
+            .to_string();
+        let path = segments(&[
+            "users", user_id, "teams", team_id, "threads", thread_id, "read", &at,
+        ])?;
+        self.json::<Value, ()>(Method::PUT, &path, None).await
     }
 
     pub async fn search_posts(&self, terms: &str, is_or_search: bool) -> Result<PostPage, Error> {

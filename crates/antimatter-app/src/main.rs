@@ -138,6 +138,34 @@ fn main() {
                     }),
                 );
             }),
+            ("workspace-threads-proof", |s| {
+                synthetic_workspace(s);
+                s.names.insert("synthetic-peer".into(), "Marley".into());
+                s.threads = vec![
+                    antimatter_services::conversation::ThreadPreview {
+                        id: "thread-1".into(),
+                        team_id: "synthetic-team".into(),
+                        channel_id: "synthetic-other".into(),
+                        root_message: "Church, 2 PM\nChoir practice. Mostly empty pews.".into(),
+                        unread_replies: 6,
+                        unread_mentions: 0,
+                        reply_id: "reply-1".into(),
+                        reply_user_id: "synthetic-peer".into(),
+                        reply_message: "Merry Christmas, Kevin.".into(),
+                    },
+                    antimatter_services::conversation::ThreadPreview {
+                        id: "thread-2".into(),
+                        team_id: "synthetic-team".into(),
+                        channel_id: "synthetic-other".into(),
+                        root_message: "Old Man Marley\nBuzz says. Nobody can prove it.".into(),
+                        unread_replies: 1,
+                        unread_mentions: 0,
+                        reply_id: "reply-2".into(),
+                        reply_user_id: "synthetic-peer".into(),
+                        reply_message: "Merry Christmas.".into(),
+                    },
+                ];
+            }),
             ("workspace-search-proof", |s| {
                 synthetic_workspace(s);
                 s.search = rune::TextEdit::new("synthetic".to_owned());

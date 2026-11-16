@@ -3,7 +3,7 @@ use crate::tabs::tab_strip;
 use crate::theme::workspace_theme;
 use crate::widgets::*;
 use antimatter_services::accounts::Account;
-use antimatter_services::conversation::Intent;
+use antimatter_services::conversation::{Intent, ThreadPreview};
 use antimatter_services::mattermost::{Channel, Post};
 use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
@@ -31,6 +31,209 @@ static DISCLOSURE_CLOSED: Icon = Icon {
     view: 16.0,
     body: r#"<path d="M6 4L10 8L6 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>"#,
 };
+
+static TEXT_ALIGN_LEFT: Icon = Icon {
+    name: "antimatter-text-align-left",
+    view: 16.0,
+    body: r#"<path d="M2.5 4H13.5M2.5 8H9.5M2.5 12H12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>"#,
+};
+static ARROW_ELBOW: Icon = Icon {
+    name: "antimatter-arrow-elbow",
+    view: 16.0,
+    body: r#"<path d="M3 3V9C3 9.8 3.6 10.5 4.5 10.5H12M9 7.5L12.5 10.5L9 13.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>"#,
+};
+
+fn first_line(message: &str) -> String {
+    message.lines().next().unwrap_or_default().trim().to_owned()
+}
+
+fn count_badge(key: String, count: u64, size: f32, k: &rune_kit::Kit) -> El {
+    hbox()
+        .key(key)
+        .a11y_hidden()
+        .h(size)
+        .min_w(size)
+        .px(6.0)
+        .center()
+        .radius(size / 2.0)
+        .fill(k.c.bg_inverse)
+        .child(
+            text(count.to_string())
+                .font(k.ty.small_medium)
+                .color(k.c.text_inverse),
+        )
+}
+
+fn thread_row(s: &State, thread: &ThreadPreview, k: &rune_kit::Kit) -> El {
+    let c = &k.c;
+    let id = thread.id.clone();
+    let title = first_line(&thread.root_message);
+    let body = thread
+        .root_message
+        .lines()
+        .skip(1)
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .map(str::to_owned);
+    let author = s
+        .names
+        .get(&thread.reply_user_id)
+        .unwrap_or(&thread.reply_user_id)
+        .clone();
+    let reply = first_line(&thread.reply_message);
+    let mut lines = col().grow(1.0).shrink().min_w(0.0).gap(2.0).child(
+        text(title.clone())
+            .font(TextStyle {
+                weight: 600.0,
+                ..k.ty.small
+            })
+            .color(c.text_base)
+            .truncate()
+            .a11y_hidden(),
+    );
+    if let Some(body) = body {
+        lines = lines.child(
+            hbox()
+                .gap(6.0)
+                .center_y()
+                .child(
+                    icon(&TEXT_ALIGN_LEFT, 12.0)
+                        .color(c.icon_faint)
+                        .a11y_hidden(),
+                )
+                .child(
+                    text(body)
+                        .font(k.ty.small)
+                        .color(c.text_muted)
+                        .truncate()
+                        .shrink()
+                        .a11y_hidden(),
+                ),
+        );
+    }
+    lines = lines.child(
+        hbox()
+            .gap(6.0)
+            .center_y()
+            .child(icon(&ARROW_ELBOW, 12.0).color(c.icon_muted).a11y_hidden())
+            .child(
+                text(author.clone())
+                    .font(k.ty.small_medium)
+                    .color(c.text_base)
+                    .a11y_hidden(),
+            )
+            .child(
+                text(reply.clone())
+                    .font(k.ty.small)
+                    .color(c.text_base)
+                    .truncate()
+                    .shrink()
+                    .a11y_hidden(),
+            ),
+    );
+    let row = hbox()
+        .key(format!("thread-{}", thread.id))
+        .role("button")
+        .label(format!("Open thread {title}: {author} {reply}"))
+        .w_full()
+        .pl(10.0)
+        .pr(8.0)
+        .py(6.0)
+        .gap(8.0)
+        .radius(k.radius.md)
+        .motion(k.motion.control)
+        .hover_group()
+        .hover_motion(rune::Anim::INSTANT, rune::Anim::INSTANT)
+        .focusable(true)
+        .child(lines)
+        .child(count_badge(
+            format!("thread-badge-{}", thread.id),
+            thread.unread_replies.max(thread.unread_mentions),
+            18.0,
+            k,
+        ));
+    k.interactive(row)
+        .on_press_tx(move |s: &mut State, tx| s.open_thread(&id, tx))
+}
+
+fn threads_section(s: &State, k: &rune_kit::Kit) -> Option<El> {
+    if s.threads.is_empty() {
+        return None;
+    }
+    let c = &k.c;
+    let mut channels: Vec<&str> = Vec::new();
+    for thread in &s.threads {
+        if !channels.contains(&thread.channel_id.as_str()) {
+            channels.push(&thread.channel_id);
+        }
+    }
+    let mut group = col()
+        .key("threads")
+        .role("group")
+        .label("Threads")
+        .w_full()
+        .gap(8.0);
+    for channel in channels {
+        let threads: Vec<&ThreadPreview> = s
+            .threads
+            .iter()
+            .filter(|t| t.channel_id == channel)
+            .collect();
+        let name = s
+            .channels
+            .iter()
+            .find(|c| c.id == channel)
+            .map_or(channel, |c| c.display_name.as_str());
+        let total: u64 = threads
+            .iter()
+            .map(|t| t.unread_replies.max(t.unread_mentions))
+            .sum();
+        group = group.child(
+            col()
+                .key(format!("threads-{channel}"))
+                .w_full()
+                .px(ROW_GUTTER)
+                .gap(2.0)
+                .child(
+                    hbox()
+                        .w_full()
+                        .px(4.0)
+                        .py(4.0)
+                        .gap(8.0)
+                        .center_y()
+                        .child(
+                            text(name.to_owned())
+                                .font(k.ty.ui)
+                                .color(c.text_base)
+                                .truncate()
+                                .grow(1.0)
+                                .shrink(),
+                        )
+                        .child(count_badge(
+                            format!("threads-total-{channel}"),
+                            total,
+                            20.0,
+                            k,
+                        )),
+                )
+                .child(
+                    hbox()
+                        .w_full()
+                        .gap(0.0)
+                        .child(el().w(1.0).fill(c.border_muted).a11y_hidden())
+                        .child(
+                            col()
+                                .grow(1.0)
+                                .shrink()
+                                .min_w(0.0)
+                                .gap(2.0)
+                                .children(threads.into_iter().map(|t| thread_row(s, t, k))),
+                        ),
+                ),
+        );
+    }
+    Some(group)
+}
 
 fn server_labels(s: &State) -> Vec<String> {
     let label = |account: &Account| {
@@ -538,7 +741,12 @@ fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
     let pad = post_padding(s.message_spacing);
     let name = s.names.get(&parent.user_id).unwrap_or(&parent.user_id);
     let snippet = parent.message.lines().next().unwrap_or_default().to_owned();
-    let elbow_x = 16.0 + if s.show_timeline_avatars { AVATAR / 2.0 } else { 3.0 };
+    let elbow_x = 16.0
+        + if s.show_timeline_avatars {
+            AVATAR / 2.0
+        } else {
+            3.0
+        };
     let avatar = match s.avatars.user(&parent.user_id) {
         Some(image) => el()
             .size(SMALL, SMALL)
@@ -1185,7 +1393,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 )
             })
             .build(&k, &mut layer);
-    let mut sidebar = col().w_full().gap(8.0);
+    let mut sidebar = col().w_full().gap(8.0).children(threads_section(s, &k));
     if !favorites.is_empty() {
         sidebar = sidebar.child(section(
             "favorites",
@@ -1451,6 +1659,14 @@ pub(crate) fn workspace(s: &State) -> El {
         });
         let target = post.channel_id.clone();
         let mut row = rune::row().key(format!("post-{}", post.id));
+        if s.focus_post.as_deref() == Some(post.id.as_str()) {
+            let key = format!("post-{}", post.id);
+            row = row.on_layout_tx(move |s: &mut State, _, tx| {
+                if s.focus_post.take().is_some() {
+                    tx.scroll_into_view(key.clone());
+                }
+            });
+        }
         if searching {
             row = row
                 .role("button")

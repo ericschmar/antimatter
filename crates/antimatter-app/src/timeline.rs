@@ -164,6 +164,10 @@ impl State {
                 }
                 self.unread = unread;
             }
+            Update::Threads { threads, names } => {
+                self.names.extend(names);
+                self.threads = threads;
+            }
             Update::Presence(presence) => self.presence = presence,
             Update::PeerPresence(presence) => self.peer_presence.extend(presence),
             Update::PeerAvatar(user_id, bytes) => self.avatars.finish(user_id, bytes),
@@ -186,6 +190,14 @@ impl State {
                         posts.iter().map(|p| p.user_id.clone()).collect();
                     authors.sort();
                     authors.dedup();
+                    if !posts.is_empty()
+                        && self
+                            .focus_post
+                            .as_ref()
+                            .is_some_and(|id| !posts.iter().any(|p| &p.id == id))
+                    {
+                        self.focus_post = None;
+                    }
                     self.posts = posts;
                     self.has_older = has_older;
                     self.names.extend(names);

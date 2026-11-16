@@ -36,6 +36,8 @@ impl State {
         self.channel = None;
         self.channels.clear();
         self.unread.clear();
+        self.threads.clear();
+        self.focus_post = None;
         self.names.clear();
         self.site_name.clear();
         self.presence.clear();
@@ -200,6 +202,7 @@ impl State {
                         s.browser = None;
                     }
                     s.dispatch(Intent::Refresh);
+                    s.dispatch(Intent::Threads);
                     s.load_custom_emoji();
                 }
             });
