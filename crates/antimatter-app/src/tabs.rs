@@ -72,9 +72,11 @@ impl State {
     pub(crate) fn open_durable(&mut self, channel: String) {
         if self.channel.as_deref() == Some(&channel) {
             self.keep_tab(&channel);
-        } else if self.can_switch() {
+        } else {
             self.keep_tab(&channel);
-            self.load(channel);
+            if self.can_switch() {
+                self.load(channel);
+            }
         }
     }
 

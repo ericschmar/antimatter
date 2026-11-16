@@ -27,7 +27,6 @@ fn synthetic_workspace_selection_and_lock_stay_local() {
     rt.frame(0.0);
     assert!(inert(&rt, "draft"));
     assert!(inert(&rt, "send"));
-    assert!(inert(&rt, "channel-synthetic-channel"));
 }
 
 #[test]
@@ -98,7 +97,6 @@ fn pending_acknowledgement_does_not_unlock_refresh() {
     assert!(rt.state.pending.is_none());
     assert!(!rt.state.ready);
     assert!(inert(&rt, "draft"));
-    assert!(inert(&rt, "channel-other"));
     rt.state.apply(Update::Ready(true));
     rt.invalidate();
     rt.frame(0.0);

@@ -1216,18 +1216,9 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
                 s.load(id.clone());
             }
         })
-        .on_double_press_tx(move |s: &mut State, _| {
-            if !locked {
-                s.open_durable(open.clone());
-            }
-        })
+        .on_double_press_tx(move |s: &mut State, _| s.open_durable(open.clone()))
         .role("listitem")
         .key(format!("channel-{}", channel.id));
-    let row = if locked {
-        row.disabled(true).inert()
-    } else {
-        row
-    };
     let menu = channel.id.clone();
     rune::row()
         .w_full()
