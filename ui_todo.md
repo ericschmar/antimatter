@@ -29,5 +29,5 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] make search cursor blink when it is focused
 [x] add loading spinner to the right end of the search bar
 [x] add a "cmd+k" little badge in the search bar to indicate there's hotkeys
-[ ] archived chats don't persist between app close/reopen
+[x] archived chats don't persist between app close/reopen
 [ ] I want to make our avatars a little bigger. they're hard to see right now

@@ -132,6 +132,7 @@ impl State {
         } else if self.navigation.favorites.len() < MAX_FAVORITES {
             self.navigation.favorites.push(id.to_owned());
         }
+        self.autosave();
     }
 
     pub(crate) fn toggle_archived(&mut self, id: &str) {
@@ -141,6 +142,7 @@ impl State {
             self.navigation.archived.push(id.to_owned());
             self.navigation.favorites.retain(|f| f != id);
         }
+        self.autosave();
     }
 
     pub(crate) fn reorder_tab(&mut self, from: usize, to: usize) {
