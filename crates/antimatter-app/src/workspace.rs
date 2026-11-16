@@ -19,6 +19,7 @@ const SERVER_MAX_WIDTH: f32 = 160.0;
 const MAIN_MIN: f32 = 248.0;
 const SECTION_HEADER_HEIGHT: f32 = 24.0;
 const ROW_GUTTER: f32 = 6.0;
+const AVATAR: f32 = 32.0;
 
 static DISCLOSURE_OPEN: Icon = Icon {
     name: "antimatter-disclosure-open",
@@ -109,22 +110,22 @@ fn author_marker(s: &State, post: &Post, c: &rune_kit::Palette) -> El {
     }
     let avatar = match s.avatars.get(&post.user_id) {
         Some(image) => el()
-            .size(24.0, 24.0)
-            .radius(12.0)
+            .size(AVATAR, AVATAR)
+            .radius(AVATAR / 2.0)
             .border(1.5, c.bg_base)
             .pixels(image.pixels()),
         None => el()
-            .size(24.0, 24.0)
-            .radius(12.0)
+            .size(AVATAR, AVATAR)
+            .radius(AVATAR / 2.0)
             .border(1.5, c.bg_base)
             .fill(c.layer_02),
     };
-    el().size(24.0, 24.0).child(avatar).child(
+    el().size(AVATAR, AVATAR).child(avatar).child(
         el().key("status-dot")
             .size(6.0, 6.0)
             .radius(3.0)
             .fill(dot)
-            .absolute(18.0, 18.0)
+            .absolute(AVATAR - 6.0, AVATAR - 6.0)
             .a11y_hidden(),
     )
 }
@@ -1359,7 +1360,11 @@ pub(crate) fn workspace(s: &State) -> El {
             );
         }
         previous_day = day;
-        let line = f32::from(s.message_font_size) * 1.6;
+        let line = (f32::from(s.message_font_size) * 1.6).max(if s.show_timeline_avatars {
+            AVATAR
+        } else {
+            0.0
+        });
         let target = post.channel_id.clone();
         let mut row = rune::row().key(format!("post-{}", post.id));
         if searching {
