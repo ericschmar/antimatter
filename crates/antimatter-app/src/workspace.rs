@@ -980,6 +980,83 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
         .child(row)
 }
 
+fn attach_button(
+    k: &rune_kit::Kit,
+    key: &str,
+    label: &str,
+    glyph: &'static Icon,
+    images: bool,
+    locked: bool,
+) -> El {
+    let b = IconButton::new(glyph)
+        .label(label)
+        .control_size(ControlSize::Small)
+        .variant(IconButtonVariant::Ghost)
+        .disabled(locked)
+        .on_press_tx(move |_: &mut State, tx| {
+            let mut options = rune::FileDialogOptions {
+                title: "Attach".into(),
+                ..Default::default()
+            };
+            if images {
+                options = options.filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "heic"]);
+            }
+            tx.open_file(options, |s: &mut State, result, _| {
+                if let Ok(Some(path)) = result {
+                    s.attach(&[path]);
+                }
+            });
+        })
+        .build(k)
+        .key(key);
+    if locked { b.inert() } else { b }
+}
+
+fn attachment_pills(s: &State, k: &rune_kit::Kit) -> Option<El> {
+    if s.attachments.is_empty() {
+        return None;
+    }
+    let mut pills = rune::row().key("attachments").w_full().gap(6.0).flex_wrap();
+    for (i, path) in s.attachments.iter().enumerate() {
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        pills = pills.child(
+            rune::row()
+                .key(format!("attachment-{i}"))
+                .h(26.0)
+                .pl(10.0)
+                .pr(2.0)
+                .gap(4.0)
+                .center_y()
+                .radius(13.0)
+                .fill(k.c.layer_02)
+                .border(1.0, k.c.border_base)
+                .child(
+                    text(name.clone())
+                        .font(k.ty.small)
+                        .color(k.c.text_base)
+                        .truncate()
+                        .a11y_hidden(),
+                )
+                .child(
+                    IconButton::new(&icons::X)
+                        .label(format!("Remove {name}"))
+                        .control_size(ControlSize::Small)
+                        .variant(IconButtonVariant::Ghost)
+                        .on_press(move |s: &mut State| {
+                            if i < s.attachments.len() {
+                                s.attachments.remove(i);
+                            }
+                        })
+                        .build(k)
+                        .key(format!("attachment-remove-{i}")),
+                ),
+        );
+    }
+    Some(pills)
+}
+
 pub(crate) fn workspace(s: &State) -> El {
     let mut layer = Vec::new();
     let k = workspace_theme();
@@ -1480,13 +1557,17 @@ pub(crate) fn workspace(s: &State) -> El {
     {
         main = main.child(status);
     }
-    main = main.child(ledger.scroll_bar(&k)).child(
+    main = main
+        .on_drop_files(|s: &mut State, files, _| s.attach(files))
+        .child(ledger.scroll_bar(&k))
+        .child(
         col()
             .w_full()
             .px(16.0)
             .py(8.0)
             .gap(8.0)
             .fill(c.layer_01)
+            .children(attachment_pills(s, &k))
             .child(composer)
             .child(
                 rune::row()
@@ -1494,11 +1575,15 @@ pub(crate) fn workspace(s: &State) -> El {
                     .gap(8.0)
                     .center_y()
                     .child(toolbar)
+                    .child(attach_button(&k, "attach-image", "Attach image", &icons::IMAGE, true, locked))
+                    .child(attach_button(&k, "attach-file", "Attach file", &icons::PAPERCLIP, false, locked))
                     .child(button_as(
                         ButtonVariant::Contrast,
                         "send",
                         "Send",
-                        locked || s.channel.is_none() || s.markdown().trim().is_empty(),
+                        locked
+                            || s.channel.is_none()
+                            || (s.markdown().trim().is_empty() && s.attachments.is_empty()),
                         |s| s.send(),
                     )),
             ),

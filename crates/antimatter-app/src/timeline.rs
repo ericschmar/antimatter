@@ -44,6 +44,7 @@ impl State {
 
     fn restore_draft(&mut self, channel: &str) {
         self.raw = false;
+        self.attachments.clear();
         self.draft = from_markdown(
             self.drafts
                 .iter()
@@ -62,7 +63,16 @@ impl State {
 
     pub(crate) fn clear_draft(&mut self) {
         self.raw = false;
+        self.attachments.clear();
         self.draft = from_markdown("");
+    }
+
+    pub(crate) fn attach(&mut self, paths: &[std::path::PathBuf]) {
+        for path in paths {
+            if path.is_file() && !self.attachments.contains(path) {
+                self.attachments.push(path.clone());
+            }
+        }
     }
 
     pub(crate) fn quote_reply(&mut self, post: &antimatter_services::mattermost::Post) {
@@ -123,7 +133,7 @@ impl State {
             || self.recovered_pending
             || self.pending.is_some()
             || self.channel.is_none()
-            || self.markdown().trim().is_empty()
+            || (self.markdown().trim().is_empty() && self.attachments.is_empty())
         {
             return;
         }

@@ -220,7 +220,9 @@ impl State {
                 }
             }
             AfterCheckpoint::Send(message) => {
-                if self.dispatch(Intent::Send(message)) {
+                let attached = self.attachments.is_empty()
+                    || self.dispatch(Intent::Attach(self.attachments.clone()));
+                if attached && self.dispatch(Intent::Send(message)) {
                     self.submitted = true;
                     self.ready = false;
                 } else if self.durable.is_some() {

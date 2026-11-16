@@ -145,6 +145,7 @@ fn pending() -> Pending {
             channel_id: "c".into(),
             message: "keep text".into(),
             pending_post_id: "synthetic-pending".into(),
+        file_ids: vec![],
         },
         failed: false,
         retryable: false,

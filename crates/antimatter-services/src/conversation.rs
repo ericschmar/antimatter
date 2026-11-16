@@ -18,6 +18,7 @@ pub enum Intent {
     Members(String),
     Presence(Vec<String>),
     Send(String),
+    Attach(Vec<std::path::PathBuf>),
     Retry,
     Refresh,
 }
@@ -102,6 +103,7 @@ pub async fn run(
         previous: None,
         has_older: false,
         older: HashSet::new(),
+        uploads: Vec::new(),
     };
     // ponytail: intents serialize behind HTTP; the session owner cancels this whole worker
     // and blocks channel switches while unready/pending; use pane generations for supersession.
@@ -149,6 +151,7 @@ struct Worker {
     previous: Option<String>,
     has_older: bool,
     older: HashSet<String>,
+    uploads: Vec<std::path::PathBuf>,
 }
 
 fn direct_peer(name: &str, user_id: &str) -> Option<String> {
@@ -242,8 +245,12 @@ impl Worker {
                     }
                     Ok(())
                 }
+                Intent::Attach(paths) => {
+                    self.uploads = paths;
+                    Ok(())
+                }
                 Intent::Send(message) => {
-                    if self.pending.is_some() || message.trim().is_empty() {
+                    if self.pending.is_some() || (message.trim().is_empty() && self.uploads.is_empty()) {
                         return Err(Failure::InvalidInput);
                     }
                     let channel_id = self.channel.clone().ok_or(Failure::InvalidInput)?;
@@ -252,6 +259,7 @@ impl Worker {
                             channel_id,
                             message,
                             pending_post_id: uuid::Uuid::new_v4().to_string(),
+                            file_ids: Vec::new(),
                         },
                         failed: false,
                         retryable: false,
@@ -593,6 +601,26 @@ impl Worker {
             pending.retryable = false;
         }
         self.emit(Update::Pending(self.pending.clone())).await;
+        let mut body = body;
+        if !self.uploads.is_empty() {
+            match self.upload().await {
+                Ok(ids) => {
+                    body.file_ids = ids;
+                    if let Some(pending) = &mut self.pending {
+                        pending.post.file_ids = body.file_ids.clone();
+                    }
+                    self.uploads.clear();
+                }
+                Err(()) => {
+                    if let Some(pending) = &mut self.pending {
+                        pending.failed = true;
+                        pending.retryable = true;
+                    }
+                    self.emit(Update::Pending(self.pending.clone())).await;
+                    return Err(Failure::Send);
+                }
+            }
+        }
         let result = self.client.create_post(&body).await;
         let retryable = result
             .as_ref()
@@ -615,6 +643,19 @@ impl Worker {
         }
         self.emit(Update::Pending(self.pending.clone())).await;
         Err(Failure::Send)
+    }
+
+    async fn upload(&self) -> Result<Vec<String>, ()> {
+        let channel = self.channel.as_deref().ok_or(())?;
+        let mut ids = Vec::new();
+        for path in &self.uploads {
+            let name = path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+            let bytes = std::fs::read(path).map_err(|_| ())?;
+            let reply = self.client.upload_file(channel, &name, bytes).await.map_err(|_| ())?;
+            let id = reply["file_infos"][0]["id"].as_str().ok_or(())?;
+            ids.push(id.to_owned());
+        }
+        Ok(ids)
     }
 
     async fn reconcile(&mut self, pending: &Pending) -> Result<(), Failure> {

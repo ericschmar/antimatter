@@ -296,6 +296,8 @@ pub struct CreatePost {
     pub channel_id: String,
     pub message: String,
     pub pending_post_id: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub file_ids: Vec<String>,
 }
 
 #[derive(Clone)]
