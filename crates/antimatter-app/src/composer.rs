@@ -39,6 +39,7 @@ fn bar_icon(
 ) -> El {
     let b = IconButton::new(icon)
         .label(label)
+        .help(label)
         .control_size(ControlSize::Small)
         .variant(if active {
             IconButtonVariant::Contrast
@@ -66,6 +67,7 @@ fn bar_button(
     on_press: impl Fn(&mut State) + 'static,
 ) -> El {
     let b = Button::new(label)
+        .help(if active { "Show rendered message" } else { "Show Markdown source" })
         .control_size(ControlSize::Small)
         .variant(if active {
             ButtonVariant::Contrast

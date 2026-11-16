@@ -84,6 +84,7 @@ pub enum Update {
     Members {
         channel_id: String,
         user_ids: Vec<String>,
+        names: HashMap<String, String>,
     },
     Upsert(Post),
     Deleted {
@@ -620,6 +621,7 @@ impl Worker {
             .flatten()
             .filter_map(|member| member.get("user_id")?.as_str().map(str::to_owned))
             .collect();
+        self.resolve_names(ids.iter().cloned()).await;
         let shown: Vec<_> = ids.iter().take(5).cloned().collect();
         if !shown.is_empty()
             && let Ok(statuses) = self.client.statuses(&shown).await
@@ -633,9 +635,11 @@ impl Worker {
                 self.emit(Update::PeerAvatar(peer, bytes)).await;
             }
         }
+        let names = self.names.clone();
         self.emit(Update::Members {
             channel_id: channel.to_owned(),
             user_ids: ids,
+            names,
         })
         .await;
     }

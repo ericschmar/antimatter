@@ -976,6 +976,7 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
         .map(|id| s.names.get(id).cloned().unwrap_or_else(|| id.clone()))
         .collect();
     names.sort_by_key(|n| n.to_lowercase());
+    let group = group.key("members");
     if names.is_empty() {
         group
     } else {

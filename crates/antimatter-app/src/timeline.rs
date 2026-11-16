@@ -181,9 +181,11 @@ impl State {
             Update::Members {
                 channel_id,
                 user_ids,
+                names,
             } => {
                 if self.channel.as_deref() == Some(&channel_id) {
                     self.members = user_ids;
+                    self.names.extend(names);
                 }
             }
             Update::Timeline {
