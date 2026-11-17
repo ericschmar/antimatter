@@ -52,7 +52,7 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] Notifications -> Show user who sent the message + Channel and then a preview of the message
 [x] Are the live status indicators working? I see everyone with an orange dot including myself, despite knowing people are active. 
 [x] Can we hide scroll bars until the user actually scrolls?
-[ ] Our server dropdown shows the connection url for servers we aren't connected to, not their names
+[x] Our server dropdown shows the connection url for servers we aren't connected to, not their names
 [ ] Move the "create channel" and "start dm" to the top of each list so it's right under the category
 [ ] When a user get's a DM, move the channel in the sidebar to the top of the DM list
 [ ] typing in our composer randomly loses focus

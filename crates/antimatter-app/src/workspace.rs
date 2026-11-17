@@ -233,6 +233,8 @@ fn server_labels(s: &State) -> Vec<String> {
     let label = |account: &Account| {
         if s.authenticated.as_ref() == Some(&account.key) && !s.site_name.is_empty() {
             s.site_name.clone()
+        } else if let Some(name) = account.site_name.as_deref().filter(|n| !n.is_empty()) {
+            name.to_owned()
         } else {
             account.key.origin().to_owned()
         }

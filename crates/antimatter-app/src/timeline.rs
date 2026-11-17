@@ -151,6 +151,17 @@ impl State {
             } => {
                 self.team_ids = teams.into_iter().map(|t| t.id).collect();
                 self.site_name = site_name;
+                if let (Some(store), Some(runtime), Some(key)) = (
+                    self.persistence.clone(),
+                    self.runtime.clone(),
+                    self.authenticated.clone(),
+                ) && !self.site_name.is_empty()
+                {
+                    let site_name = self.site_name.clone();
+                    runtime.spawn(async move {
+                        let _ = store.set_site_name(key, site_name).await;
+                    });
+                }
                 self.channels = channels;
                 self.unread = unread;
                 self.prune_tabs();

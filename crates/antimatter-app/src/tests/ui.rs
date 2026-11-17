@@ -337,6 +337,7 @@ fn saved_account_edit_prefills_identity_and_keeps_prior_entry_until_verified() {
         key: key.clone(),
         username: "saved-user".into(),
         login_method: Some(LoginMethod::Password),
+        site_name: None,
     }];
     rt.state.begin_edit_account(key.clone());
     assert_eq!(rt.state.server.text, "https://example.test");
@@ -365,6 +366,7 @@ fn saved_account_rows_are_left_aligned_with_context_menu_actions() {
         key: saved_key("u"),
         username: "saved-user".into(),
         login_method: Some(LoginMethod::Password),
+        site_name: None,
     }];
     rt.invalidate();
     rt.frame(0.0);

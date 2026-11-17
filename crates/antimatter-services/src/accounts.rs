@@ -214,6 +214,8 @@ pub struct Account {
     pub username: String,
     #[serde(default)]
     pub login_method: Option<LoginMethod>,
+    #[serde(default)]
+    pub site_name: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -403,6 +405,7 @@ impl<C: CredentialStore> AccountStore<C> {
                 key: key.clone(),
                 username: username.to_owned(),
                 login_method,
+                site_name: None,
             };
             next.accounts.push(account.clone());
             account
@@ -410,6 +413,21 @@ impl<C: CredentialStore> AccountStore<C> {
         self.credentials.save(key, token)?;
         self.publish(next)?;
         Ok(account)
+    }
+
+    pub fn set_site_name(&mut self, key: &AccountKey, site_name: &str) -> Result<()> {
+        self.check_registry()?;
+        let mut next = self.registry.clone();
+        let account = next
+            .accounts
+            .iter_mut()
+            .find(|a| &a.key == key)
+            .ok_or(Error::Invalid("account not found"))?;
+        if account.site_name.as_deref() == Some(site_name) {
+            return Ok(());
+        }
+        account.site_name = Some(site_name.to_owned());
+        self.publish(next)
     }
 
     pub fn import_selected(
@@ -607,6 +625,11 @@ enum Command {
         oneshot::Sender<Result<()>>,
     ),
     SignOut(AccountKey, oneshot::Sender<Result<Vec<Account>>>),
+    SetSiteName(
+        AccountKey,
+        String,
+        oneshot::Sender<Result<Vec<Account>>>,
+    ),
 }
 
 /// A cloneable handle to one native thread owning all filesystem and credential I/O.
@@ -701,6 +724,13 @@ impl Persistence {
                             })();
                             let _ = reply.send(result);
                         }
+                        Command::SetSiteName(key, site_name, reply) => {
+                            let result = (|| {
+                                store.set_site_name(&key, &site_name)?;
+                                Ok(store.accounts().to_vec())
+                            })();
+                            let _ = reply.send(result);
+                        }
                     }
                 }
             })?;
@@ -767,6 +797,11 @@ impl Persistence {
 
     pub async fn sign_out(&self, key: AccountKey) -> Result<Vec<Account>> {
         self.request(|reply| Command::SignOut(key, reply)).await
+    }
+
+    pub async fn set_site_name(&self, key: AccountKey, site_name: String) -> Result<Vec<Account>> {
+        self.request(|reply| Command::SetSiteName(key, site_name, reply))
+            .await
     }
 }
 
