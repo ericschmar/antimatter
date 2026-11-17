@@ -1971,6 +1971,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .center_y()
                 .gap(12.0)
                 .window_drag()
+                .fill(c.layer_01)
                 .child(tab_strip(s, &mut layer)),
         );
     let channel_name = s
@@ -1986,6 +1987,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .px(16.0)
                 .pt(8.0)
                 .center_y()
+                .fill(c.layer_01)
                 .child(
                     text(channel_name)
                         .font(k.ty.body_medium)
