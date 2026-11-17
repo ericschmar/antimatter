@@ -920,6 +920,7 @@ async fn unread_deltas_ignore_own_current_and_spoofed_events() {
     assert!(
         matches!(rx.try_recv(), Ok(Update::Unread(u)) if u["d"] == Unread { messages: 1, mentions: 1 })
     );
+    assert!(matches!(rx.try_recv(), Ok(Update::Notification { channel_id, .. }) if channel_id == "d"));
     let viewed = |data| WireEvent {
         event: "channel_viewed".into(),
         data,

@@ -136,7 +136,7 @@ impl State {
         });
     }
 
-    pub(crate) fn notify_local(&self, channel_id: &str) {
+    pub(crate) fn notify_local(&self, channel_id: &str, sender: &str, message: &str) {
         #[cfg(target_os = "macos")]
         {
             if !self.notifications_enabled || rune::is_headless() {
@@ -152,14 +152,19 @@ impl State {
             } else {
                 ""
             };
-            let escaped = title.replace('\\', "").replace('"', "");
-            let script =
-                format!("display notification \"New message\" with title \"{escaped}\"{sound}");
+            let escape = |s: &str| s.replace(['\\', '"'], "");
+            let preview = message.lines().next().unwrap_or_default();
+            let script = format!(
+                "display notification \"{}: {}\" with title \"{}\"{sound}",
+                escape(sender),
+                escape(preview),
+                escape(title)
+            );
             let _ = std::process::Command::new("osascript")
                 .args(["-e", &script])
                 .spawn();
         }
         #[cfg(not(target_os = "macos"))]
-        let _ = channel_id;
+        let _ = (channel_id, sender, message);
     }
 }

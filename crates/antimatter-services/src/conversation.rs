@@ -65,6 +65,11 @@ pub enum Update {
     PeerPresence(HashMap<String, String>),
     PeerAvatar(String, Option<Vec<u8>>),
     Unread(HashMap<String, Unread>),
+    Notification {
+        channel_id: String,
+        sender: String,
+        message: String,
+    },
     Threads {
         threads: Vec<ThreadPreview>,
         names: HashMap<String, String>,
@@ -1097,8 +1102,18 @@ impl Worker {
             {
                 return Err(Failure::InvalidInput);
             }
-            if event.event == "posted" {
+            if event.event == "posted" && self.unread.contains_key(&post.channel_id) {
                 self.count(&post, &event).await;
+                if post.user_id != self.user_id {
+                    self.resolve_names([post.user_id.clone()]).await;
+                    let sender = self.names.get(&post.user_id).cloned().unwrap_or_default();
+                    self.emit(Update::Notification {
+                        channel_id: post.channel_id.clone(),
+                        sender,
+                        message: post.message.clone(),
+                    })
+                    .await;
+                }
             }
             return Ok(());
         }

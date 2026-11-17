@@ -166,14 +166,20 @@ impl State {
                     .map(|(id, _)| id.clone())
                     .collect();
                 for id in arrived {
-                    if self.channel.as_deref() != Some(id.as_str()) && !self.synthetic {
-                        self.notify_local(&id);
-                    }
                     if let Some(at) = self.navigation.archived.iter().position(|a| *a == id) {
                         self.navigation.archived.remove(at);
                     }
                 }
                 self.unread = unread;
+            }
+            Update::Notification {
+                channel_id,
+                sender,
+                message,
+            } => {
+                if self.channel.as_deref() != Some(channel_id.as_str()) && !self.synthetic {
+                    self.notify_local(&channel_id, &sender, &message);
+                }
             }
             Update::Threads { threads, names } => {
                 self.names.extend(names);
