@@ -241,6 +241,7 @@ impl State {
             AfterCheckpoint::Acknowledge => {
                 self.clear_draft();
                 self.submitted = false;
+                self.draft.focused = true;
                 self.recovered_pending = false;
                 self.checkpoint_retry = None;
             }

@@ -305,6 +305,7 @@ impl State {
                     } else {
                         self.clear_draft();
                         self.submitted = false;
+                        self.draft.focused = true;
                     }
                 }
                 self.pending = pending;

@@ -783,3 +783,32 @@ fn reply_targets_the_post() {
     assert_eq!(s.reply_to.as_ref().map(|p| p.id.as_str()), Some("p"));
     assert_eq!(s.markdown(), "");
 }
+
+#[test]
+fn composer_keeps_focus_through_send_and_acknowledgement() {
+    let (sender, _intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.draft.text = "hello".into();
+    rt.invalidate();
+    rt.frame(0.0);
+    tap(&mut rt, "draft");
+    rt.state.ready = true;
+    tap(&mut rt, "send");
+    rt.invalidate();
+    rt.frame(0.0);
+    let focused = |rt: &Runtime<State>| {
+        rt.elements()
+            .iter()
+            .find(|e| e.key.as_deref() == Some("input"))
+            .unwrap()
+            .focused
+    };
+    assert!(rt.state.submitted);
+    assert!(!focused(&rt));
+    rt.state.apply(Update::Pending(Some(pending())));
+    rt.state.apply(Update::Pending(None));
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(!rt.state.submitted);
+    assert!(focused(&rt));
+}
