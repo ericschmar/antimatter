@@ -81,6 +81,8 @@ Title "Appearance". Subtitle "Control the density and visual treatment of your t
 | --- | --- | --- | --- | --- | --- |
 | Accent color | `accentColor` | `oceanBlue` | `onyx` (Onyx), `coral` (Coral), `oceanBlue` (Ocean Blue), `fern` (Fern), `amber` (Amber), `violet` (Violet), `custom` (Custom: `{"custom":[r,g,b]}`, bytes) | Accent for selection, primary buttons and the profile camera badge. Shown as swatches with names and selected state, plus a rainbow swatch that opens an inline saturation/value square and hue strip for a custom colour. | Deferred |
 | Font | `appFontFamily` | `system` | `system` (System), `rounded` (Rounded), `serif` (Serif), `monospaced` (Monospaced) | App font family. | Deferred |
+| Composer font size | `composerFontSize` | 13 | integer 10–20, step 1 | Size of the message composer's text. Value row shows `N pt`. | Live |
+| Composer font | `composerFontFamily` | `system` | `system`, `rounded`, `serif`, `monospaced` (as Font) | Font family of the message composer's text. Rounded and serif fall back to system sans when those faces are missing. | Live |
 | Name color | `nameColors` | per-user palette slot | `{"<user id>":"#rrggbb"}` | Colour of the signed-in user's name in the ledger. Users without an entry get a colour from a 32-colour palette, chosen by a stable FNV-1a hash of their user id, so it is the same every run. The swatch opens the same colour picker as Accent color. | Live |
 | Theme | `theme` | `system` | `light` (Light), `dark` (Dark), `system` (System) | Selects the app theme. See Theme below. | Live |
 | Use compact message timeline | `compactTimeline` | on | boolean | Compact ledger rows. | Deferred |
@@ -233,8 +235,8 @@ Wiring: Live. These rows read the existing saved-account registry.
 ## Wiring summary
 
 - **Live** when implementation lands: Theme (applies to the launch theme), the
-  Accounts section (Switch, Disconnect, Add account), and Message font size (timeline
-  body).
+  Accounts section (Switch, Disconnect, Add account), Message font size (timeline
+  body), and Composer font size and Composer font (message composer text).
 - **Deferred** (persisted or shown, no visible effect until the owning feature
   lands): every other General control, Accent color, Font, Compact timeline, Message
   spacing, Show user avatars, every Notifications control (local, server and channel

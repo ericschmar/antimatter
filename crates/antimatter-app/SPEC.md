@@ -23,8 +23,8 @@ The app is the `antimatter` binary crate. Modules: `state` (State, Login),
 `session`/`checkpoint`/`timeline`/`auth` (`impl State` behaviour), `signin` and
 `workspace` (views), `view` (root and hello scenes), `widgets` (kit wrappers),
 `theme` (selects an [`antimatter-theme`](../antimatter-theme/SPEC.md) `Kit`),
-`scenes` (synthetic proof data) and `tests`. Hot reload patches function bodies in
-`src/*.rs` only.
+`scenes` (synthetic proof data) and `tests`. `task dev` runs the native window with
+`cargo run` and no hot reload; `task dev:snap` is the only `dx` hot-reload path.
 
 - `main.rs`: Rune presentation, secure inputs and view intents; native execution
   creates one Tokio runtime. Fresh PAT/password sign-in validates `/users/me`
@@ -52,10 +52,11 @@ session-only channel transitions keep drafts in memory per channel; account
 transitions and disconnect discard them with the existing warning.
 Concurrent workspace panes (splits) are a decided non-goal, so one active conversation is the intended model.
 
-Lock the composer immediately after send enqueue, not after its acknowledgement.
-At the pinned Rune version, `disabled`/`read_only` alone do not prevent editing:
-locked input has no edit binding and is inert. Disabled buttons are inert and
-also guard their handlers. Only `Ready` controls refresh readiness; a pending
+Lock send/attach controls immediately after send enqueue, not after its acknowledgement.
+The composer stays editable while locked, so typing never drops focus; only the send
+path is blocked. Refresh does not disable the send, attach or toolbar controls: `send()`
+still refuses while not ready. At the pinned Rune version, `disabled`/`read_only` alone do not prevent editing:
+Disabled buttons are inert and also guard their handlers. Only `Ready` controls refresh readiness; a pending
 acknowledgement cannot unlock an unfinished refresh. Successful acknowledgement
 clears the submitted draft only after its durable acknowledgement checkpoint;
 failure retains it. Durable sends checkpoint a reserved `conversation-pending`
@@ -65,7 +66,10 @@ and currently lock send/switch/sign-out pending a later recovery UI. Marker text
 is retained, but full pending UUID/reconciliation recovery remains outstanding.
 
 `Persistence` owns one dedicated blocking-I/O thread. Rune turn completion
-autosaves changed drafts/navigation, serializing completions and preventing stale
+autosaves changed drafts/navigation at most once a second, and the poll tick flushes
+the trailing edit. Background saves do not set `busy`, so typing never locks the
+composer or toolbar; they serialize through `write_task`, and a save waits for any
+in-flight write. Completions are serialized, preventing stale
 close snapshots from restoring acknowledged markers. Clean close drains writes;
 Rune cannot veto close, so disk failure or a crash before commitment can retain
 only the last durable edit. The UI warns about this ceiling; it is not a data-loss
@@ -101,8 +105,8 @@ compact typography/geometry onto Kit. The native conversation entry presents
 a 248 pt resizable sidebar, compact keyed channel rows, 32 pt title strip,
 54 pt conversation header, and 176 pt metadata/8 pt gap message ledger.
 Reuse existing load/checkpoint/send/retry paths; loading, queued send, ambiguous
-delivery and restored markers keep their current guards. No editor binding
-is attached to a locked composer; it remains inert. Kit control replacement
+delivery and restored markers keep their current guards. The composer stays editable
+while those guards apply; they block send, not typing. Kit control replacement
 must retain disabled-handler and accessibility checks.
 
 Synthetic workspace scenes may demonstrate navigation, sidebar resizing and
@@ -140,8 +144,14 @@ only stored and sent form: `markdown.rs` converts between the editor's marks/blo
 a line-based Markdown subset (no escaping), drafts and `Send` carry Markdown, and loading
 a channel parses its draft back. The `Markdown` button swaps to an editable raw source
 view; toggling converts in both directions and the bar is inert in source view. Locked
-states make the whole composer, bar included, inert. Known gaps: mention pills,
+states lock the bar and send, but the editor stays editable. Known gaps: mention pills,
 a mono font slot for code, and rendering of received messages.
+
+GIF search is offered only when a Giphy key is configured. `giphy.rs` reads
+`GIPHY_API_KEY` from the environment, else from the git-ignored `crates/antimatter-app/.env.local`
+(a blank value falls through), once at launch. The composer's GIF button opens a search
+dialog; picking a result appends `![title](media-url)` to the draft as Markdown and never
+sends it. The key is held in memory only and is not written to settings or logs.
 
 ## Unread and viewed state
 
@@ -233,6 +243,9 @@ Native Keychain/browser callback delivery, authorized live-server conversation,
 full pending-delivery recovery, legacy import UI and full workspace behavior
 require separate checks and implementation; this contract grants no claim of
 their completion. The native helper builds an unsigned, unregistered bundle with
-`antimatter.ericschmar.dev` (the user-authorized Swift identity) and `mattermost`.
+`antimatter.ericschmar.dev` (the user-authorized Swift identity) and `mattermost`. Its app icon is
+`assets/AppIcon.icns`, built from the Swift app's `AppIcon.appiconset` (the same artwork,
+1024 px master in `icon.iconset`) and declared as `CFBundleIconFile` = `AppIcon` in
+`Contents/Resources`; Rune's `AppSpec` has no icon field, so the bundle is the icon source.
 Browser start fails closed unless the running main bundle declares both. Metadata
 checks do not prove LaunchServices delivery or authorized live/SAML acceptance.

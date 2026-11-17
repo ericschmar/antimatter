@@ -734,7 +734,12 @@ fn image_attachments(post: &Post, k: &rune_kit::Kit) -> Option<El> {
 }
 
 fn image_menu(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) {
-    let images: Vec<_> = post.metadata.files.iter().filter(|f| f.is_image()).collect();
+    let images: Vec<_> = post
+        .metadata
+        .files
+        .iter()
+        .filter(|f| f.is_image())
+        .collect();
     if images.len() < 2 || s.image_menu.as_deref() != Some(post.id.as_str()) {
         return;
     }
@@ -743,16 +748,15 @@ fn image_menu(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) {
         .on_close(|s: &mut State| s.image_menu = None);
     for file in images {
         let target = (*file).clone();
-        menu = menu.item(MenuItem::new(file.name.clone()).on_select(
-            move |s: &mut State| {
+        menu = menu.item(
+            MenuItem::new(file.name.clone()).on_select(move |s: &mut State| {
                 s.image_menu = None;
                 s.open_file(target.clone());
-            },
-        ));
+            }),
+        );
     }
     menu.build(k, layer);
 }
-
 
 fn post_row(s: &State, i: usize) -> El {
     let k = workspace_theme();
@@ -810,135 +814,131 @@ fn post_row(s: &State, i: usize) -> El {
                 .child(el().grow(1.0).h(1.0).fill(c.border_muted)),
         );
     }
-    block
-        .children(reply_quote(s, post, &k))
-        .child(
-            row.w_full()
-                .gap(8.0)
-                .px(16.0)
-                .py(post_padding(s.message_spacing))
-                .hover(c.hover)
-                .hover_group()
-                .child(
-                    rune::row()
-                        .w(120.0)
-                        .h(line)
-                        .shrink()
-                        .gap(6.0)
-                        .center_y()
-                        .children((!continued).then(|| author_marker(s, post, c)))
-                        .children((!continued).then(|| {
-                            text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
-                                .shrink()
-                                .font(k.ty.small)
-                                .color(crate::name_colors::color_for(
-                                    &s.name_colors,
-                                    &post.user_id,
-                                ))
-                                .truncate()
-                        })),
-                )
-                .child(
-                    rune::row().h(line).center_y().shrink().child(
-                        text(post_time(post.create_at))
+    block.children(reply_quote(s, post, &k)).child(
+        row.w_full()
+            .gap(8.0)
+            .px(16.0)
+            .py(post_padding(s.message_spacing))
+            .hover(c.hover)
+            .hover_group()
+            .child(
+                rune::row()
+                    .w(120.0)
+                    .h(line)
+                    .shrink()
+                    .gap(6.0)
+                    .center_y()
+                    .children((!continued).then(|| author_marker(s, post, c)))
+                    .children((!continued).then(|| {
+                        text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
+                            .shrink()
                             .font(k.ty.small)
-                            .color(if continued {
-                                rune::Color::TRANSPARENT
-                            } else {
-                                c.text_muted
+                            .color(crate::name_colors::color_for(&s.name_colors, &post.user_id))
+                            .truncate()
+                    })),
+            )
+            .child(
+                rune::row().h(line).center_y().shrink().child(
+                    text(post_time(post.create_at))
+                        .font(k.ty.small)
+                        .color(if continued {
+                            rune::Color::TRANSPARENT
+                        } else {
+                            c.text_muted
+                        })
+                        .shrink(),
+                ),
+            )
+            .child(
+                col()
+                    .grow(1.0)
+                    .shrink()
+                    .min_w(0.0)
+                    .gap(4.0)
+                    .pt((line - f32::from(s.message_font_size) * 1.6) / 2.0)
+                    .child(
+                        Markdown::new(&post.message)
+                            .selectable(true)
+                            .highlights(
+                                mentions(&post.message, s.my_username())
+                                    .into_iter()
+                                    .map(|(range, me)| {
+                                        let bg = if me { c.bg_accent } else { c.warning.icon };
+                                        (range, Highlight::new().bg(bg).fg(c.bg_base))
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
+                            .style(
+                                MarkdownStyle::from_kit(&k)
+                                    .code_block(c.layer_03, c.border_base)
+                                    .code_block_font(TextStyle {
+                                        family: rune::Family::SystemMono,
+                                        ..k.ty.mono
+                                    })
+                                    .body_font(TextStyle {
+                                        size: f32::from(s.message_font_size),
+                                        line_height: f32::from(s.message_font_size) * 1.6,
+                                        ..k.ty.ui
+                                    }),
+                            )
+                            .code_frame({
+                                let k = k.clone();
+                                move |card, code| code_frame(&k, card, code)
                             })
-                            .shrink(),
-                    ),
-                )
-                .child(
-                    col()
-                        .grow(1.0)
-                        .shrink()
-                        .min_w(0.0)
-                        .gap(4.0)
-                        .pt((line - f32::from(s.message_font_size) * 1.6) / 2.0)
-                        .child(
-                            Markdown::new(&post.message)
-                                .selectable(true)
-                                .highlights(
-                                    mentions(&post.message, s.my_username())
-                                        .into_iter()
-                                        .map(|(range, me)| {
-                                            let bg = if me { c.bg_accent } else { c.warning.icon };
-                                            (range, Highlight::new().bg(bg).fg(c.bg_base))
-                                        })
-                                        .collect::<Vec<_>>(),
-                                )
-                                .style(
-                                    MarkdownStyle::from_kit(&k)
-                                        .code_block(c.layer_03, c.border_base)
-                                        .code_block_font(TextStyle {
-                                            family: rune::Family::SystemMono,
-                                            ..k.ty.mono
-                                        })
-                                        .body_font(TextStyle {
-                                            size: f32::from(s.message_font_size),
-                                            line_height: f32::from(s.message_font_size) * 1.6,
-                                            ..k.ty.ui
-                                        }),
-                                )
-                                .code_frame({
-                                    let k = k.clone();
-                                    move |card, code| code_frame(&k, card, code)
-                                })
-                                .build(&k),
-                        )
-                        .children(image_attachments(post, &k))
-                        .children(file_attachments(post, &k))
-                        .children(link_preview(s, post, &k))
-                        .children(reaction_pills(s, post, &k)),
-                )
-                .child(
-                    rune::row()
-                        .key("post-actions")
-                        .gap(2.0)
-                        .padding(2.0)
-                        .radius(6.0)
-                        .fill(c.layer_02)
-                        .border(1.0, c.border_base)
-                        .pin(None, Some(-6.0), Some(16.0), None)
-                        .group_opacity(0.0, 1.0)
-                        .child(
-                            IconButton::new(&icons::ARROW_BEND_UP_LEFT)
-                                .label("Reply")
+                            .build(&k),
+                    )
+                    .children(image_attachments(post, &k))
+                    .children(file_attachments(post, &k))
+                    .children(link_preview(s, post, &k))
+                    .children(reaction_pills(s, post, &k)),
+            )
+            .child(
+                rune::row()
+                    .key("post-actions")
+                    .gap(2.0)
+                    .padding(2.0)
+                    .radius(6.0)
+                    .fill(c.layer_02)
+                    .border(1.0, c.border_base)
+                    .pin(None, Some(-6.0), Some(16.0), None)
+                    .group_opacity(0.0, 1.0)
+                    .child(
+                        IconButton::new(&icons::ARROW_BEND_UP_LEFT)
+                            .label("Reply")
+                            .control_size(ControlSize::Small)
+                            .variant(IconButtonVariant::Ghost)
+                            .on_press_tx({
+                                let post = post.clone();
+                                move |s: &mut State, tx| {
+                                    s.quote_reply(&post);
+                                    tx.focus("draft", false);
+                                }
+                            })
+                            .build(&k)
+                            .key("post-reply"),
+                    )
+                    .children(
+                        (s.authenticated.as_ref().map(|key| key.user_id())
+                            == Some(post.user_id.as_str()))
+                        .then(|| {
+                            IconButton::new(&icons::PENCIL_SIMPLE)
+                                .label("Edit")
                                 .control_size(ControlSize::Small)
                                 .variant(IconButtonVariant::Ghost)
                                 .on_press_tx({
                                     let post = post.clone();
                                     move |s: &mut State, tx| {
-                                        s.quote_reply(&post);
+                                        s.begin_edit(&post);
                                         tx.focus("draft", false);
                                     }
                                 })
                                 .build(&k)
-                                .key("post-reply"),
-                        )
-                        .children(
-                            (s.authenticated.as_ref().map(|key| key.user_id()) == Some(post.user_id.as_str()))
-                                .then(|| {
-                                    IconButton::new(&icons::PENCIL_SIMPLE)
-                                        .label("Edit")
-                                        .control_size(ControlSize::Small)
-                                        .variant(IconButtonVariant::Ghost)
-                                        .on_press_tx({
-                                            let post = post.clone();
-                                            move |s: &mut State, tx| {
-                                                s.begin_edit(&post);
-                                                tx.focus("draft", false);
-                                            }
-                                        })
-                                        .build(&k)
-                                        .key("post-edit")
-                                }),
-                        )
-                        .child(emoji_picker_trigger(s, post, &k)),
-                ),
-        )
+                                .key("post-edit")
+                        }),
+                    )
+                    .child(emoji_picker_trigger(s, post, &k)),
+            ),
+    )
 }
 
 fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
@@ -1290,6 +1290,47 @@ fn new_row(key: &str, label: &str, kind: NewKind, k: &rune_kit::Kit) -> El {
         .on_press(move |s: &mut State| s.open_new(kind))
 }
 
+fn gif_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
+    let Some(search) = &s.gif_search else {
+        return;
+    };
+    let mut body = col().w_full().gap(8.0).px(16.0).pb(16.0).child(
+        rune_kit::TextInput::new(search)
+            .label("Search GIFs")
+            .placeholder("Search GIFs")
+            .width(None)
+            .height(32.0)
+            .on_edit(|s: &mut State| s.gif_search.get_or_insert_with(TextEdit::default))
+            .on_submit(|s: &mut State, _| s.run_gif_search())
+            .build(k)
+            .key("gif-query"),
+    );
+    if s.gif_busy {
+        body = body.child(text("Searching…").font(k.ty.small).color(k.c.text_muted));
+    }
+    for (i, gif) in s.gif_results.iter().flatten().enumerate() {
+        let target = gif.clone();
+        body = body.child(
+            text(gif.title.clone())
+                .font(k.ty.small)
+                .color(k.c.text_accent)
+                .truncate()
+                .key(format!("gif-{i}"))
+                .role("button")
+                .focusable(true)
+                .cursor(rune::Cursor::Pointer)
+                .on_press(move |s: &mut State| s.insert_gif(&target)),
+        );
+    }
+    rune_kit::Dialog::new("gif-dialog", "Search GIFs")
+        .open(true)
+        .width(360.0)
+        .fit()
+        .on_close(|s: &mut State| s.close_gif_search())
+        .child(body)
+        .build(k, layer);
+}
+
 fn new_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
     if let Some(kind) = s.new_dialog {
         let (title, hint, action) = match kind {
@@ -1613,7 +1654,12 @@ fn reply_chip(s: &State, k: &rune_kit::Kit) -> Option<El> {
 
 fn edit_chip(s: &State, k: &rune_kit::Kit) -> Option<El> {
     let post = s.editing.as_ref()?;
-    let snippet = post.message.lines().find(|l| !l.trim().is_empty()).unwrap_or_default().to_owned();
+    let snippet = post
+        .message
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or_default()
+        .to_owned();
     Some(
         rune::row()
             .key("edit-chip")
@@ -1699,6 +1745,7 @@ pub(crate) fn workspace(s: &State) -> El {
     let k = workspace_theme();
     let c = &k.c;
     let locked = !s.ready || s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
+    let composer_locked = s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
     let (archived, rest): (Vec<_>, Vec<_>) = s
         .channels
         .iter()
@@ -1752,6 +1799,7 @@ pub(crate) fn workspace(s: &State) -> El {
         ));
     }
     new_dialog(s, &mut layer, &k);
+    gif_dialog(s, &mut layer, &k);
     sidebar = sidebar.child(section(
         "channels",
         "Channels",
@@ -1764,7 +1812,11 @@ pub(crate) fn workspace(s: &State) -> El {
             NewKind::Channel,
             &k,
         ))
-        .chain(regular.into_iter().map(|channel| channel_row(s, channel, locked, &k)))
+        .chain(
+            regular
+                .into_iter()
+                .map(|channel| channel_row(s, channel, locked, &k)),
+        )
         .collect(),
         &k,
     ));
@@ -1780,7 +1832,11 @@ pub(crate) fn workspace(s: &State) -> El {
             NewKind::Dm,
             &k,
         ))
-        .chain(direct.into_iter().map(|channel| channel_row(s, channel, locked, &k)))
+        .chain(
+            direct
+                .into_iter()
+                .map(|channel| channel_row(s, channel, locked, &k)),
+        )
         .collect(),
         &k,
     ));
@@ -1998,8 +2054,14 @@ pub(crate) fn workspace(s: &State) -> El {
             )
             .on_visible_rows(|s: &mut State, visible| {
                 let posts = s.search_results.as_ref().unwrap_or(&s.posts);
-                let open = s.emoji_picker.clone().map(|id| (id, true)).or_else(|| s.image_menu.clone().map(|id| (id, false)));
-                let Some((id, is_picker)) = open else { return false };
+                let open = s
+                    .emoji_picker
+                    .clone()
+                    .map(|id| (id, true))
+                    .or_else(|| s.image_menu.clone().map(|id| (id, false)));
+                let Some((id, is_picker)) = open else {
+                    return false;
+                };
                 match posts.iter().position(|p| p.id == id) {
                     Some(index) if !visible.contains(&index) => {
                         if is_picker {
@@ -2013,7 +2075,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 }
             }),
     );
-    let (composer, toolbar) = crate::composer::composer(s, locked);
+    let (composer, toolbar) = crate::composer::composer(s, composer_locked);
     let mut main = col()
         .grow(1.0)
         .min_w(MAIN_MIN)
@@ -2167,7 +2229,7 @@ pub(crate) fn workspace(s: &State) -> El {
                                 "Attach image",
                                 &icons::IMAGE,
                                 true,
-                                locked,
+                                composer_locked,
                             ))
                             .child(attach_button(
                                 &k,
@@ -2175,10 +2237,21 @@ pub(crate) fn workspace(s: &State) -> El {
                                 "Attach file",
                                 &icons::PAPERCLIP,
                                 false,
-                                locked,
+                                composer_locked,
                             ))
+                            .children(s.giphy_key.as_ref().map(|_| {
+                                let b = IconButton::new(&icons::SMILEY)
+                                    .label("Search GIFs")
+                                    .control_size(ControlSize::Small)
+                                    .variant(IconButtonVariant::Ghost)
+                                    .disabled(composer_locked)
+                                    .on_press(|s: &mut State| s.open_gif_search())
+                                    .build(&k)
+                                    .key("gif-search-open");
+                                if composer_locked { b.inert() } else { b }
+                            }))
                             .child({
-                                let disabled = locked
+                                let disabled = composer_locked
                                     || s.channel.is_none()
                                     || (s.markdown().trim().is_empty() && s.attachments.is_empty());
                                 let send = Button::new("Send")
@@ -2195,10 +2268,18 @@ pub(crate) fn workspace(s: &State) -> El {
                     ),
             );
     }
-    if let Some(post) = s.emoji_picker.as_deref().and_then(|id| posts.iter().find(|p| p.id == id)) {
+    if let Some(post) = s
+        .emoji_picker
+        .as_deref()
+        .and_then(|id| posts.iter().find(|p| p.id == id))
+    {
         emoji_picker(s, post, &k, &mut layer);
     }
-    if let Some(post) = s.image_menu.as_deref().and_then(|id| posts.iter().find(|p| p.id == id)) {
+    if let Some(post) = s
+        .image_menu
+        .as_deref()
+        .and_then(|id| posts.iter().find(|p| p.id == id))
+    {
         image_menu(s, post, &k, &mut layer);
     }
     let body = rune::row()

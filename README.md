@@ -42,15 +42,15 @@ task fetch      # once, so the rest run --offline
 task verify     # fmt, clippy, tests, headless checks, UI lint
 task precommit  # verify, then delete the PNG/JSON artifacts (build/ui, build/rune-headless)
 task ui:lint    # every scene at 4 window sizes; PNGs in build/ui/ (inspect them)
-task dev        # native window with hot reload (function bodies in crates/antimatter-app/src/*.rs patch live)
+task dev        # native window with the debug dev sign-in env (no hot reload)
 task dev:snap   # hot reload with no window: re-renders build/ui/hot.png on each patch
 task run        # native window, no hot reload
 ```
 
 The tasks wrap `cargo` and `scripts/*.py`; `cargo run --locked` and
-`python3 scripts/rune-headless.py` still work directly. `task dev` needs Dioxus
-CLI 0.7.10 as `dx` (`task hot:install`; the Deno `dx` is unrelated). Edits outside
-function bodies (state, signatures, other files) rebuild and relaunch instead.
+`python3 scripts/rune-headless.py` still work directly. `task dev` is a plain
+`cargo run`; only `task dev:snap` still needs Dioxus CLI 0.7.10 as `dx`
+(`task hot:install`; the Deno `dx` is unrelated).
 
 
 After the initial fetch, the self-check uses `cargo run --locked --offline` to

@@ -115,6 +115,17 @@ pub(crate) fn font_name(family: AppFontFamily) -> &'static str {
     }
 }
 
+/// The Rune family for a setting: system sans, a rounded or serif CSS list that falls back to
+/// sans when the named faces are missing, or the platform's monospaced UI font.
+pub(crate) fn font_family(family: AppFontFamily) -> rune::Family {
+    match family {
+        AppFontFamily::System => rune::Family::Sans,
+        AppFontFamily::Rounded => rune::Family::Named("\"SF Pro Rounded\", ui-rounded"),
+        AppFontFamily::Serif => rune::Family::Named("\"New York\", Georgia, serif"),
+        AppFontFamily::Monospaced => rune::Family::SystemMono,
+    }
+}
+
 pub(crate) const SPACINGS: [MessageSpacing; 3] = [
     MessageSpacing::Small,
     MessageSpacing::Medium,
@@ -160,6 +171,13 @@ pub(crate) fn font_size_label(points: u8) -> String {
 pub(crate) fn step_font_size(settings: &mut Settings, delta: i8) {
     settings.message_font_size = settings
         .message_font_size
+        .saturating_add_signed(delta)
+        .clamp(10, 20);
+}
+
+pub(crate) fn step_composer_font_size(settings: &mut Settings, delta: i8) {
+    settings.composer_font_size = settings
+        .composer_font_size
         .saturating_add_signed(delta)
         .clamp(10, 20);
 }
@@ -235,6 +253,14 @@ mod tests {
             step_font_size(&mut settings, -1);
         }
         assert_eq!(settings.message_font_size, 10);
+        for _ in 0..20 {
+            step_composer_font_size(&mut settings, 1);
+        }
+        assert_eq!(settings.composer_font_size, 20);
+        for _ in 0..20 {
+            step_composer_font_size(&mut settings, -1);
+        }
+        assert_eq!(settings.composer_font_size, 10);
         for _ in 0..80 {
             step_grouping(&mut settings, 1);
         }
@@ -250,6 +276,19 @@ mod tests {
         assert_eq!(grouping_label(0), "Off");
         assert_eq!(grouping_label(5), "5 min");
         assert_eq!(font_size_label(12), "12 pt");
+    }
+
+    #[test]
+    fn composer_font_has_its_own_stepper_and_family_mapping() {
+        let mut settings = Settings::default();
+        step_composer_font_size(&mut settings, 2);
+        assert_eq!(settings.composer_font_size, 15);
+        assert_eq!(settings.message_font_size, 12);
+        assert_eq!(font_family(AppFontFamily::System), rune::Family::Sans);
+        assert_eq!(
+            font_family(AppFontFamily::Monospaced),
+            rune::Family::SystemMono
+        );
     }
 
     #[test]

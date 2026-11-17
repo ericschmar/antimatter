@@ -87,6 +87,8 @@ pub(crate) struct State {
     pub(crate) theme: antimatter_theme::Theme,
     pub(crate) accent: antimatter_services::settings::AccentColor,
     pub(crate) message_font_size: u8,
+    pub(crate) composer_font_size: u8,
+    pub(crate) composer_font_family: antimatter_services::settings::AppFontFamily,
     pub(crate) message_spacing: MessageSpacing,
     pub(crate) show_timeline_avatars: bool,
     pub(crate) avatar_size: u8,
@@ -101,6 +103,7 @@ pub(crate) struct State {
     pub(crate) notification_sounds_enabled: bool,
     pub(crate) name_colors: std::collections::BTreeMap<String, String>,
     pub(crate) last_active: Option<std::time::Instant>,
+    pub(crate) last_save: Option<std::time::Instant>,
     pub(crate) new_menu: bool,
     pub(crate) new_dialog: Option<NewKind>,
     pub(crate) new_name: TextEdit,
@@ -118,6 +121,10 @@ pub(crate) struct State {
     pub(crate) search: TextEdit,
     pub(crate) search_busy: bool,
     pub(crate) attachments: Vec<std::path::PathBuf>,
+    pub(crate) giphy_key: Option<String>,
+    pub(crate) gif_search: Option<TextEdit>,
+    pub(crate) gif_results: Option<Vec<antimatter_services::giphy::Gif>>,
+    pub(crate) gif_busy: bool,
     pub(crate) reply_to: Option<antimatter_services::mattermost::Post>,
     pub(crate) editing: Option<antimatter_services::mattermost::Post>,
     pub(crate) previews: HashMap<String, Option<antimatter_services::preview::Preview>>,
@@ -386,6 +393,61 @@ impl State {
         });
     }
 
+    pub(crate) fn open_gif_search(&mut self) {
+        self.gif_search = Some(TextEdit::default());
+        self.gif_results = None;
+        self.gif_busy = false;
+    }
+
+    pub(crate) fn close_gif_search(&mut self) {
+        self.gif_search = None;
+        self.gif_results = None;
+        self.gif_busy = false;
+    }
+
+    pub(crate) fn run_gif_search(&mut self) {
+        let query = self
+            .gif_search
+            .as_ref()
+            .map(|edit| edit.text.trim().to_owned())
+            .unwrap_or_default();
+        let (Some(key), Some(runtime), Some(handle)) = (
+            self.giphy_key.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        if query.is_empty() || self.gif_busy {
+            return;
+        }
+        self.gif_busy = true;
+        runtime.spawn(async move {
+            let gifs = antimatter_services::giphy::search(
+                antimatter_services::giphy::ENDPOINT,
+                &key,
+                &query,
+            )
+            .await;
+            handle.update(move |s, _| {
+                s.gif_busy = false;
+                s.gif_results = Some(gifs.unwrap_or_default());
+            });
+        });
+    }
+
+    pub(crate) fn insert_gif(&mut self, gif: &antimatter_services::giphy::Gif) {
+        let markdown = format!("![{}]({})", gif.title, gif.url);
+        let current = self.markdown();
+        let next = if current.is_empty() || current.ends_with('\n') {
+            format!("{current}{markdown}")
+        } else {
+            format!("{current}\n{markdown}")
+        };
+        self.draft = crate::markdown::from_markdown(&next);
+        self.close_gif_search();
+    }
+
     pub(crate) fn fetch_preview(&mut self, url: url::Url) {
         let key = url.to_string();
         if self.previews.contains_key(&key) {
@@ -652,6 +714,8 @@ impl Default for State {
             theme: antimatter_theme::Theme::Default,
             accent: Default::default(),
             message_font_size: 12,
+            composer_font_size: 13,
+            composer_font_family: Default::default(),
             message_spacing: MessageSpacing::default(),
             show_timeline_avatars: true,
             avatar_size: 32,
@@ -666,6 +730,7 @@ impl Default for State {
             notification_sounds_enabled: true,
             name_colors: Default::default(),
             last_active: None,
+            last_save: None,
             new_menu: false,
             new_dialog: None,
             new_name: TextEdit::default(),
@@ -683,6 +748,10 @@ impl Default for State {
             search: TextEdit::default(),
             search_busy: false,
             attachments: Vec::new(),
+            giphy_key: None,
+            gif_search: None,
+            gif_results: None,
+            gif_busy: false,
             reply_to: None,
             editing: None,
             previews: HashMap::new(),

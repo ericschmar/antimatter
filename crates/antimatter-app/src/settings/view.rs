@@ -92,6 +92,8 @@ impl SettingsState {
             None => self.error = None,
         }
         let message_font_size = self.prefs.message_font_size;
+        let composer_font_size = self.prefs.composer_font_size;
+        let composer_font_family = self.prefs.composer_font_family;
         let message_spacing = self.prefs.timeline_message_spacing;
         let show_timeline_avatars = self.prefs.show_timeline_avatars;
         let avatar_size = self.prefs.timeline_avatar_size;
@@ -109,6 +111,8 @@ impl SettingsState {
             ws.name_colors = name_colors;
             ws.theme = theme;
             ws.message_font_size = message_font_size;
+            ws.composer_font_size = composer_font_size;
+            ws.composer_font_family = composer_font_family;
             ws.message_spacing = message_spacing;
             ws.show_timeline_avatars = show_timeline_avatars;
             ws.avatar_size = avatar_size;
@@ -328,10 +332,9 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                 .build(k, layer);
             swatches = swatches.child(picker);
             let accent_cell = swatches;
-            let name_color = s
-                .me
-                .as_deref()
-                .map_or(k.c.text_muted, |me| crate::name_colors::color_for(&s.prefs.name_colors, me));
+            let name_color = s.me.as_deref().map_or(k.c.text_muted, |me| {
+                crate::name_colors::color_for(&s.prefs.name_colors, me)
+            });
             let name_swatch = el()
                 .key("name-color")
                 .role("button")
@@ -345,11 +348,10 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                 .on_press(move |s: &mut SettingsState| {
                     s.name_picker_open = !s.name_picker_open;
                     s.picker_open = false;
-                    if let Some(rgb) = s
-                        .me
-                        .as_deref()
-                        .and_then(|me| s.prefs.name_colors.get(me))
-                        .and_then(|hex| crate::name_colors::parse(hex))
+                    if let Some(rgb) =
+                        s.me.as_deref()
+                            .and_then(|me| s.prefs.name_colors.get(me))
+                            .and_then(|hex| crate::name_colors::parse(hex))
                     {
                         s.picker_hsv = rgb_to_hsv(rgb.0, rgb.1, rgb.2);
                     }
@@ -364,6 +366,9 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                 .build(k, layer);
             let name_cell = el().child(name_picker);
             let font_index = FONTS.iter().position(|f| *f == s.prefs.app_font_family);
+            let composer_font_index = FONTS
+                .iter()
+                .position(|f| *f == s.prefs.composer_font_family);
             let theme_index = THEMES.iter().position(|t| *t == s.prefs.theme);
             let spacing_index = SPACINGS
                 .iter()
@@ -379,6 +384,21 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                         choice_row(k, "Font", &FONTS.map(font_name), font_index, |s, i, _| {
                             s.change(|p| p.app_font_family = FONTS[i])
                         }),
+                        stepper_row(
+                            k,
+                            "Composer font size",
+                            &font_size_label(s.prefs.composer_font_size),
+                            "composer-font-size",
+                            |s| s.change(|p| step_composer_font_size(p, -1)),
+                            |s| s.change(|p| step_composer_font_size(p, 1)),
+                        ),
+                        choice_row(
+                            k,
+                            "Composer font",
+                            &FONTS.map(font_name),
+                            composer_font_index,
+                            |s, i, _| s.change(|p| p.composer_font_family = FONTS[i]),
+                        ),
                         choice_row(
                             k,
                             "Theme",

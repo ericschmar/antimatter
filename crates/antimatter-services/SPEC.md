@@ -82,6 +82,16 @@ resending. Ordinary history does not persist `pending_post_id`; neither exhausti
 absence nor the bounded server dedup cache proves a resend safe. Pagination has
 a 10,000-page fail-closed ceiling, not a durable-idempotency guarantee.
 
+## Giphy search
+
+`giphy.rs` owns the optional GIF search: one authenticated GET to Giphy's
+`/v1/gifs/search` with the public key and query, a 5-second connect and 10-second total
+timeout, and decoding of only the `original` media URL. Only `http`/`https` media URLs
+are kept; a transport failure or rejected key yields no results rather than an error
+the composer must handle. The key is supplied by the app and is never persisted,
+logged or serialized into a Mattermost request. It is not Mattermost traffic, so
+it does not use the origin, redirect or `/api/v4` policy above.
+
 ## Account persistence boundary
 
 `accounts.rs` owns the validated canonical-origin plus `/users/me` user-ID tuple,

@@ -14,6 +14,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT / "build/rune-native/Antimatter.app"
 BINARY = ROOT / "target/debug/antimatter"
+ICON = ROOT / "crates/antimatter-app/assets/AppIcon.icns"
 BUNDLE_IDENTIFIER = "antimatter.ericschmar.dev"
 CALLBACK_SCHEME = "mattermost"
 INFO = {
@@ -21,6 +22,7 @@ INFO = {
     "CFBundleName": "Antimatter",
     "CFBundleDisplayName": "Antimatter",
     "CFBundleExecutable": "antimatter",
+    "CFBundleIconFile": "AppIcon",
     "CFBundlePackageType": "APPL",
     "CFBundleShortVersionString": "0.0.1",
     "CFBundleVersion": "1",
@@ -66,6 +68,8 @@ def check():
             raise ValueError("invalid executable")
     if not os.access(executable, os.X_OK) or not filecmp.cmp(BINARY, executable, shallow=False):
         raise ValueError("missing or stale executable")
+    if not filecmp.cmp(ICON, BUNDLE / "Contents/Resources/AppIcon.icns", shallow=False):
+        raise ValueError("missing or stale icon")
 
 
 def self_test():
@@ -102,6 +106,8 @@ def main():
             contents = BUNDLE / "Contents"
             (contents / "MacOS").mkdir(parents=True, exist_ok=True)
             shutil.copy2(BINARY, contents / "MacOS/antimatter")
+            (contents / "Resources").mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ICON, contents / "Resources/AppIcon.icns")
             with (contents / "Info.plist").open("wb") as stream:
                 plistlib.dump(INFO, stream)
         check()

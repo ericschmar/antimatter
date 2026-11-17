@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod conversation;
+pub mod giphy;
 #[cfg(target_os = "macos")]
 pub mod macos;
 pub mod mattermost;

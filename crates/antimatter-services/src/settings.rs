@@ -71,6 +71,8 @@ pub enum MessageSpacing {
 #[serde(deny_unknown_fields, default, rename_all = "camelCase")]
 pub struct Settings {
     pub message_font_size: u8,
+    pub composer_font_size: u8,
+    pub composer_font_family: AppFontFamily,
     pub message_grouping_interval_minutes: u8,
     pub accent_color: AccentColor,
     pub app_font_family: AppFontFamily,
@@ -92,6 +94,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             message_font_size: 12,
+            composer_font_size: 13,
+            composer_font_family: AppFontFamily::default(),
             message_grouping_interval_minutes: 5,
             accent_color: AccentColor::default(),
             app_font_family: AppFontFamily::default(),
@@ -175,6 +179,8 @@ mod tests {
     fn defaults_match_the_swift_settings_window() {
         let defaults = Settings::default();
         assert_eq!(defaults.message_font_size, 12);
+        assert_eq!(defaults.composer_font_size, 13);
+        assert_eq!(defaults.composer_font_family, AppFontFamily::System);
         assert_eq!(defaults.message_grouping_interval_minutes, 5);
         assert_eq!(defaults.accent_color, AccentColor::OceanBlue);
         assert_eq!(defaults.app_font_family, AppFontFamily::System);

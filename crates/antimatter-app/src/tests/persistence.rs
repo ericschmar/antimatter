@@ -290,7 +290,8 @@ async fn edit_autosaves_and_failed_enqueue_rolls_back_without_dispatch() {
     rt.frame(0.0);
     assert_eq!(rt.state.draft.text, "keep text");
     rt.state.autosave();
-    assert!(rt.state.busy);
+    assert!(!rt.state.busy);
+    assert!(rt.state.write_task.is_some());
     rt.state.write_task.take().unwrap().await.unwrap();
     let saved = store.restore(key.clone()).await.unwrap().1;
     assert_eq!(saved[0].text, "keep text");

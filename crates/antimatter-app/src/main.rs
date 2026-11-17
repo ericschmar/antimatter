@@ -4,6 +4,7 @@ mod checkpoint;
 mod composer;
 #[cfg(debug_assertions)]
 mod dev_login;
+mod giphy;
 mod markdown;
 mod name_colors;
 mod notifications;
@@ -233,6 +234,7 @@ fn main() {
         poll: Some(|s, clock, tx| {
             const HALF: f64 = 0.53;
             s.touch_active();
+            s.autosave();
             tx.wake_after(std::time::Duration::from_secs_f64(HALF - clock % HALF));
             let on = ((clock / HALF) as u64).is_multiple_of(2);
             std::mem::replace(&mut s.caret_on, on) != on
@@ -252,6 +254,7 @@ fn main() {
     });
     let (prefs, load_error) = settings_prefs();
     let prefs_font_size = prefs.message_font_size;
+    let prefs_composer_font = (prefs.composer_font_size, prefs.composer_font_family);
     let prefs_spacing = prefs.timeline_message_spacing;
     let prefs_avatars = prefs.show_timeline_avatars;
     let prefs_avatar_size = prefs.timeline_avatar_size;
@@ -279,6 +282,8 @@ fn main() {
             settings: Some(settings),
             settings_app: Some(settings_app),
             message_font_size: prefs_font_size,
+            composer_font_size: prefs_composer_font.0,
+            composer_font_family: prefs_composer_font.1,
             message_spacing: prefs_spacing,
             show_timeline_avatars: prefs_avatars,
             avatar_size: prefs_avatar_size,
@@ -292,6 +297,7 @@ fn main() {
             state.application = true;
             #[cfg(debug_assertions)]
             dev_login::prefill(&mut state);
+            state.giphy_key = giphy::load();
             state.runtime = Some(Arc::new(
                 tokio::runtime::Runtime::new().expect("background runtime"),
             ));

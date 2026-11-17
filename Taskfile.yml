@@ -83,19 +83,11 @@ tasks:
     cmds: [cargo install dioxus-cli --version 0.7.10 --locked]
 
   dev:
-    desc: "Hot reload in a native window. Function-body edits in crates/antimatter-app/src/*.rs patch live; anything else rebuilds + relaunches"
-    deps: [hot:install]
+    desc: "Native window with the debug dev sign-in env (no hot reload; dx is not used)"
     env:
-      RUNE_DEV_LOCAL: "1"
       ANTIMATTER_DEV_ENV: "{{.ROOT_DIR}}/crates/antimatter-app/.env.local"
     cmds:
-      - >-
-        python3 {{.RUNE_DIR}}/scripts/rune-dev --local
-        --manifest-path {{.ROOT_DIR}}/crates/antimatter-app/Cargo.toml
-        --features hot
-        --patch 'src/*.rs'
-        --port {{.PORT}}
-        -- {{.CLI_ARGS}}
+      - cargo run --locked -- {{.CLI_ARGS}}
 
   dev:snap:
     desc: "Hot reload with NO window: re-renders build/ui/hot.png + hot.json on every patch (agent loop)"

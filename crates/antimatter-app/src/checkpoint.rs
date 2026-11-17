@@ -4,31 +4,49 @@ use antimatter_services::{
     conversation::Intent,
 };
 
+// ponytail: at most one background save a second while typing; the poll tick flushes the
+// trailing edit and close always flushes. Upgrade: an idle debounce keyed on the last keystroke.
+const SAVE_EVERY: std::time::Duration = std::time::Duration::from_secs(1);
+
 impl State {
     pub(crate) fn autosave(&mut self) {
         self.publish_settings_accounts();
+        if self.last_save.is_none_or(|t| t.elapsed() >= SAVE_EVERY) {
+            self.save_changes();
+        }
+    }
+
+    fn save_changes(&mut self) {
         if self.durable.is_some()
             && !self.busy
+            && self.write_task.is_none()
             && !self.submitted
             && !self.recovered_pending
             && self.pending.is_none()
             && self.checkpoint_retry.is_none()
             && (self.snapshot() != self.drafts || self.navigation != self.committed_navigation)
         {
+            self.last_save = Some(std::time::Instant::now());
             self.checkpoint(AfterCheckpoint::Save);
         }
     }
 
+    fn wait_write(&mut self) {
+        if let (Some(task), Some(runtime)) = (self.write_task.take(), self.runtime.clone()) {
+            let _ = runtime.block_on(task);
+        }
+    }
+
     pub(crate) fn close(&mut self) {
-        self.autosave();
+        self.publish_settings_accounts();
         if self.auth_writing
             && let (Some(task), Some(runtime)) = (self.auth_task.take(), self.runtime.clone())
         {
             let _ = runtime.block_on(task);
         }
-        if let (Some(task), Some(runtime)) = (self.write_task.take(), self.runtime.clone()) {
-            let _ = runtime.block_on(task);
-        }
+        self.wait_write();
+        self.save_changes();
+        self.wait_write();
         self.epoch += 1;
         if let Some((AfterCheckpoint::Send(_), drafts, navigation)) = self.checkpoint_pending.take()
             && let (Some(store), Some(key), Some(runtime)) = (
@@ -54,6 +72,7 @@ impl State {
 
     pub(crate) fn blocked(&mut self) -> bool {
         if self.busy
+            || self.write_task.is_some()
             || self.checkpoint_retry.is_some()
             || self.submitted
             || self.pending.is_some()
@@ -144,7 +163,7 @@ impl State {
         };
         self.checkpoint_pending = Some((action.clone(), original_drafts, navigation.clone()));
         let epoch = self.epoch;
-        self.busy = true;
+        self.busy = !matches!(action, AfterCheckpoint::Save);
         if matches!(action, AfterCheckpoint::Send(_)) {
             self.drafts = drafts.clone();
         }

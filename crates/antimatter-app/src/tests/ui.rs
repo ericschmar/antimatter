@@ -25,7 +25,7 @@ fn synthetic_workspace_selection_and_lock_stay_local() {
     );
     rt.invalidate();
     rt.frame(0.0);
-    assert!(inert(&rt, "draft"));
+    assert!(!inert(&rt, "draft"));
     assert!(inert(&rt, "send"));
 }
 
@@ -39,6 +39,7 @@ fn send_tap_locks_composer_before_worker_acknowledges() {
     assert!(!inert(&rt, "draft"));
     assert!(!inert(&rt, "send"));
     tap(&mut rt, "send");
+    assert!(matches!(intents.try_recv(), Ok(Intent::Send(message)) if message == "keep text"));
     assert!(!rt.state.ready);
     assert!(rt.state.pending.is_none());
     assert_eq!(rt.state.draft.text, "keep text");
@@ -46,11 +47,9 @@ fn send_tap_locks_composer_before_worker_acknowledges() {
     rt.paste("late edit");
     rt.invalidate();
     rt.frame(0.0);
-    assert_eq!(rt.state.draft.text, "keep text");
-    assert!(inert(&rt, "draft"));
+    assert!(!inert(&rt, "draft"));
     assert!(inert(&rt, "send"));
     tap(&mut rt, "send");
-    assert!(matches!(intents.try_recv(), Ok(Intent::Send(message)) if message == "keep text"));
     assert!(intents.try_recv().is_err());
 }
 
@@ -821,7 +820,7 @@ fn composer_keeps_focus_through_send_and_acknowledgement() {
             .focused
     };
     assert!(rt.state.submitted);
-    assert!(!focused(&rt));
+    assert!(focused(&rt));
     rt.state.apply(Update::Pending(Some(pending())));
     rt.state.apply(Update::Pending(None));
     rt.invalidate();

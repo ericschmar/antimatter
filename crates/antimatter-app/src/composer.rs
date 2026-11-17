@@ -96,7 +96,6 @@ fn separator(k: &Kit) -> El {
 pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
     let k = workspace_theme();
     let edit = &s.draft;
-    let editing_locked = s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
     let block = edit.current_block();
     let mark = |m: Mark| edit.has_mark(&m);
     let bar_on = !s.raw;
@@ -112,6 +111,13 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
         )
     };
     let linked = edit.active_link().is_some();
+    let size = f32::from(s.composer_font_size);
+    let style = TextStyle {
+        size,
+        line_height: (size * 1.35 * 2.0).round() / 2.0,
+        family: crate::settings::font_family(s.composer_font_family),
+        ..k.ty.ui
+    };
     let bar = row()
         .key("toolbar")
         .gap(4.0)
@@ -202,12 +208,12 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
             "Message Markdown source",
             vec![],
             s.caret_on,
-            editing_locked,
+            style,
         )
         .on_edit(|s: &mut State| &mut s.source)
     } else {
         let spans = code_spans(&s.draft, &SyntaxTheme::from_kit(&k));
-        field(&k, &s.draft, "Message", spans, s.caret_on, editing_locked)
+        field(&k, &s.draft, "Message", spans, s.caret_on, style)
             .on_edit(|s: &mut State| &mut s.draft)
     };
     let area = rune::col()
@@ -222,17 +228,20 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
         .shadow_layers(k.elevation.input())
         .fold(area, |e, sh| e.box_shadow(sh))
         .key("draft");
-    (if editing_locked { area.inert() } else { area }, bar)
+    (area, bar)
 }
 
 // ponytail: rune paints a solid caret, so the blink is the caret colour's alpha, flipped from
 // `State::caret_on` by the poll hook; it does not restart on keystrokes.
-fn field(k: &Kit, edit: &TextEdit, label: &str, spans: Vec<Span>, on: bool, locked: bool) -> El {
+fn field(
+    k: &Kit,
+    edit: &TextEdit,
+    label: &str,
+    spans: Vec<Span>,
+    on: bool,
+    style: TextStyle,
+) -> El {
     let c = &k.c;
-    let style = TextStyle {
-        line_height: (13.0f32 * 1.35 * 2.0).round() / 2.0,
-        ..k.ty.ui
-    };
     let rich = RichStyle {
         link: c.text_accent,
         code_fg: None,
@@ -254,6 +263,5 @@ fn field(k: &Kit, edit: &TextEdit, label: &str, spans: Vec<Span>, on: bool, lock
         )
         .label(label)
         .description("")
-        .disabled(locked)
         .on_submit(|s: &mut State, _| s.send())
 }
