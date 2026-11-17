@@ -250,6 +250,7 @@ fn sidebar_groups_regular_channels_before_direct_messages_and_collapses() {
         display_name: "Peer".into(),
         kind: "D".into(),
         members: Vec::new(),
+        last_post_at: 0,
     });
     rt.invalidate();
     rt.frame(0.0);
@@ -277,6 +278,32 @@ fn sidebar_groups_regular_channels_before_direct_messages_and_collapses() {
     rt.frame(0.0);
     assert!(!keys(&rt).iter().any(|k| k == "channel-dm-peer"));
     assert!(keys(&rt).iter().any(|k| k == "direct-messages"));
+}
+
+#[test]
+fn newest_direct_message_sorts_first() {
+    let mut rt = synthetic_runtime();
+    rt.state.dms_collapsed = false;
+    for (id, at) in [("dm-old", 1), ("dm-new", 2)] {
+        rt.state.channels.push(Channel {
+            id: id.into(),
+            team_id: String::new(),
+            name: format!("me__{id}"),
+            display_name: id.into(),
+            kind: "D".into(),
+            members: Vec::new(),
+            last_post_at: at,
+        });
+    }
+    rt.invalidate();
+    rt.frame(0.0);
+    let keys: Vec<String> = rt
+        .elements()
+        .iter()
+        .filter_map(|e| e.key.clone())
+        .filter(|k| k == "channel-dm-old" || k == "channel-dm-new")
+        .collect();
+    assert_eq!(keys, ["channel-dm-new", "channel-dm-old"]);
 }
 
 #[test]

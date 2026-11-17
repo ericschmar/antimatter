@@ -1631,9 +1631,10 @@ pub(crate) fn workspace(s: &State) -> El {
     let (favorites, rest): (Vec<_>, Vec<_>) = rest
         .into_iter()
         .partition(|channel| s.navigation.favorites.contains(&channel.id));
-    let (direct, regular): (Vec<_>, Vec<_>) = rest
+    let (mut direct, regular): (Vec<_>, Vec<_>) = rest
         .into_iter()
         .partition(|channel| matches!(channel.kind.as_str(), "D" | "G"));
+    direct.sort_by_key(|channel| std::cmp::Reverse(channel.last_post_at));
     let point = s.channel_menu.clone();
     let channel = point.as_ref().map(|(id, _)| id.clone()).unwrap_or_default();
     let favorite = s.navigation.favorites.contains(&channel);

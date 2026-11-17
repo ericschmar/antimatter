@@ -184,9 +184,8 @@ fn main() {
                     display_name: "synthetic-third".into(),
                     kind: "O".into(),
                     members: Vec::new(),
+                    last_post_at: 0,
                 });
-            }),
-            ("workspace-history-proof", |s| {
                 synthetic_workspace(s);
                 s.has_older = true;
             }),

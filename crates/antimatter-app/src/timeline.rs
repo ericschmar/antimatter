@@ -188,6 +188,11 @@ impl State {
                 sender,
                 message,
             } => {
+                if let Some(channel) = self.channels.iter_mut().find(|c| c.id == channel_id) {
+                    channel.last_post_at = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map_or(0, |d| d.as_millis() as i64);
+                }
                 if self.channel.as_deref() != Some(channel_id.as_str()) && !self.synthetic {
                     self.notify_local(&channel_id, &sender, &message);
                 }
