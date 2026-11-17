@@ -10,7 +10,7 @@ use antimatter_theme::icons;
 use rune::{El, Icon, TextEdit, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
     ButtonVariant, ControlSize, Highlight, IconButton, IconButtonVariant, Markdown, MarkdownStyle,
-    MenuItem, ScrollBar, Select, SelectAppearance,
+    MenuItem, ScrollBar, ScrollBarStyle, Select, SelectAppearance,
 };
 
 pub(crate) const TITLEBAR: f32 = 40.0;
@@ -1812,7 +1812,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 .scroll(rune::ScrollSpec {
                     stick_bottom: false,
                 })
-                .scroll_bar(&k),
+                .scroll_bar_styled(ScrollBarStyle::scroll_view(&k)),
         )
         .child(channel_menu);
     let width = s.sidebar.width();
@@ -2066,7 +2066,7 @@ pub(crate) fn workspace(s: &State) -> El {
             ),
         );
     }
-    main = main.child(ledger.scroll_bar(&k));
+    main = main.child(ledger.scroll_bar_styled(ScrollBarStyle::scroll_view(&k)));
     if !searching {
         main = main
             .on_drop_files(|s: &mut State, files, _| s.attach(files))
