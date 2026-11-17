@@ -96,6 +96,7 @@ fn separator(k: &Kit) -> El {
 pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
     let k = workspace_theme();
     let edit = &s.draft;
+    let editing_locked = s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
     let block = edit.current_block();
     let mark = |m: Mark| edit.has_mark(&m);
     let bar_on = !s.raw;
@@ -201,12 +202,12 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
             "Message Markdown source",
             vec![],
             s.caret_on,
-            locked,
+            editing_locked,
         )
         .on_edit(|s: &mut State| &mut s.source)
     } else {
         let spans = code_spans(&s.draft, &SyntaxTheme::from_kit(&k));
-        field(&k, &s.draft, "Message", spans, s.caret_on, locked)
+        field(&k, &s.draft, "Message", spans, s.caret_on, editing_locked)
             .on_edit(|s: &mut State| &mut s.draft)
     };
     let area = rune::col()
@@ -221,7 +222,7 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
         .shadow_layers(k.elevation.input())
         .fold(area, |e, sh| e.box_shadow(sh))
         .key("draft");
-    (if locked { area.inert() } else { area }, bar)
+    (if editing_locked { area.inert() } else { area }, bar)
 }
 
 // ponytail: rune paints a solid caret, so the blink is the caret colour's alpha, flipped from

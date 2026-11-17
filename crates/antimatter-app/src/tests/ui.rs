@@ -96,6 +96,19 @@ fn switching_back_restores_the_cached_ledger_before_refresh() {
 }
 
 #[test]
+fn composer_stays_editable_during_refresh_but_send_is_blocked() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.ready = false;
+    rt.state.draft.text = "typing".into();
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(!inert(&rt, "draft"));
+    tap(&mut rt, "send");
+    assert!(intents.try_recv().is_err());
+}
+
+#[test]
 fn pending_acknowledgement_does_not_unlock_refresh() {
     let (sender, _intents) = mpsc::channel(8);
     let mut rt = ui(sender);
@@ -110,7 +123,7 @@ fn pending_acknowledgement_does_not_unlock_refresh() {
     assert!(rt.state.draft.text.is_empty());
     assert!(rt.state.pending.is_none());
     assert!(!rt.state.ready);
-    assert!(inert(&rt, "draft"));
+    assert!(!inert(&rt, "draft"));
     rt.state.apply(Update::Ready(true));
     rt.invalidate();
     rt.frame(0.0);

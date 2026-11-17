@@ -9,8 +9,8 @@ use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
 use rune::{El, Icon, TextEdit, TextStyle, col, el, icon, row as hbox, text};
 use rune_kit::{
-    ButtonVariant, ControlSize, Highlight, IconButton, IconButtonVariant, Markdown, MarkdownStyle,
-    MenuItem, ScrollBar, ScrollBarStyle, Select, SelectAppearance,
+    Button, ButtonVariant, ControlSize, Highlight, IconButton, IconButtonVariant, Markdown,
+    MarkdownStyle, MenuItem, ScrollBar, ScrollBarStyle, Select, SelectAppearance,
 };
 
 pub(crate) const TITLEBAR: f32 = 40.0;
@@ -2101,15 +2101,21 @@ pub(crate) fn workspace(s: &State) -> El {
                                 false,
                                 locked,
                             ))
-                            .child(button_as(
-                                ButtonVariant::Contrast,
-                                "send",
-                                "Send",
-                                locked
+                            .child({
+                                let disabled = locked
                                     || s.channel.is_none()
-                                    || (s.markdown().trim().is_empty() && s.attachments.is_empty()),
-                                |s| s.send(),
-                            )),
+                                    || (s.markdown().trim().is_empty() && s.attachments.is_empty());
+                                let send = Button::new("Send")
+                                    .variant(ButtonVariant::Contrast)
+                                    .disabled(disabled)
+                                    .on_press_tx(|s: &mut State, tx| {
+                                        s.send();
+                                        tx.focus("draft", false);
+                                    })
+                                    .build(&k)
+                                    .key("send");
+                                if disabled { send.inert() } else { send }
+                            }),
                     ),
             );
     }

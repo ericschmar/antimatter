@@ -55,6 +55,6 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] Our server dropdown shows the connection url for servers we aren't connected to, not their names
 [x] Move the "create channel" and "start dm" to the top of each list so it's right under the category
 [x] When a user get's a DM, move the channel in the sidebar to the top of the DM list
-[ ] typing in our composer randomly loses focus
-[ ] after sending a message, retain focus in the composer
+[x] typing in our composer randomly loses focus
+[x] after sending a message, retain focus in the composer
 [ ] implement message editing
