@@ -99,6 +99,7 @@ pub(crate) struct State {
     pub(crate) server_open: bool,
     pub(crate) notifications_enabled: bool,
     pub(crate) notification_sounds_enabled: bool,
+    pub(crate) name_colors: std::collections::BTreeMap<String, String>,
     pub(crate) last_active: Option<std::time::Instant>,
     pub(crate) new_menu: bool,
     pub(crate) new_dialog: Option<NewKind>,
@@ -597,8 +598,10 @@ impl State {
             return;
         }
         self.settings_rows = rows.clone();
+        let me = self.authenticated.as_ref().map(|k| k.user_id().to_owned());
         settings.update(move |s, _| {
             s.accounts = rows;
+            s.me = me;
             s.profile = Default::default();
             s.notify = Default::default();
         });
@@ -660,6 +663,7 @@ impl Default for State {
             server_open: false,
             notifications_enabled: true,
             notification_sounds_enabled: true,
+            name_colors: Default::default(),
             last_active: None,
             new_menu: false,
             new_dialog: None,

@@ -819,7 +819,10 @@ fn post_row(s: &State, i: usize) -> El {
                             text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
                                 .shrink()
                                 .font(k.ty.small)
-                                .color(c.text_muted)
+                                .color(crate::name_colors::color_for(
+                                    &s.name_colors,
+                                    &post.user_id,
+                                ))
                                 .truncate(),
                         ),
                 )

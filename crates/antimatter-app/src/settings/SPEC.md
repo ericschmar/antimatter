@@ -81,6 +81,7 @@ Title "Appearance". Subtitle "Control the density and visual treatment of your t
 | --- | --- | --- | --- | --- | --- |
 | Accent color | `accentColor` | `oceanBlue` | `onyx` (Onyx), `coral` (Coral), `oceanBlue` (Ocean Blue), `fern` (Fern), `amber` (Amber), `violet` (Violet), `custom` (Custom: `{"custom":[r,g,b]}`, bytes) | Accent for selection, primary buttons and the profile camera badge. Shown as swatches with names and selected state, plus a rainbow swatch that opens an inline saturation/value square and hue strip for a custom colour. | Deferred |
 | Font | `appFontFamily` | `system` | `system` (System), `rounded` (Rounded), `serif` (Serif), `monospaced` (Monospaced) | App font family. | Deferred |
+| Name color | `nameColors` | per-user palette slot | `{"<user id>":"#rrggbb"}` | Colour of the signed-in user's name in the ledger. Users without an entry get a colour from a 32-colour palette, chosen by a stable FNV-1a hash of their user id, so it is the same every run. The swatch opens the same colour picker as Accent color. | Live |
 | Theme | `theme` | `system` | `light` (Light), `dark` (Dark), `system` (System) | Selects the app theme. See Theme below. | Live |
 | Use compact message timeline | `compactTimeline` | on | boolean | Compact ledger rows. | Deferred |
 | Message spacing | `timelineMessageSpacing` | `medium` | `small` (Small), `medium` (Medium), `large` (Large) | Vertical padding per message: 1, 3 or 6 points. | Deferred |

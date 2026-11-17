@@ -5,6 +5,7 @@ mod composer;
 #[cfg(debug_assertions)]
 mod dev_login;
 mod markdown;
+mod name_colors;
 mod notifications;
 mod profile;
 mod scenes;
@@ -259,6 +260,7 @@ fn main() {
         prefs.notification_sounds_enabled,
     );
     let prefs_accent = prefs.accent_color;
+    let prefs_name_colors = prefs.name_colors.clone();
     let prefs_theme = crate::settings::theme_for(prefs.theme);
     let handle = app.handle();
     let (settings, settings_app) =
@@ -283,6 +285,7 @@ fn main() {
             accent: prefs_accent,
             notifications_enabled: prefs_notify.0,
             notification_sounds_enabled: prefs_notify.1,
+            name_colors: prefs_name_colors,
             ..State::default()
         };
         if !rune::is_headless() {

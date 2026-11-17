@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::Path};
+use std::{collections::BTreeMap, fs, io, path::Path};
 
 const VERSION: u32 = 1;
 pub const FILE_NAME: &str = "settings.json";
@@ -83,6 +83,9 @@ pub struct Settings {
     pub notification_sounds_enabled: bool,
     pub workspace_open_previews: bool,
     pub automatically_open_direct_messages_in_new_window: bool,
+    /// Name colours the user picked, as `#rrggbb`, keyed by Mattermost user id. Users without
+    /// an entry keep the colour assigned from the palette.
+    pub name_colors: BTreeMap<String, String>,
 }
 
 impl Default for Settings {
@@ -101,6 +104,7 @@ impl Default for Settings {
             notification_sounds_enabled: true,
             workspace_open_previews: true,
             automatically_open_direct_messages_in_new_window: false,
+            name_colors: BTreeMap::new(),
         }
     }
 }
@@ -198,6 +202,21 @@ mod tests {
         };
         save(&path, &changed).unwrap();
         assert_eq!(load(&path).unwrap(), changed);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn name_colors_persist_and_older_files_load_without_them() {
+        let dir = root("name-colors");
+        let path = dir.join(FILE_NAME);
+        let mut changed = Settings::default();
+        changed
+            .name_colors
+            .insert("user-a".into(), "#be4a2f".into());
+        save(&path, &changed).unwrap();
+        assert_eq!(load(&path).unwrap().name_colors, changed.name_colors);
+        fs::write(&path, br#"{"version":1,"settings":{"messageFontSize":15}}"#).unwrap();
+        assert!(load(&path).unwrap().name_colors.is_empty());
         let _ = fs::remove_dir_all(dir);
     }
 

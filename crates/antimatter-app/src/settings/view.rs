@@ -23,6 +23,9 @@ pub(crate) struct SettingsState {
     /// The custom-colour picker is expanded, and its colour as hue, saturation, value.
     pub(crate) picker_open: bool,
     pub(crate) picker_hsv: (f32, f32, f32),
+    /// The signed-in user, whose name colour the picker edits when it is not the accent.
+    pub(crate) me: Option<String>,
+    pub(crate) name_picker_open: bool,
 }
 
 /// One saved account as Settings shows it. The workspace owns the account data.
@@ -65,6 +68,8 @@ impl SettingsState {
             notify: Default::default(),
             picker_open: false,
             picker_hsv: (0.0, 0.0, 1.0),
+            me: None,
+            name_picker_open: false,
         }
     }
 
@@ -96,10 +101,12 @@ impl SettingsState {
             self.prefs.notification_sounds_enabled,
         );
         let theme = theme_for(self.prefs.theme);
+        let name_colors = self.prefs.name_colors.clone();
         self.workspace_action(move |ws| {
             ws.accent = accent;
             ws.notifications_enabled = notify.0;
             ws.notification_sounds_enabled = notify.1;
+            ws.name_colors = name_colors;
             ws.theme = theme;
             ws.message_font_size = message_font_size;
             ws.message_spacing = message_spacing;
@@ -306,6 +313,7 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                 )
                 .on_press(move |s: &mut SettingsState| {
                     s.picker_open = !s.picker_open;
+                    s.name_picker_open = false;
                     if let settings::AccentColor::Custom(r, g, b) = s.prefs.accent_color {
                         s.picker_hsv = rgb_to_hsv(r, g, b);
                     }
@@ -320,6 +328,41 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                 .build(k, layer);
             swatches = swatches.child(picker);
             let accent_cell = swatches;
+            let name_color = s
+                .me
+                .as_deref()
+                .map_or(k.c.text_muted, |me| crate::name_colors::color_for(&s.prefs.name_colors, me));
+            let name_swatch = el()
+                .key("name-color")
+                .role("button")
+                .label("Name color")
+                .expanded(s.name_picker_open)
+                .focusable(true)
+                .size(24.0, 24.0)
+                .radius(12.0)
+                .fill(name_color)
+                .border(2.0, k.c.border_base)
+                .on_press(move |s: &mut SettingsState| {
+                    s.name_picker_open = !s.name_picker_open;
+                    s.picker_open = false;
+                    if let Some(rgb) = s
+                        .me
+                        .as_deref()
+                        .and_then(|me| s.prefs.name_colors.get(me))
+                        .and_then(|hex| crate::name_colors::parse(hex))
+                    {
+                        s.picker_hsv = rgb_to_hsv(rgb.0, rgb.1, rgb.2);
+                    }
+                });
+            let name_picker = rune_kit::Popover::new("name-picker")
+                .trigger(name_swatch)
+                .label("Name color")
+                .open(s.name_picker_open)
+                .placement(rune_kit::Placement::BottomStart)
+                .on_close(|s: &mut SettingsState| s.name_picker_open = false)
+                .child(color_picker(s))
+                .build(k, layer);
+            let name_cell = el().child(name_picker);
             let font_index = FONTS.iter().position(|f| *f == s.prefs.app_font_family);
             let theme_index = THEMES.iter().position(|t| *t == s.prefs.theme);
             let spacing_index = SPACINGS
@@ -332,6 +375,7 @@ fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
                     k,
                     vec![
                         row_frame(k, "Accent color").child(accent_cell),
+                        row_frame(k, "Name color").child(name_cell),
                         choice_row(k, "Font", &FONTS.map(font_name), font_index, |s, i, _| {
                             s.change(|p| p.app_font_family = FONTS[i])
                         }),
@@ -829,7 +873,16 @@ fn apply_hsv(s: &mut SettingsState, hsv: (f32, f32, f32)) {
     s.picker_hsv = hsv;
     let (r, g, b) = hsv_to_rgb(hsv.0, hsv.1, hsv.2);
     // ponytail: every drag step persists settings.json; upgrade is saving on pointer-up only.
-    s.change(|p| p.accent_color = settings::AccentColor::Custom(r, g, b));
+    if s.name_picker_open {
+        if let Some(me) = s.me.clone() {
+            let hex = crate::name_colors::format((r, g, b));
+            s.change(|p| {
+                p.name_colors.insert(me, hex);
+            });
+        }
+    } else {
+        s.change(|p| p.accent_color = settings::AccentColor::Custom(r, g, b));
+    }
 }
 
 /// A saturation/value square over the chosen hue, and a hue strip.
