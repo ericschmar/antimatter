@@ -1682,16 +1682,14 @@ pub(crate) fn workspace(s: &State) -> El {
         regular.len(),
         s.channels_collapsed,
         |s: &mut State, _| s.channels_collapsed = !s.channels_collapsed,
-        regular
-            .into_iter()
-            .map(|channel| channel_row(s, channel, locked, &k))
-            .chain([new_row(
-                "create-channel",
-                "Create channel…",
-                NewKind::Channel,
-                &k,
-            )])
-            .collect(),
+        std::iter::once(new_row(
+            "create-channel",
+            "Create channel…",
+            NewKind::Channel,
+            &k,
+        ))
+        .chain(regular.into_iter().map(|channel| channel_row(s, channel, locked, &k)))
+        .collect(),
         &k,
     ));
     sidebar = sidebar.child(section(
@@ -1700,16 +1698,14 @@ pub(crate) fn workspace(s: &State) -> El {
         direct.len(),
         s.dms_collapsed,
         |s: &mut State, _| s.dms_collapsed = !s.dms_collapsed,
-        direct
-            .into_iter()
-            .map(|channel| channel_row(s, channel, locked, &k))
-            .chain([new_row(
-                "start-dm",
-                "Start direct message…",
-                NewKind::Dm,
-                &k,
-            )])
-            .collect(),
+        std::iter::once(new_row(
+            "start-dm",
+            "Start direct message…",
+            NewKind::Dm,
+            &k,
+        ))
+        .chain(direct.into_iter().map(|channel| channel_row(s, channel, locked, &k)))
+        .collect(),
         &k,
     ));
     if !archived.is_empty() {
