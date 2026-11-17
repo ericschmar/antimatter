@@ -96,6 +96,36 @@ fn switching_back_restores_the_cached_ledger_before_refresh() {
 }
 
 #[test]
+fn editing_a_message_dispatches_an_edit_not_a_new_send() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    let mut post = post("sent");
+    post.message = "original".into();
+    rt.state.begin_edit(&post);
+    assert_eq!(rt.state.draft.text, "original");
+    rt.state.draft = rune::TextEdit::new("revised");
+    rt.state.ready = true;
+    rt.state.send();
+    assert!(matches!(
+        intents.try_recv(),
+        Ok(Intent::Edit(id, message)) if id == "sent" && message == "revised"
+    ));
+    assert!(rt.state.editing.is_none());
+    assert!(intents.try_recv().is_err());
+}
+
+#[test]
+fn cancelling_an_edit_clears_the_composer() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.begin_edit(&post("sent"));
+    rt.state.cancel_edit();
+    assert!(rt.state.editing.is_none());
+    assert!(rt.state.draft.text.is_empty());
+    assert!(intents.try_recv().is_err());
+}
+
+#[test]
 fn composer_stays_editable_during_refresh_but_send_is_blocked() {
     let (sender, mut intents) = mpsc::channel(8);
     let mut rt = ui(sender);

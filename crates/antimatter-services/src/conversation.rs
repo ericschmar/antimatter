@@ -31,6 +31,7 @@ pub enum Intent {
     Members(String),
     Presence(Vec<String>),
     Send(String),
+    Edit(String, String),
     Attach(Vec<std::path::PathBuf>),
     Root(String),
     Retry,
@@ -310,6 +311,21 @@ impl Worker {
                 Intent::Attach(paths) => {
                     self.uploads = paths;
                     Ok(())
+                }
+                Intent::Edit(post_id, message) => {
+                    if self.pending.is_some() || message.trim().is_empty() || post_id.is_empty() {
+                        return Err(Failure::InvalidInput);
+                    }
+                    let reply = self
+                        .client
+                        .patch_post(&post_id, &serde_json::json!({ "message": message }))
+                        .await
+                        .map_err(|_| Failure::Send)?;
+                    let post: Post = serde_json::from_value(reply).map_err(|_| Failure::Reconcile)?;
+                    if post.id != post_id {
+                        return Err(Failure::Reconcile);
+                    }
+                    self.accept(post, true).await
                 }
                 Intent::Root(root) => {
                     self.root = root;

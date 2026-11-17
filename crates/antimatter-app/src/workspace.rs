@@ -899,6 +899,24 @@ fn post_row(s: &State, i: usize) -> El {
                                 .build(&k)
                                 .key("post-reply"),
                         )
+                        .children(
+                            (s.authenticated.as_ref().map(|key| key.user_id()) == Some(post.user_id.as_str()))
+                                .then(|| {
+                                    IconButton::new(&icons::PENCIL_SIMPLE)
+                                        .label("Edit")
+                                        .control_size(ControlSize::Small)
+                                        .variant(IconButtonVariant::Ghost)
+                                        .on_press_tx({
+                                            let post = post.clone();
+                                            move |s: &mut State, tx| {
+                                                s.begin_edit(&post);
+                                                tx.focus("draft", false);
+                                            }
+                                        })
+                                        .build(&k)
+                                        .key("post-edit")
+                                }),
+                        )
                         .child(emoji_picker_trigger(s, post, &k)),
                 ),
         )
@@ -1574,6 +1592,44 @@ fn reply_chip(s: &State, k: &rune_kit::Kit) -> Option<El> {
     )
 }
 
+fn edit_chip(s: &State, k: &rune_kit::Kit) -> Option<El> {
+    let post = s.editing.as_ref()?;
+    let snippet = post.message.lines().find(|l| !l.trim().is_empty()).unwrap_or_default().to_owned();
+    Some(
+        rune::row()
+            .key("edit-chip")
+            .w_full()
+            .gap(6.0)
+            .center_y()
+            .child(
+                icon(&icons::PENCIL_SIMPLE, 12.0)
+                    .color(k.c.icon_muted)
+                    .a11y_hidden(),
+            )
+            .child(
+                text("Editing message")
+                    .font(k.ty.small_medium)
+                    .color(k.c.text_muted),
+            )
+            .child(
+                text(snippet)
+                    .font(k.ty.small)
+                    .color(k.c.text_faint)
+                    .truncate()
+                    .shrink(),
+            )
+            .child(
+                IconButton::new(&icons::X)
+                    .label("Cancel edit")
+                    .control_size(ControlSize::Small)
+                    .variant(IconButtonVariant::Ghost)
+                    .on_press(|s: &mut State| s.cancel_edit())
+                    .build(k)
+                    .key("edit-cancel"),
+            ),
+    )
+}
+
 fn attachment_pills(s: &State, k: &rune_kit::Kit) -> Option<El> {
     if s.attachments.is_empty() {
         return None;
@@ -2077,6 +2133,7 @@ pub(crate) fn workspace(s: &State) -> El {
                     .gap(8.0)
                     .fill(c.layer_01)
                     .children(reply_chip(s, &k))
+                    .children(edit_chip(s, &k))
                     .children(attachment_pills(s, &k))
                     .child(composer)
                     .child(

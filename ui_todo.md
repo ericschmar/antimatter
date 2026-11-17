@@ -57,4 +57,4 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 [x] When a user get's a DM, move the channel in the sidebar to the top of the DM list
 [x] typing in our composer randomly loses focus
 [x] after sending a message, retain focus in the composer
-[ ] implement message editing
+[x] implement message editing

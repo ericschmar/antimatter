@@ -940,6 +940,30 @@ async fn unread_deltas_ignore_own_current_and_spoofed_events() {
 }
 
 #[tokio::test]
+async fn edit_patches_the_post_and_publishes_the_change() {
+    let mut edited = post("sent", "");
+    edited.message = "revised".into();
+    edited.update_at = 200;
+    let (mut worker, mut rx, server) = scripted(vec![Some((
+        200,
+        serde_json::to_value(&edited).unwrap(),
+    ))])
+    .await;
+    worker.pending = None;
+    worker
+        .intent(Intent::Edit("sent".into(), "revised".into()))
+        .await
+        .unwrap();
+    assert!(matches!(
+        rx.try_recv(),
+        Ok(Update::Upsert(p)) if p.id == "sent" && p.message == "revised"
+    ));
+    let requests = server.finish().await;
+    assert!(requests.iter().any(|r| r.starts_with("PUT /api/v4/posts/sent/patch ")));
+    assert!(!requests.iter().any(|r| r.starts_with("POST /api/v4/posts ")));
+}
+
+#[tokio::test]
 async fn retry_fails_closed_on_missing_terminal_proof() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let origin =

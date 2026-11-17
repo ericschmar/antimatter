@@ -82,6 +82,19 @@ impl State {
         self.reply_to = Some(post.clone());
     }
 
+    pub(crate) fn begin_edit(&mut self, post: &antimatter_services::mattermost::Post) {
+        self.editing = Some(post.clone());
+        self.reply_to = None;
+        self.attachments.clear();
+        self.raw = false;
+        self.draft = from_markdown(&post.message);
+    }
+
+    pub(crate) fn cancel_edit(&mut self) {
+        self.editing = None;
+        self.clear_draft();
+    }
+
     pub(crate) fn toggle_raw(&mut self) {
         if self.raw {
             self.draft = from_markdown(&self.source.text);
@@ -136,6 +149,15 @@ impl State {
             || self.channel.is_none()
             || (self.markdown().trim().is_empty() && self.attachments.is_empty())
         {
+            return;
+        }
+        if let Some(post) = self.editing.take() {
+            let message = self.markdown();
+            if self.dispatch(Intent::Edit(post.id.clone(), message)) {
+                self.clear_draft();
+            } else {
+                self.editing = Some(post);
+            }
             return;
         }
         self.checkpoint(AfterCheckpoint::Send(self.markdown()));
