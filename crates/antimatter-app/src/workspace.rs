@@ -294,6 +294,16 @@ fn post_time(create_at: i64) -> String {
         .unwrap_or_default()
 }
 
+const AUTHOR_RUN_MS: i64 = 5 * 60 * 1000;
+
+fn continues_author_run(previous: Option<&Post>, post: &Post) -> bool {
+    previous.is_some_and(|prev| {
+        prev.user_id == post.user_id
+            && post.create_at - prev.create_at <= AUTHOR_RUN_MS
+            && post_day(prev.create_at) == post_day(post.create_at)
+    })
+}
+
 fn presence_dot(status: Option<&str>, c: &rune_kit::Palette) -> rune::Color {
     match status {
         Some("online") => rune::color::hex("#46a758").expect("valid presence color"),
@@ -750,8 +760,10 @@ fn post_row(s: &State, i: usize) -> El {
     let posts = s.search_results.as_ref().unwrap_or(&s.posts);
     let post = &posts[i];
     let searching = s.search_results.is_some();
-    let previous_day = i.checked_sub(1).and_then(|p| post_day(posts[p].create_at));
+    let previous = i.checked_sub(1).map(|p| &posts[p]);
+    let previous_day = previous.and_then(|p| post_day(p.create_at));
     let day = post_day(post.create_at);
+    let continued = !searching && post.root_id.is_empty() && continues_author_run(previous, post);
     let line = (f32::from(s.message_font_size) * 1.6).max(if s.show_timeline_avatars {
         f32::from(s.avatar_size)
     } else {
@@ -814,8 +826,8 @@ fn post_row(s: &State, i: usize) -> El {
                         .shrink()
                         .gap(6.0)
                         .center_y()
-                        .child(author_marker(s, post, c))
-                        .child(
+                        .children((!continued).then(|| author_marker(s, post, c)))
+                        .children((!continued).then(|| {
                             text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
                                 .shrink()
                                 .font(k.ty.small)
@@ -823,14 +835,18 @@ fn post_row(s: &State, i: usize) -> El {
                                     &s.name_colors,
                                     &post.user_id,
                                 ))
-                                .truncate(),
-                        ),
+                                .truncate()
+                        })),
                 )
                 .child(
                     rune::row().h(line).center_y().shrink().child(
                         text(post_time(post.create_at))
                             .font(k.ty.small)
-                            .color(c.text_muted)
+                            .color(if continued {
+                                rune::Color::TRANSPARENT
+                            } else {
+                                c.text_muted
+                            })
                             .shrink(),
                     ),
                 )

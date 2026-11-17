@@ -58,7 +58,8 @@ loaded post, using the `before` cursor, prepended as `Update::Older` with `has_o
 absent from the newest page, so offline deletions in the newest window still drop.
 Refresh also reads per-channel unread counts (`ChannelUnread`, bounded concurrency,
 advisory on failure) and, after the active channel's timeline is published, posts
-the channel-view request (best effort, idempotent). `posted`/`channel_viewed`
+the channel-view request (best effort, idempotent). Peer avatars are fetched
+concurrently (bounded) after `Ready(true)`, so neither the sidebar nor the channel waits on them. `posted`/`channel_viewed`
 events adjust counts without ever acknowledging pending sends.
 
 Display names are best effort and advisory. Direct channels (`D`, `id1__id2`) resolve

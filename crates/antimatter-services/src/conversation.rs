@@ -503,12 +503,10 @@ impl Worker {
             let statuses: HashMap<_, _> = statuses.into_iter().collect();
             self.emit(Update::PeerPresence(statuses)).await;
         }
-        for peer in peers {
-            if self.avatars.insert(peer.clone()) {
-                let bytes = self.client.custom_profile_image(&peer).await.ok();
-                self.emit(Update::PeerAvatar(peer, bytes)).await;
-            }
-        }
+        let fresh_peers: Vec<_> = peers
+            .into_iter()
+            .filter(|peer| !self.avatars.contains(peer))
+            .collect();
         let ids: Vec<_> = channels.iter().map(|c| c.id.clone()).collect();
         let client = &self.client;
         let fetched: Vec<_> = stream::iter(ids)
@@ -542,6 +540,16 @@ impl Worker {
             unread,
         })
         .await;
+        let client = self.client.clone();
+        let mut avatars = stream::iter(fresh_peers)
+            .map(|peer| {
+                let client = client.clone();
+                async move {
+                    let bytes = client.custom_profile_image(&peer).await.ok();
+                    (peer, bytes)
+                }
+            })
+            .buffered(8);
         if let Some(channel) = self.channel.clone() {
             let detail = self
                 .client
@@ -612,6 +620,10 @@ impl Worker {
             self.view(&channel).await;
         }
         self.emit(Update::Ready(true)).await;
+        while let Some((peer, bytes)) = avatars.next().await {
+            self.avatars.insert(peer.clone());
+            self.emit(Update::PeerAvatar(peer, bytes)).await;
+        }
         Ok(())
     }
 
