@@ -145,13 +145,7 @@ fn thread_row(s: &State, thread: &ThreadPreview, k: &rune_kit::Kit) -> El {
         .hover_group()
         .hover_motion(rune::Anim::INSTANT, rune::Anim::INSTANT)
         .focusable(true)
-        .child(lines)
-        .child(count_badge(
-            format!("thread-badge-{}", thread.id),
-            thread.unread_replies.max(thread.unread_mentions),
-            18.0,
-            k,
-        ));
+        .child(lines);
     k.interactive(row)
         .on_press_tx(move |s: &mut State, tx| s.open_thread(&id, tx))
 }

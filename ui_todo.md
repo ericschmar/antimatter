@@ -48,7 +48,7 @@ Review https://github.com/hakergeniusz/emoxidize/blob/main/SPEC.md#4-main-window
 ------- User Review ---------
 [x] Add ledger caching so switching from channel A -> channel B -> back to channel A loads much faster
 [x] The background color to the channel header is the same as the tabs above it, and the ledger too, so visually it's a little confusing. I think the header and tab background should be a slightly lighter color--maybe the same as the channel list?
-[ ] Channel sidebar -> reply previews--I don't think we need the indicator of number of messages
+[x] Channel sidebar -> reply previews--I don't think we need the indicator of number of messages
 [ ] Notifications -> Show user who sent the message + Channel and then a preview of the message
 [ ] Are the live status indicators working? I see everyone with an orange dot including myself, despite knowing people are active. 
 [ ] Can we hide scroll bars until the user actually scrolls?
