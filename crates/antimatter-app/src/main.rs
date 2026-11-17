@@ -232,6 +232,7 @@ fn main() {
         ],
         poll: Some(|s, clock, tx| {
             const HALF: f64 = 0.53;
+            s.touch_active();
             tx.wake_after(std::time::Duration::from_secs_f64(HALF - clock % HALF));
             let on = ((clock / HALF) as u64).is_multiple_of(2);
             std::mem::replace(&mut s.caret_on, on) != on

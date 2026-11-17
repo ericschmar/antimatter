@@ -294,7 +294,7 @@ fn post_time(create_at: i64) -> String {
 
 fn presence_dot(status: Option<&str>, c: &rune_kit::Palette) -> rune::Color {
     match status {
-        Some("online") => c.success.icon,
+        Some("online") => rune::color::hex("#46a758").expect("valid presence color"),
         Some("away") | Some("dnd") => c.warning.icon,
         _ => c.icon_muted,
     }
@@ -1105,11 +1105,7 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let mut stack = rune::row().gap(-6.0).center_y();
     for user_id in s.members.iter().take(5) {
-        let dot = match s.peer_presence.get(user_id).map(String::as_str) {
-            Some("online") => c.success.icon,
-            Some("away") | Some("dnd") => c.warning.icon,
-            _ => c.icon_muted,
-        };
+        let dot = presence_dot(s.peer_presence.get(user_id).map(String::as_str), c);
         let avatar = match s.avatars.user(user_id) {
             Some(image) => el()
                 .size(24.0, 24.0)
@@ -1159,11 +1155,7 @@ fn member_stack(s: &State, k: &rune_kit::Kit) -> El {
 fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
     let me = s.authenticated.as_ref();
-    let dot = match s.presence.as_str() {
-        "online" => c.success.icon,
-        "away" | "dnd" => c.warning.icon,
-        _ => c.icon_muted,
-    };
+    let dot = presence_dot(Some(s.presence.as_str()), c);
     let image = me.and_then(|key| s.avatars.user(key.user_id()));
     let mut avatar = rune::row()
         .key("user-avatar")
@@ -1404,11 +1396,7 @@ fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) ->
     if channel.kind == "D"
         && let Some(peer) = dm_peer(s, &channel.name)
     {
-        let dot = match s.peer_presence.get(peer).map(String::as_str) {
-            Some("online") => k.c.success.icon,
-            Some("away") | Some("dnd") => k.c.warning.icon,
-            _ => k.c.icon_muted,
-        };
+        let dot = presence_dot(s.peer_presence.get(peer).map(String::as_str), &k.c);
         let avatar = match s.avatars.user(peer) {
             Some(image) => el().size(22.0, 22.0).radius(11.0).pixels(image.pixels()),
             None => el().size(22.0, 22.0).radius(11.0).fill(k.c.layer_02),
@@ -2150,5 +2138,19 @@ mod mention_tests {
     fn finds_here_and_me_only_at_word_starts() {
         let m = "@here hi @Ada, not a@ada or @bob";
         assert_eq!(mentions(m, Some("ada")), vec![(0..5, false), (9..13, true)]);
+    }
+}
+
+#[cfg(test)]
+mod presence_tests {
+    use super::presence_dot;
+
+    #[test]
+    fn online_is_green_and_away_is_not() {
+        let kit = crate::theme::workspace_theme();
+        let green = rune::color::hex("#46a758").unwrap();
+        assert_eq!(presence_dot(Some("online"), &kit.c), green);
+        assert_ne!(presence_dot(Some("away"), &kit.c), green);
+        assert_eq!(presence_dot(None, &kit.c), kit.c.icon_muted);
     }
 }

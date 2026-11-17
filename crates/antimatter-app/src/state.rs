@@ -232,9 +232,12 @@ impl State {
             return;
         }
         let now = std::time::Instant::now();
+        let Some(input) = rune::last_input() else {
+            return;
+        };
         if self
             .last_active
-            .is_some_and(|t| now.duration_since(t) < EVERY)
+            .is_some_and(|t| now.duration_since(t) < EVERY || input <= t)
         {
             return;
         }
