@@ -262,13 +262,6 @@ impl Worker {
                     self.posts.clear();
                     self.has_older = false;
                     self.older.clear();
-                    self.emit(Update::Timeline {
-                        channel_id: channel,
-                        posts: vec![],
-                        names: HashMap::new(),
-                        has_older: false,
-                    })
-                    .await;
                     if dropped {
                         self.all_threads().await;
                     }

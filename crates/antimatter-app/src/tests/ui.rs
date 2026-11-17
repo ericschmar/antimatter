@@ -82,6 +82,20 @@ fn enter_in_the_composer_sends_and_shift_enter_breaks_the_line() {
 }
 
 #[test]
+fn switching_back_restores_the_cached_ledger_before_refresh() {
+    let (sender, _intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.posts = vec![post("a")];
+    rt.state.has_older = true;
+    rt.state.load("other".into());
+    assert!(rt.state.posts.is_empty());
+    rt.state.ready = true;
+    rt.state.load("c".into());
+    assert_eq!(rt.state.posts.len(), 1);
+    assert!(rt.state.has_older);
+}
+
+#[test]
 fn pending_acknowledgement_does_not_unlock_refresh() {
     let (sender, _intents) = mpsc::channel(8);
     let mut rt = ui(sender);

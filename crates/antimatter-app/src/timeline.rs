@@ -95,10 +95,14 @@ impl State {
         self.search_results = None;
         if self.dispatch(Intent::Load(channel.clone())) {
             self.note_open(&channel);
+            if let Some(previous) = self.channel.take() {
+                let posts = std::mem::take(&mut self.posts);
+                self.ledger_cache.insert(previous, (posts, self.has_older));
+            }
+            (self.posts, self.has_older) = self.ledger_cache.remove(&channel).unwrap_or_default();
             self.channel = Some(channel.clone());
             self.navigation.channel_id = Some(channel.clone());
             self.restore_draft(&channel);
-            self.posts.clear();
             self.members.clear();
             self.ready = false;
             self.loading_older = false;
