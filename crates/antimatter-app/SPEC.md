@@ -119,7 +119,10 @@ sentinel row at the top takes that flag from its `on_layout` handler, consumes i
 loading page shows Phosphor's spinner (`ph-spinner`, `antimatter-theme/src/loader.rs`) in place
 of the sentinel; there is no load button. Requests are inert while busy,
 submitted, pending, recovered, not ready, synthetic, or when no older history is known.
-The ledger uses `scroll_anchor()` so prepended rows keep the visible row in place.
+The ledger uses `scroll_anchor()` so prepended rows keep the visible row in place. Posts are
+built with `virtual_rows`, so only rows in the mounted window exist; each row carries its day
+header and reply quote. The emoji picker and multi-image menu are built once at the window root,
+anchored to their post's trigger, and close when that post scrolls out of the window.
 Synthetic scenes `workspace-history-proof`, `workspace-loading-older-proof` and
 `workspace-scroll-history-proof` show the control, spinner and scrollable history; live
 paging is not verified.

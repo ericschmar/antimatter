@@ -362,7 +362,27 @@ const EMOJI_TABS: [emojis::Group; 9] = [
     emojis::Group::Flags,
 ];
 
-fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
+fn emoji_picker_trigger(s: &State, post: &Post, k: &rune_kit::Kit) -> El {
+    let open = s.emoji_picker.as_deref() == Some(post.id.as_str());
+    let id = post.id.clone();
+    rune::row()
+        .key(format!("emoji-picker-{}-trigger", post.id))
+        .child(
+            IconButton::new(&icons::SMILEY)
+                .label("Add reaction")
+                .control_size(ControlSize::Small)
+                .variant(IconButtonVariant::Ghost)
+                .on_press(move |s: &mut State| {
+                    s.emoji_query = TextEdit::default();
+                    s.emoji_picker = Some(id.clone());
+                })
+                .build(k)
+                .key("post-react")
+                .expanded(open),
+        )
+}
+
+fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) {
     let c = &k.c;
     let query = s.emoji_query.text.trim().to_lowercase();
     let pick = |post_id: &str, name: String| {
@@ -461,22 +481,8 @@ fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) 
             None,
         ));
     }
-    let open = s.emoji_picker.as_deref() == Some(post.id.as_str());
-    let id = post.id.clone();
     rune_kit::Popover::new(format!("emoji-picker-{}", post.id))
-        .trigger(
-            IconButton::new(&icons::SMILEY)
-                .label("Add reaction")
-                .control_size(ControlSize::Small)
-                .variant(IconButtonVariant::Ghost)
-                .on_press(move |s: &mut State| {
-                    s.emoji_query = TextEdit::default();
-                    s.emoji_picker = Some(id.clone());
-                })
-                .build(k)
-                .key("post-react"),
-        )
-        .open(open)
+        .open(true)
         .padding(8.0)
         .on_close(|s: &mut State| s.emoji_picker = None)
         .child(
@@ -515,7 +521,7 @@ fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) 
                         .child(grid),
                 ),
         )
-        .build(k, layer)
+        .build(k, layer);
 }
 
 fn reaction_pills(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
@@ -638,7 +644,7 @@ fn code_frame(k: &rune_kit::Kit, card: El, code: &rune_kit::CodeFrame<'_>) -> El
         .child(card)
 }
 
-fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::Kit) -> Option<El> {
+fn image_attachments(post: &Post, k: &rune_kit::Kit) -> Option<El> {
     let images: Vec<_> = post
         .metadata
         .files
@@ -689,7 +695,6 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
         }
         many => {
             let id = post.id.clone();
-            let open = s.image_menu.as_deref() == Some(post.id.as_str());
             let layers = many.len().min(3) - 1;
             let trigger = chip(
                 format!("images-{}", post.id),
@@ -713,22 +718,194 @@ fn image_attachments(s: &State, post: &Post, layer: &mut Vec<El>, k: &rune_kit::
                     ),
                 );
             }
-            let mut menu = rune_kit::Menu::new(format!("images-menu-{}", post.id))
-                .trigger(stack.child(trigger))
-                .open(open)
-                .on_close(|s: &mut State| s.image_menu = None);
-            for file in many {
-                let target = (*file).clone();
-                menu = menu.item(MenuItem::new(file.name.clone()).on_select(
-                    move |s: &mut State| {
-                        s.image_menu = None;
-                        s.open_file(target.clone());
-                    },
-                ));
-            }
-            Some(rune::row().child(menu.build(k, layer)))
+            Some(
+                rune::row()
+                    .key(format!("images-menu-{}-trigger", post.id))
+                    .child(stack.child(trigger)),
+            )
         }
     }
+}
+
+fn image_menu(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mut Vec<El>) {
+    let images: Vec<_> = post.metadata.files.iter().filter(|f| f.is_image()).collect();
+    if images.len() < 2 || s.image_menu.as_deref() != Some(post.id.as_str()) {
+        return;
+    }
+    let mut menu = rune_kit::Menu::new(format!("images-menu-{}", post.id))
+        .open(true)
+        .on_close(|s: &mut State| s.image_menu = None);
+    for file in images {
+        let target = (*file).clone();
+        menu = menu.item(MenuItem::new(file.name.clone()).on_select(
+            move |s: &mut State| {
+                s.image_menu = None;
+                s.open_file(target.clone());
+            },
+        ));
+    }
+    menu.build(k, layer);
+}
+
+
+fn post_row(s: &State, i: usize) -> El {
+    let k = workspace_theme();
+    let c = &k.c;
+    let posts = s.search_results.as_ref().unwrap_or(&s.posts);
+    let post = &posts[i];
+    let searching = s.search_results.is_some();
+    let previous_day = i.checked_sub(1).and_then(|p| post_day(posts[p].create_at));
+    let day = post_day(post.create_at);
+    let line = (f32::from(s.message_font_size) * 1.6).max(if s.show_timeline_avatars {
+        f32::from(s.avatar_size)
+    } else {
+        0.0
+    });
+    let target = post.channel_id.clone();
+    let mut row = rune::row();
+    if s.focus_post.as_deref() == Some(post.id.as_str()) {
+        let key = format!("post-{}", post.id);
+        row = row.on_layout_tx(move |s: &mut State, _, tx| {
+            if s.focus_post.take().is_some() {
+                tx.scroll_into_view(key.clone());
+            }
+        });
+    }
+    if searching {
+        row = row
+            .role("button")
+            .label(format!("Open {}", post.message))
+            .focusable(true)
+            .cursor(rune::Cursor::Pointer)
+            .on_press(move |s: &mut State| {
+                s.search_results = None;
+                s.load(target.clone());
+            });
+    }
+    let mut block = col();
+    if day != previous_day
+        && let Some(day) = day
+    {
+        block = block.child(
+            rune::row()
+                .w_full()
+                .px(16.0)
+                .py(8.0)
+                .gap(8.0)
+                .center_y()
+                .child(el().grow(1.0).h(1.0).fill(c.border_muted))
+                .child(
+                    text(day.format("%B %-d, %Y").to_string())
+                        .font(k.ty.small)
+                        .color(c.text_muted),
+                )
+                .child(el().grow(1.0).h(1.0).fill(c.border_muted)),
+        );
+    }
+    block
+        .children(reply_quote(s, post, &k))
+        .child(
+            row.w_full()
+                .gap(8.0)
+                .px(16.0)
+                .py(post_padding(s.message_spacing))
+                .hover(c.hover)
+                .hover_group()
+                .child(
+                    rune::row()
+                        .w(120.0)
+                        .h(line)
+                        .shrink()
+                        .gap(6.0)
+                        .center_y()
+                        .child(author_marker(s, post, c))
+                        .child(
+                            text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
+                                .shrink()
+                                .font(k.ty.small)
+                                .color(c.text_muted)
+                                .truncate(),
+                        ),
+                )
+                .child(
+                    rune::row().h(line).center_y().shrink().child(
+                        text(post_time(post.create_at))
+                            .font(k.ty.small)
+                            .color(c.text_muted)
+                            .shrink(),
+                    ),
+                )
+                .child(
+                    col()
+                        .grow(1.0)
+                        .shrink()
+                        .min_w(0.0)
+                        .gap(4.0)
+                        .pt((line - f32::from(s.message_font_size) * 1.6) / 2.0)
+                        .child(
+                            Markdown::new(&post.message)
+                                .selectable(true)
+                                .highlights(
+                                    mentions(&post.message, s.my_username())
+                                        .into_iter()
+                                        .map(|(range, me)| {
+                                            let bg = if me { c.bg_accent } else { c.warning.icon };
+                                            (range, Highlight::new().bg(bg).fg(c.bg_base))
+                                        })
+                                        .collect::<Vec<_>>(),
+                                )
+                                .style(
+                                    MarkdownStyle::from_kit(&k)
+                                        .code_block(c.layer_03, c.border_base)
+                                        .code_block_font(TextStyle {
+                                            family: rune::Family::SystemMono,
+                                            ..k.ty.mono
+                                        })
+                                        .body_font(TextStyle {
+                                            size: f32::from(s.message_font_size),
+                                            line_height: f32::from(s.message_font_size) * 1.6,
+                                            ..k.ty.ui
+                                        }),
+                                )
+                                .code_frame({
+                                    let k = k.clone();
+                                    move |card, code| code_frame(&k, card, code)
+                                })
+                                .build(&k),
+                        )
+                        .children(image_attachments(post, &k))
+                        .children(file_attachments(post, &k))
+                        .children(link_preview(s, post, &k))
+                        .children(reaction_pills(s, post, &k)),
+                )
+                .child(
+                    rune::row()
+                        .key("post-actions")
+                        .gap(2.0)
+                        .padding(2.0)
+                        .radius(6.0)
+                        .fill(c.layer_02)
+                        .border(1.0, c.border_base)
+                        .pin(None, Some(-6.0), Some(16.0), None)
+                        .group_opacity(0.0, 1.0)
+                        .child(
+                            IconButton::new(&icons::ARROW_BEND_UP_LEFT)
+                                .label("Reply")
+                                .control_size(ControlSize::Small)
+                                .variant(IconButtonVariant::Ghost)
+                                .on_press_tx({
+                                    let post = post.clone();
+                                    move |s: &mut State, tx| {
+                                        s.quote_reply(&post);
+                                        tx.focus("draft", false);
+                                    }
+                                })
+                                .build(&k)
+                                .key("post-reply"),
+                        )
+                        .child(emoji_picker_trigger(s, post, &k)),
+                ),
+        )
 }
 
 fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
@@ -1718,7 +1895,6 @@ pub(crate) fn workspace(s: &State) -> El {
                 .child(older_loader(s, &k)),
         );
     }
-    let mut previous_day = None;
     if let Some(results) = &s.search_results {
         ledger = ledger.child(
             rune::row()
@@ -1749,157 +1925,38 @@ pub(crate) fn workspace(s: &State) -> El {
                 ),
         );
     }
-    for post in s.search_results.as_ref().unwrap_or(&s.posts) {
-        let day = post_day(post.create_at);
-        if day != previous_day
-            && let Some(day) = day
-        {
-            ledger = ledger.child(
-                rune::row()
-                    .w_full()
-                    .px(16.0)
-                    .py(8.0)
-                    .gap(8.0)
-                    .center_y()
-                    .child(el().grow(1.0).h(1.0).fill(c.border_muted))
-                    .child(
-                        text(day.format("%B %-d, %Y").to_string())
-                            .font(k.ty.small)
-                            .color(c.text_muted),
-                    )
-                    .child(el().grow(1.0).h(1.0).fill(c.border_muted)),
-            );
-        }
-        previous_day = day;
-        let line = (f32::from(s.message_font_size) * 1.6).max(if s.show_timeline_avatars {
-            f32::from(s.avatar_size)
-        } else {
-            0.0
-        });
-        let target = post.channel_id.clone();
-        let mut row = rune::row().key(format!("post-{}", post.id));
-        if s.focus_post.as_deref() == Some(post.id.as_str()) {
-            let key = format!("post-{}", post.id);
-            row = row.on_layout_tx(move |s: &mut State, _, tx| {
-                if s.focus_post.take().is_some() {
-                    tx.scroll_into_view(key.clone());
+    let posts = s.search_results.as_ref().unwrap_or(&s.posts);
+    ledger = ledger.child(
+        col()
+            .key("ledger-rows")
+            .w_full()
+            .growth(rune::GrowthSpec::default())
+            .virtual_rows(
+                posts.len(),
+                72.0,
+                |s: &State, i| {
+                    let posts = s.search_results.as_ref().unwrap_or(&s.posts);
+                    format!("post-{}", posts[i].id).into()
+                },
+                |s: &State, i| post_row(s, i),
+            )
+            .on_visible_rows(|s: &mut State, visible| {
+                let posts = s.search_results.as_ref().unwrap_or(&s.posts);
+                let open = s.emoji_picker.clone().map(|id| (id, true)).or_else(|| s.image_menu.clone().map(|id| (id, false)));
+                let Some((id, is_picker)) = open else { return false };
+                match posts.iter().position(|p| p.id == id) {
+                    Some(index) if !visible.contains(&index) => {
+                        if is_picker {
+                            s.emoji_picker = None;
+                        } else {
+                            s.image_menu = None;
+                        }
+                        true
+                    }
+                    _ => false,
                 }
-            });
-        }
-        if searching {
-            row = row
-                .role("button")
-                .label(format!("Open {}", post.message))
-                .focusable(true)
-                .cursor(rune::Cursor::Pointer)
-                .on_press(move |s: &mut State| {
-                    s.search_results = None;
-                    s.load(target.clone());
-                });
-        }
-        ledger = ledger.children(reply_quote(s, post, &k)).child(
-            row.w_full()
-                .gap(8.0)
-                .px(16.0)
-                .py(post_padding(s.message_spacing))
-                .hover(c.hover)
-                .hover_group()
-                .child(
-                    rune::row()
-                        .w(120.0)
-                        .h(line)
-                        .shrink()
-                        .gap(6.0)
-                        .center_y()
-                        .child(author_marker(s, post, c))
-                        .child(
-                            text(s.names.get(&post.user_id).unwrap_or(&post.user_id))
-                                .shrink()
-                                .font(k.ty.small)
-                                .color(c.text_muted)
-                                .truncate(),
-                        ),
-                )
-                .child(
-                    rune::row().h(line).center_y().shrink().child(
-                        text(post_time(post.create_at))
-                            .font(k.ty.small)
-                            .color(c.text_muted)
-                            .shrink(),
-                    ),
-                )
-                .child(
-                    col()
-                        .grow(1.0)
-                        .shrink()
-                        .min_w(0.0)
-                        .gap(4.0)
-                        .pt((line - f32::from(s.message_font_size) * 1.6) / 2.0)
-                        .child(
-                            Markdown::new(&post.message)
-                                .selectable(true)
-                                .highlights(
-                                    mentions(&post.message, s.my_username())
-                                        .into_iter()
-                                        .map(|(range, me)| {
-                                            let bg = if me { c.bg_accent } else { c.warning.icon };
-                                            (range, Highlight::new().bg(bg).fg(c.bg_base))
-                                        })
-                                        .collect::<Vec<_>>(),
-                                )
-                                .style(
-                                    MarkdownStyle::from_kit(&k)
-                                        .code_block(c.layer_03, c.border_base)
-                                        .code_block_font(TextStyle {
-                                            family: rune::Family::SystemMono,
-                                            ..k.ty.mono
-                                        })
-                                        .body_font(TextStyle {
-                                            size: f32::from(s.message_font_size),
-                                            line_height: f32::from(s.message_font_size) * 1.6,
-                                            ..k.ty.ui
-                                        }),
-                                )
-                                .code_frame({
-                                    let k = k.clone();
-                                    move |card, code| code_frame(&k, card, code)
-                                })
-                                .build(&k),
-                        )
-                        .children(image_attachments(s, post, &mut layer, &k))
-                        .children(file_attachments(post, &k))
-                        .children(link_preview(s, post, &k))
-                        .children(reaction_pills(s, post, &k)),
-                )
-                .child(
-                    rune::row()
-                        .key("post-actions")
-                        .gap(2.0)
-                        .padding(2.0)
-                        .radius(6.0)
-                        .fill(c.layer_02)
-                        .border(1.0, c.border_base)
-                        .pin(None, Some(-6.0), Some(16.0), None)
-                        .group_opacity(0.0, 1.0)
-                        .child(
-                            IconButton::new(&icons::ARROW_BEND_UP_LEFT)
-                                .label("Reply")
-                                .control_size(ControlSize::Small)
-                                .variant(IconButtonVariant::Ghost)
-                                .on_press_tx({
-                                    let post = post.clone();
-                                    move |s: &mut State, tx| {
-                                        s.quote_reply(&post);
-                                        tx.focus("draft", false);
-                                    }
-                                })
-                                .build(&k)
-                                .key("post-reply"),
-                        )
-                        .child(emoji_picker(s, post, &k, &mut layer)),
-                ),
-        );
-    }
+            }),
+    );
     let (composer, toolbar) = crate::composer::composer(s, locked);
     let mut main = col()
         .grow(1.0)
@@ -2072,6 +2129,12 @@ pub(crate) fn workspace(s: &State) -> El {
                             )),
                     ),
             );
+    }
+    if let Some(post) = s.emoji_picker.as_deref().and_then(|id| posts.iter().find(|p| p.id == id)) {
+        emoji_picker(s, post, &k, &mut layer);
+    }
+    if let Some(post) = s.image_menu.as_deref().and_then(|id| posts.iter().find(|p| p.id == id)) {
+        image_menu(s, post, &k, &mut layer);
     }
     let body = rune::row()
         .w_full()
