@@ -96,6 +96,23 @@ fn switching_back_restores_the_cached_ledger_before_refresh() {
 }
 
 #[test]
+fn switching_back_restores_the_cached_members_before_refresh() {
+    let (sender, _intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.members = vec!["u1".into(), "u2".into()];
+    rt.state.load("other".into());
+    assert!(rt.state.members.is_empty());
+    rt.state.apply(Update::Members {
+        channel_id: "other".into(),
+        user_ids: vec!["u3".into()],
+        names: HashMap::new(),
+    });
+    rt.state.ready = true;
+    rt.state.load("c".into());
+    assert_eq!(rt.state.members, vec!["u1".to_owned(), "u2".to_owned()]);
+}
+
+#[test]
 fn editing_a_message_dispatches_an_edit_not_a_new_send() {
     let (sender, mut intents) = mpsc::channel(8);
     let mut rt = ui(sender);
