@@ -240,6 +240,12 @@ Rows are built in `channel_row` (not rune-kit's `SidebarRow`) so later designs, 
 reply previews under a channel, can change them. A row with unread messages or mentions
 uses semibold, full-strength text; read rows use regular weight and muted text. Rows show the resolved DM name (see the services spec) when available.
 
+Right-clicking a channel or DM row opens a context menu with Favorite/Unfavorite, Archive/Unarchive
+and Mute/Unmute. Mute saves the server's Muted level (`desktop` and `push` set to `none`) on the
+user's channel membership, and Unmute restores `default`. The label reads the row's `muted` flag,
+which the conversation worker loads from each team's channel memberships on every navigation
+refresh. A failed save leaves the flag and label unchanged.
+
 The server dropdown sits on the traffic-light row, right of the lights, and is a fixed-width
 `Select` trigger (rune-kit's inline trigger sizes to its label, so the width is set by the
 app) that opens a `Menu` of the connected server's communities (Mattermost teams, shown by

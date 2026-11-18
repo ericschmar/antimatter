@@ -1878,6 +1878,7 @@ pub(crate) fn workspace(s: &State) -> El {
     let channel = point.as_ref().map(|(id, _)| id.clone()).unwrap_or_default();
     let favorite = s.navigation.favorites.contains(&channel);
     let archive = s.navigation.archived.contains(&channel);
+    let muted = s.channels.iter().any(|c| c.id == channel && c.muted);
     let channel_menu =
         rune_kit::context_menu("channel-menu", el().w(0.0).h(0.0), point.map(|(_, p)| p))
             .on_close(|s: &mut State| s.channel_menu = None)
@@ -1896,6 +1897,15 @@ pub(crate) fn workspace(s: &State) -> El {
                     move |s: &mut State| {
                         s.channel_menu = None;
                         s.toggle_archived(&channel);
+                    },
+                )
+            })
+            .item({
+                let channel = channel.clone();
+                MenuItem::new(if muted { "Unmute" } else { "Mute" }).on_select(
+                    move |s: &mut State| {
+                        s.channel_menu = None;
+                        s.set_channel_mute(channel.clone(), !muted);
                     },
                 )
             })

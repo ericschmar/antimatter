@@ -226,6 +226,8 @@ pub struct Channel {
     pub members: Vec<String>,
     #[serde(default)]
     pub last_post_at: i64,
+    #[serde(default, skip_serializing)]
+    pub muted: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]

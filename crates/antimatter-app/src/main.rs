@@ -192,6 +192,7 @@ fn main() {
                     kind: "O".into(),
                     members: Vec::new(),
                     last_post_at: 0,
+                    muted: false,
                 });
                 synthetic_workspace(s);
                 s.has_older = true;

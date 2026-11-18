@@ -55,6 +55,8 @@ Refresh replaces the latest-page snapshot, removing offline deletions, and refre
 history before navigation, so the open channel's timeline is emitted before the team,
 channel, and unread lookups. It then emits navigation, clears the open channel's unread
 count, and reports `Ready(true)`. Group-member lookups for navigation run eight at a time.
+Each team's channel memberships mark its channels `muted` when `notify_props.desktop` is
+`none`; a failed membership lookup leaves those channels unmuted.
 Authentication triggers refresh even on the first connection. Nonfatal malformed frames
 do not imply connectivity loss.
 

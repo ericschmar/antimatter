@@ -49,8 +49,8 @@ async fn fixture() -> (Client, tokio::task::JoinHandle<Vec<String>>) {
     let task = tokio::spawn(async move {
         let mut requests = vec![];
         let mut pending = String::new();
-        // Load (8), lost send (1), retry across two pages (2), reconnect refresh (6).
-        for step in 0..17 {
+        // Load (9), lost send (1), retry across two pages (2), reconnect refresh (7).
+        for step in 0..19 {
             let (mut socket, _) = listener.accept().await.unwrap();
             let mut bytes = Vec::new();
             loop {
@@ -81,7 +81,7 @@ async fn fixture() -> (Client, tokio::task::JoinHandle<Vec<String>>) {
             );
             let path = request.split_whitespace().nth(1).unwrap().to_owned();
             requests.push(request.clone());
-            if step == 8 {
+            if step == 9 {
                 let body: Value =
                     serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
                 pending = body["pending_post_id"].as_str().unwrap().to_owned();
@@ -96,6 +96,8 @@ async fn fixture() -> (Client, tokio::task::JoinHandle<Vec<String>>) {
                 json!({"SiteName":"Test"})
             } else if path.ends_with("/users/u/status") {
                 json!({"user_id":"u","status":"online"})
+            } else if path.ends_with("/users/me/teams/t/channels/members") {
+                json!([])
             } else if path.contains("/teams/t/channels?") {
                 assert!(path.contains("per_page=200"));
                 json!([{"id":"c","team_id":"t","name":"channel","type":"O"}])
@@ -107,9 +109,9 @@ async fn fixture() -> (Client, tokio::task::JoinHandle<Vec<String>>) {
                 json!({"id":"c","team_id":"t","name":"channel","type":"O"})
             } else {
                 assert!(path.contains("per_page=60"));
-                if step == 9 {
+                if step == 10 {
                     json!({"order":["new"],"posts":{"new":post("new", "")},"prev_post_id":"older"})
-                } else if step == 10 {
+                } else if step == 11 {
                     assert!(path.contains("before=new"));
                     json!({"order":["sent"],"posts":{"sent":post("sent", &pending)},"prev_post_id":""})
                 } else {
@@ -778,6 +780,7 @@ async fn refresh_replaces_offline_snapshot_and_rejects_invalid_extras_atomically
         Some((200, json!([{"id":"t","name":"team"}]))),
         Some((200, json!({"SiteName":"Test"}))),
         Some((200, json!({"user_id":"u","status":"online"}))),
+        Some((200, json!([]))),
         Some((
             200,
             json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
@@ -836,6 +839,7 @@ async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure
         Some((200, json!([{"id":"t","name":"team"}]))),
         Some((200, json!({"SiteName":"Test"}))),
         Some((200, json!({"user_id":"u","status":"online"}))),
+        Some((200, json!([]))),
         Some((
             200,
             json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
@@ -852,6 +856,7 @@ async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure
         Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
         Some((200, json!([{"id":"t","name":"team"}]))),
         Some((200, json!({"user_id":"u","status":"online"}))),
+        Some((200, json!([]))),
         Some((
             200,
             json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
@@ -898,9 +903,9 @@ async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure
     );
     let requests = server.finish().await;
     assert!(requests[3].starts_with("GET /api/v4/config/client?format=old "));
-    assert!(requests[6].starts_with("GET /api/v4/users/me/channels/c/unread "));
-    assert!(requests[7].starts_with("POST /api/v4/channels/members/u/view "));
-    assert!(requests[7].contains(r#""prev_channel_id":"old""#));
+    assert!(requests[7].starts_with("GET /api/v4/users/me/channels/c/unread "));
+    assert!(requests[8].starts_with("POST /api/v4/channels/members/u/view "));
+    assert!(requests[8].contains(r#""prev_channel_id":"old""#));
 }
 
 #[tokio::test]
@@ -994,6 +999,45 @@ async fn edit_patches_the_post_and_publishes_the_change() {
             .iter()
             .any(|r| r.starts_with("POST /api/v4/posts "))
     );
+}
+
+#[tokio::test]
+async fn muted_flag_comes_from_channel_membership_notify_props() {
+    let (mut worker, mut rx, server) = scripted(vec![
+        Some((
+            200,
+            json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
+        )),
+        Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
+        Some((200, json!([{"id":"t","name":"team"}]))),
+        Some((200, json!({"SiteName":"Test"}))),
+        Some((200, json!({"user_id":"u","status":"online"}))),
+        Some((
+            200,
+            json!([{"channel_id":"c","notify_props":{"desktop":"none"}}]),
+        )),
+        Some((
+            200,
+            json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
+        )),
+        Some((
+            200,
+            json!({"channel_id":"c","msg_count":0,"mention_count":0}),
+        )),
+        Some((200, json!({"status":"OK"}))),
+    ])
+    .await;
+    worker.pending = None;
+    worker.refresh().await.unwrap();
+    let mut muted = None;
+    while let Ok(update) = rx.try_recv() {
+        if let Update::Navigation { channels, .. } = update {
+            muted = Some(channels[0].muted);
+        }
+    }
+    assert_eq!(muted, Some(true));
+    let requests = server.finish().await;
+    assert!(requests[5].starts_with("GET /api/v4/users/me/teams/t/channels/members "));
 }
 
 #[tokio::test]

@@ -575,6 +575,22 @@ impl Worker {
             if team.id.is_empty() {
                 return Err(Failure::Load);
             }
+            let muted: HashSet<String> = self
+                .client
+                .my_channel_members(&team.id)
+                .await
+                .ok()
+                .iter()
+                .flat_map(|members| members.as_array().into_iter().flatten())
+                .filter(|member| {
+                    member
+                        .get("notify_props")
+                        .and_then(|p| p.get("desktop"))
+                        .and_then(serde_json::Value::as_str)
+                        == Some("none")
+                })
+                .filter_map(|member| member.get("channel_id")?.as_str().map(str::to_owned))
+                .collect();
             // ponytail: navigation caps at 10,000 pages; fail closed, use a server cursor if exceeded.
             let mut complete = false;
             for page in 0..10_000 {
@@ -584,13 +600,14 @@ impl Worker {
                     .await
                     .map_err(|_| Failure::Load)?;
                 let last = batch.len() < 200;
-                for channel in batch {
+                for mut channel in batch {
                     if channel.id.is_empty()
                         || (!channel.team_id.is_empty() && channel.team_id != team.id)
                     {
                         return Err(Failure::Load);
                     }
                     if seen.insert(channel.id.clone()) {
+                        channel.muted = muted.contains(&channel.id);
                         channels.push(channel);
                     }
                 }

@@ -347,6 +347,7 @@ fn sidebar_groups_regular_channels_before_direct_messages_and_collapses() {
         kind: "D".into(),
         members: Vec::new(),
         last_post_at: 0,
+        muted: false,
     });
     rt.invalidate();
     rt.frame(0.0);
@@ -377,6 +378,50 @@ fn sidebar_groups_regular_channels_before_direct_messages_and_collapses() {
 }
 
 #[test]
+fn channel_and_dm_menus_offer_mute_or_unmute_from_the_muted_flag() {
+    let mut rt = synthetic_runtime();
+    rt.state.channels.push(Channel {
+        id: "dm-peer".into(),
+        team_id: String::new(),
+        name: "me__peer".into(),
+        display_name: "Peer".into(),
+        kind: "D".into(),
+        members: Vec::new(),
+        last_post_at: 0,
+        muted: true,
+    });
+    rt.invalidate();
+    rt.frame(0.0);
+    let (x, y) = rt.find("channel-synthetic-other").unwrap();
+    rt.secondary_down(x, y);
+    rt.secondary_up(x, y);
+    rt.frame(0.0);
+    for _ in 0..120 {
+        rt.frame(1.0 / 120.0);
+    }
+    let labels = |rt: &Runtime<State>| -> Vec<String> {
+        rt.elements()
+            .iter()
+            .filter_map(|e| e.label.clone())
+            .collect()
+    };
+    assert!(labels(&rt).iter().any(|l| l == "Mute"));
+    assert!(!labels(&rt).iter().any(|l| l == "Unmute"));
+    rt.state.channel_menu = None;
+    rt.invalidate();
+    rt.frame(0.0);
+    let (x, y) = rt.find("channel-dm-peer").unwrap();
+    rt.secondary_down(x, y);
+    rt.secondary_up(x, y);
+    rt.frame(0.0);
+    for _ in 0..120 {
+        rt.frame(1.0 / 120.0);
+    }
+    assert!(labels(&rt).iter().any(|l| l == "Unmute"));
+    assert!(!labels(&rt).iter().any(|l| l == "Mute"));
+}
+
+#[test]
 fn newest_direct_message_sorts_first() {
     let mut rt = synthetic_runtime();
     rt.state.dms_collapsed = false;
@@ -389,6 +434,7 @@ fn newest_direct_message_sorts_first() {
             kind: "D".into(),
             members: Vec::new(),
             last_post_at: at,
+            muted: false,
         });
     }
     rt.invalidate();

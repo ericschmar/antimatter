@@ -111,6 +111,33 @@ impl State {
         });
     }
 
+    pub(crate) fn set_channel_mute(&mut self, channel: String, muted: bool) {
+        let me = self.authenticated.as_ref().map(|k| k.user_id().to_owned());
+        let (Some(client), Some(runtime), Some(handle), Some(me)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            me,
+        ) else {
+            return;
+        };
+        let level = if muted { "none" } else { "default" };
+        runtime.spawn(async move {
+            if client
+                .set_channel_notify(&channel, &me, level)
+                .await
+                .is_err()
+            {
+                return;
+            }
+            handle.update(move |s, _| {
+                if let Some(row) = s.channels.iter_mut().find(|c| c.id == channel) {
+                    row.muted = muted;
+                }
+            });
+        });
+    }
+
     pub(crate) fn set_channel_level(&mut self, channel: String, level: &'static str) {
         let (Some(client), Some(runtime), Some(settings), Some(me)) = (
             self.client.clone(),
