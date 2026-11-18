@@ -206,6 +206,14 @@ credential. Direct Giphy links are fetched with `giphy::fetch_bytes` and no cred
 (`State::fetch_post_gifs`), so a GIF starts downloading as soon as its post is loaded and
 the picture replaces the alt text when it decodes. Non-image links keep their existing link-preview card.
 
+A post with exactly one image file attachment draws that image in the ledger, bounded and
+aspect-fit like a GIF, from the same store under the key `file:{file id}`. Its bytes come from
+`Client::file` and are fetched once per file in the background by the per-frame poll
+(`State::fetch_file_image`, through `workspace::single_image`). Clicking the picture opens the file
+(`State::open_file`). Until it decodes, and when the fetch fails, the attachment shows its
+"Open {name}" chip. A post with two or more image attachments shows the "N images" stack button
+and menu instead; those images are not drawn inline.
+
 ## Unread and viewed state
 
 The user approved this second issue #4 slice on 2026-11-10. Refresh requests each

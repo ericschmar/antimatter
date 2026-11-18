@@ -144,7 +144,9 @@ impl fmt::Display for Error {
             Self::Transport => f.write_str("Network request failed; its outcome may be unknown"),
             Self::Decode => f.write_str("Invalid server response"),
             Self::Http(error) => write!(f, "Mattermost request failed (HTTP {})", error.status),
-            Self::Redirect(_) => f.write_str("Mattermost redirected the media request off the server"),
+            Self::Redirect(_) => {
+                f.write_str("Mattermost redirected the media request off the server")
+            }
         }
     }
 }

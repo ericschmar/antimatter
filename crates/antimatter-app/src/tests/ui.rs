@@ -961,3 +961,48 @@ fn gif_post_draws_its_picture_once_the_store_has_it() {
         .expect("GIF drawn as a picture");
     assert!(picture.rect[3] > 19.0, "picture, not the alt-text line");
 }
+
+#[test]
+fn single_image_file_draws_its_picture_in_the_ledger() {
+    let mut s = State::default();
+    synthetic_workspace(&mut s);
+    let file = antimatter_services::mattermost::FileInfo {
+        id: "single-file".into(),
+        name: "photo.gif".into(),
+        mime_type: "image/gif".into(),
+        ..Default::default()
+    };
+    let mut post = s.posts[0].clone();
+    post.id = "single-image-post".into();
+    post.message = String::new();
+    post.metadata.files = vec![file];
+    s.posts = vec![post];
+    s.gifs.attach(std::sync::Arc::new(|| {}));
+    s.gifs.finish(
+        "file:single-file".into(),
+        Some(include_bytes!("fixtures/gif-2x2.gif").to_vec()),
+    );
+    for _ in 0..200 {
+        if s.gifs.get("file:single-file").is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let mut rt = Runtime::new(
+        s,
+        view,
+        (640.0, 640.0),
+        Env {
+            system_dark: true,
+            scale: 2.0,
+        },
+    );
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(
+        rt.elements()
+            .iter()
+            .any(|e| e.role == "image" && e.label.as_deref() == Some("photo.gif")),
+        "single image drawn inline"
+    );
+}

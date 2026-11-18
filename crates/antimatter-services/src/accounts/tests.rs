@@ -581,7 +581,9 @@ fn site_name_persists_and_defaults_for_old_registries() {
     let root = TempRoot::new();
     let mut store = AccountStore::open(&root.0, FakeCredentials::default()).unwrap();
     let key = key("https://example.test", "a");
-    store.save_account(&key, "name", &token("synthetic")).unwrap();
+    store
+        .save_account(&key, "name", &token("synthetic"))
+        .unwrap();
     assert_eq!(store.accounts()[0].site_name, None);
     store.set_site_name(&key, "Example Chat").unwrap();
     let reopened = AccountStore::open(&root.0, store.credentials).unwrap();

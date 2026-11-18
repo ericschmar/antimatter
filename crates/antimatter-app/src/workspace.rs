@@ -633,7 +633,7 @@ fn code_frame(k: &rune_kit::Kit, card: El, code: &rune_kit::CodeFrame<'_>) -> El
         .child(card)
 }
 
-fn image_attachments(post: &Post, k: &rune_kit::Kit) -> Option<El> {
+fn image_attachments(post: &Post, s: &State, k: &rune_kit::Kit) -> Option<El> {
     let images: Vec<_> = post
         .metadata
         .files
@@ -671,6 +671,22 @@ fn image_attachments(post: &Post, k: &rune_kit::Kit) -> Option<El> {
         [] => return None,
         [file] => {
             let target = (*file).clone();
+            if let Some(image) = s.gifs.get(&format!("file:{}", file.id)) {
+                let picture = el()
+                    .key(format!("image-{}", file.id))
+                    .role("image")
+                    .label(file.name.clone())
+                    .max_w(GIF_MAX_W)
+                    .max_h(GIF_MAX_H)
+                    .radius(6.0)
+                    .cursor(rune::Cursor::Pointer)
+                    .focusable(true)
+                    .on_press(move |s: &mut State| s.open_file(target.clone()))
+                    .pixels(image.pixels());
+                let [w, h] = image.size().unwrap_or([GIF_MAX_W as u32, GIF_MAX_H as u32]);
+                let ratio = w as f32 / (h.max(1) as f32);
+                return Some(rune::row().child(picture.aspect_fit(ratio)));
+            }
             Some(
                 rune::row().child(
                     chip(
@@ -879,7 +895,7 @@ fn post_row(s: &State, i: usize) -> El {
                             })
                             .build(&k),
                     )
-                    .children(image_attachments(post, &k))
+                    .children(image_attachments(post, s, &k))
                     .children(file_attachments(post, &k))
                     .children(link_preview(s, post, &k))
                     .children(reaction_pills(s, post, &k)),
@@ -1010,6 +1026,12 @@ fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
 
 const GIF_MAX_W: f32 = 320.0;
 const GIF_MAX_H: f32 = 240.0;
+
+pub(crate) fn single_image(post: &Post) -> Option<&antimatter_services::mattermost::FileInfo> {
+    let mut images = post.metadata.files.iter().filter(|f| f.is_image());
+    let first = images.next()?;
+    images.next().is_none().then_some(first)
+}
 
 pub(crate) fn gif_sources(message: &str) -> Vec<url::Url> {
     let mut sources = Vec::new();

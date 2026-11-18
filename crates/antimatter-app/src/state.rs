@@ -511,6 +511,33 @@ impl State {
         for url in sources {
             self.fetch_gif(url);
         }
+        let singles: Vec<_> = self
+            .posts
+            .iter()
+            .filter_map(|post| crate::workspace::single_image(post).cloned())
+            .collect();
+        for file in singles {
+            self.fetch_file_image(file);
+        }
+    }
+
+    pub(crate) fn fetch_file_image(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        let key = format!("file:{}", file.id);
+        if self.gifs.get(&key).is_some() || self.gif_fetching.contains(&key) {
+            return;
+        }
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        self.gif_fetching.insert(key.clone());
+        runtime.spawn(async move {
+            let bytes = client.file(&file.id, false).await.ok();
+            handle.update(move |s, _| s.gifs.finish(key, bytes));
+        });
     }
 
     pub(crate) fn fetch_gif(&mut self, url: url::Url) {

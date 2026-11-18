@@ -625,11 +625,7 @@ enum Command {
         oneshot::Sender<Result<()>>,
     ),
     SignOut(AccountKey, oneshot::Sender<Result<Vec<Account>>>),
-    SetSiteName(
-        AccountKey,
-        String,
-        oneshot::Sender<Result<Vec<Account>>>,
-    ),
+    SetSiteName(AccountKey, String, oneshot::Sender<Result<Vec<Account>>>),
 }
 
 /// A cloneable handle to one native thread owning all filesystem and credential I/O.
