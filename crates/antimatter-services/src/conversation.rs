@@ -342,7 +342,8 @@ impl Worker {
                         .patch_post(&post_id, &serde_json::json!({ "message": message }))
                         .await
                         .map_err(|_| Failure::Send)?;
-                    let post: Post = serde_json::from_value(reply).map_err(|_| Failure::Reconcile)?;
+                    let post: Post =
+                        serde_json::from_value(reply).map_err(|_| Failure::Reconcile)?;
                     if post.id != post_id {
                         return Err(Failure::Reconcile);
                     }
@@ -422,20 +423,35 @@ impl Worker {
             .filter_map(|c| direct_peer(&c.name, &self.user_id))
             .collect();
         self.resolve_names(peers).await;
-        let mut group_members = Vec::new();
-        for channel in channels.iter().filter(|c| c.kind == "G") {
-            let ids: Vec<String> = match self.client.channel_members(&channel.id, 0).await {
-                Ok(members) => members
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|m| m.get("user_id")?.as_str().map(str::to_owned))
-                    .filter(|id| *id != self.user_id)
-                    .collect(),
-                Err(_) => Vec::new(),
-            };
-            group_members.push((channel.id.clone(), ids));
-        }
+        let client = self.client.clone();
+        let user_id = self.user_id.clone();
+        let group_members: Vec<(String, Vec<String>)> = stream::iter(
+            channels
+                .iter()
+                .filter(|c| c.kind == "G")
+                .map(|c| c.id.clone())
+                .collect::<Vec<_>>(),
+        )
+        .map(|id| {
+            let client = client.clone();
+            let user_id = user_id.clone();
+            async move {
+                let ids: Vec<String> = match client.channel_members(&id, 0).await {
+                    Ok(members) => members
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|m| m.get("user_id")?.as_str().map(str::to_owned))
+                        .filter(|member| *member != user_id)
+                        .collect(),
+                    Err(_) => Vec::new(),
+                };
+                (id, ids)
+            }
+        })
+        .buffered(8)
+        .collect()
+        .await;
         self.resolve_names(group_members.iter().flat_map(|(_, ids)| ids.clone()))
             .await;
         for (id, ids) in group_members {
@@ -462,8 +478,88 @@ impl Worker {
         }
     }
 
+    async fn history(&mut self, channel: String) -> Result<(), Failure> {
+        let detail = self
+            .client
+            .channel(&channel)
+            .await
+            .map_err(|_| Failure::Load)?;
+        if detail.id != channel {
+            return Err(Failure::Load);
+        }
+        let page = self
+            .client
+            .posts(&channel, None)
+            .await
+            .map_err(|_| Failure::Load)?;
+        let posts = page_posts(&page, &channel).map_err(|_| Failure::Load)?;
+        let latest_has_older = page
+            .prev_post_id
+            .as_deref()
+            .is_some_and(|id| !id.is_empty());
+        let old_posts = std::mem::take(&mut self.posts);
+        let old_identities = self.identities.clone();
+        let pending = self.pending.take();
+        let invalid_ack = posts.iter().any(|post| {
+            pending.as_ref().is_some_and(|pending| {
+                post.pending_post_id == pending.post.pending_post_id
+                    && (post.channel_id != pending.post.channel_id || post.user_id != self.user_id)
+            })
+        });
+        if invalid_ack {
+            self.posts = old_posts;
+            self.identities = old_identities;
+            self.pending = pending;
+            return Err(Failure::Reconcile);
+        }
+        for post in posts.clone() {
+            if self.accept(post, false).await.is_err() {
+                self.posts = old_posts;
+                self.identities = old_identities;
+                self.pending = pending;
+                return Err(Failure::Reconcile);
+            }
+        }
+        self.pending = pending;
+        for post in posts {
+            self.accept(post, false).await?;
+        }
+        let mut restored = Vec::new();
+        for (id, post) in old_posts {
+            if self.older.contains(&id)
+                && !self.posts.contains_key(&id)
+                && post.channel_id == channel
+            {
+                restored.push(id.clone());
+                self.posts.insert(id, post);
+            }
+        }
+        self.older = restored.into_iter().collect();
+        self.has_older = self.has_older || latest_has_older;
+        let mut posts: Vec<_> = self
+            .posts
+            .values()
+            .filter(|p| p.delete_at == 0)
+            .cloned()
+            .collect();
+        posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
+        self.resolve_names(post_user_ids(&posts)).await;
+        let names = self.names.clone();
+        self.emit(Update::Timeline {
+            channel_id: channel,
+            posts,
+            names,
+            has_older: self.has_older,
+        })
+        .await;
+        Ok(())
+    }
+
     async fn refresh(&mut self) -> Result<(), Failure> {
         self.emit(Update::Ready(false)).await;
+        if let Some(channel) = self.channel.clone() {
+            self.history(channel).await?;
+        }
         let teams = self.client.teams().await.map_err(|_| Failure::Load)?;
         if self.site_name.is_empty() {
             self.site_name = self.client.site_name().await.unwrap_or_default();
@@ -561,6 +657,9 @@ impl Worker {
             unread,
         })
         .await;
+        if let Some(channel) = self.channel.clone() {
+            self.view(&channel).await;
+        }
         let client = self.client.clone();
         let mut avatars = stream::iter(fresh_peers)
             .map(|peer| {
@@ -571,75 +670,6 @@ impl Worker {
                 }
             })
             .buffered(8);
-        if let Some(channel) = self.channel.clone() {
-            let detail = self
-                .client
-                .channel(&channel)
-                .await
-                .map_err(|_| Failure::Load)?;
-            if detail.id != channel {
-                return Err(Failure::Load);
-            }
-            let page = self
-                .client
-                .posts(&channel, None)
-                .await
-                .map_err(|_| Failure::Load)?;
-            let posts = page_posts(&page, &channel).map_err(|_| Failure::Load)?;
-            let latest_has_older = page
-                .prev_post_id
-                .as_deref()
-                .is_some_and(|id| !id.is_empty());
-            let old_posts = std::mem::take(&mut self.posts);
-            let old_identities = self.identities.clone();
-            let pending = self.pending.take();
-            for post in &posts {
-                let invalid_ack = pending.as_ref().is_some_and(|pending| {
-                    post.pending_post_id == pending.post.pending_post_id
-                        && (post.channel_id != pending.post.channel_id
-                            || post.user_id != self.user_id)
-                });
-                if invalid_ack || self.accept(post.clone(), false).await.is_err() {
-                    self.posts = old_posts;
-                    self.identities = old_identities;
-                    self.pending = pending;
-                    return Err(Failure::Reconcile);
-                }
-            }
-            self.pending = pending;
-            for post in posts {
-                self.accept(post, false).await?;
-            }
-            let mut restored = Vec::new();
-            for (id, post) in old_posts {
-                if self.older.contains(&id)
-                    && !self.posts.contains_key(&id)
-                    && post.channel_id == channel
-                {
-                    restored.push(id.clone());
-                    self.posts.insert(id, post);
-                }
-            }
-            self.older = restored.into_iter().collect();
-            self.has_older = self.has_older || latest_has_older;
-            let mut posts: Vec<_> = self
-                .posts
-                .values()
-                .filter(|p| p.delete_at == 0)
-                .cloned()
-                .collect();
-            posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
-            self.resolve_names(post_user_ids(&posts)).await;
-            let names = self.names.clone();
-            self.emit(Update::Timeline {
-                channel_id: channel.clone(),
-                posts,
-                names,
-                has_older: self.has_older,
-            })
-            .await;
-            self.view(&channel).await;
-        }
         self.emit(Update::Ready(true)).await;
         while let Some((peer, bytes)) = avatars.next().await {
             self.avatars.insert(peer.clone());

@@ -52,8 +52,11 @@ The parent owns session cancellation and rejects stale-generation updates.
 Navigation pages contain 200 channels; the visible history page contains 60 posts.
 Validate ordered post IDs and all map entries, allowing unordered thread parents.
 Refresh replaces the latest-page snapshot, removing offline deletions, and refreshes
-navigation/history before `Ready(true)`. Authentication triggers refresh even on
-the first connection. Nonfatal malformed frames do not imply connectivity loss.
+history before navigation, so the open channel's timeline is emitted before the team,
+channel, and unread lookups. It then emits navigation, clears the open channel's unread
+count, and reports `Ready(true)`. Group-member lookups for navigation run eight at a time.
+Authentication triggers refresh even on the first connection. Nonfatal malformed frames
+do not imply connectivity loss.
 
 Older history is an explicit `Older` intent: one page (60 posts) before the oldest
 loaded post, using the `before` cursor, prepended as `Update::Older` with `has_older`

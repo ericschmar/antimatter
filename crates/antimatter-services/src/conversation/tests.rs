@@ -277,11 +277,11 @@ async fn lost_response_retry_reconnect_and_untrusted_events() {
         Update::Connection(State::Connected)
     ));
     assert!(matches!(next(&mut updates).await, Update::Ready(false)));
+    assert!(matches!(next(&mut updates).await, Update::Timeline { posts, .. } if posts.is_empty()));
     assert!(matches!(
         next(&mut updates).await,
         Update::Navigation { .. }
     ));
-    assert!(matches!(next(&mut updates).await, Update::Timeline { posts, .. } if posts.is_empty()));
     assert!(matches!(next(&mut updates).await, Update::Ready(true)));
     let requests = server.await.unwrap();
     assert_eq!(
@@ -620,13 +620,13 @@ async fn refresh_acknowledgement_is_not_ready_until_timeline() {
     });
     worker.refresh().await.unwrap();
     assert!(matches!(next(&mut updates).await, Update::Ready(false)));
+    assert!(matches!(next(&mut updates).await, Update::Pending(None)));
+    assert!(matches!(next(&mut updates).await, Update::Timeline { posts, .. } if posts.len() == 1));
     assert!(matches!(next(&mut updates).await, Update::Presence(p) if p == "online"));
     assert!(matches!(
         next(&mut updates).await,
         Update::Navigation { .. }
     ));
-    assert!(matches!(next(&mut updates).await, Update::Pending(None)));
-    assert!(matches!(next(&mut updates).await, Update::Timeline { posts, .. } if posts.len() == 1));
     assert!(matches!(next(&mut updates).await, Update::Ready(true)));
     assert!(updates.try_recv().is_err());
     server.finish().await;
@@ -765,8 +765,19 @@ async fn reconcile_allows_repeated_unordered_parents_and_acknowledges_extra() {
 async fn refresh_replaces_offline_snapshot_and_rejects_invalid_extras_atomically() {
     let mut impostor = post("spoof", "pending");
     impostor.user_id = "other".into();
-    let navigation = [
+    let responses = vec![
+        Some((
+            200,
+            json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
+        )),
+        Some((
+            200,
+            json!({"order":["reply"],"posts":{"reply":post("reply", ""),"parent":post("parent", "")}}),
+        )),
+        Some((200, json!([{"id":"u","username":"user"}]))),
         Some((200, json!([{"id":"t","name":"team"}]))),
+        Some((200, json!({"SiteName":"Test"}))),
+        Some((200, json!({"user_id":"u","status":"online"}))),
         Some((
             200,
             json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
@@ -775,30 +786,16 @@ async fn refresh_replaces_offline_snapshot_and_rejects_invalid_extras_atomically
             200,
             json!({"channel_id":"c","msg_count":0,"mention_count":0}),
         )),
+        Some((200, json!({"status":"OK"}))),
         Some((
             200,
             json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
         )),
+        Some((
+            200,
+            json!({"order":["new"],"posts":{"new":post("new", ""),"spoof":impostor}}),
+        )),
     ];
-    let mut responses = vec![
-        Some((200, json!([{"id":"t","name":"team"}]))),
-        Some((200, json!({"SiteName":"Test"}))),
-        Some((200, json!({"user_id":"u","status":"online"}))),
-    ];
-    responses.extend(navigation[1..].iter().cloned());
-    responses.push(Some((
-        200,
-        json!({"order":["reply"],"posts":{"reply":post("reply", ""),"parent":post("parent", "")}}),
-    )));
-    responses.push(Some((200, json!([{"id":"u","username":"user"}]))));
-    responses.push(Some((200, json!({"status":"OK"}))));
-    responses.extend(navigation[..1].iter().cloned());
-    responses.push(Some((200, json!({"user_id":"u","status":"online"}))));
-    responses.extend(navigation[1..].iter().cloned());
-    responses.push(Some((
-        200,
-        json!({"order":["new"],"posts":{"new":post("new", ""),"spoof":impostor}}),
-    )));
     let (mut worker, mut rx, server) = scripted(responses).await;
     worker
         .posts
@@ -831,6 +828,11 @@ async fn refresh_replaces_offline_snapshot_and_rejects_invalid_extras_atomically
 #[tokio::test]
 async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure() {
     let (mut worker, mut rx, server) = scripted(vec![
+        Some((
+            200,
+            json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
+        )),
+        Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
         Some((200, json!([{"id":"t","name":"team"}]))),
         Some((200, json!({"SiteName":"Test"}))),
         Some((200, json!({"user_id":"u","status":"online"}))),
@@ -842,12 +844,12 @@ async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure
             200,
             json!({"channel_id":"c","msg_count":3,"mention_count":1}),
         )),
+        Some((200, json!({"status":"OK"}))),
         Some((
             200,
             json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
         )),
         Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
-        Some((200, json!({"status":"OK"}))),
         Some((200, json!([{"id":"t","name":"team"}]))),
         Some((200, json!({"user_id":"u","status":"online"}))),
         Some((
@@ -855,11 +857,6 @@ async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure
             json!([{"id":"c","team_id":"t","name":"channel","type":"O"}]),
         )),
         Some((500, json!({}))),
-        Some((
-            200,
-            json!({"id":"c","team_id":"t","name":"channel","type":"O"}),
-        )),
-        Some((200, json!({"order":[],"posts":{},"prev_post_id":""}))),
         Some((500, json!({}))),
     ])
     .await;
@@ -900,8 +897,8 @@ async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure
         }
     );
     let requests = server.finish().await;
-    assert!(requests[1].starts_with("GET /api/v4/config/client?format=old "));
-    assert!(requests[4].starts_with("GET /api/v4/users/me/channels/c/unread "));
+    assert!(requests[3].starts_with("GET /api/v4/config/client?format=old "));
+    assert!(requests[6].starts_with("GET /api/v4/users/me/channels/c/unread "));
     assert!(requests[7].starts_with("POST /api/v4/channels/members/u/view "));
     assert!(requests[7].contains(r#""prev_channel_id":"old""#));
 }
@@ -949,7 +946,9 @@ async fn unread_deltas_ignore_own_current_and_spoofed_events() {
     assert!(
         matches!(rx.try_recv(), Ok(Update::Unread(u)) if u["d"] == Unread { messages: 1, mentions: 1 })
     );
-    assert!(matches!(rx.try_recv(), Ok(Update::Notification { channel_id, .. }) if channel_id == "d"));
+    assert!(
+        matches!(rx.try_recv(), Ok(Update::Notification { channel_id, .. }) if channel_id == "d")
+    );
     let viewed = |data| WireEvent {
         event: "channel_viewed".into(),
         data,
@@ -973,11 +972,8 @@ async fn edit_patches_the_post_and_publishes_the_change() {
     let mut edited = post("sent", "");
     edited.message = "revised".into();
     edited.update_at = 200;
-    let (mut worker, mut rx, server) = scripted(vec![Some((
-        200,
-        serde_json::to_value(&edited).unwrap(),
-    ))])
-    .await;
+    let (mut worker, mut rx, server) =
+        scripted(vec![Some((200, serde_json::to_value(&edited).unwrap()))]).await;
     worker.pending = None;
     worker
         .intent(Intent::Edit("sent".into(), "revised".into()))
@@ -988,8 +984,16 @@ async fn edit_patches_the_post_and_publishes_the_change() {
         Ok(Update::Upsert(p)) if p.id == "sent" && p.message == "revised"
     ));
     let requests = server.finish().await;
-    assert!(requests.iter().any(|r| r.starts_with("PUT /api/v4/posts/sent/patch ")));
-    assert!(!requests.iter().any(|r| r.starts_with("POST /api/v4/posts ")));
+    assert!(
+        requests
+            .iter()
+            .any(|r| r.starts_with("PUT /api/v4/posts/sent/patch "))
+    );
+    assert!(
+        !requests
+            .iter()
+            .any(|r| r.starts_with("POST /api/v4/posts "))
+    );
 }
 
 #[tokio::test]
