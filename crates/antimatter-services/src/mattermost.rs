@@ -321,6 +321,14 @@ pub struct PostPage {
     pub has_next: Option<bool>,
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct FileSearch {
+    #[serde(default)]
+    pub order: Vec<String>,
+    #[serde(default)]
+    pub file_infos: std::collections::HashMap<String, FileInfo>,
+}
+
 #[derive(Clone, Serialize)]
 pub struct CreatePost {
     pub channel_id: String,
@@ -688,6 +696,19 @@ impl Client {
         self.post(
             "/posts/search",
             &serde_json::json!({"terms": terms, "is_or_search": is_or_search}),
+        )
+        .await
+    }
+
+    pub async fn search_files(&self, team_id: &str, channel_name: &str) -> Result<FileSearch, Error> {
+        let path = segments(&["teams", team_id, "files", "search"])?;
+        self.post(
+            &path,
+            &serde_json::json!({
+                "terms": format!("in:{channel_name}"),
+                "is_or_search": false,
+                "include_deleted_channels": false,
+            }),
         )
         .await
     }

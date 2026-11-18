@@ -132,6 +132,10 @@ fn main() {
             ("workspace-channel-files-proof", |s| {
                 synthetic_workspace(s);
                 s.channel_files = true;
+                s.channel_files_list = Some((
+                    "synthetic-channel".into(),
+                    s.posts.iter().flat_map(|p| p.metadata.files.clone()).collect(),
+                ));
             }),
             ("workspace-preview-proof", |s| {
                 synthetic_workspace(s);

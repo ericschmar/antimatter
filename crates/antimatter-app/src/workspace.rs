@@ -2258,7 +2258,12 @@ pub(crate) fn workspace(s: &State) -> El {
                         })
                         .control_size(ControlSize::Small)
                         .variant(IconButtonVariant::Ghost)
-                        .on_press(|s: &mut State| s.channel_files = !s.channel_files)
+                        .on_press(|s: &mut State| {
+                            s.channel_files = !s.channel_files;
+                            if s.channel_files {
+                                s.fetch_channel_files();
+                            }
+                        })
                         .build(&k)
                         .key("channel-files-toggle")
                         .expanded(s.channel_files)
@@ -2454,12 +2459,19 @@ pub(crate) fn workspace(s: &State) -> El {
     rune_kit::root(body, layer)
 }
 
+fn open_channel_files(s: &State) -> &[antimatter_services::mattermost::FileInfo] {
+    s.channel_files_list
+        .as_ref()
+        .filter(|(channel, _)| s.channel.as_deref() == Some(channel.as_str()))
+        .map_or(&[], |(_, files)| files.as_slice())
+}
+
 fn channel_files_panel(s: &State, k: &rune_kit::Kit) -> El {
     let c = &k.c;
-    let files = channel_files(&s.posts);
+    let files = open_channel_files(s);
     let mut list = col().w_full().gap(4.0);
-    for file in &files {
-        let target = (*file).clone();
+    for file in files {
+        let target = file.clone();
         list = list.child(
             rune::row()
                 .key(format!("channel-file-{}", file.id))
@@ -2519,15 +2531,6 @@ fn channel_files_panel(s: &State, k: &rune_kit::Kit) -> El {
         )
 }
 
-fn channel_files(posts: &[Post]) -> Vec<&antimatter_services::mattermost::FileInfo> {
-    let mut seen = std::collections::HashSet::new();
-    posts
-        .iter()
-        .flat_map(|post| &post.metadata.files)
-        .filter(|file| seen.insert(file.id.as_str()))
-        .collect()
-}
-
 #[cfg(test)]
 mod mention_tests {
     use super::mentions;
@@ -2569,42 +2572,26 @@ mod emoji_glyph_tests {
 
 #[cfg(test)]
 mod channel_files_tests {
-    use super::channel_files;
-    use antimatter_services::mattermost::{FileInfo, Post, PostMetadata};
-
-    fn file(id: &str) -> FileInfo {
-        FileInfo {
-            id: id.into(),
-            ..Default::default()
-        }
-    }
+    use super::open_channel_files;
+    use crate::state::State;
+    use antimatter_services::mattermost::FileInfo;
 
     #[test]
-    fn lists_each_file_once_in_post_order() {
-        let post = |id: &str, files: Vec<FileInfo>| Post {
-            id: id.into(),
-            channel_id: String::new(),
-            user_id: String::new(),
-            message: String::new(),
-            create_at: 0,
-            update_at: 0,
-            delete_at: 0,
-            pending_post_id: String::new(),
-            root_id: String::new(),
-            metadata: PostMetadata {
-                reactions: Vec::new(),
-                files,
-            },
-        };
-        let posts = [
-            post("p1", vec![file("a"), file("b")]),
-            post("p2", vec![file("b"), file("c")]),
-        ];
-        let ids: Vec<_> = channel_files(&posts)
-            .iter()
-            .map(|f| f.id.as_str())
-            .collect();
-        assert_eq!(ids, ["a", "b", "c"]);
+    fn panel_lists_only_files_for_the_open_channel() {
+        let mut s = State::default();
+        s.channel = Some("chan-a".into());
+        s.channel_files_list = Some((
+            "chan-a".into(),
+            vec![FileInfo {
+                id: "a".into(),
+                ..Default::default()
+            }],
+        ));
+        assert_eq!(open_channel_files(&s).len(), 1);
+        s.channel = Some("chan-b".into());
+        assert!(open_channel_files(&s).is_empty());
+        s.channel = None;
+        assert!(open_channel_files(&s).is_empty());
     }
 }
 

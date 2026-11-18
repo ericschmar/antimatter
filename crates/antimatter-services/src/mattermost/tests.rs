@@ -152,6 +152,30 @@ async fn statuses_post_ids_and_parse_presence() {
 }
 
 #[tokio::test]
+async fn channel_files_search_lists_the_channel_in_server_order() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v4/teams/team1/files/search"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "order": ["f2", "f1"],
+            "file_infos": {
+                "f1": {"id": "f1", "name": "a.pdf", "mime_type": "application/pdf"},
+                "f2": {"id": "f2", "name": "b.png", "mime_type": "image/png"}
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = Client::new(local(&server), Secret::new("fake".into()).unwrap()).unwrap();
+    let found = client.search_files("team1", "general").await.unwrap();
+    assert_eq!(found.order, ["f2", "f1"]);
+    assert_eq!(found.file_infos["f1"].name, "a.pdf");
+    let requests = server.received_requests().await.unwrap();
+    let body: Value = requests[0].body_json().unwrap();
+    assert_eq!(body["terms"], "in:general");
+}
+
+#[tokio::test]
 async fn profile_image_fetches_user_image_bytes() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

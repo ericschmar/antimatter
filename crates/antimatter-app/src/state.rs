@@ -128,6 +128,7 @@ pub(crate) struct State {
     pub(crate) giphy_key: Option<String>,
     pub(crate) gif_picker: bool,
     pub(crate) channel_files: bool,
+    pub(crate) channel_files_list: Option<(String, Vec<antimatter_services::mattermost::FileInfo>)>,
     pub(crate) gif_query: TextEdit,
     pub(crate) gif_results: Option<Vec<antimatter_services::giphy::Gif>>,
     pub(crate) gif_busy: bool,
@@ -589,6 +590,38 @@ impl State {
         });
     }
 
+    pub(crate) fn fetch_channel_files(&mut self) {
+        let (Some(client), Some(runtime), Some(handle), Some(channel_id)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            self.channel.clone(),
+        ) else {
+            return;
+        };
+        let Some(channel) = self.channels.iter().find(|c| c.id == channel_id).cloned() else {
+            return;
+        };
+        let Some(team_id) = self.current_team_id() else {
+            return;
+        };
+        runtime.spawn(async move {
+            let Ok(search) = client.search_files(&team_id, &channel.name).await else {
+                return;
+            };
+            let files: Vec<_> = search
+                .order
+                .iter()
+                .filter_map(|id| search.file_infos.get(id).cloned())
+                .collect();
+            handle.update(move |s, _| {
+                if s.channel.as_deref() == Some(channel_id.as_str()) {
+                    s.channel_files_list = Some((channel_id, files));
+                }
+            });
+        });
+    }
+
     pub(crate) fn run_search(&mut self) {
         let terms = self.search.text.trim().to_owned();
         let (Some(client), Some(runtime), Some(handle)) = (
@@ -881,6 +914,7 @@ impl Default for State {
             giphy_key: None,
             gif_picker: false,
             channel_files: false,
+            channel_files_list: None,
             gif_query: TextEdit::default(),
             gif_results: None,
             gif_busy: false,

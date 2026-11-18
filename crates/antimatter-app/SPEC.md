@@ -156,11 +156,13 @@ The channel header has a files toggle (key `channel-files-toggle`, Phosphor `FOL
 and tooltip "Show channel files" / "Close channel files") to the right of the member stack, 8 pt
 away from the avatars. Pressing it toggles
 `State::channel_files`; when open, a 264 pt `channel-files` panel sits to the right of the ledger
-in the workspace row. The panel lists the files attached to the posts already loaded for the open
-channel (`channel_files`, deduplicated by file id, in post order); it makes no request of its own.
-Each row downloads through `State::download_file`, the same save path as message attachments. An
-empty channel shows "No files in this channel yet." Scene: `workspace-channel-files-proof`. Only
-loaded history is listed; files in older pages appear once that history is loaded.
+in the workspace row. The panel lists every file in the open channel, not only the loaded posts. Opening
+the panel, or switching channels while it is open, runs one `State::fetch_channel_files` request
+(Mattermost `POST /teams/:team_id/files/search` with `in:<channel name>`) and stores the result
+keyed by channel id as `State::channel_files_list`; a response that arrives after the user has
+left its channel is dropped, and the panel shows only the list for the open channel. Each row
+downloads through `State::download_file`, the same save path as message attachments. An empty
+channel shows "No files in this channel yet." Scene: `workspace-channel-files-proof`.
 
 This foundation slice does not implement rich
 message actions; the independent Settings window is specified in

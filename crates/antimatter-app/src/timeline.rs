@@ -125,6 +125,9 @@ impl State {
             self.ready = false;
             self.loading_older = false;
             self.dispatch(Intent::Members(channel));
+            if self.channel_files {
+                self.fetch_channel_files();
+            }
         }
     }
 
