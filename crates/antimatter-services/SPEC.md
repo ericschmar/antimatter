@@ -41,6 +41,9 @@ backoff, cancellation and refresh signaling. Socket creation alone is not
 connected. Ping every 25 seconds with a 10-second reply deadline; reconnect delay
 caps at 30 seconds and resets after authentication. Auth rejection suspends
 reconnect; cancellation never reconnects. Decode nested JSON objects or strings.
+Outbound `user_typing` frames (`data.channel_id`, `data.parent_id`) are written only
+after authentication, from a bounded `Typing` channel the conversation worker feeds;
+a dropped sender disables that branch without ending the socket.
 
 ## Conversation worker
 
@@ -61,6 +64,12 @@ advisory on failure) and, after the active channel's timeline is published, post
 the channel-view request (best effort, idempotent). Peer avatars are fetched
 concurrently (bounded) after `Ready(true)`, so neither the sidebar nor the channel waits on them. `posted`/`channel_viewed`
 events adjust counts without ever acknowledging pending sends.
+
+Typing is realtime and advisory. `typing` events are published as `Update::Typing` only when
+their channel is the active channel and the user is not the current user; the channel comes from
+`data` or `broadcast`, and a missing channel or user is an invalid event. Display names are
+resolved best effort. `Intent::Typing` forwards to the socket with `try_send` and is dropped
+when the socket queue is full, so typing never blocks sends, refresh or acknowledgements.
 
 Display names are best effort and advisory. Direct channels (`D`, `id1__id2`) resolve
 their label from the peer's user (full name, then nickname, then username); a self-DM is
@@ -85,10 +94,18 @@ a 10,000-page fail-closed ceiling, not a durable-idempotency guarantee.
 ## Giphy search
 
 `giphy.rs` owns the optional GIF search: one authenticated GET to Giphy's
-`/v1/gifs/search` with the public key and query, a 5-second connect and 10-second total
-timeout, and decoding of only the `original` media URL. Only `http`/`https` media URLs
-are kept; a transport failure or rejected key yields no results rather than an error
-the composer must handle. The key is supplied by the app and is never persisted,
+`/v1/gifs/trending` (featured) or `/v1/gifs/search` with the public key, a 5-second connect
+and 10-second total timeout (the JSON API only), and decoding of each GIF's `original` media URL (inserted into
+the draft) and `fixed_width` preview URL (the picker thumbnail). Only `http`/`https` URLs are
+kept; a transport failure or rejected key yields no results rather than an error the
+composer must handle. Thumbnail and in-message GIF bytes use a 5-second connect timeout
+and a 10-second read-stall timeout (no whole-download deadline, so a large GIF on a slow link is
+not cut short), capped at 8 MiB. A GIF whose URL is a Mattermost `/api/v4/image?url=` proxy link
+is requested with the session credential through `Client::proxied_image`, which follows only
+same-origin redirects; a redirect that leaves the origin is returned as `Error::Redirect` and
+fetched by `giphy::fetch_bytes` with no credential. Direct Giphy URLs are fetched the same way
+without a credential. A failed fetch is not retried in the session.
+The key is supplied by the app and is never persisted,
 logged or serialized into a Mattermost request. It is not Mattermost traffic, so
 it does not use the origin, redirect or `/api/v4` policy above.
 

@@ -42,6 +42,11 @@ pub enum Event {
     Refresh,
 }
 
+pub struct Typing {
+    pub channel_id: String,
+    pub parent_id: String,
+}
+
 #[derive(Deserialize)]
 pub struct WireEvent {
     pub event: String,
@@ -72,8 +77,9 @@ pub async fn run(
     secret: Secret,
     stop: watch::Receiver<bool>,
     events: mpsc::Sender<Event>,
+    typing: mpsc::Receiver<Typing>,
 ) {
-    run_session(&origin, secret.expose(), stop, &events).await;
+    run_session(&origin, secret.expose(), stop, &events, typing).await;
 }
 
 async fn run_session(
@@ -81,12 +87,13 @@ async fn run_session(
     secret: &str,
     mut stop: watch::Receiver<bool>,
     events: &mpsc::Sender<Event>,
+    mut typing: mpsc::Receiver<Typing>,
 ) {
     let stopped = tokio::select! {
         biased;
         _ = cancelled(&mut stop) => true,
         _ = events.closed() => true,
-        _ = worker(origin, secret, events) => false,
+        _ = worker(origin, secret, events, &mut typing) => false,
     };
     if stopped {
         let _ = events.try_send(Event::State(State::Idle));
@@ -118,7 +125,12 @@ async fn emit(events: &mpsc::Sender<Event>, event: Event) -> Result<(), ()> {
         .map_err(|_| ())
 }
 
-async fn worker(origin: &ServerOrigin, secret: &str, events: &mpsc::Sender<Event>) {
+async fn worker(
+    origin: &ServerOrigin,
+    secret: &str,
+    events: &mpsc::Sender<Event>,
+    typing: &mut mpsc::Receiver<Typing>,
+) {
     let mut next = 1;
     let mut attempt = 0;
     let mut previously_authenticated = false;
@@ -143,6 +155,7 @@ async fn worker(origin: &ServerOrigin, secret: &str, events: &mpsc::Sender<Event
                     socket,
                     secret,
                     events,
+                    typing,
                     &mut next,
                     &mut attempt,
                     &mut previously_authenticated,
@@ -187,6 +200,7 @@ async fn receive(
     >,
     secret: &str,
     events: &mpsc::Sender<Event>,
+    typing: &mut mpsc::Receiver<Typing>,
     next: &mut u64,
     attempt: &mut u32,
     previously_authenticated: &mut bool,
@@ -229,6 +243,18 @@ async fn receive(
                     .await.map_err(|_| Failure::Transport)?.map_err(|_| Failure::Transport)?;
                 pending = Some((seq, Instant::now() + REPLY_TIMEOUT));
                 next_ping += PING_INTERVAL;
+                continue;
+            },
+            Some(outgoing) = typing.recv(), if authenticated => {
+                let seq = sequence(next)?;
+                let frame = serde_json::json!({
+                    "seq": seq,
+                    "action": "user_typing",
+                    "data": {"channel_id": outgoing.channel_id, "parent_id": outgoing.parent_id},
+                })
+                .to_string();
+                timeout(REPLY_TIMEOUT, socket.send(Message::Text(frame.into())))
+                    .await.map_err(|_| Failure::Transport)?.map_err(|_| Failure::Transport)?;
                 continue;
             },
             message = socket.next() => message,

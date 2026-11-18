@@ -139,7 +139,8 @@ async fn lost_response_retry_reconnect_and_untrusted_events() {
     let (intents, rx) = mpsc::channel(16);
     let (ws, events) = mpsc::channel(16);
     let (tx, mut updates) = mpsc::channel(32);
-    let worker = tokio::spawn(run(client, "u".into(), rx, events, tx));
+    let (typing, _typing_rx) = mpsc::channel(8);
+    let worker = tokio::spawn(run(client, "u".into(), rx, events, typing, tx));
     intents.send(Intent::Load("c".into())).await.unwrap();
     loop {
         match next(&mut updates).await {
@@ -296,11 +297,13 @@ async fn lost_response_retry_reconnect_and_untrusted_events() {
 
 fn worker(origin: ServerOrigin, pending: Option<Pending>) -> (Worker, mpsc::Receiver<Update>) {
     let (updates, rx) = mpsc::channel(64);
+    let (typing, _typing_rx) = mpsc::channel(8);
     (
         Worker {
             client: Client::new(origin, Secret::new("fake".into()).unwrap()).unwrap(),
             user_id: "u".into(),
             updates,
+            typing,
             channel: Some("c".into()),
             posts: HashMap::new(),
             identities: HashMap::new(),
@@ -485,7 +488,8 @@ async fn initial_refresh_before_socket_auth_is_unblocked_by_connected() {
     let (intents, rx) = mpsc::channel(16);
     let (ws, events) = mpsc::channel(16);
     let (tx, mut updates) = mpsc::channel(32);
-    let task = tokio::spawn(run(worker.client, "u".into(), rx, events, tx));
+    let (typing, _typing_rx) = mpsc::channel(8);
+    let task = tokio::spawn(run(worker.client, "u".into(), rx, events, typing, tx));
     intents.send(Intent::Refresh).await.unwrap();
     assert!(matches!(next(&mut updates).await, Update::Ready(false)));
     assert!(matches!(next(&mut updates).await, Update::Presence(p) if p == "online"));
@@ -903,6 +907,31 @@ async fn unread_counts_are_server_backed_cleared_by_view_and_advisory_on_failure
 }
 
 #[tokio::test]
+async fn typing_events_are_scoped_to_the_active_channel() {
+    let (mut worker, mut rx, _server) = scripted(vec![]).await;
+    worker.pending = None;
+    worker.channel = Some("c".into());
+    let typing = |channel: &str, user: &str| WireEvent {
+        event: "typing".into(),
+        data: json!({"user_id": user, "parent_id": ""}),
+        broadcast: json!({"channel_id": channel}),
+        seq: None,
+    };
+    worker.wire(typing("other", "x")).await.unwrap();
+    worker.wire(typing("c", "u")).await.unwrap();
+    assert!(rx.try_recv().is_err());
+    worker.wire(typing("c", "x")).await.unwrap();
+    assert!(matches!(
+        rx.try_recv(),
+        Ok(Update::Typing { channel_id, user_id }) if channel_id == "c" && user_id == "x"
+    ));
+    assert_eq!(
+        worker.wire(typing("", "x")).await,
+        Err(Failure::InvalidInput)
+    );
+}
+
+#[tokio::test]
 async fn unread_deltas_ignore_own_current_and_spoofed_events() {
     let (mut worker, mut rx, server) = scripted(vec![]).await;
     worker.pending = None;
@@ -1002,10 +1031,12 @@ async fn retry_fails_closed_on_missing_terminal_proof() {
         failed: true,
         retryable: false,
     };
+    let (typing, _typing_rx) = mpsc::channel(8);
     let mut worker = Worker {
         client: Client::new(origin, Secret::new("fake".into()).unwrap()).unwrap(),
         user_id: "u".into(),
         updates,
+        typing,
         channel: Some("c".into()),
         posts: HashMap::new(),
         identities: HashMap::new(),

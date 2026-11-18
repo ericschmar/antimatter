@@ -1,6 +1,6 @@
 use crate::{
     mattermost::{Channel, Client, CreatePost, Post, PostPage, Team},
-    websocket::{Event, State, WireEvent},
+    websocket::{Event, State, Typing, WireEvent},
 };
 use futures_util::{StreamExt, stream};
 use std::collections::{HashMap, HashSet};
@@ -34,6 +34,10 @@ pub enum Intent {
     Edit(String, String),
     Attach(Vec<std::path::PathBuf>),
     Root(String),
+    Typing {
+        channel_id: String,
+        parent_id: String,
+    },
     Retry,
     Refresh,
     Threads,
@@ -65,6 +69,10 @@ pub enum Update {
     Presence(String),
     PeerPresence(HashMap<String, String>),
     PeerAvatar(String, Option<Vec<u8>>),
+    Typing {
+        channel_id: String,
+        user_id: String,
+    },
     Unread(HashMap<String, Unread>),
     Notification {
         channel_id: String,
@@ -108,6 +116,7 @@ pub async fn run(
     user_id: String,
     mut intents: mpsc::Receiver<Intent>,
     mut socket: mpsc::Receiver<Event>,
+    typing: mpsc::Sender<Typing>,
     updates: mpsc::Sender<Update>,
 ) {
     if user_id.trim().is_empty() {
@@ -118,6 +127,7 @@ pub async fn run(
         client,
         user_id,
         updates,
+        typing,
         channel: None,
         posts: HashMap::new(),
         identities: HashMap::new(),
@@ -179,6 +189,7 @@ struct Worker {
     client: Client,
     user_id: String,
     updates: mpsc::Sender<Update>,
+    typing: mpsc::Sender<Typing>,
     channel: Option<String>,
     posts: HashMap<String, Post>,
     identities: HashMap<(String, String, String), String>,
@@ -279,6 +290,16 @@ impl Worker {
                     if let Some(channel) = self.channel.clone() {
                         let _ = self.client.view_channel(&self.user_id, &channel, "").await;
                     }
+                    Ok(())
+                }
+                Intent::Typing {
+                    channel_id,
+                    parent_id,
+                } => {
+                    let _ = self.typing.try_send(Typing {
+                        channel_id,
+                        parent_id,
+                    });
                     Ok(())
                 }
                 Intent::Threads => {
@@ -929,6 +950,32 @@ impl Worker {
         Ok(())
     }
 
+    async fn typing(&mut self, event: &WireEvent) -> Result<(), Failure> {
+        let channel_id = event
+            .data
+            .get("channel_id")
+            .or_else(|| event.broadcast.get("channel_id"))
+            .and_then(|v| v.as_str())
+            .filter(|id| !id.is_empty())
+            .ok_or(Failure::InvalidInput)?;
+        let user_id = event
+            .data
+            .get("user_id")
+            .and_then(|v| v.as_str())
+            .filter(|id| !id.is_empty())
+            .ok_or(Failure::InvalidInput)?;
+        if user_id == self.user_id || self.channel.as_deref() != Some(channel_id) {
+            return Ok(());
+        }
+        self.resolve_names([user_id.to_owned()]).await;
+        self.emit(Update::Typing {
+            channel_id: channel_id.to_owned(),
+            user_id: user_id.to_owned(),
+        })
+        .await;
+        Ok(())
+    }
+
     async fn status(&mut self, event: &WireEvent) -> Result<(), Failure> {
         if event.data.get("user_id").and_then(|v| v.as_str()) != Some(self.user_id.as_str()) {
             return Ok(());
@@ -1071,6 +1118,9 @@ impl Worker {
     }
 
     async fn wire(&mut self, event: WireEvent) -> Result<(), Failure> {
+        if event.event == "typing" {
+            return self.typing(&event).await;
+        }
         let mut threads = match event.event.as_str() {
             "thread_updated" | "thread_read_changed" | "thread_follow_changed" => true,
             "posted" => event

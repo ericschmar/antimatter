@@ -30,6 +30,7 @@ pub(crate) fn prefill(s: &mut State) {
             "ANTIMATTER_DEV_SERVER" => server = Some(value),
             "ANTIMATTER_DEV_LOGIN" => login = Some(value),
             "ANTIMATTER_DEV_PASSWORD" => password = Some(value),
+            "GIPHY_API_KEY" => {}
             other => eprintln!("dev_login: ignored key {other:?}"),
         }
     }

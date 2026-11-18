@@ -2,7 +2,7 @@ use antimatter_services::{
     SessionScope,
     accounts::{Account, AccountKey, Draft, LoginMethod, Navigation, Persistence},
     conversation::{Intent, Pending, ThreadPreview, Unread},
-    mattermost::{self, Channel, Post, Secret, ServerOrigin},
+    mattermost::{self, Channel, Post, Secret, ServerOrigin, Team},
     settings::MessageSpacing,
     websocket,
 };
@@ -103,13 +103,17 @@ pub(crate) struct State {
     pub(crate) notification_sounds_enabled: bool,
     pub(crate) name_colors: std::collections::BTreeMap<String, String>,
     pub(crate) last_active: Option<std::time::Instant>,
+    pub(crate) last_typing_sent: Option<std::time::Instant>,
+    pub(crate) typing_draft: String,
+    pub(crate) typing: HashMap<String, std::time::Instant>,
     pub(crate) last_save: Option<std::time::Instant>,
     pub(crate) new_menu: bool,
     pub(crate) new_dialog: Option<NewKind>,
     pub(crate) new_name: TextEdit,
     pub(crate) new_error: Option<String>,
     pub(crate) new_busy: bool,
-    pub(crate) team_ids: Vec<String>,
+    pub(crate) teams: Vec<Team>,
+    pub(crate) selected_team: Option<String>,
     pub(crate) preview: Option<String>,
     pub(crate) preview_at: usize,
     pub(crate) tab_drag: TabDragState,
@@ -122,9 +126,11 @@ pub(crate) struct State {
     pub(crate) search_busy: bool,
     pub(crate) attachments: Vec<std::path::PathBuf>,
     pub(crate) giphy_key: Option<String>,
-    pub(crate) gif_search: Option<TextEdit>,
+    pub(crate) gif_picker: bool,
+    pub(crate) gif_query: TextEdit,
     pub(crate) gif_results: Option<Vec<antimatter_services::giphy::Gif>>,
     pub(crate) gif_busy: bool,
+    pub(crate) gif_fetching: std::collections::HashSet<String>,
     pub(crate) reply_to: Option<antimatter_services::mattermost::Post>,
     pub(crate) editing: Option<antimatter_services::mattermost::Post>,
     pub(crate) previews: HashMap<String, Option<antimatter_services::preview::Preview>>,
@@ -158,6 +164,7 @@ pub(crate) struct State {
     pub(crate) members: Vec<String>,
     pub(crate) member_cache: HashMap<String, Vec<String>>,
     pub(crate) avatars: crate::avatars::Avatars,
+    pub(crate) gifs: crate::gifs::Gifs,
     pub(crate) client: Option<antimatter_services::mattermost::Client>,
     pub(crate) posts: Vec<Post>,
     pub(crate) has_older: bool,
@@ -236,6 +243,50 @@ impl State {
         });
     }
 
+    pub(crate) fn touch_typing(&mut self) {
+        const SEND_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
+        const EXPIRE_AFTER: std::time::Duration = std::time::Duration::from_secs(5);
+        let now = std::time::Instant::now();
+        self.typing
+            .retain(|_, seen| now.duration_since(*seen) < EXPIRE_AFTER);
+        if self.synthetic || self.intents.is_none() || self.channel.is_none() || !self.ready {
+            return;
+        }
+        let text = self.markdown();
+        if text == self.typing_draft || text.trim().is_empty() {
+            return;
+        }
+        if self
+            .last_typing_sent
+            .is_some_and(|t| now.duration_since(t) < SEND_EVERY)
+        {
+            return;
+        }
+        let channel_id = self.channel.clone().unwrap_or_default();
+        let parent_id = self
+            .reply_to
+            .as_ref()
+            .map(|post| {
+                if post.root_id.is_empty() {
+                    post.id.clone()
+                } else {
+                    post.root_id.clone()
+                }
+            })
+            .unwrap_or_default();
+        let sent = self.intents.as_ref().is_some_and(|tx| {
+            tx.try_send(Intent::Typing {
+                channel_id,
+                parent_id,
+            })
+            .is_ok()
+        });
+        if sent {
+            self.typing_draft = text;
+            self.last_typing_sent = Some(now);
+        }
+    }
+
     pub(crate) fn touch_active(&mut self) {
         const EVERY: std::time::Duration = std::time::Duration::from_secs(60);
         if self.synthetic || self.intents.is_none() || self.channel.is_none() || !self.ready {
@@ -290,7 +341,7 @@ impl State {
         if self.new_busy || input.is_empty() {
             return;
         }
-        let team = self.team_ids.first().cloned().unwrap_or_default();
+        let team = self.current_team_id().unwrap_or_default();
         self.new_busy = true;
         self.new_error = None;
         runtime.spawn(async move {
@@ -393,24 +444,18 @@ impl State {
         });
     }
 
-    pub(crate) fn open_gif_search(&mut self) {
-        self.gif_search = Some(TextEdit::default());
-        self.gif_results = None;
+    pub(crate) fn open_gif_picker(&mut self) {
+        self.gif_picker = true;
+        self.gif_query = TextEdit::default();
+        self.load_gifs(None);
+    }
+
+    pub(crate) fn close_gif_picker(&mut self) {
+        self.gif_picker = false;
         self.gif_busy = false;
     }
 
-    pub(crate) fn close_gif_search(&mut self) {
-        self.gif_search = None;
-        self.gif_results = None;
-        self.gif_busy = false;
-    }
-
-    pub(crate) fn run_gif_search(&mut self) {
-        let query = self
-            .gif_search
-            .as_ref()
-            .map(|edit| edit.text.trim().to_owned())
-            .unwrap_or_default();
+    pub(crate) fn load_gifs(&mut self, query: Option<String>) {
         let (Some(key), Some(runtime), Some(handle)) = (
             self.giphy_key.clone(),
             self.runtime.clone(),
@@ -418,21 +463,29 @@ impl State {
         ) else {
             return;
         };
-        if query.is_empty() || self.gif_busy {
+        if self.gif_busy {
             return;
         }
         self.gif_busy = true;
         runtime.spawn(async move {
-            let gifs = antimatter_services::giphy::search(
-                antimatter_services::giphy::ENDPOINT,
-                &key,
-                &query,
-            )
-            .await;
+            let gifs = match query {
+                Some(query) => antimatter_services::giphy::search(&key, &query, 24).await,
+                None => antimatter_services::giphy::trending(&key, 24).await,
+            };
+            let previews: Vec<_> = gifs
+                .iter()
+                .flatten()
+                .map(|gif| gif.preview.clone())
+                .collect();
             handle.update(move |s, _| {
                 s.gif_busy = false;
                 s.gif_results = Some(gifs.unwrap_or_default());
             });
+            for preview in previews {
+                let key = preview.to_string();
+                let bytes = antimatter_services::giphy::fetch_bytes(preview).await;
+                handle.update(move |s, _| s.gifs.finish(key, bytes));
+            }
         });
     }
 
@@ -445,7 +498,45 @@ impl State {
             format!("{current}\n{markdown}")
         };
         self.draft = crate::markdown::from_markdown(&next);
-        self.close_gif_search();
+        self.close_gif_picker();
+    }
+
+    pub(crate) fn fetch_post_gifs(&mut self) {
+        let sources: Vec<url::Url> = self
+            .posts
+            .iter()
+            .flat_map(|post| crate::workspace::gif_sources(&post.message))
+            .collect();
+        for url in sources {
+            self.fetch_gif(url);
+        }
+    }
+
+    pub(crate) fn fetch_gif(&mut self, url: url::Url) {
+        let key = url.to_string();
+        if self.gifs.get(&key).is_some() || self.gif_fetching.contains(&key) {
+            return;
+        }
+        let (Some(runtime), Some(handle)) = (self.runtime.clone(), self.handle.clone()) else {
+            return;
+        };
+        self.gif_fetching.insert(key.clone());
+        let client = self.client.clone();
+        runtime.spawn(async move {
+            let bytes = match client {
+                Some(client) if client.origin().matches(&url) => match client.proxied_image(&url).await {
+                    Ok(bytes) => Some(bytes),
+                    Err(antimatter_services::mattermost::Error::Redirect(target)) => {
+                        antimatter_services::giphy::fetch_bytes(target).await
+                    }
+                    Err(_) => None,
+                },
+                _ => antimatter_services::giphy::fetch_bytes(url).await,
+            };
+            handle.update(move |s, _| {
+                s.gifs.finish(key, bytes)
+            });
+        });
     }
 
     pub(crate) fn fetch_preview(&mut self, url: url::Url) {
@@ -670,6 +761,13 @@ impl State {
         });
     }
 
+    pub(crate) fn current_team_id(&self) -> Option<String> {
+        self.selected_team
+            .clone()
+            .filter(|id| self.teams.iter().any(|t| &t.id == id))
+            .or_else(|| self.teams.first().map(|t| t.id.clone()))
+    }
+
     pub(crate) fn switch_account(&mut self, key: AccountKey) {
         if self.blocked() {
             return;
@@ -730,13 +828,17 @@ impl Default for State {
             notification_sounds_enabled: true,
             name_colors: Default::default(),
             last_active: None,
+            last_typing_sent: None,
+            typing_draft: String::new(),
+            typing: HashMap::new(),
             last_save: None,
             new_menu: false,
             new_dialog: None,
             new_name: TextEdit::default(),
             new_error: None,
             new_busy: false,
-            team_ids: Vec::new(),
+            teams: Vec::new(),
+            selected_team: None,
             preview: None,
             preview_at: 0,
             tab_drag: TabDragState::new(),
@@ -749,9 +851,11 @@ impl Default for State {
             search_busy: false,
             attachments: Vec::new(),
             giphy_key: None,
-            gif_search: None,
+            gif_picker: false,
+            gif_query: TextEdit::default(),
             gif_results: None,
             gif_busy: false,
+            gif_fetching: std::collections::HashSet::new(),
             reply_to: None,
             editing: None,
             previews: HashMap::new(),
@@ -785,6 +889,7 @@ impl Default for State {
             members: Vec::new(),
             member_cache: HashMap::new(),
             avatars: crate::avatars::Avatars::default(),
+            gifs: crate::gifs::Gifs::default(),
             client: None,
             posts: vec![],
             has_older: false,

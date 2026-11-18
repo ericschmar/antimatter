@@ -24,5 +24,8 @@ for name in NAMES:
     out.append(f'pub static {snake}: Icon = Icon {{ name: "ph-{kebab}", view: 256.0, body: r#"{body}"# }};')
 S = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"'
 out.append(f'pub static DOWNLOAD: Icon = Icon {{ name: "download", view: 256.0, body: r#"<path d="M184,128h40a8,8,0,0,1,8,8v64a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V136a8,8,0,0,1,8-8H72" {S}/><line x1="128" y1="24" x2="128" y2="128" {S}/><polyline points="80 80 128 128 176 80" {S}/><circle cx="188" cy="168" r="12" fill="currentColor"/>"# }};')
+GIF = ('<line x1="136" y1="72" x2="136" y2="184" {S}/><polyline points="232 72 176 72 176 184" {S}/>'
+       '<line x1="224" y1="128" x2="176" y2="128" {S}/><path d="M72,128H96v24a32,32,0,0,1-64,0V104A32,32,0,0,1,64,72c14.91,0,28.45,10.2,32,24" {S}/>')
+out.append(f'pub static GIF: Icon = Icon {{ name: "gif", view: 256.0, body: r#"{GIF.format(S=S)}"# }};')
 pathlib.Path(__file__).resolve().parent.parent.joinpath("crates/antimatter-theme/src/icons.rs").write_text("\n".join(out) + "\n")
 print(len(NAMES), "icons")

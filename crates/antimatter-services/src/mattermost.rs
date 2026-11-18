@@ -68,7 +68,7 @@ impl ServerOrigin {
         url
     }
 
-    fn matches(&self, url: &Url) -> bool {
+    pub fn matches(&self, url: &Url) -> bool {
         url.origin().ascii_serialization() == self.0
             && url.username().is_empty()
             && url.password().is_none()
@@ -108,6 +108,7 @@ pub enum Error {
     Transport,
     Decode,
     Http(HttpError),
+    Redirect(Url),
 }
 
 pub struct HttpError {
@@ -143,6 +144,7 @@ impl fmt::Display for Error {
             Self::Transport => f.write_str("Network request failed; its outcome may be unknown"),
             Self::Decode => f.write_str("Invalid server response"),
             Self::Http(error) => write!(f, "Mattermost request failed (HTTP {})", error.status),
+            Self::Redirect(_) => f.write_str("Mattermost redirected the media request off the server"),
         }
     }
 }
@@ -391,9 +393,10 @@ impl Client {
         &self,
         stop: tokio::sync::watch::Receiver<bool>,
         events: tokio::sync::mpsc::Sender<crate::websocket::Event>,
+        typing: tokio::sync::mpsc::Receiver<crate::websocket::Typing>,
     ) {
         let secret = Secret::new(self.token.expose().to_owned()).expect("validated token");
-        crate::websocket::run(self.origin.clone(), secret, stop, events).await;
+        crate::websocket::run(self.origin.clone(), secret, stop, events, typing).await;
     }
 
     pub async fn me(&self) -> Result<User, Error> {
@@ -807,6 +810,37 @@ impl Client {
             segments(&["files", id])?
         };
         self.media(&self.origin.endpoint(&path)?).await
+    }
+
+    pub async fn proxied_image(&self, source: &Url) -> Result<Vec<u8>, Error> {
+        let mut url = self.origin.endpoint("/image")?;
+        url.query_pairs_mut().append_pair("url", source.as_str());
+        for _ in 0..5 {
+            let response = self
+                .request(Method::GET, url.clone())?
+                .send()
+                .await
+                .map_err(|_| Error::Transport)?;
+            if !response.status().is_redirection() {
+                return Ok(checked(response)
+                    .await?
+                    .bytes()
+                    .await
+                    .map_err(|_| Error::Transport)?
+                    .to_vec());
+            }
+            let target = response
+                .headers()
+                .get(header::LOCATION)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| response.url().join(value).ok())
+                .ok_or(Error::Transport)?;
+            if !self.origin.matches(&target) {
+                return Err(Error::Redirect(target));
+            }
+            url = target;
+        }
+        Err(Error::Transport)
     }
 }
 

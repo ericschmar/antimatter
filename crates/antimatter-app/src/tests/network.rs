@@ -91,7 +91,15 @@ async fn rune_send_checks_lost_response_delivery_without_duplicate() {
     let (sender, intents) = mpsc::channel(8);
     let (ws, events) = mpsc::channel(8);
     let (tx, mut updates) = mpsc::channel(16);
-    let worker = tokio::spawn(conversation::run(client, "u".into(), intents, events, tx));
+    let (typing, _typing_rx) = mpsc::channel(8);
+    let worker = tokio::spawn(conversation::run(
+        client,
+        "u".into(),
+        intents,
+        events,
+        typing,
+        tx,
+    ));
     let mut rt = ui(sender);
     rt.state.channel = None;
     rt.state.channels.clear();

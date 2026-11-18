@@ -30,6 +30,43 @@ fn synthetic_workspace_selection_and_lock_stay_local() {
 }
 
 #[test]
+fn gif_picker_button_is_present_and_enabled_when_a_key_is_set() {
+    let mut s = State::default();
+    synthetic_workspace(&mut s);
+    s.giphy_key = Some("key".into());
+    let mut rt = Runtime::new(
+        s,
+        view,
+        (640.0, 640.0),
+        Env {
+            system_dark: true,
+            scale: 2.0,
+        },
+    );
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(!inert(&rt, "gif-picker-open"));
+}
+
+#[test]
+fn gif_picker_button_is_inert_without_a_key() {
+    let mut s = State::default();
+    synthetic_workspace(&mut s);
+    let mut rt = Runtime::new(
+        s,
+        view,
+        (640.0, 640.0),
+        Env {
+            system_dark: true,
+            scale: 2.0,
+        },
+    );
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(inert(&rt, "gif-picker-open"));
+}
+
+#[test]
 fn send_tap_locks_composer_before_worker_acknowledges() {
     let (sender, mut intents) = mpsc::channel(8);
     let mut rt = ui(sender);
@@ -827,4 +864,42 @@ fn composer_keeps_focus_through_send_and_acknowledgement() {
     rt.frame(0.0);
     assert!(!rt.state.submitted);
     assert!(focused(&rt));
+}
+
+
+
+#[test]
+fn gif_post_draws_its_picture_once_the_store_has_it() {
+    let url = "https://media4.giphy.com/media/v1.abc/l0/giphy.gif";
+    let mut s = State::default();
+    synthetic_workspace(&mut s);
+    let mut post = s.posts[0].clone();
+    post.id = "gif-post".into();
+    post.message = format!("![Bored]({url})");
+    s.posts = vec![post];
+    s.gifs.attach(std::sync::Arc::new(|| {}));
+    s.gifs.finish(url.into(), Some(include_bytes!("fixtures/gif-2x2.gif").to_vec()));
+    for _ in 0..200 {
+        if s.gifs.get(url).is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let mut rt = Runtime::new(
+        s,
+        view,
+        (640.0, 640.0),
+        Env {
+            system_dark: true,
+            scale: 2.0,
+        },
+    );
+    rt.invalidate();
+    rt.frame(0.0);
+    let picture = rt
+        .elements()
+        .into_iter()
+        .find(|e| e.role == "image" && e.label.as_deref() == Some("Bored"))
+        .expect("GIF drawn as a picture");
+    assert!(picture.rect[3] > 19.0, "picture, not the alt-text line");
 }

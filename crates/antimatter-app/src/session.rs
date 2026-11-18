@@ -37,7 +37,8 @@ impl State {
         self.channels.clear();
         self.unread.clear();
         self.threads.clear();
-        self.team_ids.clear();
+        self.teams.clear();
+        self.selected_team = None;
         self.new_dialog = None;
         self.focus_post = None;
         self.names.clear();
@@ -184,6 +185,7 @@ impl State {
             let account = format!("{} · {}", client.origin().as_str(), user.username);
             let (intents_tx, intents_rx) = mpsc::channel(32);
             let (socket_tx, socket_rx) = mpsc::channel(64);
+            let (typing_tx, typing_rx) = mpsc::channel(8);
             let (updates_tx, mut updates_rx) = mpsc::channel(64);
             let avatar_client = client.clone();
             let state_client = client.clone();
@@ -230,9 +232,10 @@ impl State {
             });
             worker_runtime.spawn(async move {
                 let socket_client = client.clone();
-                let socket = socket_client.websocket(stop.clone(), socket_tx);
-                let conversation =
-                    conversation::run(client, user.id, intents_rx, socket_rx, updates_tx);
+                let socket = socket_client.websocket(stop.clone(), socket_tx, typing_rx);
+                let conversation = conversation::run(
+                    client, user.id, intents_rx, socket_rx, typing_tx, updates_tx,
+                );
                 let updates = async {
                     while let Some(update) = updates_rx.recv().await {
                         handle.update(move |s, _| {

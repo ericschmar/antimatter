@@ -2,9 +2,8 @@ use crate::state::*;
 use crate::tabs::tab_strip;
 use crate::theme::workspace_theme;
 use crate::widgets::*;
-use antimatter_services::accounts::Account;
 use antimatter_services::conversation::{Intent, ThreadPreview};
-use antimatter_services::mattermost::{Channel, Post};
+use antimatter_services::mattermost::{Channel, Post, Team};
 use antimatter_services::settings::MessageSpacing;
 use antimatter_theme::icons;
 use rune::{El, Icon, TextEdit, TextStyle, col, el, icon, row as hbox, text};
@@ -229,33 +228,12 @@ fn threads_section(s: &State, k: &rune_kit::Kit) -> Option<El> {
     Some(group)
 }
 
-fn server_labels(s: &State) -> Vec<String> {
-    let label = |account: &Account| {
-        if s.authenticated.as_ref() == Some(&account.key) && !s.site_name.is_empty() {
-            s.site_name.clone()
-        } else if let Some(name) = account.site_name.as_deref().filter(|n| !n.is_empty()) {
-            name.to_owned()
-        } else {
-            account.key.origin().to_owned()
-        }
-    };
-    s.accounts
-        .iter()
-        .map(|account| {
-            let base = label(account);
-            let shared = s
-                .accounts
-                .iter()
-                .filter(|other| label(other) == base)
-                .count()
-                > 1;
-            if shared {
-                format!("{base} ({})", account.username)
-            } else {
-                base
-            }
-        })
-        .collect()
+fn team_label(team: &Team) -> String {
+    if team.display_name.is_empty() {
+        team.name.clone()
+    } else {
+        team.display_name.clone()
+    }
 }
 
 const LEDGER_TOP_SLACK: f32 = 24.0;
@@ -341,7 +319,12 @@ fn author_marker(s: &State, post: &Post, c: &rune_kit::Palette) -> El {
 }
 
 fn emoji_glyph(name: &str) -> String {
-    emojis::get_by_shortcode(name).map_or_else(|| format!(":{name}:"), |e| e.as_str().to_owned())
+    emoji_lookup(name).map_or_else(|| format!(":{name}:"), |e| e.as_str().to_owned())
+}
+
+fn emoji_lookup(name: &str) -> Option<&'static emojis::Emoji> {
+    emojis::get_by_shortcode(name)
+        .or_else(|| emojis::iter().find(|e| name.split('_').eq(e.name().split(' '))))
 }
 
 fn emoji_face(s: &State, name: &str, size: f32, k: &rune_kit::Kit) -> El {
@@ -859,6 +842,21 @@ fn post_row(s: &State, i: usize) -> El {
                     .child(
                         Markdown::new(&post.message)
                             .selectable(true)
+                            .image_frame(|el, frame| {
+                                let [w, h] = frame.image.size().unwrap_or([GIF_MAX_W as u32, GIF_MAX_H as u32]);
+                                let ratio = w as f32 / (h.max(1) as f32);
+                                el.max_w(GIF_MAX_W).max_h(GIF_MAX_H).aspect_fit(ratio)
+                            })
+                            .images({
+                                let pictures: std::collections::HashMap<String, rune::Image> = gif_sources(&post.message)
+                                    .into_iter()
+                                    .filter_map(|url| {
+                                        let image = s.gifs.get(url.as_str())?.clone();
+                                        Some((url.to_string(), image))
+                                    })
+                                    .collect();
+                                move |src: &str| pictures.get(src).cloned()
+                            })
                             .highlights(
                                 mentions(&post.message, s.my_username())
                                     .into_iter()
@@ -1014,6 +1012,27 @@ fn reply_quote(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
                     ),
             ),
     )
+}
+
+const GIF_MAX_W: f32 = 320.0;
+const GIF_MAX_H: f32 = 240.0;
+
+pub(crate) fn gif_sources(message: &str) -> Vec<url::Url> {
+    let mut sources = Vec::new();
+    let mut rest = message;
+    while let Some(start) = rest.find("![") {
+        let after = &rest[start..];
+        let Some(open) = after.find("](") else { break };
+        let src = &after[open + 2..];
+        let Some(end) = src.find(')') else { break };
+        if let Ok(url) = url::Url::parse(&src[..end])
+            && matches!(url.scheme(), "http" | "https")
+        {
+            sources.push(url);
+        }
+        rest = &src[end..];
+    }
+    sources
 }
 
 fn link_preview(s: &State, post: &Post, k: &rune_kit::Kit) -> Option<El> {
@@ -1229,13 +1248,13 @@ fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
 }
 
 fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
-    let names = server_labels(s);
+    let names: Vec<String> = s.teams.iter().map(|team| team_label(team)).collect();
+    let current_id = s.current_team_id();
     let current = s
-        .accounts
+        .teams
         .iter()
-        .position(|account| s.authenticated.as_ref() == Some(&account.key))
+        .position(|team| current_id.as_deref() == Some(team.id.as_str()))
         .map(|i| names[i].clone())
-        .or_else(|| s.account.clone())
         .unwrap_or_default();
     let trigger = Select::new("server", &names)
         .current(Some(&current))
@@ -1255,9 +1274,8 @@ fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
                 .checked(*name == current)
                 .on_select(move |s: &mut State| {
                     s.server_open = false;
-                    if let Some(account) = s.accounts.get(i) {
-                        let key = account.key.clone();
-                        s.switch_account(key);
+                    if let Some(team) = s.teams.get(i) {
+                        s.selected_team = Some(team.id.clone());
                     }
                 }),
         );
@@ -1290,45 +1308,93 @@ fn new_row(key: &str, label: &str, kind: NewKind, k: &rune_kit::Kit) -> El {
         .on_press(move |s: &mut State| s.open_new(kind))
 }
 
-fn gif_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
-    let Some(search) = &s.gif_search else {
+fn gif_picker(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
+    if !s.gif_picker {
         return;
-    };
-    let mut body = col().w_full().gap(8.0).px(16.0).pb(16.0).child(
-        rune_kit::TextInput::new(search)
-            .label("Search GIFs")
-            .placeholder("Search GIFs")
-            .width(None)
-            .height(32.0)
-            .on_edit(|s: &mut State| s.gif_search.get_or_insert_with(TextEdit::default))
-            .on_submit(|s: &mut State, _| s.run_gif_search())
-            .build(k)
-            .key("gif-query"),
-    );
-    if s.gif_busy {
-        body = body.child(text("Searching…").font(k.ty.small).color(k.c.text_muted));
     }
+    let c = &k.c;
+    let mut grid = rune::row().gap(4.0).flex_wrap();
     for (i, gif) in s.gif_results.iter().flatten().enumerate() {
         let target = gif.clone();
-        body = body.child(
-            text(gif.title.clone())
-                .font(k.ty.small)
-                .color(k.c.text_accent)
-                .truncate()
+        let thumb = match s.gifs.get(gif.preview.as_str()) {
+            Some(image) => el().size(128.0, 96.0).radius(6.0).pixels(image.pixels()),
+            None => el()
+                .size(128.0, 96.0)
+                .radius(6.0)
+                .fill(c.layer_02)
+                .a11y_hidden(),
+        };
+        grid = grid.child(
+            rune::row()
                 .key(format!("gif-{i}"))
                 .role("button")
+                .label(gif.title.clone())
                 .focusable(true)
                 .cursor(rune::Cursor::Pointer)
-                .on_press(move |s: &mut State| s.insert_gif(&target)),
+                .on_press(move |s: &mut State| s.insert_gif(&target))
+                .child(thumb),
         );
     }
-    rune_kit::Dialog::new("gif-dialog", "Search GIFs")
-        .open(true)
-        .width(360.0)
-        .fit()
-        .on_close(|s: &mut State| s.close_gif_search())
-        .child(body)
-        .build(k, layer);
+    let status = if s.gif_busy {
+        "Loading GIFs…"
+    } else if s.gif_results.as_ref().is_some_and(|r| r.is_empty()) {
+        "No GIFs found"
+    } else if s.giphy_key.is_none() {
+        "GIF search is not configured"
+    } else {
+        ""
+    };
+    let body = col()
+        .w(284.0)
+        .gap(8.0)
+        .child(
+            rune::row()
+                .w_full()
+                .h(28.0)
+                .px(8.0)
+                .radius(6.0)
+                .fill(c.layer_02)
+                .center_y()
+                .child(
+                    rune::text_input(&s.gif_query, k.ty.small)
+                        .key("gif-query")
+                        .label("Search GIFs")
+                        .single_line()
+                        .grow(1.0)
+                        .min_w(0.0)
+                        .color(c.text_base)
+                        .placeholder("Search GIFs", c.text_muted)
+                        .caret(c.text_base, k.selection())
+                        .on_edit(|s: &mut State| &mut s.gif_query)
+                        .on_submit(|s: &mut State, _| {
+                            let query = s.gif_query.text.trim().to_owned();
+                            if query.is_empty() {
+                                s.load_gifs(None);
+                            } else {
+                                s.load_gifs(Some(query));
+                            }
+                        }),
+                ),
+        )
+        .child(
+            col()
+                .key("gif-grid")
+                .h(220.0)
+                .scroll(rune::ScrollSpec {
+                    stick_bottom: false,
+                })
+                .child(grid),
+        )
+        .children((!status.is_empty()).then(|| text(status).font(k.ty.small).color(c.text_muted)));
+    let surface = rune_kit::popover::raised(k, body.padding(8.0), k.radius.md);
+    layer.push(rune_kit::scrim("gif-picker-scrim", |s: &mut State| s.close_gif_picker()));
+    layer.push(rune_kit::popover::anchored(
+        k,
+        surface,
+        "gif-picker-open",
+        rune_kit::Placement::TopStart,
+        4.0,
+    ));
 }
 
 fn new_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
@@ -1604,6 +1670,34 @@ fn attach_button(
     if locked { b.inert() } else { b }
 }
 
+fn typing_indicator(s: &State, k: &rune_kit::Kit) -> Option<El> {
+    let mut names: Vec<&str> = s
+        .typing
+        .keys()
+        .map(|id| s.names.get(id).map_or(id.as_str(), String::as_str))
+        .collect();
+    names.sort_unstable();
+    let label = match names.as_slice() {
+        [] => return None,
+        [one] => format!("{one} is typing"),
+        [one, two] => format!("{one} and {two} are typing"),
+        [one, rest @ ..] => format!("{one} and {} others are typing", rest.len()),
+    };
+    Some(
+        rune::row()
+            .key("typing-indicator")
+            .w_full()
+            .gap(6.0)
+            .center_y()
+            .child(
+                text(label)
+                    .font(k.ty.small)
+                    .color(k.c.text_muted)
+                    .label("Typing"),
+            ),
+    )
+}
+
 fn reply_chip(s: &State, k: &rune_kit::Kit) -> Option<El> {
     let post = s.reply_to.as_ref()?;
     let name = s.names.get(&post.user_id).unwrap_or(&post.user_id);
@@ -1746,9 +1840,16 @@ pub(crate) fn workspace(s: &State) -> El {
     let c = &k.c;
     let locked = !s.ready || s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
     let composer_locked = s.busy || s.submitted || s.recovered_pending || s.pending.is_some();
+    let current_team = s.current_team_id();
     let (archived, rest): (Vec<_>, Vec<_>) = s
         .channels
         .iter()
+        .filter(|channel| {
+            matches!(channel.kind.as_str(), "D" | "G")
+                || current_team
+                    .as_deref()
+                    .is_none_or(|team| channel.team_id == team)
+        })
         .partition(|channel| s.navigation.archived.contains(&channel.id));
     let (favorites, rest): (Vec<_>, Vec<_>) = rest
         .into_iter()
@@ -1799,7 +1900,7 @@ pub(crate) fn workspace(s: &State) -> El {
         ));
     }
     new_dialog(s, &mut layer, &k);
-    gif_dialog(s, &mut layer, &k);
+    gif_picker(s, &mut layer, &k);
     sidebar = sidebar.child(section(
         "channels",
         "Channels",
@@ -2216,6 +2317,7 @@ pub(crate) fn workspace(s: &State) -> El {
                     .children(reply_chip(s, &k))
                     .children(edit_chip(s, &k))
                     .children(attachment_pills(s, &k))
+                    .children(typing_indicator(s, &k))
                     .child(composer)
                     .child(
                         rune::row()
@@ -2239,17 +2341,19 @@ pub(crate) fn workspace(s: &State) -> El {
                                 false,
                                 composer_locked,
                             ))
-                            .children(s.giphy_key.as_ref().map(|_| {
-                                let b = IconButton::new(&icons::SMILEY)
+                            .child({
+                                let no_key = s.giphy_key.is_none();
+                                let b = IconButton::new(&icons::GIF)
                                     .label("Search GIFs")
                                     .control_size(ControlSize::Small)
                                     .variant(IconButtonVariant::Ghost)
-                                    .disabled(composer_locked)
-                                    .on_press(|s: &mut State| s.open_gif_search())
+                                    .disabled(composer_locked || no_key)
+                                    .on_press(|s: &mut State| s.open_gif_picker())
                                     .build(&k)
-                                    .key("gif-search-open");
-                                if composer_locked { b.inert() } else { b }
-                            }))
+                                    .key("gif-picker-open")
+                                    .expanded(s.gif_picker);
+                                if composer_locked || no_key { b.inert() } else { b }
+                            })
                             .child({
                                 let disabled = composer_locked
                                     || s.channel.is_none()
@@ -2300,6 +2404,31 @@ mod mention_tests {
     fn finds_here_and_me_only_at_word_starts() {
         let m = "@here hi @Ada, not a@ada or @bob";
         assert_eq!(mentions(m, Some("ada")), vec![(0..5, false), (9..13, true)]);
+    }
+}
+
+#[cfg(test)]
+mod gif_source_tests {
+    use super::gif_sources;
+
+    #[test]
+    fn collects_each_http_image_source_and_ignores_the_rest() {
+        let m = "hi ![a](https://media.giphy.com/a.gif) ![b](http://x.test/b.gif) ![c](ftp://no/c) [l](https://x.test/d)";
+        let urls: Vec<_> = gif_sources(m).into_iter().map(|u| u.to_string()).collect();
+        assert_eq!(urls, ["https://media.giphy.com/a.gif", "http://x.test/b.gif"]);
+    }
+}
+
+#[cfg(test)]
+mod emoji_glyph_tests {
+    use super::emoji_glyph;
+
+    #[test]
+    fn reaction_names_resolve_to_their_glyph() {
+        assert_eq!(emoji_glyph("+1"), "👍");
+        assert_eq!(emoji_glyph("rofl"), "🤣");
+        assert_eq!(emoji_glyph("rolling_on_the_floor_laughing"), "🤣");
+        assert_eq!(emoji_glyph("not_a_real_emoji"), ":not_a_real_emoji:");
     }
 }
 

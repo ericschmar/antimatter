@@ -19,6 +19,8 @@ impl State {
 
     pub(crate) fn load(&mut self, channel: String) {
         self.last_active = None;
+        self.typing.clear();
+        self.typing_draft.clear();
         if !self.ready
             || self.busy
             || self.submitted
@@ -174,7 +176,7 @@ impl State {
                 channels,
                 unread,
             } => {
-                self.team_ids = teams.into_iter().map(|t| t.id).collect();
+                self.teams = teams;
                 self.site_name = site_name;
                 if let (Some(store), Some(runtime), Some(key)) = (
                     self.persistence.clone(),
@@ -227,6 +229,14 @@ impl State {
                 self.threads = threads;
             }
             Update::Presence(presence) => self.presence = presence,
+            Update::Typing {
+                channel_id,
+                user_id,
+            } => {
+                if self.channel.as_deref() == Some(channel_id.as_str()) {
+                    self.typing.insert(user_id, std::time::Instant::now());
+                }
+            }
             Update::PeerPresence(presence) => self.peer_presence.extend(presence),
             Update::PeerAvatar(user_id, bytes) => self.avatars.finish(user_id, bytes),
             Update::Members {

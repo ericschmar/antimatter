@@ -35,7 +35,7 @@ impl State {
         ) else {
             return;
         };
-        let teams = self.team_ids.clone();
+        let teams: Vec<String> = self.teams.iter().map(|t| t.id.clone()).collect();
         let names: HashMap<String, String> = self
             .channels
             .iter()

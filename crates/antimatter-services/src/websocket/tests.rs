@@ -28,8 +28,9 @@ async fn start() -> (
         ServerOrigin::new(&format!("http://{}", listener.local_addr().unwrap()), true).unwrap();
     let (stop, stopped) = watch::channel(false);
     let (events, receiver) = mpsc::channel(64);
+    let (_typing, typing) = mpsc::channel(8);
     let task = tokio::spawn(async move {
-        run_session(&origin, "synthetic-token", stopped, &events).await;
+        run_session(&origin, "synthetic-token", stopped, &events, typing).await;
     });
     (listener, stop, receiver, task)
 }
@@ -131,6 +132,37 @@ async fn matching_auth_malformed_unknown_and_cancellation() {
     bounded(task).await.unwrap();
     advance(Duration::from_secs(120)).await;
     assert!(futures_util::FutureExt::now_or_never(listener.accept()).is_none());
+}
+
+#[tokio::test]
+async fn typing_is_sent_only_after_authentication() {
+    let listener = bounded(TcpListener::bind("127.0.0.1:0")).await.unwrap();
+    let origin =
+        ServerOrigin::new(&format!("http://{}", listener.local_addr().unwrap()), true).unwrap();
+    let (stop, stopped) = watch::channel(false);
+    let (events, mut receiver) = mpsc::channel(64);
+    let (typing_tx, typing_rx) = mpsc::channel(8);
+    let task = tokio::spawn(async move {
+        run_session(&origin, "synthetic-token", stopped, &events, typing_rx).await;
+    });
+    let (mut peer, seq) = accept(&listener).await;
+    state(&mut receiver, State::Connecting).await;
+    reply(&mut peer, seq, "OK").await;
+    state(&mut receiver, State::Connected).await;
+    typing_tx
+        .send(Typing {
+            channel_id: "c".into(),
+            parent_id: "p".into(),
+        })
+        .await
+        .unwrap();
+    let frame = action(&mut peer).await;
+    assert_eq!(frame["action"], "user_typing");
+    assert_eq!(frame["data"]["channel_id"], "c");
+    assert_eq!(frame["data"]["parent_id"], "p");
+    assert!(frame["seq"].as_u64().unwrap() > seq);
+    stop.send(true).unwrap();
+    bounded(task).await.unwrap();
 }
 
 #[tokio::test]
@@ -239,8 +271,9 @@ async fn stop_during_handshake_and_backpressure() {
     let (stop, stopped) = watch::channel(false);
     let (events, _receiver) = mpsc::channel(1);
     bounded(events.send(Event::Refresh)).await.unwrap();
+    let (_typing, typing) = mpsc::channel(1);
     let task = tokio::spawn(async move {
-        run_session(&origin, "synthetic-token", stopped, &events).await;
+        run_session(&origin, "synthetic-token", stopped, &events, typing).await;
     });
     tokio::task::yield_now().await;
     stop.send(true).unwrap();

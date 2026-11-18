@@ -4,6 +4,7 @@ mod checkpoint;
 mod composer;
 #[cfg(debug_assertions)]
 mod dev_login;
+mod gifs;
 mod giphy;
 mod markdown;
 mod name_colors;
@@ -234,13 +235,18 @@ fn main() {
         poll: Some(|s, clock, tx| {
             const HALF: f64 = 0.53;
             s.touch_active();
+            s.touch_typing();
             s.autosave();
+            s.fetch_post_gifs();
             tx.wake_after(std::time::Duration::from_secs_f64(HALF - clock % HALF));
             let on = ((clock / HALF) as u64).is_multiple_of(2);
             std::mem::replace(&mut s.caret_on, on) != on
         }),
         on_key: Some(crate::tabs::window_key),
-        setup: Some(|s, waker| s.avatars = crate::avatars::Avatars::new(waker)),
+        setup: Some(|s, waker| {
+            s.avatars = crate::avatars::Avatars::new(waker.clone());
+            s.gifs.attach(waker);
+        }),
         ..AppSpec::new(
             "Antimatter",
             if rune::is_headless() {

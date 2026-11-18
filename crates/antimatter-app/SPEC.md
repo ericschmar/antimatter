@@ -77,6 +77,17 @@ guarantee. Explicit save/retry remains available. Sign-out cancels the matching
 authenticated identity even for a session-only connection to a saved account.
 Session-only disconnect warns that in-memory drafts/pending state are discarded.
 
+## Typing indicator
+
+Typing is realtime and scoped to the open channel. While the draft has text, the poll tick
+sends `Intent::Typing` at most once every 2 seconds, and only when the draft text has changed
+since the last successful send; a dropped send is retried on the next tick. The parent is the
+reply target's thread root, or the target itself, and an empty draft sends nothing. Incoming
+typers are recorded with their last-seen time and expire after 5 seconds. Switching channels
+clears both the typers and the last-sent draft. The indicator is a footer line above the
+composer ("X is typing", "X and Y are typing", "X and N others are typing", using display
+names and falling back to the user ID). Synthetic and not-ready sessions send nothing.
+
 ## Thread previews
 
 The sidebar lists followed threads with unread replies above the channel sections, grouped by
@@ -147,11 +158,32 @@ view; toggling converts in both directions and the bar is inert in source view. 
 states lock the bar and send, but the editor stays editable. Known gaps: mention pills,
 a mono font slot for code, and rendering of received messages.
 
-GIF search is offered only when a Giphy key is configured. `giphy.rs` reads
+GIF search needs a Giphy key. `giphy.rs` reads
 `GIPHY_API_KEY` from the environment, else from the git-ignored `crates/antimatter-app/.env.local`
-(a blank value falls through), once at launch. The composer's GIF button opens a search
-dialog; picking a result appends `![title](media-url)` to the draft as Markdown and never
-sends it. The key is held in memory only and is not written to settings or logs.
+(a blank value falls through), once at launch. The composer's GIF button (Phosphor-style `GIF`
+icon, key `gif-picker-open`) is always shown in the toolbar and is disabled (inert) when no key
+is configured or the composer is locked. Pressing it toggles a popover anchored above the button
+(`rune_kit::popover::anchored`, `Placement::TopStart`) with an outside-press scrim, modelled on the
+emoji picker: a search field over a scrolling grid of thumbnails (`gif-grid`). Opening it
+loads the featured (trending) GIFs; submitting the field searches, and an empty query returns
+to featured. Thumbnails load in the background into the GIF image store (`gifs.rs`, separate from
+the avatar cache). Picking a GIF
+appends `![title](media-url)` to the draft as Markdown and closes the popover. It never sends.
+The draft is text-only, so the GIF is not rendered inline in the composer; it appears as an
+image only once the message is sent and displayed. The key is held in memory only and is not
+written to settings or logs.
+
+Message GIFs render in the ledger. Every `![alt](http(s) URL)` in a post's Markdown is
+drawn by rune-kit's `Markdown::images` as the picture from the GIF store (`gifs.rs`, keyed by the
+URL). Each picture is bounded to 320 x 240 pt with its aspect ratio kept (`image_frame` applies
+`max_w`, `max_h` and `aspect_fit`), so a large GIF letterboxes inside that box rather than
+filling the message column or window. Until it decodes, and when the fetch fails, the image shows
+its alt text. Each post's GIF sources are fetched once in the background. A Mattermost proxy
+link (`/api/v4/image?url=`) is fetched with the session through `Client::proxied_image`, which
+follows only same-origin redirects, then any off-origin redirect target is fetched without the
+credential. Direct Giphy links are fetched with `giphy::fetch_bytes` and no credential. The app's per-frame `poll` requests every post's GIF sources
+(`State::fetch_post_gifs`), so a GIF starts downloading as soon as its post is loaded and
+the picture replaces the alt text when it decodes. Non-image links keep their existing link-preview card.
 
 ## Unread and viewed state
 
@@ -170,8 +202,8 @@ session-only and never persisted. Per-pane unread remains later work.
 
 ## Sidebar grouping
 
-The sidebar shows two collapsible sections: "Channels" (every non-direct channel) first,
-then "Direct messages" (kinds `D` and `G`). Each section header shows its count and toggles
+The sidebar shows two collapsible sections: "Channels" (every non-direct channel of the
+selected community) first, then "Direct messages" (kinds `D` and `G`, shown in every community). Each section header shows its count and toggles
 its collapsed state; collapsed state is session-only and resets to expanded on launch.
 Channel rows keep the `channel-<id>` keys, sit one indent level in, use the small
 title font, and lead with the Phosphor `#` icon (`icons::HASH`); direct rows have no icon.
@@ -181,9 +213,12 @@ uses semibold, full-strength text; read rows use regular weight and muted text. 
 
 The server dropdown sits on the traffic-light row, right of the lights, and is a fixed-width
 `Select` trigger (rune-kit's inline trigger sizes to its label, so the width is set by the
-app) that opens a `Menu` of saved accounts. The trigger shows the server name (SiteName, else
-origin) and truncates before its chevron. Choosing an entry switches account through the
-existing guarded `switch_account`.
+app) that opens a `Menu` of the connected server's communities (Mattermost teams, shown by
+display name, else name). The trigger shows the selected community and truncates before its
+chevron; the first team is selected until the user picks another. Choosing an entry sets
+`State::selected_team` without changing account. The sidebar lists only channels of the selected
+community; direct and group messages stay visible in every community. Account switching is not
+in this dropdown; it stays with the Settings account list and its guarded `switch_account`.
 
 ## Tabs (splits are a non-goal)
 
@@ -219,8 +254,9 @@ reserve pane-tree or split-ratio state.
 
 Debug-only development exception: debug builds (`cfg(debug_assertions)`) prefill the
 server, login and password sign-in fields from git-ignored `.env.local`
-(`ANTIMATTER_DEV_SERVER`, `ANTIMATTER_DEV_LOGIN`, `ANTIMATTER_DEV_PASSWORD`). Release
-builds compile this out, and nothing is written to disk. This does not permit
+(`ANTIMATTER_DEV_SERVER`, `ANTIMATTER_DEV_LOGIN`, `ANTIMATTER_DEV_PASSWORD`). The same
+file may hold other keys, which the prefill ignores. Release builds compile this out, and
+nothing is written to disk. This does not permit
 plaintext credential storage; Remember and the Keychain rules are unchanged.
 
 ## Runnable verification
