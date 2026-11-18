@@ -970,8 +970,6 @@ fn composer_keeps_focus_through_send_and_acknowledgement() {
     assert!(focused(&rt));
 }
 
-
-
 #[test]
 fn gif_post_draws_its_picture_once_the_store_has_it() {
     let url = "https://media4.giphy.com/media/v1.abc/l0/giphy.gif";
@@ -982,7 +980,10 @@ fn gif_post_draws_its_picture_once_the_store_has_it() {
     post.message = format!("![Bored]({url})");
     s.posts = vec![post];
     s.gifs.attach(std::sync::Arc::new(|| {}));
-    s.gifs.finish(url.into(), Some(include_bytes!("fixtures/gif-2x2.gif").to_vec()));
+    s.gifs.finish(
+        url.into(),
+        Some(include_bytes!("fixtures/gif-2x2.gif").to_vec()),
+    );
     for _ in 0..200 {
         if s.gifs.get(url).is_some() {
             break;

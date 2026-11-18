@@ -853,18 +853,22 @@ fn post_row(s: &State, i: usize) -> El {
                         Markdown::new(&post.message)
                             .selectable(true)
                             .image_frame(|el, frame| {
-                                let [w, h] = frame.image.size().unwrap_or([GIF_MAX_W as u32, GIF_MAX_H as u32]);
+                                let [w, h] = frame
+                                    .image
+                                    .size()
+                                    .unwrap_or([GIF_MAX_W as u32, GIF_MAX_H as u32]);
                                 let ratio = w as f32 / (h.max(1) as f32);
                                 el.max_w(GIF_MAX_W).max_h(GIF_MAX_H).aspect_fit(ratio)
                             })
                             .images({
-                                let pictures: std::collections::HashMap<String, rune::Image> = gif_sources(&post.message)
-                                    .into_iter()
-                                    .filter_map(|url| {
-                                        let image = s.gifs.get(url.as_str())?.clone();
-                                        Some((url.to_string(), image))
-                                    })
-                                    .collect();
+                                let pictures: std::collections::HashMap<String, rune::Image> =
+                                    gif_sources(&post.message)
+                                        .into_iter()
+                                        .filter_map(|url| {
+                                            let image = s.gifs.get(url.as_str())?.clone();
+                                            Some((url.to_string(), image))
+                                        })
+                                        .collect();
                                 move |src: &str| pictures.get(src).cloned()
                             })
                             .highlights(
@@ -1403,7 +1407,9 @@ fn gif_picker(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
         )
         .children((!status.is_empty()).then(|| text(status).font(k.ty.small).color(c.text_muted)));
     let surface = rune_kit::popover::raised(k, body.padding(8.0), k.radius.md);
-    layer.push(rune_kit::scrim("gif-picker-scrim", |s: &mut State| s.close_gif_picker()));
+    layer.push(rune_kit::scrim("gif-picker-scrim", |s: &mut State| {
+        s.close_gif_picker()
+    }));
     layer.push(rune_kit::popover::anchored(
         k,
         surface,
@@ -2245,7 +2251,11 @@ pub(crate) fn workspace(s: &State) -> El {
                 .child(member_stack(s, &k))
                 .child(
                     IconButton::new(&icons::FOLDER)
-                        .label(if s.channel_files { "Close channel files" } else { "Show channel files" })
+                        .label(if s.channel_files {
+                            "Close channel files"
+                        } else {
+                            "Show channel files"
+                        })
                         .control_size(ControlSize::Small)
                         .variant(IconButtonVariant::Ghost)
                         .on_press(|s: &mut State| s.channel_files = !s.channel_files)
@@ -2253,7 +2263,11 @@ pub(crate) fn workspace(s: &State) -> El {
                         .key("channel-files-toggle")
                         .expanded(s.channel_files)
                         .ml(8.0)
-                        .help(if s.channel_files { "Close channel files" } else { "Show channel files" }),
+                        .help(if s.channel_files {
+                            "Close channel files"
+                        } else {
+                            "Show channel files"
+                        }),
                 ),
         );
     }
@@ -2391,7 +2405,11 @@ pub(crate) fn workspace(s: &State) -> El {
                                     .build(&k)
                                     .key("gif-picker-open")
                                     .expanded(s.gif_picker);
-                                if composer_locked || no_key { b.inert() } else { b }
+                                if composer_locked || no_key {
+                                    b.inert()
+                                } else {
+                                    b
+                                }
                             })
                             .child({
                                 let disabled = composer_locked
@@ -2468,7 +2486,12 @@ fn channel_files_panel(s: &State, k: &rune_kit::Kit) -> El {
         );
     }
     if files.is_empty() {
-        list = list.child(text("No files in this channel yet.").font(k.ty.small).color(c.text_muted).wrap());
+        list = list.child(
+            text("No files in this channel yet.")
+                .font(k.ty.small)
+                .color(c.text_muted)
+                .wrap(),
+        );
     }
     col()
         .key("channel-files")
@@ -2477,17 +2500,19 @@ fn channel_files_panel(s: &State, k: &rune_kit::Kit) -> El {
         .h_full()
         .fill(c.layer_01)
         .child(
-            rune::row()
-                .w_full()
-                .h(TITLEBAR)
-                .px(16.0)
-                .center_y()
-                .child(text("Files").font(k.ty.body_medium).color(c.text_base).grow(1.0)),
+            rune::row().w_full().h(TITLEBAR).px(16.0).center_y().child(
+                text("Files")
+                    .font(k.ty.body_medium)
+                    .color(c.text_base)
+                    .grow(1.0),
+            ),
         )
         .child(
             list.px(8.0)
                 .pb(8.0)
-                .scroll(rune::ScrollSpec { stick_bottom: false })
+                .scroll(rune::ScrollSpec {
+                    stick_bottom: false,
+                })
                 .scroll_bar_styled(ScrollBarStyle::scroll_view(&k))
                 .grow(1.0)
                 .min_h(0.0),
@@ -2522,7 +2547,10 @@ mod gif_source_tests {
     fn collects_each_http_image_source_and_ignores_the_rest() {
         let m = "hi ![a](https://media.giphy.com/a.gif) ![b](http://x.test/b.gif) ![c](ftp://no/c) [l](https://x.test/d)";
         let urls: Vec<_> = gif_sources(m).into_iter().map(|u| u.to_string()).collect();
-        assert_eq!(urls, ["https://media.giphy.com/a.gif", "http://x.test/b.gif"]);
+        assert_eq!(
+            urls,
+            ["https://media.giphy.com/a.gif", "http://x.test/b.gif"]
+        );
     }
 }
 
@@ -2572,7 +2600,10 @@ mod channel_files_tests {
             post("p1", vec![file("a"), file("b")]),
             post("p2", vec![file("b"), file("c")]),
         ];
-        let ids: Vec<_> = channel_files(&posts).iter().map(|f| f.id.as_str()).collect();
+        let ids: Vec<_> = channel_files(&posts)
+            .iter()
+            .map(|f| f.id.as_str())
+            .collect();
         assert_eq!(ids, ["a", "b", "c"]);
     }
 }
