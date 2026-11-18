@@ -825,6 +825,64 @@ fn scrolling_to_the_top_by_hand_requests_one_older_page() {
 }
 
 #[test]
+fn a_pending_jump_pages_older_history_until_its_post_loads() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.ready = true;
+    rt.state.has_older = true;
+    let at = |id: &str, create_at: i64| Post {
+        id: id.into(),
+        channel_id: "c".into(),
+        user_id: "u".into(),
+        message: "m".into(),
+        create_at,
+        update_at: create_at,
+        delete_at: 0,
+        pending_post_id: String::new(),
+        root_id: String::new(),
+        metadata: Default::default(),
+    };
+    rt.state.posts = vec![at("new", 200)];
+    rt.state.focus_post = Some(("c".into(), "old".into()));
+    rt.update(|s, tx| s.reveal_focus_post(tx));
+    assert!(matches!(intents.try_recv(), Ok(Intent::Older)));
+    assert_eq!(rt.state.focus_post, Some(("c".into(), "old".into())));
+    rt.state.apply(Update::Older {
+        channel_id: "c".into(),
+        posts: vec![at("old", 100)],
+        names: HashMap::new(),
+        has_older: false,
+    });
+    rt.update(|s, tx| s.reveal_focus_post(tx));
+    assert_eq!(rt.state.focus_post, None);
+    assert!(intents.try_recv().is_err());
+}
+
+#[test]
+fn a_pending_jump_with_no_older_history_gives_up() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.ready = true;
+    rt.state.has_older = false;
+    rt.state.focus_post = Some(("c".into(), "gone".into()));
+    rt.update(|s, tx| s.reveal_focus_post(tx));
+    assert_eq!(rt.state.focus_post, None);
+    assert!(intents.try_recv().is_err());
+}
+
+#[test]
+fn a_pending_jump_for_another_channel_never_pages_this_one() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.ready = true;
+    rt.state.has_older = true;
+    rt.state.focus_post = Some(("other".into(), "far".into()));
+    rt.update(|s, tx| s.reveal_focus_post(tx));
+    assert!(intents.try_recv().is_err());
+    assert_eq!(rt.state.focus_post, Some(("other".into(), "far".into())));
+}
+
+#[test]
 fn reply_targets_the_post() {
     let mut s = State::default();
     let mut post: antimatter_services::mattermost::Post = serde_json::from_value(

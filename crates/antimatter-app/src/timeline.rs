@@ -145,6 +145,24 @@ impl State {
         }
     }
 
+    pub(crate) fn reveal_focus_post(&mut self, tx: &mut rune::Tx) {
+        let Some((channel, id)) = self.focus_post.clone() else {
+            tx.live_only();
+            return;
+        };
+        if self.channel.as_deref() != Some(channel.as_str()) {
+            return;
+        }
+        if self.posts.iter().any(|p| p.id == id) {
+            self.focus_post = None;
+            tx.scroll_into_view(format!("post-{id}"));
+        } else if self.has_older {
+            self.load_older();
+        } else {
+            self.focus_post = None;
+        }
+    }
+
     pub(crate) fn send(&mut self) {
         if !self.ready
             || self.busy
@@ -260,14 +278,6 @@ impl State {
                         posts.iter().map(|p| p.user_id.clone()).collect();
                     authors.sort();
                     authors.dedup();
-                    if !posts.is_empty()
-                        && self
-                            .focus_post
-                            .as_ref()
-                            .is_some_and(|id| !posts.iter().any(|p| &p.id == id))
-                    {
-                        self.focus_post = None;
-                    }
                     self.posts = posts;
                     self.has_older = has_older;
                     self.names.extend(names);

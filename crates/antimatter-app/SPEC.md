@@ -95,8 +95,9 @@ channel under a total badge. Each row shows the root's first line, its next non-
 the latest reply (author and first line). The conversation worker publishes `Update::Threads`
 after refresh, socket connect and thread/reply socket events; lookups are advisory and a failure
 keeps the last list. Pressing a row opens the channel (honouring the usual load guards), scrolls
-to the latest reply when it is in the loaded page, drops the row at once and marks the thread read
-on the server. Scene: `workspace-threads-proof`.
+to the latest reply, paging older history until it is loaded (one page per request, stopping when
+no older history remains), drops the row at once and marks the thread read on the server. Scene:
+`workspace-threads-proof`.
 
 ## Rendering and export boundary
 
@@ -141,6 +142,13 @@ anchored to their post's trigger, and close when that post scrolls out of the wi
 Synthetic scenes `workspace-history-proof`, `workspace-loading-older-proof` and
 `workspace-scroll-history-proof` show the control, spinner and scrollable history; live
 paging is not verified.
+
+A pending jump (`focus_post`, a channel and post id, set by a thread row or a search result) reveals
+its post once that channel is open and the post is mounted. While the post is not loaded, the ledger
+requests one older page per layout, and the jump ends when the post loads or no older history
+remains. A jump for a channel that is not open never pages or scrolls the open one. Synthetic runs
+cover this only in unit tests (`a_pending_jump_pages_older_history_until_its_post_loads`,
+`a_pending_jump_for_another_channel_never_pages_this_one`); live paging is not verified.
 
 ## Channel files panel
 

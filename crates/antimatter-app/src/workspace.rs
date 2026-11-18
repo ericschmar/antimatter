@@ -757,15 +757,8 @@ fn post_row(s: &State, i: usize) -> El {
         0.0
     });
     let target = post.channel_id.clone();
+    let post_id = post.id.clone();
     let mut row = rune::row();
-    if s.focus_post.as_deref() == Some(post.id.as_str()) {
-        let key = format!("post-{}", post.id);
-        row = row.on_layout_tx(move |s: &mut State, _, tx| {
-            if s.focus_post.take().is_some() {
-                tx.scroll_into_view(key.clone());
-            }
-        });
-    }
     if searching {
         row = row
             .role("button")
@@ -774,6 +767,7 @@ fn post_row(s: &State, i: usize) -> El {
             .cursor(rune::Cursor::Pointer)
             .on_press(move |s: &mut State| {
                 s.search_results = None;
+                s.focus_post = Some((target.clone(), post_id.clone()));
                 s.load(target.clone());
             });
     }
@@ -2081,6 +2075,7 @@ pub(crate) fn workspace(s: &State) -> El {
             stick_bottom: !searching,
         })
         .scroll_anchor()
+        .on_layout_tx(|s: &mut State, _, tx| s.reveal_focus_post(tx))
         .on_scroll_offset(move |at| {
             offset.store(at.offset[1].to_bits(), std::sync::atomic::Ordering::Relaxed);
             if rune::scroll_watch_state().0 {

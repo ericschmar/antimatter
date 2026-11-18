@@ -157,7 +157,7 @@ pub(crate) struct State {
     pub(crate) channels: Vec<Channel>,
     pub(crate) unread: HashMap<String, Unread>,
     pub(crate) threads: Vec<ThreadPreview>,
-    pub(crate) focus_post: Option<String>,
+    pub(crate) focus_post: Option<(String, String)>,
     pub(crate) names: HashMap<String, String>,
     pub(crate) site_name: String,
     pub(crate) presence: String,
@@ -629,7 +629,7 @@ impl State {
             if locked {
                 return;
             }
-            self.focus_post = Some(thread.reply_id.clone());
+            self.focus_post = Some((thread.channel_id.clone(), thread.reply_id.clone()));
             self.load(thread.channel_id.clone());
             if self.channel.as_deref() != Some(&thread.channel_id) {
                 self.focus_post = None;
