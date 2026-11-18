@@ -27,5 +27,8 @@ out.append(f'pub static DOWNLOAD: Icon = Icon {{ name: "download", view: 256.0, 
 GIF = ('<line x1="136" y1="72" x2="136" y2="184" {S}/><polyline points="232 72 176 72 176 184" {S}/>'
        '<line x1="224" y1="128" x2="176" y2="128" {S}/><path d="M72,128H96v24a32,32,0,0,1-64,0V104A32,32,0,0,1,64,72c14.91,0,28.45,10.2,32,24" {S}/>')
 out.append(f'pub static GIF: Icon = Icon {{ name: "gif", view: 256.0, body: r#"{GIF.format(S=S)}"# }};')
+FOLDER = ('<path d="M216.89,208H39.38A7.4,7.4,0,0,1,32,200.62V80H216a8,8,0,0,1,8,8V200.89A7.11,7.11,0,0,1,216.89,208Z" {S}/>'
+          '<path d="M32,80V56a8,8,0,0,1,8-8H92.69a8,8,0,0,1,5.65,2.34L128,80" {S}/>')
+out.append(f'pub static FOLDER: Icon = Icon {{ name: "ph-folder", view: 256.0, body: r#"{FOLDER.format(S=S)}"# }};')
 pathlib.Path(__file__).resolve().parent.parent.joinpath("crates/antimatter-theme/src/icons.rs").write_text("\n".join(out) + "\n")
 print(len(NAMES), "icons")

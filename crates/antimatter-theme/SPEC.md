@@ -33,3 +33,6 @@ does not use `rune::tok` for colour, type or motion.
   never edit it by hand. Add an icon by adding its Phosphor name to `NAMES` and
   regenerating. The licence lives in `ICONS-LICENSE`. Use them as `&icons::NAME` with
   Kit's `IconButton`/`icon()`, and always give icon-only buttons an accessible label.
+  `FOLDER` (`ph-folder`, the channel files toggle) is written by the generator's manual section
+  because the Phosphor source was not available to regenerate from; regenerating from a Phosphor
+  checkout produces the same path.

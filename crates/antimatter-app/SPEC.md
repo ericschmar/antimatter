@@ -141,6 +141,19 @@ anchored to their post's trigger, and close when that post scrolls out of the wi
 Synthetic scenes `workspace-history-proof`, `workspace-loading-older-proof` and
 `workspace-scroll-history-proof` show the control, spinner and scrollable history; live
 paging is not verified.
+
+## Channel files panel
+
+The channel header has a files toggle (key `channel-files-toggle`, Phosphor `FOLDER` icon, label
+and tooltip "Show channel files" / "Close channel files") to the right of the member stack, 8 pt
+away from the avatars. Pressing it toggles
+`State::channel_files`; when open, a 264 pt `channel-files` panel sits to the right of the ledger
+in the workspace row. The panel lists the files attached to the posts already loaded for the open
+channel (`channel_files`, deduplicated by file id, in post order); it makes no request of its own.
+Each row downloads through `State::download_file`, the same save path as message attachments. An
+empty channel shows "No files in this channel yet." Scene: `workspace-channel-files-proof`. Only
+loaded history is listed; files in older pages appear once that history is loaded.
+
 This foundation slice does not implement rich
 message actions; the independent Settings window is specified in
 [settings/SPEC.md](settings/SPEC.md) (`antimatter-rust-settings`); tabs are specified below; splits are a decided non-goal. An in-window Kit

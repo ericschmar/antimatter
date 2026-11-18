@@ -2215,7 +2215,19 @@ pub(crate) fn workspace(s: &State) -> El {
                         .min_w(0.0)
                         .truncate(),
                 )
-                .child(member_stack(s, &k)),
+                .child(member_stack(s, &k))
+                .child(
+                    IconButton::new(&icons::FOLDER)
+                        .label(if s.channel_files { "Close channel files" } else { "Show channel files" })
+                        .control_size(ControlSize::Small)
+                        .variant(IconButtonVariant::Ghost)
+                        .on_press(|s: &mut State| s.channel_files = !s.channel_files)
+                        .build(&k)
+                        .key("channel-files-toggle")
+                        .expanded(s.channel_files)
+                        .ml(8.0)
+                        .help(if s.channel_files { "Close channel files" } else { "Show channel files" }),
+                ),
         );
     }
     let mut actions = rune::row().w_full().gap(8.0).flex_wrap();
@@ -2392,8 +2404,76 @@ pub(crate) fn workspace(s: &State) -> El {
         .fill(c.bg_base)
         .child(sidebar)
         .child(grip)
-        .child(main);
+        .child(main)
+        .children(s.channel_files.then(|| channel_files_panel(s, &k)));
     rune_kit::root(body, layer)
+}
+
+fn channel_files_panel(s: &State, k: &rune_kit::Kit) -> El {
+    let c = &k.c;
+    let files = channel_files(&s.posts);
+    let mut list = col().w_full().gap(4.0);
+    for file in &files {
+        let target = (*file).clone();
+        list = list.child(
+            rune::row()
+                .key(format!("channel-file-{}", file.id))
+                .role("button")
+                .label(format!("Download {}", file.name))
+                .w_full()
+                .padding(8.0)
+                .gap(10.0)
+                .center_y()
+                .radius(8.0)
+                .cursor(rune::Cursor::Pointer)
+                .focusable(true)
+                .on_press_tx(move |s: &mut State, tx| s.download_file(target.clone(), tx))
+                .child(icon(&icons::FILE, 20.0).color(c.icon_muted).a11y_hidden())
+                .child(
+                    col().grow(1.0).min_w(0.0).child(
+                        text(file.name.clone())
+                            .font(k.ty.small_medium)
+                            .color(c.text_base)
+                            .truncate()
+                            .a11y_hidden(),
+                    ),
+                ),
+        );
+    }
+    if files.is_empty() {
+        list = list.child(text("No files in this channel yet.").font(k.ty.small).color(c.text_muted).wrap());
+    }
+    col()
+        .key("channel-files")
+        .w(264.0)
+        .shrink()
+        .h_full()
+        .fill(c.layer_01)
+        .child(
+            rune::row()
+                .w_full()
+                .h(TITLEBAR)
+                .px(16.0)
+                .center_y()
+                .child(text("Files").font(k.ty.body_medium).color(c.text_base).grow(1.0)),
+        )
+        .child(
+            list.px(8.0)
+                .pb(8.0)
+                .scroll(rune::ScrollSpec { stick_bottom: false })
+                .scroll_bar_styled(ScrollBarStyle::scroll_view(&k))
+                .grow(1.0)
+                .min_h(0.0),
+        )
+}
+
+fn channel_files(posts: &[Post]) -> Vec<&antimatter_services::mattermost::FileInfo> {
+    let mut seen = std::collections::HashSet::new();
+    posts
+        .iter()
+        .flat_map(|post| &post.metadata.files)
+        .filter(|file| seen.insert(file.id.as_str()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -2429,6 +2509,44 @@ mod emoji_glyph_tests {
         assert_eq!(emoji_glyph("rofl"), "🤣");
         assert_eq!(emoji_glyph("rolling_on_the_floor_laughing"), "🤣");
         assert_eq!(emoji_glyph("not_a_real_emoji"), ":not_a_real_emoji:");
+    }
+}
+
+#[cfg(test)]
+mod channel_files_tests {
+    use super::channel_files;
+    use antimatter_services::mattermost::{FileInfo, Post, PostMetadata};
+
+    fn file(id: &str) -> FileInfo {
+        FileInfo {
+            id: id.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn lists_each_file_once_in_post_order() {
+        let post = |id: &str, files: Vec<FileInfo>| Post {
+            id: id.into(),
+            channel_id: String::new(),
+            user_id: String::new(),
+            message: String::new(),
+            create_at: 0,
+            update_at: 0,
+            delete_at: 0,
+            pending_post_id: String::new(),
+            root_id: String::new(),
+            metadata: PostMetadata {
+                reactions: Vec::new(),
+                files,
+            },
+        };
+        let posts = [
+            post("p1", vec![file("a"), file("b")]),
+            post("p2", vec![file("b"), file("c")]),
+        ];
+        let ids: Vec<_> = channel_files(&posts).iter().map(|f| f.id.as_str()).collect();
+        assert_eq!(ids, ["a", "b", "c"]);
     }
 }
 

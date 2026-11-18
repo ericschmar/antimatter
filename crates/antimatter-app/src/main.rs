@@ -129,6 +129,10 @@ fn main() {
                 synthetic_workspace(s);
                 s.emoji_picker = Some("synthetic-post".into());
             }),
+            ("workspace-channel-files-proof", |s| {
+                synthetic_workspace(s);
+                s.channel_files = true;
+            }),
             ("workspace-preview-proof", |s| {
                 synthetic_workspace(s);
                 s.posts[0].message = "Look at https://example.com/hooli".into();
