@@ -21,7 +21,7 @@ GitHub issues own execution status, not these specs.
 
 The app is the `antimatter` binary crate. Modules: `state` (State, Login),
 `session`/`checkpoint`/`timeline`/`auth` (`impl State` behaviour), `signin` and
-`workspace` (views), `view` (root and hello scenes), `widgets` (kit wrappers and the local `Segments` control),
+`workspace` (views, a directory of submodules: `layout`, `sidebar`, `post`, `emoji`, `poll`, `attachments`, `dialogs`, `compose`, `thread_panel`), `view` (root and hello scenes), `widgets` (kit wrappers and the local `Segments` control),
 `theme` (selects an [`antimatter-theme`](../antimatter-theme/SPEC.md) `Kit`),
 `scenes` (synthetic proof data) and `tests`. `task dev` runs the native window with
 `cargo run` and no hot reload; `task dev:snap` is the only `dx` hot-reload path.
@@ -336,7 +336,7 @@ Polls follow the former Swift Matterpoll flow (`MattermostPolls.swift`, removed;
 (`resetVote` excluded). Vote counts appear only when Matterpoll reports them in the option label as a trailing
 ` (n)`, which happens when the poll was created with `--progress`.
 
-The poll card renders in the post body after the reaction pills (`workspace::poll_card`, key `poll-{post id}`).
+The poll card renders in the post body after the reaction pills (`workspace::poll::poll_card`, key `poll-{post id}`).
 Each vote option is a focusable button (`poll-option-{post id}-{action id}`) that calls `State::vote_poll`. The
 voted option is remembered per post in `State::poll_votes` and is not persisted, as in Swift. Results stay
 hidden until the poll ends: without counts the card says "Results are hidden until the poll ends." and shows no
@@ -359,7 +359,7 @@ visible in search results beyond the plain text they carry.
 
 The sidebar search row has a `search-filters-toggle` button (`FUNNEL` icon, labelled and
 tooltipped "Search filters") that opens a filter panel below the row
-(`search-filters`, built by `workspace::search_filters`). The button uses the `Contrast` variant while the
+(`search-filters`, built by `workspace::sidebar::search_filters`). The button uses the `Contrast` variant while the
 panel is open and `Ghost` when closed, as the composer's toggle buttons do.
 The panel holds a thread-scope segmented control
 (`search-filter-scope`: All, Roots, Replies), text fields for channel (`search-filter-channel`, `in:`),
