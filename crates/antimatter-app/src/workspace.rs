@@ -2580,7 +2580,7 @@ fn thread_panel(s: &State, locked: bool, k: &rune_kit::Kit) -> El {
         .key("thread-send");
     col()
         .key("thread-panel")
-        .w(360.0)
+        .w(480.0)
         .shrink()
         .h_full()
         .fill(c.layer_01)
