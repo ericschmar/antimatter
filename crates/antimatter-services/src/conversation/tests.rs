@@ -39,6 +39,8 @@ fn post(id: &str, pending: &str) -> Post {
         pending_post_id: pending.into(),
         root_id: String::new(),
         metadata: Default::default(),
+        type_: String::new(),
+        props: None,
     }
 }
 

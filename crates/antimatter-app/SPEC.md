@@ -327,11 +327,31 @@ file may hold other keys, which the prefill ignores. Release builds compile this
 nothing is written to disk. This does not permit
 plaintext credential storage; Remember and the Keychain rules are unchanged.
 
-## Known Swift parity gaps
+## Polls
 
-Tracked as beads issues (`antimatter-puw`); no Rust code exists yet for polls.
+Polls follow Swift's Matterpoll flow (`MattermostPolls.swift`). A poll is a `custom_matterpoll` post; its
+`props` hold the `poll_id` and attachments, and each vote action is a `button` whose id starts with `vote`
+(`resetVote` excluded). Vote counts appear only when Matterpoll reports them in the option label as a trailing
+` (n)`, which happens when the poll was created with `--progress`.
 
-- Polls: create via `/poll`, vote and end, with native rendering of poll posts (Swift `MattermostPolls.swift`). Parity matrix item "custom poll create/vote".
+The poll card renders in the post body after the reaction pills (`workspace::poll_card`, key `poll-{post id}`).
+Each vote option is a focusable button (`poll-option-{post id}-{action id}`) that calls `State::vote_poll`. The
+voted option is remembered per post in `State::poll_votes` and is not persisted, as in Swift. Results stay
+hidden until the poll ends: without counts the card says "Results are hidden until the poll ends." and shows no
+counts. A vote and an end both post an action, then re-fetch the post, and replace the timeline and thread copies
+with the server's copy.
+
+Only the poll's author sees "End poll" (`poll-end-{post id}`), matching Swift's `post.userID == currentUserID`. It
+opens a confirmation dialog (`end-poll-dialog`) and ends the poll only on confirm.
+
+The composer's "Create poll" button (`create-poll`, main pane only, disabled while locked) opens a dialog
+(`create-poll-dialog`) with a question and at least two options; up to ten options may be added. Submitting
+calls `Client::create_poll` once through `/commands/execute`. A failed create keeps the dialog open with a
+message telling the user to check the channel, because the poll may already have been posted. Creation is
+never retried automatically.
+
+Not yet built: the vote bars are not drawn proportionally (the card shows counts only), and poll posts are not
+visible in search results beyond the plain text they carry.
 
 ## Search filters
 

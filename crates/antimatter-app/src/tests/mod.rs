@@ -168,6 +168,8 @@ fn post(pending_id: &str) -> Post {
         pending_post_id: pending_id.into(),
         root_id: String::new(),
         metadata: Default::default(),
+        type_: String::new(),
+        props: None,
     }
 }
 

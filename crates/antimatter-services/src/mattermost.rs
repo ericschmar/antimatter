@@ -256,6 +256,85 @@ pub struct Post {
     pub root_id: String,
     #[serde(default)]
     pub metadata: PostMetadata,
+    #[serde(default, rename = "type")]
+    pub type_: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub props: Option<Poll>,
+}
+
+impl Post {
+    pub fn poll(&self) -> Option<&Poll> {
+        if self.type_ == POLL_POST_TYPE {
+            self.props.as_ref()
+        } else {
+            None
+        }
+    }
+}
+
+pub const POLL_POST_TYPE: &str = "custom_matterpoll";
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Poll {
+    #[serde(default, rename = "poll_id")]
+    pub poll_id: String,
+    #[serde(default)]
+    pub attachments: Vec<PollAttachment>,
+}
+
+impl Poll {
+    pub fn attachment(&self) -> Option<&PollAttachment> {
+        self.attachments.first()
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct PollAttachment {
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub text: String,
+    #[serde(default)]
+    pub actions: Vec<PollAction>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct PollAction {
+    pub id: String,
+    pub name: String,
+    #[serde(default, rename = "type")]
+    pub kind: String,
+}
+
+impl PollAction {
+    fn split_count(&self) -> (&str, Option<u64>) {
+        let Some(open) = self
+            .name
+            .strip_suffix(')')
+            .and_then(|rest| rest.rfind(" ("))
+        else {
+            return (&self.name, None);
+        };
+        let digits = &self.name[open + 2..self.name.len() - 1];
+        match digits.parse::<u64>() {
+            Ok(count) if digits.bytes().all(|b| b.is_ascii_digit()) => {
+                (&self.name[..open], Some(count))
+            }
+            _ => (&self.name, None),
+        }
+    }
+
+    pub fn option(&self) -> &str {
+        self.split_count().0
+    }
+
+    pub fn vote_count(&self) -> Option<u64> {
+        self.split_count().1
+    }
+
+    pub fn is_vote(&self) -> bool {
+        self.kind == "button" && self.id.starts_with("vote") && self.id != "resetVote"
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -828,6 +907,64 @@ impl Client {
 
     pub async fn reactions(&self, post_id: &str) -> Result<Value, Error> {
         self.get(&segments(&["posts", post_id, "reactions"])?).await
+    }
+
+    pub async fn create_poll(
+        &self,
+        channel_id: &str,
+        team_id: &str,
+        question: &str,
+        options: &[String],
+    ) -> Result<(), Error> {
+        let quote = |text: &str| format!("\"{}\"", text.replace('"', "\\\""));
+        let arguments: Vec<String> = std::iter::once(question)
+            .chain(options.iter().map(String::as_str))
+            .map(quote)
+            .collect();
+        let command = format!("/poll {} --progress", arguments.join(" "));
+        let _: Value = self
+            .post(
+                "/commands/execute",
+                &serde_json::json!({"channel_id": channel_id, "team_id": team_id, "command": command}),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn vote_poll(&self, post_id: &str, action_id: &str) -> Result<Post, Error> {
+        let _: Value = self
+            .post(
+                &segments(&["posts", post_id, "actions", action_id])?,
+                &serde_json::json!({}),
+            )
+            .await?;
+        self.get(&segments(&["posts", post_id])?).await
+    }
+
+    pub async fn end_poll(
+        &self,
+        post_id: &str,
+        channel_id: &str,
+        poll_id: &str,
+    ) -> Result<Post, Error> {
+        let _: Value = self
+            .post(
+                &segments(&["posts", post_id, "actions", "endPoll"])?,
+                &serde_json::json!({}),
+            )
+            .await?;
+        let _: Value = self
+            .post(
+                "/actions/dialogs/submit",
+                &serde_json::json!({
+                    "url": format!("/plugins/com.github.matterpoll.matterpoll/api/v1/polls/{poll_id}/end/confirm"),
+                    "callback_id": post_id,
+                    "channel_id": channel_id,
+                    "submission": {},
+                }),
+            )
+            .await?;
+        self.get(&segments(&["posts", post_id])?).await
     }
 
     pub async fn add_reaction(

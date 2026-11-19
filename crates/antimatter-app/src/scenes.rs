@@ -98,6 +98,8 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
                 })
                 .collect(),
         },
+        type_: String::new(),
+        props: None,
     });
     s.posts.push(Post {
         id: "synthetic-multiline".into(),
@@ -110,6 +112,8 @@ pub(crate) fn synthetic_workspace(s: &mut State) {
         pending_post_id: String::new(),
         root_id: "synthetic-post".into(),
         metadata: Default::default(),
+        type_: String::new(),
+        props: None,
     });
 }
 
@@ -128,6 +132,8 @@ pub(crate) fn synthetic_history(s: &mut State) {
             pending_post_id: String::new(),
             root_id: String::new(),
             metadata: Default::default(),
+            type_: String::new(),
+            props: None,
         })
         .collect();
 }

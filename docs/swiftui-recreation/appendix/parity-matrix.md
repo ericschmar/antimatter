@@ -10,7 +10,7 @@
 - Post: ID/timestamps/delete state/user/channel/root/message/type/props/metadata/pending/failed/client ID.
 - File: ID/name/MIME/extension/dimensions/preview availability.
 - Reaction: user/post/emoji/timestamp.
-- Custom poll: question, option IDs/text, voter map; post type `custom_antimatter_poll`.
+- Custom poll: Matterpoll post type `custom_matterpoll`; `props` hold the poll ID and attachments (question, vote actions, counts when `--progress` is used).
 
 ## Capability checklist
 
@@ -23,7 +23,7 @@
 - [ ] History, scroll anchors, typing, websocket reconnect
 - [ ] Markdown, attachments, image handling, preview
 - [ ] Send/reply/edit/delete/retry
-- [ ] Emoji reactions, custom poll create/vote
+- [x] Emoji reactions, custom poll create/vote
 - [ ] Composer formatting/mentions/drag-drop/emoji/Giphy
 - [ ] Search and command palette
 - [ ] Notifications/settings/themes

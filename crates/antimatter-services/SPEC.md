@@ -107,6 +107,18 @@ the only caller that applies filters, and `is_or_search` stays false. `is_active
 dates, so a search with nothing else to send is not run. The services layer does a shape check on dates and
 does not parse them as calendar dates.
 
+## Polls
+
+`mattermost.rs` models Matterpoll polls. `Post.props` is `Option<Poll>` (the poll's `poll_id` and attachments),
+and `Post::poll()` returns it only when `type` is `custom_matterpoll`. `PollAction` splits a trailing
+` (n)` from the option label: `option()` gives the text and `vote_count()` gives `Some(n)` only when present.
+`is_vote()` matches `button` actions whose id starts with `vote`, excluding `resetVote`.
+
+`Client::create_poll` posts `/poll` with every question and option quoted (inner quotes escaped) and appends
+`--progress`, so vote counts are reported. `vote_poll` and `end_poll` post the action (`end_poll` also submits the
+Matterpoll end-confirmation dialog) and then re-fetch the post; the caller gets the server's copy. None of these
+retry, because a repeated `/poll` would create a second poll.
+
 ## Giphy search
 
 `giphy.rs` owns the optional GIF search: one authenticated GET to Giphy's

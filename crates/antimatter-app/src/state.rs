@@ -150,6 +150,13 @@ pub(crate) struct State {
     pub(crate) editing: Option<antimatter_services::mattermost::Post>,
     pub(crate) previews: HashMap<String, Option<antimatter_services::preview::Preview>>,
     pub(crate) emoji_picker: Option<String>,
+    pub(crate) poll_votes: HashMap<String, String>,
+    pub(crate) ending_poll: Option<String>,
+    pub(crate) creating_poll: bool,
+    pub(crate) poll_question: TextEdit,
+    pub(crate) poll_options: Vec<TextEdit>,
+    pub(crate) poll_error: Option<String>,
+    pub(crate) poll_busy: bool,
     pub(crate) emoji_query: TextEdit,
     pub(crate) emoji_tab: Option<emojis::Group>,
     pub(crate) custom_emoji: Vec<String>,
@@ -463,6 +470,134 @@ impl State {
                             user_id: me.clone(),
                             emoji_name: name.clone(),
                         });
+                    }
+                }
+            });
+        });
+    }
+
+    pub(crate) fn vote_poll(&mut self, post_id: String, action_id: String) {
+        self.poll_votes.insert(post_id.clone(), action_id.clone());
+        self.poll_action(post_id, move |client, post_id| async move {
+            client.vote_poll(&post_id, &action_id).await
+        });
+    }
+
+    pub(crate) fn open_end_poll(&mut self, post_id: String) {
+        self.ending_poll = Some(post_id);
+    }
+
+    pub(crate) fn close_end_poll(&mut self) {
+        self.ending_poll = None;
+    }
+
+    pub(crate) fn end_poll(&mut self) {
+        let Some(post_id) = self.ending_poll.take() else {
+            return;
+        };
+        let Some(post) = self.find_post(&post_id) else {
+            return;
+        };
+        let Some(poll_id) = post.poll().map(|poll| poll.poll_id.clone()) else {
+            return;
+        };
+        let channel_id = post.channel_id.clone();
+        self.poll_action(post_id, move |client, post_id| async move {
+            client.end_poll(&post_id, &channel_id, &poll_id).await
+        });
+    }
+
+    fn find_post(&self, post_id: &str) -> Option<&Post> {
+        self.posts
+            .iter()
+            .chain(self.thread.iter().flat_map(|t| t.posts.iter()))
+            .find(|p| p.id == post_id)
+    }
+
+    fn poll_action<F, Fut>(&mut self, post_id: String, action: F)
+    where
+        F: FnOnce(antimatter_services::mattermost::Client, String) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = Result<Post, antimatter_services::mattermost::Error>>
+            + Send
+            + 'static,
+    {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let Ok(post) = action(client, post_id.clone()).await else {
+                return;
+            };
+            handle.update(move |s, _| {
+                let thread = s.thread.iter_mut().flat_map(|t| t.posts.iter_mut());
+                for slot in s.posts.iter_mut().chain(thread).filter(|p| p.id == post.id) {
+                    *slot = post.clone();
+                }
+            });
+        });
+    }
+
+    pub(crate) fn open_create_poll(&mut self) {
+        self.creating_poll = true;
+        self.poll_question = TextEdit::default();
+        self.poll_options = vec![TextEdit::default(), TextEdit::default()];
+        self.poll_error = None;
+        self.poll_busy = false;
+    }
+
+    pub(crate) fn close_create_poll(&mut self) {
+        self.creating_poll = false;
+        self.poll_busy = false;
+    }
+
+    pub(crate) fn add_poll_option(&mut self) {
+        if self.poll_options.len() < 10 {
+            self.poll_options.push(TextEdit::default());
+        }
+    }
+
+    pub(crate) fn submit_create_poll(&mut self) {
+        if self.poll_busy {
+            return;
+        }
+        let question = self.poll_question.text.trim().to_owned();
+        let options: Vec<String> = self
+            .poll_options
+            .iter()
+            .map(|o| o.text.trim().to_owned())
+            .filter(|o| !o.is_empty())
+            .collect();
+        if question.is_empty() || options.len() < 2 {
+            self.poll_error = Some("A poll needs a question and at least two options.".to_owned());
+            return;
+        }
+        let (Some(client), Some(runtime), Some(handle), Some(channel), Some(team)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            self.channel.clone(),
+            self.current_team_id(),
+        ) else {
+            return;
+        };
+        self.poll_busy = true;
+        self.poll_error = None;
+        runtime.spawn(async move {
+            let result = client
+                .create_poll(&channel, &team, &question, &options)
+                .await;
+            handle.update(move |s, _| {
+                s.poll_busy = false;
+                match result {
+                    Ok(()) => s.close_create_poll(),
+                    Err(_) => {
+                        s.poll_error = Some(
+                            "The poll could not be created. Check the channel before trying again, since it may have posted.".to_owned(),
+                        );
                     }
                 }
             });
@@ -959,6 +1094,13 @@ impl Default for State {
             editing: None,
             previews: HashMap::new(),
             emoji_picker: None,
+            poll_votes: HashMap::new(),
+            ending_poll: None,
+            creating_poll: false,
+            poll_question: TextEdit::default(),
+            poll_options: vec![TextEdit::default(), TextEdit::default()],
+            poll_error: None,
+            poll_busy: false,
             emoji_query: TextEdit::default(),
             emoji_tab: Some(emojis::Group::SmileysAndEmotion),
             custom_emoji: Vec::new(),

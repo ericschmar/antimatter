@@ -245,6 +245,11 @@ fn build(s: &State, locked: bool, pane: Pane) -> (El, El) {
                 locked,
                 |s| s.toggle_raw(),
             )
+        }))
+        .children((pane == Pane::Main).then(|| {
+            bar_button(&k, "create-poll", "Create poll", false, locked, |s| {
+                s.open_create_poll()
+            })
         }));
     let submit: fn(&mut State) = match pane {
         Pane::Main => |s| s.send(),

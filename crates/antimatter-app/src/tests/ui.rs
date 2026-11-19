@@ -771,6 +771,8 @@ fn older_history_prepends_once_and_respects_guards() {
         pending_post_id: String::new(),
         root_id: String::new(),
         metadata: Default::default(),
+        type_: String::new(),
+        props: None,
     };
     rt.state.posts = vec![at("new", 200)];
     rt.state.has_older = false;
@@ -821,6 +823,8 @@ fn scrolling_to_the_top_by_hand_requests_one_older_page() {
             pending_post_id: String::new(),
             root_id: String::new(),
             metadata: Default::default(),
+            type_: String::new(),
+            props: None,
         })
         .collect();
     let set = |s: &State, offset: f32, hand: bool| {
@@ -887,6 +891,8 @@ fn a_pending_jump_pages_older_history_until_its_post_loads() {
         pending_post_id: String::new(),
         root_id: String::new(),
         metadata: Default::default(),
+        type_: String::new(),
+        props: None,
     };
     rt.state.posts = vec![at("new", 200)];
     rt.state.focus_post = Some(("c".into(), "old".into()));
@@ -1066,6 +1072,8 @@ fn thread_post(id: &str, root: &str, create_at: i64) -> Post {
         pending_post_id: String::new(),
         root_id: root.into(),
         metadata: Default::default(),
+        type_: String::new(),
+        props: None,
     }
 }
 
@@ -1097,6 +1105,98 @@ fn thread_button_opens_the_side_panel_for_the_posts_root() {
     assert_eq!(ids, ["root", "reply"]);
     tap(&mut rt, "thread-close");
     assert!(rt.state.thread.is_none());
+}
+
+#[test]
+fn matterpoll_post_renders_its_options_and_records_the_vote_locally() {
+    let mut rt = synthetic_runtime();
+    let poll: antimatter_services::mattermost::Post = serde_json::from_value(serde_json::json!({
+        "id": "poll-post",
+        "channel_id": "c",
+        "user_id": "u",
+        "message": "",
+        "create_at": 1,
+        "type": "custom_matterpoll",
+        "props": {
+            "poll_id": "poll-1",
+            "attachments": [{
+                "title": "Lunch?",
+                "text": "",
+                "actions": [
+                    {"id": "vote0", "name": "Pizza (2)", "type": "button"},
+                    {"id": "vote1", "name": "Tacos (1)", "type": "button"}
+                ]
+            }]
+        }
+    }))
+    .unwrap();
+    rt.state.posts = vec![poll];
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(rt.find("poll-poll-post").is_some());
+    assert!(rt.find("poll-option-poll-post-vote0").is_some());
+    assert!(rt.find("poll-option-poll-post-vote1").is_some());
+    rt.state
+        .poll_votes
+        .insert("poll-post".into(), "vote0".into());
+    assert_eq!(
+        rt.state.poll_votes.get("poll-post").map(String::as_str),
+        Some("vote0")
+    );
+}
+
+#[test]
+fn only_the_poll_creator_sees_end_poll_and_it_confirms_first() {
+    let mut rt = synthetic_runtime();
+    rt.state.authenticated = Some(saved_key("me"));
+    let poll = |author: &str| -> antimatter_services::mattermost::Post {
+        serde_json::from_value(serde_json::json!({
+            "id": format!("poll-by-{author}"),
+            "channel_id": "c",
+            "user_id": author,
+            "message": "",
+            "create_at": 1,
+            "type": "custom_matterpoll",
+            "props": {
+                "poll_id": "poll-1",
+                "attachments": [{
+                    "title": "Lunch?",
+                    "text": "",
+                    "actions": [{"id": "vote0", "name": "Pizza", "type": "button"}]
+                }]
+            }
+        }))
+        .unwrap()
+    };
+    rt.state.posts = vec![poll("other"), poll("me")];
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(rt.find("poll-end-poll-by-other").is_none());
+    assert!(rt.find("poll-end-poll-by-me").is_some());
+    assert!(rt.find("end-poll-confirm").is_none());
+    tap(&mut rt, "poll-end-poll-by-me");
+    assert_eq!(rt.state.ending_poll.as_deref(), Some("poll-by-me"));
+    assert!(rt.find("end-poll-confirm").is_some());
+    tap(&mut rt, "end-poll-cancel");
+    assert!(rt.state.ending_poll.is_none());
+}
+
+#[test]
+fn create_poll_dialog_validates_before_any_request() {
+    let mut rt = synthetic_runtime();
+    rt.state.channel = Some("c".into());
+    tap(&mut rt, "create-poll");
+    assert!(rt.state.creating_poll);
+    assert!(rt.find("poll-question").is_some());
+    tap(&mut rt, "poll-create");
+    assert!(rt.state.creating_poll);
+    assert!(!rt.state.poll_busy);
+    assert_eq!(
+        rt.state.poll_error.as_deref(),
+        Some("A poll needs a question and at least two options.")
+    );
+    rt.state.close_create_poll();
+    assert!(!rt.state.creating_poll);
 }
 
 #[test]

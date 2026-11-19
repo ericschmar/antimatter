@@ -533,3 +533,141 @@ async fn filtered_search_sends_the_modifiers_as_terms() {
     assert_eq!(body["terms"], "budget from:alice has:files");
     assert_eq!(body["is_or_search"], false);
 }
+
+fn matterpoll_post(id: &str) -> Value {
+    json!({
+        "id": id,
+        "channel_id": "c",
+        "user_id": "u",
+        "message": "",
+        "create_at": 1,
+        "type": "custom_matterpoll",
+        "props": {
+            "poll_id": "poll-1",
+            "attachments": [{
+                "title": "Lunch?",
+                "text": "",
+                "actions": [
+                    {"id": "vote0", "name": "Pizza (2)", "type": "button"},
+                    {"id": "vote1", "name": "Tacos (1)", "type": "button"},
+                    {"id": "resetVote", "name": "Reset", "type": "button"},
+                    {"id": "endPoll", "name": "End", "type": "button"}
+                ]
+            }]
+        }
+    })
+}
+
+#[test]
+fn matterpoll_post_exposes_its_question_and_vote_options() {
+    let post: Post = serde_json::from_value(matterpoll_post("p1")).unwrap();
+    let poll = post.poll().expect("custom_matterpoll post has a poll");
+    assert_eq!(poll.poll_id, "poll-1");
+    let attachment = poll.attachment().unwrap();
+    assert_eq!(attachment.title, "Lunch?");
+    let votes: Vec<_> = attachment
+        .actions
+        .iter()
+        .filter(|a| a.is_vote())
+        .map(|a| (a.option(), a.vote_count()))
+        .collect();
+    assert_eq!(votes, [("Pizza", Some(2)), ("Tacos", Some(1))]);
+}
+
+#[test]
+fn poll_counts_are_absent_without_progress_and_plain_posts_have_no_poll() {
+    let action = PollAction {
+        id: "vote0".into(),
+        name: "Pizza".into(),
+        kind: "button".into(),
+    };
+    assert_eq!(action.option(), "Pizza");
+    assert_eq!(action.vote_count(), None);
+    let mut plain = matterpoll_post("p2");
+    plain["type"] = json!("");
+    let post: Post = serde_json::from_value(plain).unwrap();
+    assert!(post.poll().is_none());
+}
+
+#[tokio::test]
+async fn vote_posts_the_action_then_refetches_the_post() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v4/posts/p1/actions/vote0"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"status": "OK"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v4/posts/p1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(matterpoll_post("p1")))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = Client::new(local(&server), Secret::new("fake".into()).unwrap()).unwrap();
+    let post = client.vote_poll("p1", "vote0").await.unwrap();
+    assert_eq!(post.id, "p1");
+    assert!(post.poll().is_some());
+}
+
+#[tokio::test]
+async fn end_poll_runs_the_end_action_and_confirmation_then_refetches() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v4/posts/p1/actions/endPoll"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"status": "OK"})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/v4/actions/dialogs/submit"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/api/v4/posts/p1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(matterpoll_post("p1")))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = Client::new(local(&server), Secret::new("fake".into()).unwrap()).unwrap();
+    client.end_poll("p1", "c", "poll-1").await.unwrap();
+    let requests = server.received_requests().await.unwrap();
+    let submit: Value = requests[1].body_json().unwrap();
+    assert_eq!(submit["callback_id"], "p1");
+    assert_eq!(submit["channel_id"], "c");
+    assert_eq!(
+        submit["url"],
+        "/plugins/com.github.matterpoll.matterpoll/api/v1/polls/poll-1/end/confirm"
+    );
+}
+
+#[tokio::test]
+async fn create_poll_executes_the_slash_command_with_progress() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v4/commands/execute"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"trigger_id": ""})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = Client::new(local(&server), Secret::new("fake".into()).unwrap()).unwrap();
+    client
+        .create_poll(
+            "c",
+            "t",
+            "Lunch \"today\"?",
+            &["Pizza".into(), "Tacos".into()],
+        )
+        .await
+        .unwrap();
+    let requests = server.received_requests().await.unwrap();
+    let body: Value = requests[0].body_json().unwrap();
+    assert_eq!(body["channel_id"], "c");
+    assert_eq!(body["team_id"], "t");
+    assert_eq!(
+        body["command"],
+        "/poll \"Lunch \\\"today\\\"?\" \"Pizza\" \"Tacos\" --progress"
+    );
+}
