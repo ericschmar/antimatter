@@ -365,7 +365,10 @@ The panel holds a thread-scope segmented control
 (`search-filter-scope`: All, Roots, Replies), text fields for channel (`search-filter-channel`, `in:`),
 sender (`search-filter-sender`, `from:`), after and before dates (`search-filter-after`,
 `search-filter-before`, `YYYY-MM-DD`), a file extension field (`search-filter-extension`), and switches for
-has files, pinned and saved (`search-filter-files`, `-pinned`, `-saved`). The text fields are submitted
+has files, pinned and saved (`search-filter-files`, `-pinned`, `-saved`). The text fields use the kit's
+small caption type (`k.ty.small`, 11 pt) like the emoji search field; the switches keep the regular control
+size. The scope control's labels stay at the kit's 13 pt because `rune_kit::SegmentedControl` exposes no font
+setter. The text fields are submitted
 with Enter. Filter values live in `State::search_filters`, the text fields in `State::search_channel`,
 `search_sender`, `search_after`, `search_before` and `search_extension`. All are reset on sign-out and
 applied by `State::run_search`, which copies the text fields into the filter and sends it through
