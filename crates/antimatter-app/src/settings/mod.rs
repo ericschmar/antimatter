@@ -1,4 +1,6 @@
 mod model;
+mod controls;
+mod pages;
 mod view;
 
 pub(crate) use model::{ACCENTS, accent_rgb, font_family};
