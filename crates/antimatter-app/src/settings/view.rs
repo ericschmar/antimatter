@@ -94,6 +94,7 @@ impl SettingsState {
         let message_font_size = self.prefs.message_font_size;
         let composer_font_size = self.prefs.composer_font_size;
         let composer_font_family = self.prefs.composer_font_family;
+        let app_font_family = self.prefs.app_font_family;
         let message_spacing = self.prefs.timeline_message_spacing;
         let show_timeline_avatars = self.prefs.show_timeline_avatars;
         let avatar_size = self.prefs.timeline_avatar_size;
@@ -113,6 +114,7 @@ impl SettingsState {
             ws.message_font_size = message_font_size;
             ws.composer_font_size = composer_font_size;
             ws.composer_font_family = composer_font_family;
+            ws.app_font_family = app_font_family;
             ws.message_spacing = message_spacing;
             ws.show_timeline_avatars = show_timeline_avatars;
             ws.avatar_size = avatar_size;
@@ -138,7 +140,7 @@ pub(crate) fn theme_for(pref: settings::ThemePreference) -> antimatter_theme::Th
 
 pub(crate) fn settings_view(s: &SettingsState, _: &mut rune::Cx<SettingsState>) -> El {
     let mut layer = Vec::new();
-    let k = crate::theme::with_accent(s.prefs.accent_color);
+    let k = crate::theme::with_accent(s.prefs.accent_color, s.prefs.app_font_family);
     let c = &k.c;
     let mut sidebar = col()
         .w(190.0)

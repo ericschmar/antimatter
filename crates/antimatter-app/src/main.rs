@@ -284,6 +284,7 @@ fn main() {
     let (prefs, load_error) = settings_prefs();
     let prefs_font_size = prefs.message_font_size;
     let prefs_composer_font = (prefs.composer_font_size, prefs.composer_font_family);
+    let prefs_app_font = prefs.app_font_family;
     let prefs_spacing = prefs.timeline_message_spacing;
     let prefs_avatars = prefs.show_timeline_avatars;
     let prefs_avatar_size = prefs.timeline_avatar_size;
@@ -313,6 +314,7 @@ fn main() {
             message_font_size: prefs_font_size,
             composer_font_size: prefs_composer_font.0,
             composer_font_family: prefs_composer_font.1,
+            app_font_family: prefs_app_font,
             message_spacing: prefs_spacing,
             show_timeline_avatars: prefs_avatars,
             avatar_size: prefs_avatar_size,

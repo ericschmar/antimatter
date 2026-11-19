@@ -1,18 +1,23 @@
-use crate::settings::accent_rgb;
-use antimatter_services::settings::AccentColor;
+use crate::settings::{accent_rgb, font_family};
+use antimatter_services::settings::{AccentColor, AppFontFamily};
 use antimatter_theme::Theme;
 use rune::{Color, TextStyle};
 use rune_kit::Kit;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 
 // ponytail: a process-wide selection read by the widget helpers, set once per frame from
 // `State::theme`; ceiling is one theme per process. Upgrade: pass `&Kit` through the helpers.
 static ACTIVE: AtomicU8 = AtomicU8::new(0);
 static ACCENT: AtomicU32 = AtomicU32::new(0);
+static APP_FONT: Mutex<AppFontFamily> = Mutex::new(AppFontFamily::System);
 
-pub(crate) fn select(theme: Theme, accent: AccentColor) {
+pub(crate) fn select(theme: Theme, accent: AccentColor, app_font: AppFontFamily) {
     ACTIVE.store(theme as u8, Ordering::Relaxed);
     ACCENT.store(encode(accent), Ordering::Relaxed);
+    if let Ok(mut font) = APP_FONT.lock() {
+        *font = app_font;
+    }
 }
 
 /// The kit for context menus: the same tokens with a smaller menu-item font.
@@ -27,13 +32,14 @@ pub(crate) fn menu_theme(k: &Kit) -> Kit {
 }
 
 pub(crate) fn workspace_theme() -> Kit {
-    themed(ACCENT.load(Ordering::Relaxed))
+    let app_font = APP_FONT.lock().map(|font| *font).unwrap_or_default();
+    themed(ACCENT.load(Ordering::Relaxed), app_font)
 }
 
 /// The active theme with an explicit accent, for windows whose own preferences are fresher
 /// than the last workspace frame.
-pub(crate) fn with_accent(accent: AccentColor) -> Kit {
-    themed(encode(accent))
+pub(crate) fn with_accent(accent: AccentColor, app_font: AppFontFamily) -> Kit {
+    themed(encode(accent), app_font)
 }
 
 /// Presets are their `ACCENTS` index; a custom colour is `0x0100_0000 | rgb`.
@@ -58,7 +64,7 @@ fn decode(code: u32) -> AccentColor {
     }
 }
 
-fn themed(code: u32) -> Kit {
+fn themed(code: u32, app_font: AppFontFamily) -> Kit {
     let mut kit = Theme::ALL[ACTIVE.load(Ordering::Relaxed) as usize].kit();
     let accent = decode(code);
     let (r, g, b) = accent_rgb(accent);
@@ -67,5 +73,22 @@ fn themed(code: u32) -> Kit {
     kit.c.text_accent = color;
     kit.c.icon_accent = color;
     kit.c.border_focus = color;
+    let family = font_family(app_font);
+    let ty = &mut kit.ty;
+    for style in [
+        &mut ty.ui,
+        &mut ty.ui_medium,
+        &mut ty.ui_compact,
+        &mut ty.small,
+        &mut ty.small_medium,
+        &mut ty.body,
+        &mut ty.body_medium,
+        &mut ty.text_small,
+        &mut ty.text_small_medium,
+        &mut ty.text_xsmall,
+        &mut ty.text_xsmall_medium,
+    ] {
+        style.family = family;
+    }
     kit
 }
