@@ -156,7 +156,8 @@ Each post's hover controls (`post-actions`) carry an "Open thread" button (key `
 icon) after Reply. It calls `State::open_thread_pane`, which resolves the post's root (the post
 itself, or its `root_id`), enqueues `Intent::Thread(root)` first and only then sets
 `State::thread` (`ThreadPane`: root id, channel id, posts), seeding it from the loaded timeline.
-A 480 pt `thread-panel` then sits to the right of the main column, left of `channel-files`. It is a
+A 480 pt `thread-panel` (resizable from 320 to 720 pt by the `thread-grip` separator on its left edge, held in
+`State::thread_panel` as a `PaneState` like the channel sidebar, window-local) then sits to the right of the main column, left of `channel-files`. It is a
 side view of the one active conversation, not a split: there is still a single active channel, and
 the panel closes on channel switch, tab switch and sign-out (`clear_session`).
 

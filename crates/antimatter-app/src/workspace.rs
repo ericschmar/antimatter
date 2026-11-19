@@ -2486,11 +2486,31 @@ pub(crate) fn workspace(s: &State) -> El {
         .child(sidebar)
         .child(grip)
         .child(main)
-        .children(
-            s.thread
-                .is_some()
-                .then(|| thread_panel(s, composer_locked, &k)),
-        )
+        .children(if s.thread.is_some() {
+            let width = s.thread_panel.width();
+            let grip = el()
+                .key("thread-grip")
+                .role("separator")
+                .label("Resize thread panel")
+                .range_value(
+                    f64::from(width),
+                    f64::from(s.thread_panel.min_width()),
+                    f64::from(s.thread_panel.max_width()),
+                )
+                .range_step(8.0)
+                .w(1.0)
+                .h_full()
+                .cursor(rune::Cursor::ResizeColumn)
+                .fill(c.border_base)
+                .on_drag(|s: &mut State, d: &mut rune::Drag, _| match d.phase {
+                    rune::Phase::Down => d.data = s.thread_panel.width(),
+                    rune::Phase::Move => s.thread_panel.drag_to(d.data - d.dx),
+                    rune::Phase::Up => {}
+                });
+            vec![grip, thread_panel(s, composer_locked, &k)]
+        } else {
+            Vec::new()
+        })
         .children(s.channel_files.then(|| channel_files_panel(s, &k)));
     rune_kit::root(body, layer)
 }
@@ -2580,7 +2600,7 @@ fn thread_panel(s: &State, locked: bool, k: &rune_kit::Kit) -> El {
         .key("thread-send");
     col()
         .key("thread-panel")
-        .w(480.0)
+        .w(s.thread_panel.width())
         .shrink()
         .h_full()
         .fill(c.layer_01)
