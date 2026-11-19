@@ -4,7 +4,7 @@ use crate::widgets::*;
 use crate::workspace::{TITLEBAR, workspace};
 use antimatter_services::accounts::LoginMethod;
 use rune::{El, col, el, text};
-use rune_kit::{ButtonVariant, MenuItem, SegmentedControl, Switch, context_menu};
+use rune_kit::{ButtonVariant, MenuItem, Switch, context_menu};
 
 #[cfg(target_os = "macos")]
 const METHODS: &[&str] = &["PAT", "Password", "SSO"];
@@ -43,7 +43,7 @@ pub(crate) fn application(s: &State) -> El {
             State::submit_login,
         ))
         .child(
-            SegmentedControl::new(METHODS, Some(s.method.min(METHODS.len() - 1)))
+            Segments::new(METHODS, Some(s.method.min(METHODS.len() - 1)))
                 .label("Sign-in method")
                 .width(None)
                 .on_pick(|s: &mut State, i, _| {

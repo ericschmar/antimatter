@@ -1777,9 +1777,10 @@ fn search_filters(s: &State, k: &rune_kit::Kit) -> El {
         .pb(6.0)
         .gap(6.0)
         .child(
-            rune_kit::SegmentedControl::new(&labels, picked)
+            Segments::new(&labels, picked)
                 .label("Thread scope")
                 .width(None)
+                .font(k.ty.small)
                 .on_pick(|s: &mut State, i, _| s.search_filters.thread_scope = SCOPES[i].1)
                 .build(k)
                 .key("search-filter-scope"),
@@ -1832,31 +1833,27 @@ fn search_filters(s: &State, k: &rune_kit::Kit) -> El {
                 .build(k)
                 .key("search-filter-before"),
         )
-        .child(
-            rune_kit::Switch::new(s.search_filters.has_files)
-                .label("Has files")
-                .on_toggle(|s: &mut State| s.search_filters.has_files = !s.search_filters.has_files)
-                .build(k)
-                .key("search-filter-files"),
-        )
-        .child(
-            rune_kit::Switch::new(s.search_filters.pinned_only)
-                .label("Pinned only")
-                .on_toggle(|s: &mut State| {
-                    s.search_filters.pinned_only = !s.search_filters.pinned_only
-                })
-                .build(k)
-                .key("search-filter-pinned"),
-        )
-        .child(
-            rune_kit::Switch::new(s.search_filters.saved_only)
-                .label("Saved only")
-                .on_toggle(|s: &mut State| {
-                    s.search_filters.saved_only = !s.search_filters.saved_only
-                })
-                .build(k)
-                .key("search-filter-saved"),
-        )
+        .child(switch_row(
+            "search-filter-files",
+            "Has files",
+            s.search_filters.has_files,
+            |s: &mut State| s.search_filters.has_files = !s.search_filters.has_files,
+            k,
+        ))
+        .child(switch_row(
+            "search-filter-pinned",
+            "Pinned only",
+            s.search_filters.pinned_only,
+            |s: &mut State| s.search_filters.pinned_only = !s.search_filters.pinned_only,
+            k,
+        ))
+        .child(switch_row(
+            "search-filter-saved",
+            "Saved only",
+            s.search_filters.saved_only,
+            |s: &mut State| s.search_filters.saved_only = !s.search_filters.saved_only,
+            k,
+        ))
         .child(
             rune_kit::TextInput::new(&s.search_extension)
                 .label("File extension")

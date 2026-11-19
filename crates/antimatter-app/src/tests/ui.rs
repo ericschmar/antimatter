@@ -1331,6 +1331,15 @@ fn search_filters_panel_opens_from_the_search_row_and_keeps_stable_keys() {
     ] {
         assert!(has(&rt, key), "missing {key}");
     }
+    tap(&mut rt, "segment2");
+    assert_eq!(
+        rt.state.search_filters.thread_scope,
+        antimatter_services::mattermost::ThreadScope::Replies
+    );
+    tap(&mut rt, "search-filter-pinned");
+    assert!(rt.state.search_filters.pinned_only);
+    tap(&mut rt, "search-filter-pinned");
+    assert!(!rt.state.search_filters.pinned_only);
     tap(&mut rt, "search-filters-toggle");
     assert!(!rt.state.search_filters_open);
     for _ in 0..60 {

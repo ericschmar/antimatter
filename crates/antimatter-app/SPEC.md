@@ -21,7 +21,7 @@ GitHub issues own execution status, not these specs.
 
 The app is the `antimatter` binary crate. Modules: `state` (State, Login),
 `session`/`checkpoint`/`timeline`/`auth` (`impl State` behaviour), `signin` and
-`workspace` (views), `view` (root and hello scenes), `widgets` (kit wrappers),
+`workspace` (views), `view` (root and hello scenes), `widgets` (kit wrappers and the local `Segments` control),
 `theme` (selects an [`antimatter-theme`](../antimatter-theme/SPEC.md) `Kit`),
 `scenes` (synthetic proof data) and `tests`. `task dev` runs the native window with
 `cargo run` and no hot reload; `task dev:snap` is the only `dx` hot-reload path.
@@ -366,9 +366,13 @@ The panel holds a thread-scope segmented control
 sender (`search-filter-sender`, `from:`), after and before dates (`search-filter-after`,
 `search-filter-before`, `YYYY-MM-DD`), a file extension field (`search-filter-extension`), and switches for
 has files, pinned and saved (`search-filter-files`, `-pinned`, `-saved`). The text fields use the kit's
-small caption type (`k.ty.small`, 11 pt) like the emoji search field; the switches keep the regular control
-size. The scope control's labels stay at the kit's 13 pt because `rune_kit::SegmentedControl` exposes no font
-setter. The text fields are submitted
+small caption type (`k.ty.small`, 11 pt) like the emoji search field. The switches keep the kit's regular
+`Switch` control, and their labels use the caption type through the `widgets::switch_row` wrapper. The scope control is the app's local `widgets::Segments`, which replaces the kit's `SegmentedControl`
+(that control hardcodes 13 pt labels) and takes a font, so its labels use the same caption type. The
+sign-in method picker and the settings choice rows use `widgets::Segments` too, the sign-in picker at the
+default 13 pt and the settings rows with `accent()`, which fills the selected segment with the accent colour
+at the 11 pt caption type. Every `Segments` indicator slides between segments when the selection changes,
+under the `k.motion.control` spring, in both fixed and filling widths. The text fields are submitted
 with Enter. Filter values live in `State::search_filters`, the text fields in `State::search_channel`,
 `search_sender`, `search_after`, `search_before` and `search_extension`. All are reset on sign-out and
 applied by `State::run_search`, which copies the text fields into the filter and sends it through

@@ -1003,82 +1003,15 @@ fn choice_row<const N: usize>(
                 .color(k.c.text_base)
                 .truncate(),
         )
-        .child(accent_segments(k, label, options, selected, pick))
-}
-
-/// A full-width segmented control whose selected segment is filled with the accent.
-fn accent_segments<const N: usize>(
-    k: &rune_kit::Kit,
-    label: &str,
-    options: &[&str; N],
-    selected: Option<usize>,
-    pick: impl Fn(&mut SettingsState, usize, &mut rune::Tx) + Clone + 'static,
-) -> El {
-    let c = &k.c;
-    let accent = c.bg_accent;
-    let luma = 0.2126 * accent.r + 0.7152 * accent.g + 0.0722 * accent.b;
-    let on_accent = if luma > 0.6 {
-        rune::Color {
-            r: 0.1,
-            g: 0.1,
-            b: 0.1,
-            a: 1.0,
-        }
-    } else {
-        rune::Color::WHITE
-    };
-    let font = rune::TextStyle {
-        line_height: 13.0,
-        ..k.ty.text_xsmall
-    };
-    let mut root = row()
-        .role("radiogroup")
-        .label(label)
-        .focus_group()
-        .w_full()
-        .h(28.0)
-        .center_y()
-        .radius(6.0)
-        .fill(c.layer_01)
-        .box_shadow(rune::Shadow {
-            spread: 0.5,
-            color: c.border_base,
-            ..Default::default()
-        });
-    for (i, name) in options.iter().enumerate() {
-        let on = selected == Some(i);
-        let pick = pick.clone();
-        let mut seg = row()
-            .key(format!("segment{i}"))
-            .role("radio")
-            .label(*name)
-            .position_in_set(i + 1, N)
-            .focusable(true)
-            .focus_selected(on)
-            .focus_ring(2.0, 1.0, c.border_focus)
-            .grow(1.0)
-            .shrink()
-            .h(28.0)
-            .px(12.0)
-            .center()
-            .radius(6.0)
-            .child(
-                text(*name)
-                    .key("label")
-                    .font(font)
-                    .color(if on { on_accent } else { c.text_muted })
-                    .truncate()
-                    .a11y_hidden(),
-            )
-            .on_press_tx(move |s: &mut SettingsState, tx| pick(s, i, tx));
-        if on {
-            seg = seg.fill(accent);
-        } else {
-            seg = seg.hover(c.hover);
-        }
-        root = root.child(seg);
-    }
-    root
+        .child(
+            crate::widgets::Segments::new(options, selected)
+                .label(label)
+                .width(None)
+                .accent()
+                .font(k.ty.text_xsmall)
+                .on_pick(pick)
+                .build(k),
+        )
 }
 
 #[cfg(test)]
