@@ -2057,9 +2057,12 @@ fn typing_indicator(s: &State, k: &rune_kit::Kit) -> Option<El> {
     Some(
         rune::row()
             .key("typing-indicator")
-            .w_full()
-            .gap(6.0)
+            .h(26.0)
+            .px(10.0)
             .center_y()
+            .radius(13.0)
+            .fill(k.c.layer_02)
+            .border(1.0, k.c.border_base)
             .child(
                 text(label)
                     .font(k.ty.small)
@@ -2727,7 +2730,16 @@ pub(crate) fn workspace(s: &State) -> El {
             ),
         );
     }
-    main = main.child(ledger.scroll_bar_styled(ScrollBarStyle::scroll_view(&k)));
+    let mut timeline = col()
+        .grow(1.0)
+        .min_h(0.0)
+        .child(ledger.scroll_bar_styled(ScrollBarStyle::scroll_view(&k)));
+    if !searching {
+        timeline = timeline.children(
+            typing_indicator(s, &k).map(|pill| pill.pin(Some(16.0), None, None, Some(8.0))),
+        );
+    }
+    main = main.child(timeline);
     if !searching {
         main = main
             .on_drop_files(|s: &mut State, files, _| s.attach(files))
@@ -2741,7 +2753,6 @@ pub(crate) fn workspace(s: &State) -> El {
                     .children(reply_chip(s, &k))
                     .children(edit_chip(s, &k))
                     .children(attachment_pills(s, &k))
-                    .children(typing_indicator(s, &k))
                     .child(composer)
                     .child(
                         rune::row()

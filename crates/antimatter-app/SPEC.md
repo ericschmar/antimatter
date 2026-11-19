@@ -84,9 +84,11 @@ sends `Intent::Typing` at most once every 2 seconds, and only when the draft tex
 since the last successful send; a dropped send is retried on the next tick. The parent is the
 reply target's thread root, or the target itself, and an empty draft sends nothing. Incoming
 typers are recorded with their last-seen time and expire after 5 seconds. Switching channels
-clears both the typers and the last-sent draft. The indicator is a footer line above the
-composer ("X is typing", "X and Y are typing", "X and N others are typing", using display
-names and falling back to the user ID). Synthetic and not-ready sessions send nothing.
+clears both the typers and the last-sent draft. The indicator is a floating pill pinned to the
+bottom-left of the message timeline, overlaying it rather than sitting in the composer column,
+so showing or hiding it never shifts the timeline ("X is typing", "X and Y are typing",
+"X and N others are typing", using display names and falling back to the user ID). It is
+hidden in search results. Synthetic and not-ready sessions send nothing.
 
 ## Thread previews
 
