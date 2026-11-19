@@ -28,3 +28,10 @@
 - [ ] Search and command palette
 - [ ] Notifications/settings/themes
 - [ ] Experimental direct calls
+
+## Implementation status (issue #5, as of this change)
+
+- Implemented: Cargo CI gates (fmt, clippy, locked tests, headless and UI-lint checks), unsigned Rune native bundle build and metadata/binary check, release workflow publishing that unsigned bundle.
+- Missing: signing, hardened runtime, notarization, bundled privacy manifest, third-party notices, update path, and Swift/Xcode product file retention decision.
+- Blocked (needs native hardware or credentials): Keychain CRUD with signing entitlements, SAML callback registration and delivery, live-server auth and websocket reconnect, native notifications, VoiceOver/IME accessibility, singleton settings/multiwindow behavior, macOS 14+ minimum validation.
+- Not a migration-complete claim: the Rune app implements only a PAT/password conversation slice with headless checks; the checklist above remains the authority.

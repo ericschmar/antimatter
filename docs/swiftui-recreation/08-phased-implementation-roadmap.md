@@ -37,6 +37,11 @@
 - Port custom signaling only after a native WebRTC strategy is selected and documented. Verify permission flows, audio/video rendering, TURN/STUN config, interruption cleanup, and no call metadata persistence beyond required recovery marker.
 - Exit criteria: explicitly labeled experimental until multi-network testing is successful.
 
+## Release validation (issue #5)
+
+- Build, test, and headless verification run through Cargo and `scripts/` (see document 09, "Cargo CI and release gates"). Bun is not a product build or test dependency.
+- Exit criteria: clean-checkout locked build and tests pass in CI; the unsigned native bundle builds and checks; native accessibility, Keychain, SAML, notification, multiwindow and signing/notarization checks are recorded as blocked until run on hardware with credentials.
+
 ## Per-phase practice
 
 Write tests alongside models/services, run unit tests and UI smoke tests, then profile a realistic workspace before moving on. Do not start a later phase by weakening earlier acceptance criteria.

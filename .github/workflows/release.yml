@@ -18,30 +18,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          rustup default 1.99.1
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Fetch locked crates
+        run: cargo fetch --locked
 
-      - name: Check SemVer
-        run: bun run version:check
+      - name: Test
+        run: cargo test --workspace --locked --offline
 
-      - name: Typecheck
-        run: bun run typecheck
+      - name: Build unsigned native bundle
+        run: python3 scripts/rune-native.py
 
-      - name: Build release
-        env:
-          GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
-        run: bun run build:release
+      - name: Check native bundle
+        run: python3 scripts/rune-native.py --check
 
-      - name: List build artifacts
-        run: find artifacts -maxdepth 1 -type f -print
+      - name: Package bundle
+        run: |
+          mkdir -p artifacts
+          ditto -c -k --keepParent build/rune-native/Antimatter.app artifacts/Antimatter-unsigned-macos.zip
+          find artifacts -maxdepth 1 -type f -print
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: antimatter-macos
+          name: antimatter-macos-unsigned
           path: artifacts/**
           if-no-files-found: error
 

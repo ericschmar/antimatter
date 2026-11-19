@@ -16,18 +16,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          rustup default 1.99.1
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Fetch locked crates
+        run: cargo fetch --locked
 
-      - name: Check SemVer
-        run: bun run version:check
+      - name: Format
+        run: cargo fmt --all --check
 
-      - name: Typecheck
-        run: bun run typecheck
+      - name: Clippy
+        run: cargo clippy --workspace --locked --offline --all-targets -- -D warnings
 
       - name: Test
-        run: bun test
+        run: cargo test --workspace --locked --offline
 
+      - name: UI lint rules
+        run: python3 scripts/ui-lint.py --self-test
+
+      - name: Headless checks
+        run: python3 scripts/rune-headless.py
+
+      - name: UI scene lint
+        run: python3 scripts/ui-lint.py
+
+      - name: Upload headless and UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rune-headless-evidence
+          path: |
+            build/rune-headless/**
+            build/ui/**
+          if-no-files-found: ignore

@@ -102,18 +102,17 @@ Disable the instrumentation after profiling with
 `localStorage.removeItem("mm-clone:perf"); location.reload()`. The metrics are
 off by default and do not record message content or authentication tokens.
 
-Typecheck and test:
+Verify everything offline (format, clippy, tests, headless checks, UI lint):
 
 ```sh
-bun run version:check
-bun run typecheck
-bun test
+task verify
 ```
 
-Build the canary app:
+Build the unsigned, unregistered native bundle (metadata and binary check only; not launched or signed):
 
 ```sh
-bun run build:canary
+python3 scripts/rune-native.py          # build build/rune-native/Antimatter.app
+python3 scripts/rune-native.py --check  # verify an existing bundle
 ```
 
 ## Local Credentials
@@ -152,51 +151,34 @@ crates/antimatter-app/        Rune app binary: state, session, signin, workspace
 Sources/AntimatterApp/        Legacy SwiftUI app (reference until parity)
 ```
 
-## Useful Scripts
+## Useful Commands
 
 ```sh
-bun run dev          # start ElectroBun with watch mode
-bun run start        # start ElectroBun
-bun run build        # package a production build
-bun run version:bump -- patch # bump package.json and electrobun.config.ts together
-bun run version:check # validate SemVer and app/package version alignment
-bun run typecheck    # TypeScript no-emit check
-bun test             # unit tests
-bun run build:canary # package a canary build
+task verify                     # fmt, clippy, tests, headless checks, UI lint (offline)
+task ui:lint                    # render every scene at 4 window sizes
+task run                        # native window, no hot reload
+python3 scripts/rune-native.py  # unsigned dev bundle in build/rune-native/
 ```
 
 ## Versioning And Releases
 
-Antimatter uses SemVer for releases. Use the bump script so `package.json` and `electrobun.config.ts` stay aligned:
+The crate version is set in `Cargo.toml` (`[workspace.package] version`). The native bundle version is set in `scripts/rune-native.py` (`CFBundleShortVersionString` and `CFBundleVersion`); keep it aligned before tagging.
+
+Release tags use `v*.*.*`:
 
 ```sh
-bun run version:bump -- patch
-bun run version:bump -- minor
-bun run version:bump -- prerelease --preid alpha
-bun run version:bump -- 1.2.3
+git tag v0.0.1
+git push origin v0.0.1
 ```
 
-Before tagging a release, validate the versions:
-
-```sh
-bun run version:check
-```
-
-Release tags must match the package version exactly:
-
-```sh
-git tag v1.2.3
-git push origin v1.2.3
-```
-
-Pushing a `v*.*.*` tag runs the release workflow, builds the macOS app, uploads the build artifact, and attaches the contents of `artifacts/` to the GitHub release.
+Pushing a tag runs the release workflow, which runs the locked tests, builds and checks the unsigned native bundle, uploads it as a workflow artifact, and attaches it to the GitHub release. Signing, notarization and Keychain/SAML release checks are not automated yet; see [docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md](docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md).
 
 ## CI/CD
 
 GitHub Actions are configured under `.github/workflows/`:
 
-- `ci.yml`: runs on pull requests and pushes to `main`/`master`; installs dependencies, checks SemVer, typechecks, and runs tests.
-- `release.yml`: runs on SemVer tags and manual dispatch; checks SemVer, typechecks, tests, builds, uploads artifacts, and publishes tagged releases.
+- `ci.yml`: runs on pull requests and pushes to `main`/`master` on the pinned Rust 1.99.1 toolchain. It runs locked `cargo fmt`, clippy and tests, the headless and UI-lint checks, and uploads the rendered evidence.
+- `release.yml`: runs on SemVer tags and manual dispatch. It runs the locked tests, builds and checks the unsigned native bundle, and publishes it to tagged releases.
 
 ## Notes
 

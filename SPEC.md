@@ -109,6 +109,15 @@ retain the bootstrap. The `conversation-proof` scene renders only synthetic data
 and starts no services. Real-account mode rejects headless exports, and all native
 sessions reject tracing; no credentials/account storage are accessed headlessly.
 
+Issue #5 supersedes the approved bootstrap's "changes no Swift/Xcode/product CI
+files" limit for CI and release workflows only: `.github/workflows/ci.yml` and
+`release.yml` now use Cargo, pinned Rust 1.99.1, `scripts/rune-headless.py`,
+`scripts/ui-lint.py` and `scripts/rune-native.py` instead of Bun. The replaced
+contract is the Bun CI/release gate previously described in the README and
+document 09; the replacement is the "Cargo CI and release gates" section of
+`docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md`.
+Swift/Xcode product files are not removed by this change.
+
 Bootstrap acceptance requires `cargo check --locked`/`cargo test --locked`, the hello interaction
 assertion, accessible keyed-control tree assertions before/after deterministic
 scripted input, and rendering **and visually inspecting** both default/toggled
