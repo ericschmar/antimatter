@@ -243,6 +243,7 @@ pub(super) fn file_attachments(post: &Post, k: &rune_kit::Kit) -> Option<El> {
                 .child(
                     col()
                         .grow(1.0)
+                        .min_w(0.0)
                         .child(
                             text(file.name.clone())
                                 .font(k.ty.small_medium)
