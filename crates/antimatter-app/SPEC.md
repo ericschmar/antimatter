@@ -51,7 +51,11 @@ install run through `spawn_blocking` on the background runtime and publish via `
 A status banner in the workspace offers Update, then Restart once installed. The asset is the
 release zip whose name contains `macos`, holding `Antimatter.app`; the whole bundle is swapped in
 place and rolled back on failure. Restart checkpoints durable state (`close`) before re-exec.
-Check failures are silent; install failures show a dismissable banner. The release workflow ad-hoc
+`self_update` is built with `native-tls`, not `rustls`: enabling its rustls feature pulls in rustls'
+`aws-lc-rs` provider next to the `ring` provider the services crate uses, and rustls then cannot pick
+a process default, so the websocket's `ClientConfig::builder()` panics in a background task and
+the workspace silently never loads. Keep rustls out of the app's feature set unless a default
+provider is installed at startup. Check failures are silent; install failures show a dismissable banner. The release workflow ad-hoc
 signs the bundle (`codesign --sign -`) so the bundle seal is valid; without it a quarantined
 download shows "is damaged and can't be opened". Release builds are still not notarized, so
 Gatekeeper warns about an unidentified developer: first launch needs right-click > Open (or
