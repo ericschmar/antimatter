@@ -24,6 +24,12 @@ pub(crate) const WORKSPACE_WINDOW_SIZE: (f32, f32) = (1180.0, 760.0);
 // Upgrade to a versioned pending record with identity/recovery when the worker supports it.
 pub(crate) const SUBMITTED: &str = "conversation-pending";
 
+pub(crate) struct ThreadPane {
+    pub(crate) root_id: String,
+    pub(crate) channel_id: String,
+    pub(crate) posts: Vec<Post>,
+}
+
 #[derive(Clone)]
 pub(crate) enum AfterCheckpoint {
     Save,
@@ -146,6 +152,10 @@ pub(crate) struct State {
     pub(crate) server: TextEdit,
     pub(crate) login: TextEdit,
     pub(crate) draft: TextEdit,
+    pub(crate) thread: Option<ThreadPane>,
+    pub(crate) thread_draft: TextEdit,
+    pub(crate) thread_attachments: Vec<std::path::PathBuf>,
+    pub(crate) replying: Option<String>,
     pub(crate) raw: bool,
     pub(crate) caret_on: bool,
     pub(crate) source: TextEdit,
@@ -412,7 +422,12 @@ impl State {
         ) else {
             return;
         };
-        let Some(post) = self.posts.iter().find(|p| p.id == post_id) else {
+        let Some(post) = self
+            .posts
+            .iter()
+            .chain(self.thread.iter().flat_map(|t| t.posts.iter()))
+            .find(|p| p.id == post_id)
+        else {
             return;
         };
         let mine = post
@@ -430,17 +445,17 @@ impl State {
                 return;
             }
             handle.update(move |s, _| {
-                let Some(post) = s.posts.iter_mut().find(|p| p.id == post_id) else {
-                    return;
-                };
-                let reactions = &mut post.metadata.reactions;
-                if mine {
-                    reactions.retain(|r| !(r.user_id == me && r.emoji_name == name));
-                } else {
-                    reactions.push(antimatter_services::mattermost::Reaction {
-                        user_id: me,
-                        emoji_name: name,
-                    });
+                let thread = s.thread.iter_mut().flat_map(|t| t.posts.iter_mut());
+                for post in s.posts.iter_mut().chain(thread).filter(|p| p.id == post_id) {
+                    let reactions = &mut post.metadata.reactions;
+                    if mine {
+                        reactions.retain(|r| !(r.user_id == me && r.emoji_name == name));
+                    } else {
+                        reactions.push(antimatter_services::mattermost::Reaction {
+                            user_id: me.clone(),
+                            emoji_name: name.clone(),
+                        });
+                    }
                 }
             });
         });
@@ -932,6 +947,10 @@ impl Default for State {
             server: TextEdit::default(),
             login: TextEdit::default(),
             draft: crate::markdown::editor(TextEdit::default().rich()),
+            thread: None,
+            thread_draft: crate::markdown::editor(TextEdit::default().rich()),
+            thread_attachments: Vec::new(),
+            replying: None,
             raw: false,
             caret_on: true,
             source: TextEdit::default(),

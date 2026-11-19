@@ -122,6 +122,7 @@ impl State {
             self.channel = Some(channel.clone());
             self.navigation.channel_id = Some(channel.clone());
             self.restore_draft(&channel);
+            self.close_thread_pane();
             self.ready = false;
             self.loading_older = false;
             self.dispatch(Intent::Members(channel));
@@ -308,7 +309,17 @@ impl State {
                         .sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
                 }
             }
+            Update::ThreadPosts {
+                root_id,
+                channel_id,
+                posts,
+                names,
+            } => {
+                self.names.extend(names);
+                self.apply_thread_posts(root_id, channel_id, posts);
+            }
             Update::Upsert(post) => {
+                self.thread_upsert(&post);
                 if self.channel.as_deref() == Some(&post.channel_id) {
                     self.posts.retain(|p| p.id != post.id);
                     self.posts.push(post);
@@ -320,13 +331,16 @@ impl State {
                 channel_id,
                 post_id,
             } => {
+                self.thread_remove(&channel_id, &post_id);
                 if self.channel.as_deref() == Some(&channel_id) {
                     self.posts.retain(|p| p.id != post_id);
                 }
             }
             Update::Pending(pending) => {
                 if pending.is_none() && self.pending.is_some() {
-                    if self.durable.is_some() {
+                    if self.replying.is_some() {
+                        self.finish_thread_reply();
+                    } else if self.durable.is_some() {
                         self.checkpoint(AfterCheckpoint::Acknowledge);
                     } else {
                         self.clear_draft();
@@ -338,6 +352,10 @@ impl State {
             }
             Update::Ready(ready) => {
                 self.ready = ready;
+                if ready && self.replying.is_some() && self.pending.is_none() {
+                    self.replying = None;
+                    self.submitted = false;
+                }
                 if ready
                     && self.channel.is_none()
                     && let Some(channel) = self

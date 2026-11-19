@@ -19,6 +19,7 @@ mod tabs;
 #[cfg(test)]
 mod tests;
 mod theme;
+mod thread;
 mod timeline;
 mod view;
 mod widgets;
@@ -136,6 +137,12 @@ fn main() {
                     "synthetic-channel".into(),
                     s.posts.iter().flat_map(|p| p.metadata.files.clone()).collect(),
                 ));
+            }),
+            ("workspace-thread-proof", |s| {
+                synthetic_workspace(s);
+                if let Some(post) = s.posts.first().cloned() {
+                    s.open_thread_pane(&post);
+                }
             }),
             ("workspace-preview-proof", |s| {
                 synthetic_workspace(s);

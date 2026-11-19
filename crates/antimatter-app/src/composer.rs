@@ -28,8 +28,37 @@ fn code_spans(edit: &TextEdit, theme: &SyntaxTheme) -> Vec<Span> {
     out
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Pane {
+    Main,
+    Thread,
+}
+
+impl Pane {
+    fn prefix(self) -> &'static str {
+        match self {
+            Pane::Main => "",
+            Pane::Thread => "thread-",
+        }
+    }
+
+    fn edit(self, s: &State) -> &TextEdit {
+        match self {
+            Pane::Main => &s.draft,
+            Pane::Thread => &s.thread_draft,
+        }
+    }
+
+    fn access(self) -> fn(&mut State) -> &mut TextEdit {
+        match self {
+            Pane::Main => |s| &mut s.draft,
+            Pane::Thread => |s| &mut s.thread_draft,
+        }
+    }
+}
+
 fn bar_icon(
-    k: &Kit,
+    (k, pane): (&Kit, Pane),
     key: &str,
     icon: &'static Icon,
     label: &str,
@@ -37,6 +66,10 @@ fn bar_icon(
     locked: bool,
     on_press: impl Fn(&mut State) + 'static,
 ) -> El {
+    let focus = match pane {
+        Pane::Main => "draft",
+        Pane::Thread => "thread-draft",
+    };
     let b = IconButton::new(icon)
         .label(label)
         .help(label)
@@ -50,11 +83,11 @@ fn bar_icon(
         .on_press_tx(move |s: &mut State, tx| {
             if !locked {
                 on_press(s);
-                tx.focus("draft", false);
+                tx.focus(focus, false);
             }
         })
         .build(k)
-        .key(key);
+        .key(format!("{}{key}", pane.prefix()));
     if locked { b.inert() } else { b }
 }
 
@@ -94,20 +127,30 @@ fn separator(k: &Kit) -> El {
 }
 
 pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
+    build(s, locked, Pane::Main)
+}
+
+pub(crate) fn thread_composer(s: &State, locked: bool) -> (El, El) {
+    build(s, locked, Pane::Thread)
+}
+
+fn build(s: &State, locked: bool, pane: Pane) -> (El, El) {
     let k = workspace_theme();
-    let edit = &s.draft;
+    let edit = pane.edit(s);
+    let access = pane.access();
+    let raw = pane == Pane::Main && s.raw;
     let block = edit.current_block();
     let mark = |m: Mark| edit.has_mark(&m);
-    let bar_on = !s.raw;
+    let bar_on = !raw;
     let tool = |key: &str, icon: &'static Icon, label: &str, active: bool, f: fn(&mut TextEdit)| {
         bar_icon(
-            &k,
+            (&k, pane),
             key,
             icon,
             label,
             active && bar_on,
             locked || !bar_on,
-            move |s| f(&mut s.draft),
+            move |s| f(access(s)),
         )
     };
     let linked = edit.active_link().is_some();
@@ -119,7 +162,7 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
         ..k.ty.ui
     };
     let bar = row()
-        .key("toolbar")
+        .key(format!("{}toolbar", pane.prefix()))
         .gap(4.0)
         .center_y()
         .grow(1.0)
@@ -192,29 +235,42 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
             block == Block::Code,
             |e| e.toggle_block(Block::Code),
         ))
-        .child(separator(&k))
-        .child(bar_button(
-            &k,
-            "view-source",
-            if s.raw { "Rendered" } else { "Markdown" },
-            s.raw,
-            locked,
-            |s| s.toggle_raw(),
-        ));
-    let area = if s.raw {
+        .children((pane == Pane::Main).then(|| separator(&k)))
+        .children((pane == Pane::Main).then(|| {
+            bar_button(
+                &k,
+                "view-source",
+                if s.raw { "Rendered" } else { "Markdown" },
+                s.raw,
+                locked,
+                |s| s.toggle_raw(),
+            )
+        }));
+    let submit: fn(&mut State) = match pane {
+        Pane::Main => |s| s.send(),
+        Pane::Thread => |s| s.send_thread(),
+    };
+    let area = if raw {
         field(
             &k,
             &s.source,
             "Message Markdown source",
             vec![],
-            s.caret_on,
-            style,
+            (s.caret_on, style),
+            (pane, submit),
         )
         .on_edit(|s: &mut State| &mut s.source)
     } else {
-        let spans = code_spans(&s.draft, &SyntaxTheme::from_kit(&k));
-        field(&k, &s.draft, "Message", spans, s.caret_on, style)
-            .on_edit(|s: &mut State| &mut s.draft)
+        let spans = code_spans(edit, &SyntaxTheme::from_kit(&k));
+        field(
+            &k,
+            edit,
+            "Message",
+            spans,
+            (s.caret_on, style),
+            (pane, submit),
+        )
+            .on_edit(move |s: &mut State| access(s))
     };
     let area = rune::col()
         .role("textbox")
@@ -227,7 +283,7 @@ pub(crate) fn composer(s: &State, locked: bool) -> (El, El) {
     let area = k
         .shadow_layers(k.elevation.input())
         .fold(area, |e, sh| e.box_shadow(sh))
-        .key("draft");
+        .key(format!("{}draft", pane.prefix()));
     (area, bar)
 }
 
@@ -238,8 +294,8 @@ fn field(
     edit: &TextEdit,
     label: &str,
     spans: Vec<Span>,
-    on: bool,
-    style: TextStyle,
+    (on, style): (bool, TextStyle),
+    (pane, submit): (Pane, fn(&mut State)),
 ) -> El {
     let c = &k.c;
     let rich = RichStyle {
@@ -251,7 +307,7 @@ fn field(
         marker: Some(c.text_muted),
     };
     text_input(edit, style)
-        .key("input")
+        .key(format!("{}input", pane.prefix()))
         .w_full()
         .color(c.text_base)
         .rich_style(rich)
@@ -263,5 +319,5 @@ fn field(
         )
         .label(label)
         .description("")
-        .on_submit(|s: &mut State, _| s.send())
+        .on_submit(move |s: &mut State, _| submit(s))
 }

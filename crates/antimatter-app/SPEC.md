@@ -150,6 +150,33 @@ remains. A jump for a channel that is not open never pages or scrolls the open o
 cover this only in unit tests (`a_pending_jump_pages_older_history_until_its_post_loads`,
 `a_pending_jump_for_another_channel_never_pages_this_one`); live paging is not verified.
 
+## Thread panel
+
+Each post's hover controls (`post-actions`) carry an "Open thread" button (key `post-thread`, `THREAD`
+icon) after Reply. It calls `State::open_thread_pane`, which resolves the post's root (the post
+itself, or its `root_id`), enqueues `Intent::Thread(root)` first and only then sets
+`State::thread` (`ThreadPane`: root id, channel id, posts), seeding it from the loaded timeline.
+A 360 pt `thread-panel` then sits to the right of the main column, left of `channel-files`. It is a
+side view of the one active conversation, not a split: there is still a single active channel, and
+the panel closes on channel switch, tab switch and sign-out (`clear_session`).
+
+The panel renders posts with the same `post_row_in` as the timeline (virtual rows keyed
+`thread-post-{id}`), minus the reply quote, Edit, reaction picker and Open thread controls; Reply inside the panel only
+focuses the thread composer. Its composer reuses `composer::build` with the `thread-` key prefix
+(`thread-draft`, `thread-input`, `thread-toolbar`, `thread-send`, `thread-attach-*`) and its own
+`State::thread_draft` and `thread_attachments`; Markdown source mode is main-composer only. Enter or
+`thread-send` calls `State::send_thread`, which uses the main send guards (ready, not busy, not submitted,
+no pending, no restored pending marker), enqueues `Intent::Reply(root, message)` before locking, and keeps
+the draft on queue failure. Locking reuses `submitted`/`ready`, so both composers' send controls lock at
+once while typing stays enabled. `State::replying` marks the in-flight reply; its acknowledgement clears only
+the thread draft, never the main one. Thread drafts are not persisted and a thread reply does not go through
+the durable `SUBMITTED` checkpoint; a failed or uncertain send keeps `pending`, which locks both composers
+and blocks switching as for the main composer.
+
+`Update::ThreadPosts` is applied only while `thread.root_id` and `thread.channel_id` still match and the
+channel is open; stale results are dropped. Live `Upsert`/`Deleted` updates for the open root's thread
+update the panel. Scene: `workspace-thread-proof`; live behaviour is not verified.
+
 ## Channel files panel
 
 The channel header has a files toggle (key `channel-files-toggle`, Phosphor `FOLDER` icon, label
@@ -243,7 +270,9 @@ reply previews under a channel, can change them. A row with unread messages or m
 uses semibold, full-strength text; read rows use regular weight and muted text. Rows show the resolved DM name (see the services spec) when available.
 
 Right-clicking a channel or DM row opens a context menu with Favorite/Unfavorite, Archive/Unarchive
-and Mute/Unmute. Mute saves the server's Muted level (`desktop` and `push` set to `none`) on the
+and Mute/Unmute. Each item leads with a Phosphor icon: Favorite uses `icons::STAR`, Archive uses
+`icons::ARCHIVE` and Unarchive `icons::TRAY_ARROW_UP`, and Mute uses `icons::BELL_SLASH` and Unmute
+`icons::BELL`. Mute saves the server's Muted level (`desktop` and `push` set to `none`) on the
 user's channel membership, and Unmute restores `default`. The label reads the row's `muted` flag,
 which the conversation worker loads from each team's channel memberships on every navigation
 refresh. A failed save leaves the flag and label unchanged.

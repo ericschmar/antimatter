@@ -1160,3 +1160,59 @@ async fn older_page_requests_the_cursor_and_clears_at_history_start() {
         requests[2].starts_with("GET /api/v4/channels/c/posts?per_page=60&page=0&before=middle ")
     );
 }
+
+#[tokio::test]
+async fn thread_intent_publishes_only_that_threads_sorted_posts() {
+    let mut root = post("root", "");
+    root.create_at = 100;
+    let mut reply = post("reply", "");
+    reply.create_at = 200;
+    reply.root_id = "root".into();
+    let mut stray = post("stray", "");
+    stray.create_at = 150;
+    let body = json!({
+        "order": ["reply", "root", "stray"],
+        "posts": {"root": root, "reply": reply, "stray": stray},
+        "prev_post_id": "",
+    });
+    let (mut worker, mut updates, server) =
+        routed(vec![("/posts/root/thread", Some((200, body)))]).await;
+    assert_eq!(worker.intent(Intent::Thread("root".into())).await, Ok(()));
+    match next(&mut updates).await {
+        Update::ThreadPosts {
+            root_id,
+            channel_id,
+            posts,
+            ..
+        } => {
+            assert_eq!((root_id.as_str(), channel_id.as_str()), ("root", "c"));
+            let ids: Vec<_> = posts.iter().map(|p| p.id.as_str()).collect();
+            assert_eq!(ids, ["root", "reply"]);
+        }
+        _ => panic!("expected thread posts"),
+    }
+    assert_eq!(
+        worker.intent(Intent::Thread(String::new())).await,
+        Err(Failure::InvalidInput)
+    );
+    server.finish().await;
+}
+
+#[tokio::test]
+async fn reply_intent_posts_with_its_own_root_and_leaves_the_pending_root_alone() {
+    let (mut worker, mut updates, server) = routed(vec![("/posts", Some((400, json!({}))))]).await;
+    worker.pending = None;
+    worker.root = "stale".into();
+    assert_eq!(
+        worker
+            .intent(Intent::Reply("root".into(), "hi".into()))
+            .await,
+        Err(Failure::Send)
+    );
+    assert!(matches!(
+        next(&mut updates).await,
+        Update::Pending(Some(p)) if p.post.root_id == "root"
+    ));
+    assert_eq!(worker.root, "stale");
+    server.finish().await;
+}

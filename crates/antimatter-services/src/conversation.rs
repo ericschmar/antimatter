@@ -34,6 +34,8 @@ pub enum Intent {
     Edit(String, String),
     Attach(Vec<std::path::PathBuf>),
     Root(String),
+    Reply(String, String),
+    Thread(String),
     Typing {
         channel_id: String,
         parent_id: String,
@@ -98,6 +100,12 @@ pub enum Update {
     Members {
         channel_id: String,
         user_ids: Vec<String>,
+        names: HashMap<String, String>,
+    },
+    ThreadPosts {
+        root_id: String,
+        channel_id: String,
+        posts: Vec<Post>,
         names: HashMap<String, String>,
     },
     Upsert(Post),
@@ -265,7 +273,10 @@ impl Worker {
     }
 
     async fn intent(&mut self, intent: Intent) -> Result<(), Failure> {
-        let standalone = matches!(intent, Intent::Send(_) | Intent::Retry | Intent::Older);
+        let standalone = matches!(
+            intent,
+            Intent::Send(_) | Intent::Reply(..) | Intent::Retry | Intent::Older
+        );
         let result = async {
             match intent {
                 Intent::Load(channel) => {
@@ -353,26 +364,14 @@ impl Worker {
                     self.root = root;
                     Ok(())
                 }
-                Intent::Send(message) => {
-                    if self.pending.is_some()
-                        || (message.trim().is_empty() && self.uploads.is_empty())
-                    {
+                Intent::Send(message) => self.queue(message, None).await,
+                Intent::Reply(root, message) => {
+                    if root.is_empty() {
                         return Err(Failure::InvalidInput);
                     }
-                    let channel_id = self.channel.clone().ok_or(Failure::InvalidInput)?;
-                    self.pending = Some(Pending {
-                        post: CreatePost {
-                            channel_id,
-                            message,
-                            pending_post_id: uuid::Uuid::new_v4().to_string(),
-                            file_ids: Vec::new(),
-                            root_id: std::mem::take(&mut self.root),
-                        },
-                        failed: false,
-                        retryable: false,
-                    });
-                    self.send().await
+                    self.queue(message, Some(root)).await
                 }
+                Intent::Thread(root) => self.thread(root).await,
                 Intent::Retry => {
                     let pending = self.pending.clone().ok_or(Failure::InvalidInput)?;
                     if !pending.failed {
@@ -394,6 +393,51 @@ impl Worker {
             self.emit(Update::Ready(true)).await;
         }
         result
+    }
+
+    async fn queue(&mut self, message: String, root: Option<String>) -> Result<(), Failure> {
+        if self.pending.is_some() || (message.trim().is_empty() && self.uploads.is_empty()) {
+            return Err(Failure::InvalidInput);
+        }
+        let channel_id = self.channel.clone().ok_or(Failure::InvalidInput)?;
+        let root_id = match root {
+            Some(root) => root,
+            None => std::mem::take(&mut self.root),
+        };
+        self.pending = Some(Pending {
+            post: CreatePost {
+                channel_id,
+                message,
+                pending_post_id: uuid::Uuid::new_v4().to_string(),
+                file_ids: Vec::new(),
+                root_id,
+            },
+            failed: false,
+            retryable: false,
+        });
+        self.send().await
+    }
+
+    async fn thread(&mut self, root: String) -> Result<(), Failure> {
+        if root.trim().is_empty() {
+            return Err(Failure::InvalidInput);
+        }
+        let channel = self.channel.clone().ok_or(Failure::InvalidInput)?;
+        let value = self.client.thread(&root).await.map_err(|_| Failure::Load)?;
+        let page: PostPage = serde_json::from_value(value).map_err(|_| Failure::Load)?;
+        let mut posts = page_posts(&page, &channel).map_err(|_| Failure::Load)?;
+        posts.retain(|p| p.delete_at == 0 && (p.id == root || p.root_id == root));
+        posts.sort_by(|a, b| (a.create_at, &a.id).cmp(&(b.create_at, &b.id)));
+        self.resolve_names(post_user_ids(&posts)).await;
+        let names = self.names.clone();
+        self.emit(Update::ThreadPosts {
+            root_id: root,
+            channel_id: channel,
+            posts,
+            names,
+        })
+        .await;
+        Ok(())
     }
 
     async fn resolve_names(&mut self, ids: impl IntoIterator<Item = String>) {

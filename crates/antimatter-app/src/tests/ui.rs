@@ -1053,3 +1053,151 @@ fn single_image_file_draws_its_picture_in_the_ledger() {
         "single image drawn inline"
     );
 }
+
+fn thread_post(id: &str, root: &str, create_at: i64) -> Post {
+    Post {
+        id: id.into(),
+        channel_id: "c".into(),
+        user_id: "u".into(),
+        message: format!("message {id}"),
+        create_at,
+        update_at: create_at,
+        delete_at: 0,
+        pending_post_id: String::new(),
+        root_id: root.into(),
+        metadata: Default::default(),
+    }
+}
+
+#[test]
+fn thread_button_opens_the_side_panel_for_the_posts_root() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.posts = vec![thread_post("root", "", 100), thread_post("reply", "root", 200)];
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(rt.find("thread-panel").is_none());
+    let post = rt.state.posts[1].clone();
+    rt.state.open_thread_pane(&post);
+    assert!(matches!(intents.try_recv(), Ok(Intent::Thread(root)) if root == "root"));
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(rt.find("thread-panel").is_some());
+    assert!(rt.find("thread-draft").is_some());
+    assert!(rt.find("thread-send").is_some());
+    let ids: Vec<_> = rt
+        .state
+        .thread
+        .as_ref()
+        .unwrap()
+        .posts
+        .iter()
+        .map(|p| p.id.as_str())
+        .collect();
+    assert_eq!(ids, ["root", "reply"]);
+    tap(&mut rt, "thread-close");
+    assert!(rt.state.thread.is_none());
+}
+
+#[test]
+fn thread_posts_for_another_root_or_channel_are_dropped() {
+    let (sender, _intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.posts = vec![thread_post("root", "", 100)];
+    let post = rt.state.posts[0].clone();
+    rt.state.open_thread_pane(&post);
+    rt.state.apply(Update::ThreadPosts {
+        root_id: "other".into(),
+        channel_id: "c".into(),
+        posts: vec![thread_post("x", "other", 1)],
+        names: HashMap::new(),
+    });
+    rt.state.apply(Update::ThreadPosts {
+        root_id: "root".into(),
+        channel_id: "elsewhere".into(),
+        posts: vec![thread_post("y", "root", 1)],
+        names: HashMap::new(),
+    });
+    assert_eq!(rt.state.thread.as_ref().unwrap().posts.len(), 1);
+    rt.state.apply(Update::ThreadPosts {
+        root_id: "root".into(),
+        channel_id: "c".into(),
+        posts: vec![thread_post("root", "", 100), thread_post("r", "root", 200)],
+        names: HashMap::new(),
+    });
+    assert_eq!(rt.state.thread.as_ref().unwrap().posts.len(), 2);
+    rt.state.apply(Update::Upsert(thread_post("r2", "root", 300)));
+    rt.state.apply(Update::Upsert(thread_post("unrelated", "", 400)));
+    assert_eq!(rt.state.thread.as_ref().unwrap().posts.len(), 3);
+}
+
+#[test]
+fn thread_reply_locks_immediately_and_carries_the_root() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.posts = vec![thread_post("root", "", 100)];
+    let post = rt.state.posts[0].clone();
+    rt.state.open_thread_pane(&post);
+    let _ = intents.try_recv();
+    rt.state.draft.text = "main draft".into();
+    rt.state.thread_draft.text = "in thread".into();
+    rt.invalidate();
+    rt.frame(0.0);
+    tap(&mut rt, "thread-send");
+    assert!(matches!(
+        intents.try_recv(),
+        Ok(Intent::Reply(root, message)) if root == "root" && message == "in thread"
+    ));
+    assert!(!rt.state.ready);
+    assert!(rt.state.submitted);
+    assert_eq!(rt.state.draft.text, "main draft");
+    assert_eq!(rt.state.thread_draft.text, "in thread");
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(inert(&rt, "thread-send"));
+    assert!(!inert(&rt, "thread-draft"));
+    rt.state.send_thread();
+    assert!(intents.try_recv().is_err());
+    rt.state.apply(Update::Pending(Some(Pending {
+        post: mattermost::CreatePost {
+            channel_id: "c".into(),
+            message: "in thread".into(),
+            pending_post_id: "p".into(),
+            file_ids: vec![],
+            root_id: "root".into(),
+        },
+        failed: false,
+        retryable: false,
+    })));
+    rt.state.apply(Update::Pending(None));
+    assert!(!rt.state.submitted);
+    assert!(rt.state.thread_draft.text.is_empty());
+    assert_eq!(rt.state.draft.text, "main draft");
+}
+
+#[test]
+fn failed_thread_enqueue_keeps_the_draft_and_unlocked_state() {
+    let (sender, intents) = mpsc::channel(1);
+    let mut rt = ui(sender.clone());
+    rt.state.posts = vec![thread_post("root", "", 100)];
+    let post = rt.state.posts[0].clone();
+    rt.state.open_thread_pane(&post);
+    rt.state.thread_draft.text = "in thread".into();
+    sender.try_send(Intent::Active).ok();
+    rt.state.send_thread();
+    assert!(!rt.state.submitted);
+    assert!(rt.state.ready);
+    assert_eq!(rt.state.thread_draft.text, "in thread");
+    drop(intents);
+}
+
+#[test]
+fn switching_channels_closes_the_thread_panel() {
+    let (sender, _intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.posts = vec![thread_post("root", "", 100)];
+    let post = rt.state.posts[0].clone();
+    rt.state.open_thread_pane(&post);
+    rt.state.load_now("other".into());
+    assert!(rt.state.thread.is_none());
+}

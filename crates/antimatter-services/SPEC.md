@@ -151,6 +151,15 @@ submitted pane prevents restored text from authorizing ambiguous resend; complet
 pending identity/recovery and workspace trees remain outstanding. Module tests
 and UI wiring do not prove native saved-credential parity.
 
+## Thread intents
+
+`Intent::Thread(root)` fetches `GET posts/{root}/thread` for the open channel, validates it like a history
+page, keeps only the root and its replies (sorted by time) and publishes `Update::ThreadPosts` with the root,
+channel and resolved names; a failure is `Failure::Load`. `Intent::Reply(root, message)` queues a send with
+that root id directly. Unlike `Intent::Root` + `Intent::Send` it never reads or clears the one-shot `root`,
+so a failed reply cannot leak a root into a later send. Both are standalone sends sharing `Pending`,
+reconcile and retry; `Reply` emits `Ready(true)` when it finishes.
+
 ## Runnable verification and external gates
 
 `cargo test --locked --offline --lib` exercises origin/redirect/auth/error contracts,

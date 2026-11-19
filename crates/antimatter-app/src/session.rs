@@ -54,6 +54,10 @@ impl State {
         self.search_results = None;
         self.loading_older = false;
         self.clear_draft();
+        self.thread = None;
+        self.thread_draft = crate::markdown::from_markdown("");
+        self.thread_attachments.clear();
+        self.replying = None;
         self.ready = false;
         self.busy = false;
         self.connection = websocket::State::Idle;
