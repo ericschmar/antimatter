@@ -337,7 +337,9 @@ Debug-only development exception: debug builds (`cfg(debug_assertions)`) prefill
 server, login and password sign-in fields from git-ignored `.env.local`
 (`ANTIMATTER_DEV_SERVER`, `ANTIMATTER_DEV_LOGIN`, `ANTIMATTER_DEV_PASSWORD`). The same
 file may hold other keys, which the prefill ignores. Release builds compile this out, and
-nothing is written to disk. This does not permit
+nothing is written to disk. The file reader is tested against a temp file the test writes, so the
+test does not need a local `.env.local` and passes in CI. The build does not need any `.env` file:
+the Giphy key is optional and read at runtime. This does not permit
 plaintext credential storage; Remember and the Keychain rules are unchanged.
 
 ## Polls

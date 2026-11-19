@@ -9,7 +9,11 @@ const FALLBACK: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/.env.local");
 
 pub(crate) fn prefill(s: &mut State) {
     let file = std::env::var("ANTIMATTER_DEV_ENV").unwrap_or_else(|_| FALLBACK.to_owned());
-    let text = match std::fs::read_to_string(Path::new(&file)) {
+    load(s, &file);
+}
+
+fn load(s: &mut State, file: &str) {
+    let text = match std::fs::read_to_string(Path::new(file)) {
         Ok(text) => text,
         Err(error) => {
             eprintln!("dev_login: cannot read {file}: {error}");
@@ -57,9 +61,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_the_app_crate_env_file() {
+    fn reads_the_env_file_it_is_given() {
+        let path =
+            std::env::temp_dir().join(format!("antimatter-dev-login-{}.env", std::process::id()));
+        std::fs::write(&path, "GIPHY_API_KEY=unused\nANTIMATTER_DEV_LOGIN=dev\n").unwrap();
         let mut s = State::default();
-        prefill(&mut s);
-        assert!(!s.login.text.is_empty(), "login not read from {FALLBACK}");
+        load(&mut s, path.to_str().unwrap());
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(s.login.text, "dev");
     }
 }
