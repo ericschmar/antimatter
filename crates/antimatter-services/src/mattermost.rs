@@ -868,7 +868,11 @@ impl Client {
         self.search_posts(&filters.applying(query), false).await
     }
 
-    pub async fn search_files(&self, team_id: &str, channel_name: &str) -> Result<FileSearch, Error> {
+    pub async fn search_files(
+        &self,
+        team_id: &str,
+        channel_name: &str,
+    ) -> Result<FileSearch, Error> {
         let path = segments(&["teams", team_id, "files", "search"])?;
         self.post(
             &path,

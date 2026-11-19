@@ -1081,7 +1081,10 @@ fn thread_post(id: &str, root: &str, create_at: i64) -> Post {
 fn thread_button_opens_the_side_panel_for_the_posts_root() {
     let (sender, mut intents) = mpsc::channel(8);
     let mut rt = ui(sender);
-    rt.state.posts = vec![thread_post("root", "", 100), thread_post("reply", "root", 200)];
+    rt.state.posts = vec![
+        thread_post("root", "", 100),
+        thread_post("reply", "root", 200),
+    ];
     rt.invalidate();
     rt.frame(0.0);
     assert!(rt.find("thread-panel").is_none());
@@ -1226,8 +1229,10 @@ fn thread_posts_for_another_root_or_channel_are_dropped() {
         names: HashMap::new(),
     });
     assert_eq!(rt.state.thread.as_ref().unwrap().posts.len(), 2);
-    rt.state.apply(Update::Upsert(thread_post("r2", "root", 300)));
-    rt.state.apply(Update::Upsert(thread_post("unrelated", "", 400)));
+    rt.state
+        .apply(Update::Upsert(thread_post("r2", "root", 300)));
+    rt.state
+        .apply(Update::Upsert(thread_post("unrelated", "", 400)));
     assert_eq!(rt.state.thread.as_ref().unwrap().posts.len(), 3);
 }
 

@@ -135,7 +135,10 @@ fn main() {
                 s.channel_files = true;
                 s.channel_files_list = Some((
                     "synthetic-channel".into(),
-                    s.posts.iter().flat_map(|p| p.metadata.files.clone()).collect(),
+                    s.posts
+                        .iter()
+                        .flat_map(|p| p.metadata.files.clone())
+                        .collect(),
                 ));
             }),
             ("workspace-thread-proof", |s| {

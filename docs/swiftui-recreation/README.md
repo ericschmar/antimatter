@@ -67,19 +67,16 @@ may proceed in parallel once their shared prerequisites are stable.
 
 ### Native development
 
-The native client is a macOS 14+ Swift package with an Xcode application
-target. Open `Antimatter.xcodeproj` in Xcode and run the `Antimatter` scheme
-to launch the bundled application. The Swift package remains available for
-command-line builds and tests:
+The Swift package and Xcode project were removed; the native client is now the
+Rust/Rune application. Build, run and test it with Cargo (see the root README):
 
 ```sh
-swift build
-swift test
+task verify
+task run
 ```
 
-Use `ANTIMATTER_ENV=development` and, when useful for development,
-`ANTIMATTER_SERVER_URL=https://mattermost.example.com`; credentials must never
-be supplied through environment variables.
+Credentials must never be supplied through environment variables. The removed
+Swift sources remain in git history at commit `11e1499`.
 
 | Order | Feature | Status | Implementation notes |
 | ---: | --- | --- | --- |

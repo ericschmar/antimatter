@@ -331,7 +331,7 @@ plaintext credential storage; Remember and the Keychain rules are unchanged.
 
 ## Polls
 
-Polls follow Swift's Matterpoll flow (`MattermostPolls.swift`). A poll is a `custom_matterpoll` post; its
+Polls follow the former Swift Matterpoll flow (`MattermostPolls.swift`, removed; see `11e1499`). A poll is a `custom_matterpoll` post; its
 `props` hold the `poll_id` and attachments, and each vote action is a `button` whose id starts with `vote`
 (`resetVote` excluded). Vote counts appear only when Matterpoll reports them in the option label as a trailing
 ` (n)`, which happens when the poll was created with `--progress`.
@@ -397,8 +397,7 @@ full pending-delivery recovery, legacy import UI and full workspace behavior
 require separate checks and implementation; this contract grants no claim of
 their completion. The native helper builds an unsigned, unregistered bundle with
 `antimatter.ericschmar.dev` (the user-authorized Swift identity) and `mattermost`. Its app icon is
-`assets/AppIcon.icns`, built from the Swift app's `AppIcon.appiconset` (the same artwork,
-1024 px master in `icon.iconset`) and declared as `CFBundleIconFile` = `AppIcon` in
+`assets/AppIcon.icns`, built from the master artwork in `icon.iconset` (1024 px) and declared as `CFBundleIconFile` = `AppIcon` in
 `Contents/Resources`; Rune's `AppSpec` has no icon field, so the bundle is the icon source.
 Browser start fails closed unless the running main bundle declares both. Metadata
 checks do not prove LaunchServices delivery or authorized live/SAML acceptance.

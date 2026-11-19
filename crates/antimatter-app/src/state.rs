@@ -711,18 +711,18 @@ impl State {
         let client = self.client.clone();
         runtime.spawn(async move {
             let bytes = match client {
-                Some(client) if client.origin().matches(&url) => match client.proxied_image(&url).await {
-                    Ok(bytes) => Some(bytes),
-                    Err(antimatter_services::mattermost::Error::Redirect(target)) => {
-                        antimatter_services::giphy::fetch_bytes(target).await
+                Some(client) if client.origin().matches(&url) => {
+                    match client.proxied_image(&url).await {
+                        Ok(bytes) => Some(bytes),
+                        Err(antimatter_services::mattermost::Error::Redirect(target)) => {
+                            antimatter_services::giphy::fetch_bytes(target).await
+                        }
+                        Err(_) => None,
                     }
-                    Err(_) => None,
-                },
+                }
                 _ => antimatter_services::giphy::fetch_bytes(url).await,
             };
-            handle.update(move |s, _| {
-                s.gifs.finish(key, bytes)
-            });
+            handle.update(move |s, _| s.gifs.finish(key, bytes));
         });
     }
 
@@ -898,7 +898,11 @@ impl State {
         });
     }
 
-    fn save_file_to(&mut self, file: antimatter_services::mattermost::FileInfo, path: std::path::PathBuf) {
+    fn save_file_to(
+        &mut self,
+        file: antimatter_services::mattermost::FileInfo,
+        path: std::path::PathBuf,
+    ) {
         let (Some(client), Some(runtime), Some(handle)) = (
             self.client.clone(),
             self.runtime.clone(),
@@ -931,7 +935,9 @@ impl State {
         runtime.spawn(async move {
             let fail = |handle: &AppHandle<State>, reason: String| {
                 eprintln!("Could not open {}: {reason}", file.name);
-                handle.update(|s, _| s.error = Some("Could not open the file. See the terminal for details."));
+                handle.update(|s, _| {
+                    s.error = Some("Could not open the file. See the terminal for details.")
+                });
             };
             let bytes = match client.file(&file.id, false).await {
                 Ok(bytes) => bytes,
@@ -942,7 +948,9 @@ impl State {
                 .map_or_else(|| file.id.clone().into(), ToOwned::to_owned);
             let dir = std::env::temp_dir().join("antimatter-files").join(&file.id);
             let path = dir.join(name);
-            if let Err(error) = std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, bytes)) {
+            if let Err(error) =
+                std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, bytes))
+            {
                 return fail(&handle, error.to_string());
             }
             if let Err(error) = std::process::Command::new("open").arg(path).status() {

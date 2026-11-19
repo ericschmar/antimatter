@@ -14,8 +14,8 @@ The user approved **immediate Rust/Rune replacement**, **macOS first**, and
 **calls deferred** on 2026-11-10. This supersedes the Swift-first technology and
 parallel/staged product migration strategy, not the existing feature contracts.
 Bun is development-only spec tooling, not the application runtime. No Swift FFI
-or parallel Swift product is intended. Existing source remains reference material
-until removal is explicitly authorized and local work is preserved.
+or parallel Swift product is intended. The Swift source removal is described in
+"Swift source removal" below.
 
 This root is **draft** for detailed replacement design. The approved boundary
 above and minimal hello bootstrap below are authoritative; they are not blanket approval of new feature semantics,
@@ -98,8 +98,8 @@ The approved minimal application is a standalone edition-2024 Rust package
 lockfile. Cargo is the primary application development entry. The window title
 is `Antimatter`; retain the hello label, `on` scene, accessible `Lights` switch,
 stable `switch`/`knob` keys and spring interaction test. This bootstrap implements
-no Mattermost services and changes no Swift/Xcode/product CI files. Existing
-Swift files remain reference material, not a parallel product. The approved #3
+no Mattermost services and changes no Swift/Xcode/product CI files. Swift files
+were later removed as described in "Swift source removal". The approved #3
 secure-input verification additionally permits an `auth-proof` scene with only
 synthetic PAT/password values; it exercises Rune secure edits without accessing
 credentials, persistence or network services. Native execution now defaults to the service-backed conversation entry with
@@ -116,7 +116,8 @@ files" limit for CI and release workflows only: `.github/workflows/ci.yml` and
 contract is the Bun CI/release gate previously described in the README and
 document 09; the replacement is the "Cargo CI and release gates" section of
 `docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md`.
-Swift/Xcode product files are not removed by this change.
+Swift/Xcode product files are removed by the change described in "Swift source
+removal" below; this sentence describes only the pre-removal state.
 
 Bootstrap acceptance requires `cargo check --locked`/`cargo test --locked`, the hello interaction
 assertion, accessible keyed-control tree assertions before/after deterministic
@@ -153,4 +154,18 @@ GitHub alone owns tasks, dependencies, progress and blockers:
 
 Do not mirror mutable issue statuses or checklists here. Commit progress only
 with explicit user authorization; pushing requires separate authorization.
-Preserve `Sources/AntimatterApp/RichMessageContent.swift` local edits.
+
+## Swift source removal
+
+The user explicitly authorized removing the legacy Swift product, which supersedes
+the retention rules in this document's "Approved bootstrap and verification gates"
+section (the "Swift files remain reference material" and "not removed by this
+change" sentences) and the removal gate in
+`docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md`.
+The removed paths are `Sources/`, `NativeTests/`, `Package.swift`, `Package.resolved`,
+`Antimatter.xcodeproj/`, `.swiftpm/`, `Xcode/` and `Assets.xcassets/`. The last
+commit containing them is `11e1499`; they remain in git history for reference.
+The Rust application, `icon.iconset/`, `crates/antimatter-app/assets/AppIcon.icns`
+and the `scripts/` gates are unaffected. The earlier instruction to preserve
+`Sources/AntimatterApp/RichMessageContent.swift` local edits no longer applies: the
+working tree had no uncommitted Swift changes at removal time.

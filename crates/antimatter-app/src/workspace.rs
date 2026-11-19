@@ -781,7 +781,7 @@ fn image_attachments(post: &Post, s: &State, k: &rune_kit::Kit) -> Option<El> {
             )
     };
     match images.as_slice() {
-        [] => return None,
+        [] => None,
         [file] => {
             let target = (*file).clone();
             if let Some(image) = s.gifs.get(&format!("file:{}", file.id)) {
@@ -1413,7 +1413,7 @@ fn user_avatar(s: &State, k: &rune_kit::Kit) -> El {
 }
 
 fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> El {
-    let names: Vec<String> = s.teams.iter().map(|team| team_label(team)).collect();
+    let names: Vec<String> = s.teams.iter().map(team_label).collect();
     let current_id = s.current_team_id();
     let current = s
         .teams
@@ -2252,7 +2252,11 @@ pub(crate) fn workspace(s: &State) -> El {
             .item({
                 let channel = channel.clone();
                 MenuItem::new(if archive { "Unarchive" } else { "Archive" })
-                    .icon(if archive { &icons::TRAY_ARROW_UP } else { &icons::ARCHIVE })
+                    .icon(if archive {
+                        &icons::TRAY_ARROW_UP
+                    } else {
+                        &icons::ARCHIVE
+                    })
                     .on_select(move |s: &mut State| {
                         s.channel_menu = None;
                         s.toggle_archived(&channel);
@@ -2261,7 +2265,11 @@ pub(crate) fn workspace(s: &State) -> El {
             .item({
                 let channel = channel.clone();
                 MenuItem::new(if muted { "Unmute" } else { "Mute" })
-                    .icon(if muted { &icons::BELL } else { &icons::BELL_SLASH })
+                    .icon(if muted {
+                        &icons::BELL
+                    } else {
+                        &icons::BELL_SLASH
+                    })
                     .on_select(move |s: &mut State| {
                         s.channel_menu = None;
                         s.set_channel_mute(channel.clone(), !muted);
@@ -2645,7 +2653,7 @@ pub(crate) fn workspace(s: &State) -> El {
                 ),
         );
     }
-    let mut actions = rune::row().w_full().gap(8.0).flex_wrap();
+    let actions = rune::row().w_full().gap(8.0).flex_wrap();
     main = main.child(col().w_full().px(16.0).pb(8.0).gap(4.0).child(actions));
     let mut status = col().w_full().px(16.0).pb(8.0).gap(8.0);
     if s.recovered_pending {
@@ -3099,7 +3107,7 @@ fn channel_files_panel(s: &State, k: &rune_kit::Kit) -> El {
                 .scroll(rune::ScrollSpec {
                     stick_bottom: false,
                 })
-                .scroll_bar_styled(ScrollBarStyle::scroll_view(&k))
+                .scroll_bar_styled(ScrollBarStyle::scroll_view(k))
                 .grow(1.0)
                 .min_h(0.0),
         )
@@ -3152,8 +3160,10 @@ mod channel_files_tests {
 
     #[test]
     fn panel_lists_only_files_for_the_open_channel() {
-        let mut s = State::default();
-        s.channel = Some("chan-a".into());
+        let mut s = State {
+            channel: Some("chan-a".into()),
+            ..State::default()
+        };
         s.channel_files_list = Some((
             "chan-a".into(),
             vec![FileInfo {

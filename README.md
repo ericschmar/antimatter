@@ -1,6 +1,6 @@
 # Antimatter
 
-Antimatter is replacing its desktop client with Rust/Rune, macOS first; calls are deferred. Cargo is the primary app development entry. The Rust native app now has a PAT/password conversation slice with opt-in saved accounts and native SAML wiring, **not a full Mattermost client**. Existing Swift files and the older documentation below remain reference material; no source removal is authorized.
+Antimatter is replacing its desktop client with Rust/Rune, macOS first; calls are deferred. Cargo is the primary app development entry. The Rust native app now has a PAT/password conversation slice with opt-in saved accounts and native SAML wiring, **not a full Mattermost client**. The legacy Swift product has been removed; its last state is in git history at commit `11e1499`.
 
 The goal is a focused desktop experience: channels, direct messages, search, reactions, uploads, markdown composition, notifications, and a compact native shell without embedding the full Mattermost web application.
 
@@ -148,7 +148,6 @@ The SSO flow opens the server's `/login/sso/saml` URL with a generated desktop t
 crates/antimatter-services/   Mattermost REST/WebSocket, accounts, conversation (no UI deps)
 crates/antimatter-theme/      Antimatter design tokens as a rune-kit Kit (4 themes)
 crates/antimatter-app/        Rune app binary: state, session, signin, workspace, scenes
-Sources/AntimatterApp/        Legacy SwiftUI app (reference until parity)
 ```
 
 ## Useful Commands

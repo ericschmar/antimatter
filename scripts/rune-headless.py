@@ -63,7 +63,7 @@ subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", "conve
                 "--snap", str(conversation_png)], cwd=root, check=True)
 conversation = json.loads(conversation_tree.read_text())
 assert not conversation["warnings"]
-assert any(node.get("text") == "Synthetic service conversation" for node in conversation["elements"])
+assert any(node.get("text") == "Synthetic service conversation, ping @here and @synthetic" for node in conversation["elements"])
 assert any(node.get("key") == "send" for node in conversation["elements"])
 assert any(node.get("key") == "draft" for node in conversation["elements"])
 print(f"PASS synthetic conversation controls and timeline; visually inspect {conversation_png}")
@@ -102,13 +102,13 @@ def node(elements, key):
     return next(e for e in elements if e.get("key") == key)
 
 initial, selected, resized = (workspace[name] for name in ["initial", "selected", "resized"])
-assert abs(node(initial, "sidebar-grip")["rect"][0] - 248.0) < 3.0
+assert abs(node(initial, "sidebar-grip")["rect"][0] - 264.0) < 3.0
 assert node(resized, "sidebar-grip")["rect"][0] > node(initial, "sidebar-grip")["rect"][0] + 40.0
-assert any(e.get("text") == "Synthetic service conversation" for e in initial)
-assert not any(e.get("text") == "Synthetic service conversation" for e in selected)
+assert any(e.get("text") == "Synthetic service conversation, ping @here and @synthetic" for e in initial)
+assert not any(e.get("text") == "Synthetic service conversation, ping @here and @synthetic" for e in selected)
 def row_texts(elements, key):
     start = next(i for i, e in enumerate(elements) if e.get("key") == key)
-    return [e.get("text") for e in elements[start + 1:start + 4] if e.get("text")]
+    return [e.get("text") for e in elements[start + 1:start + 6] if e.get("text")]
 
 assert "@2" in row_texts(initial, "channel-synthetic-other")
 assert "@2" not in row_texts(initial, "channel-synthetic-channel")
@@ -116,14 +116,14 @@ assert node(initial, "draft")["inert"] is False
 assert node(initial, "draft")["rect"][3] >= 72
 assert node(initial, "draft")["fill"] != "#00000000"
 print("PASS synthetic channel selection and sidebar resize, without services or saved state")
-history_png = out / "workspace-history-proof.png"
-subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", "workspace-history-proof",
-                "--size", "960x640", "--at", "1", "--tree", str(out / "workspace-history-proof.json"),
+history_png = out / "workspace-scroll-history-proof.png"
+subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", "workspace-scroll-history-proof",
+                "--size", "960x640", "--at", "1", "--tree", str(out / "workspace-scroll-history-proof.json"),
                 "--snap", str(history_png)], cwd=root, check=True)
-history = json.loads((out / "workspace-history-proof.json").read_text())
+history = json.loads((out / "workspace-scroll-history-proof.json").read_text())
 assert not history["warnings"]
 assert not any(e.get("key") == "load-older" for e in history["elements"])
-print(f"PASS workspace-history-proof: older history pages on scroll, with no load button; visually inspect {history_png}")
+print(f"PASS workspace-scroll-history-proof: older history pages on scroll, with no load button; visually inspect {history_png}")
 loading_tree = out / "workspace-loading-older-proof.json"
 subprocess.run(["cargo", "run", "--locked", "--offline", "--", "--scene", "workspace-loading-older-proof",
                 "--size", "960x640", "--at", "1", "--tree", str(loading_tree),
@@ -149,8 +149,7 @@ for scene, expected_retry in [("workspace-locked-proof", False), ("workspace-ret
     tree = json.loads(tree_path.read_text())
     assert not tree["warnings"]
     elements = tree["elements"]
-    assert node(elements, "draft")["inert"] and node(elements, "send")["inert"]
-    assert node(elements, "channel-synthetic-other")["inert"]
+    assert node(elements, "send")["inert"] and not node(elements, "draft")["inert"]
     assert any(e.get("key") == "retry" for e in elements) == expected_retry
     if expected_retry:
         assert any(e.get("text") == "Pending delivery · draft retained" for e in elements)

@@ -275,7 +275,7 @@ fn build(s: &State, locked: bool, pane: Pane) -> (El, El) {
             (s.caret_on, style),
             (pane, submit),
         )
-            .on_edit(move |s: &mut State| access(s))
+        .on_edit(move |s: &mut State| access(s))
     };
     let area = rune::col()
         .role("textbox")

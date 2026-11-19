@@ -9,9 +9,9 @@ references: [antimatter-theme, antimatter-rust-services]
 
 # Rust settings window contract
 
-This spec translates the Swift Settings window (`Sources/AntimatterApp/SettingsView.swift`,
+This spec translates the Swift Settings window (`SettingsView.swift`,
 its supporting `WorkspaceTheme.swift` value types, `ProfileSettingsForm.swift` and
-`AccountSettingsViewModel.swift`) and the singleton-window decisions in
+`AccountSettingsViewModel.swift`, removed from the tree and kept in history at `11e1499`) and the singleton-window decisions in
 [the settings window design](../../../docs/design/2026-10-08-settings-window-design.md)
 into a Rune contract. It supersedes only the SwiftUI/AppKit prescriptions there:
 the `WindowGroup`, `openWindow`, `@AppStorage`, `NavigationSplitView` and sheet
