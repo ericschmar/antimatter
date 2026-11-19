@@ -35,6 +35,11 @@ jobs:
       - name: Check native bundle
         run: python3 scripts/rune-native.py --check
 
+      - name: Ad-hoc sign bundle
+        run: |
+          codesign --force --deep --sign - build/rune-native/Antimatter.app
+          codesign --verify --deep --strict --verbose=2 build/rune-native/Antimatter.app
+
       - name: Package bundle
         run: |
           mkdir -p artifacts

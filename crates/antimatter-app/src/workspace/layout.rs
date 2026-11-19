@@ -657,17 +657,20 @@ fn update_banner(s: &State, muted: rune::Color) -> El {
         UpdateState::Idle => row,
         UpdateState::Available(version) => row
             .child(label(format!("Antimatter {version} is available")))
-            .child(button("update-install", "Update", false, |s| s.install_update())),
+            .child(button("update-install", "Update", false, |s| {
+                s.install_update()
+            })),
         UpdateState::Installing(version) => row.child(label(format!("Installing {version}…"))),
         UpdateState::Ready(version) => row
             .child(label(format!("Antimatter {version} installed")))
             .child(button("update-restart", "Restart", false, |s| {
                 s.restart_into_update()
             })),
-        UpdateState::Failed(error) => row
-            .child(label(format!("Update failed: {error}")))
-            .child(button("update-dismiss", "Dismiss", false, |s| {
-                s.update = UpdateState::Idle
-            })),
+        UpdateState::Failed(error) => {
+            row.child(label(format!("Update failed: {error}")))
+                .child(button("update-dismiss", "Dismiss", false, |s| {
+                    s.update = UpdateState::Idle
+                }))
+        }
     }
 }

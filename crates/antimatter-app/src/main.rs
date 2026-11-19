@@ -19,9 +19,9 @@ mod tabs;
 #[cfg(test)]
 mod tests;
 mod theme;
-mod updater;
 mod thread;
 mod timeline;
+mod updater;
 mod view;
 mod widgets;
 mod workspace;

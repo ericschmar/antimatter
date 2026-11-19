@@ -51,9 +51,12 @@ install run through `spawn_blocking` on the background runtime and publish via `
 A status banner in the workspace offers Update, then Restart once installed. The asset is the
 release zip whose name contains `macos`, holding `Antimatter.app`; the whole bundle is swapped in
 place and rolled back on failure. Restart checkpoints durable state (`close`) before re-exec.
-Check failures are silent; install failures show a dismissable banner. Release builds are currently
-unsigned and un-notarized, so Gatekeeper may reject an updated bundle until signing exists; the
-updater never signs or verifies signatures.
+Check failures are silent; install failures show a dismissable banner. The release workflow ad-hoc
+signs the bundle (`codesign --sign -`) so the bundle seal is valid; without it a quarantined
+download shows "is damaged and can't be opened". Release builds are still not notarized, so
+Gatekeeper warns about an unidentified developer: first launch needs right-click > Open (or
+`xattr -dr com.apple.quarantine Antimatter.app`). The updater downloads without quarantine, but
+never signs or verifies signatures itself.
 
 ## Conversation interaction
 
