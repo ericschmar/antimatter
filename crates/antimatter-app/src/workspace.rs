@@ -1548,6 +1548,113 @@ fn dm_peer<'a>(s: &State, name: &'a str) -> Option<&'a str> {
         .or_else(|| name.split("__").find(|id| *id == me))
 }
 
+fn search_filters(s: &State, k: &rune_kit::Kit) -> El {
+    use antimatter_services::mattermost::ThreadScope;
+    const SCOPES: [(&str, ThreadScope); 3] = [
+        ("All", ThreadScope::All),
+        ("Roots", ThreadScope::Roots),
+        ("Replies", ThreadScope::Replies),
+    ];
+    let labels: Vec<&str> = SCOPES.iter().map(|(label, _)| *label).collect();
+    let picked = SCOPES
+        .iter()
+        .position(|(_, scope)| *scope == s.search_filters.thread_scope);
+    col()
+        .key("search-filters")
+        .w_full()
+        .px(8.0)
+        .pb(6.0)
+        .gap(6.0)
+        .child(
+            rune_kit::SegmentedControl::new(&labels, picked)
+                .label("Thread scope")
+                .width(None)
+                .on_pick(|s: &mut State, i, _| s.search_filters.thread_scope = SCOPES[i].1)
+                .build(k)
+                .key("search-filter-scope"),
+        )
+        .child(
+            rune_kit::TextInput::new(&s.search_channel)
+                .label("Channel")
+                .placeholder("Channel")
+                .width(None)
+                .height(28.0)
+                .on_edit(|s: &mut State| &mut s.search_channel)
+                .on_submit(|s: &mut State, _| s.run_search())
+                .build(k)
+                .key("search-filter-channel"),
+        )
+        .child(
+            rune_kit::TextInput::new(&s.search_sender)
+                .label("Sender")
+                .placeholder("Sender username")
+                .width(None)
+                .height(28.0)
+                .on_edit(|s: &mut State| &mut s.search_sender)
+                .on_submit(|s: &mut State, _| s.run_search())
+                .build(k)
+                .key("search-filter-sender"),
+        )
+        .child(
+            rune_kit::TextInput::new(&s.search_after)
+                .label("After")
+                .placeholder("After YYYY-MM-DD")
+                .width(None)
+                .height(28.0)
+                .on_edit(|s: &mut State| &mut s.search_after)
+                .on_submit(|s: &mut State, _| s.run_search())
+                .build(k)
+                .key("search-filter-after"),
+        )
+        .child(
+            rune_kit::TextInput::new(&s.search_before)
+                .label("Before")
+                .placeholder("Before YYYY-MM-DD")
+                .width(None)
+                .height(28.0)
+                .on_edit(|s: &mut State| &mut s.search_before)
+                .on_submit(|s: &mut State, _| s.run_search())
+                .build(k)
+                .key("search-filter-before"),
+        )
+        .child(
+            rune_kit::Switch::new(s.search_filters.has_files)
+                .label("Has files")
+                .on_toggle(|s: &mut State| s.search_filters.has_files = !s.search_filters.has_files)
+                .build(k)
+                .key("search-filter-files"),
+        )
+        .child(
+            rune_kit::Switch::new(s.search_filters.pinned_only)
+                .label("Pinned only")
+                .on_toggle(|s: &mut State| {
+                    s.search_filters.pinned_only = !s.search_filters.pinned_only
+                })
+                .build(k)
+                .key("search-filter-pinned"),
+        )
+        .child(
+            rune_kit::Switch::new(s.search_filters.saved_only)
+                .label("Saved only")
+                .on_toggle(|s: &mut State| {
+                    s.search_filters.saved_only = !s.search_filters.saved_only
+                })
+                .build(k)
+                .key("search-filter-saved"),
+        )
+        .child(
+            rune_kit::TextInput::new(&s.search_extension)
+                .label("File extension")
+                .placeholder("File extension")
+                .width(None)
+                .height(28.0)
+                .on_edit(|s: &mut State| &mut s.search_extension)
+                .on_submit(|s: &mut State, _| s.run_search())
+                .build(k)
+                .key("search-filter-extension"),
+        )
+}
+
 fn channel_row(s: &State, channel: &Channel, locked: bool, k: &rune_kit::Kit) -> El {
     let id = channel.id.clone();
     let unread = s.unread.get(&channel.id).copied().unwrap_or_default();
@@ -2086,6 +2193,20 @@ pub(crate) fn workspace(s: &State) -> El {
                         .label("Searching")
                         .role("progressbar")
                 }))
+                .child(
+                    IconButton::new(&icons::FUNNEL)
+                        .label("Search filters")
+                        .help("Search filters")
+                        .control_size(ControlSize::Small)
+                        .variant(if s.search_filters_open {
+                            IconButtonVariant::Contrast
+                        } else {
+                            IconButtonVariant::Ghost
+                        })
+                        .on_press(|s: &mut State| s.search_filters_open = !s.search_filters_open)
+                        .build(&k)
+                        .key("search-filters-toggle"),
+                )
                 .children(s.search.text.is_empty().then(|| {
                     hbox()
                         .key("search-hint")
@@ -2098,6 +2219,7 @@ pub(crate) fn workspace(s: &State) -> El {
                         .child(text("⌘K").font(k.ty.small).color(c.text_muted))
                 })),
         )
+        .children(s.search_filters_open.then(|| search_filters(s, &k)))
         .child(
             sidebar
                 .key("sidebar-channels")

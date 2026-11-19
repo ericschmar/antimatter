@@ -472,3 +472,64 @@ async fn ambiguous_write_is_not_retried() {
     ));
     task.await.unwrap();
 }
+
+#[test]
+fn post_search_filters_apply_mattermost_modifiers() {
+    let filters = PostSearchFilters {
+        channel: "general".into(),
+        sender: "alice".into(),
+        after: "2026-01-02".into(),
+        before: "2026-02-03".into(),
+        has_files: true,
+        file_extension: ".pdf".into(),
+        thread_scope: ThreadScope::Roots,
+        pinned_only: true,
+        saved_only: true,
+    };
+    assert!(filters.is_active());
+    assert_eq!(
+        filters.applying("  budget "),
+        "budget in:general from:alice after:2026-01-02 before:2026-02-03 has:files ext:pdf -is:reply is:pinned is:saved"
+    );
+    assert_eq!(PostSearchFilters::default().applying(" hi "), "hi");
+    assert!(!PostSearchFilters::default().is_active());
+    let replies = PostSearchFilters {
+        thread_scope: ThreadScope::Replies,
+        ..Default::default()
+    };
+    assert_eq!(replies.applying("x"), "x is:reply");
+    let partial = PostSearchFilters {
+        after: "2026-0".into(),
+        before: "not-a-date".into(),
+        ..Default::default()
+    };
+    assert!(!partial.is_active());
+    assert_eq!(partial.applying("x"), "x");
+}
+
+#[tokio::test]
+async fn filtered_search_sends_the_modifiers_as_terms() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v4/posts/search"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"order": [], "posts": {}})))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = Client::new(local(&server), Secret::new("fake".into()).unwrap()).unwrap();
+    client
+        .search_posts_filtered(
+            "budget",
+            &PostSearchFilters {
+                sender: "alice".into(),
+                has_files: true,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+    let requests = server.received_requests().await.unwrap();
+    let body: Value = requests[0].body_json().unwrap();
+    assert_eq!(body["terms"], "budget from:alice has:files");
+    assert_eq!(body["is_or_search"], false);
+}

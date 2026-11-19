@@ -1201,3 +1201,35 @@ fn switching_channels_closes_the_thread_panel() {
     rt.state.load_now("other".into());
     assert!(rt.state.thread.is_none());
 }
+
+#[test]
+fn search_filters_panel_opens_from_the_search_row_and_keeps_stable_keys() {
+    let mut rt = synthetic_runtime();
+    let has = |rt: &Runtime<State>, key: &str| {
+        rt.elements().iter().any(|e| e.key.as_deref() == Some(key))
+    };
+    assert!(!has(&rt, "search-filter-scope"));
+    tap(&mut rt, "search-filters-toggle");
+    rt.invalidate();
+    rt.frame(0.0);
+    assert!(rt.state.search_filters_open);
+    for key in [
+        "search-filter-scope",
+        "search-filter-channel",
+        "search-filter-sender",
+        "search-filter-after",
+        "search-filter-before",
+        "search-filter-files",
+        "search-filter-pinned",
+        "search-filter-saved",
+        "search-filter-extension",
+    ] {
+        assert!(has(&rt, key), "missing {key}");
+    }
+    tap(&mut rt, "search-filters-toggle");
+    assert!(!rt.state.search_filters_open);
+    for _ in 0..60 {
+        rt.frame(1.0 / 60.0);
+    }
+    assert!(!has(&rt, "search-filter-scope"));
+}

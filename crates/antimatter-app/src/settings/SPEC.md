@@ -158,7 +158,7 @@ Title "Workspace". Subtitle "Choose how conversations open in your workspace."
 | Control | Storage key | Default | Effect | Wiring |
 | --- | --- | --- | --- | --- |
 | Open channels as previews | `workspaceOpenPreviews` | on | Single-click channels open as preview tabs. | Deferred |
-| Open direct messages in a new window | `automaticallyOpenDirectMessagesInNewWindow` | off | Opening a DM uses a new window. The value is stored now and takes effect when multi-window workspaces exist. | Deferred |
+| Open direct messages in a new window | `automaticallyOpenDirectMessagesInNewWindow` | off | Non-goal: direct messages open in the single workspace conversation; no DM windows are planned. The value is stored for Swift preference compatibility and has no effect. | Non-goal |
 
 ### Keyboard Shortcuts (`keyboardShortcuts`)
 

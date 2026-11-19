@@ -130,6 +130,13 @@ pub(crate) struct State {
     pub(crate) editing_account: Option<AccountKey>,
     pub(crate) search: TextEdit,
     pub(crate) search_busy: bool,
+    pub(crate) search_filters: antimatter_services::mattermost::PostSearchFilters,
+    pub(crate) search_channel: TextEdit,
+    pub(crate) search_sender: TextEdit,
+    pub(crate) search_after: TextEdit,
+    pub(crate) search_before: TextEdit,
+    pub(crate) search_extension: TextEdit,
+    pub(crate) search_filters_open: bool,
     pub(crate) attachments: Vec<std::path::PathBuf>,
     pub(crate) giphy_key: Option<String>,
     pub(crate) gif_picker: bool,
@@ -647,7 +654,13 @@ impl State {
         ) else {
             return;
         };
-        if terms.is_empty() {
+        let mut filters = self.search_filters.clone();
+        filters.channel = self.search_channel.text.trim().to_owned();
+        filters.sender = self.search_sender.text.trim().to_owned();
+        filters.after = self.search_after.text.trim().to_owned();
+        filters.before = self.search_before.text.trim().to_owned();
+        filters.file_extension = self.search_extension.text.clone();
+        if terms.is_empty() && !filters.is_active() {
             self.search_results = None;
             return;
         }
@@ -659,7 +672,7 @@ impl State {
             .filter(|id| self.avatars.get(id).is_some())
             .collect();
         runtime.spawn(async move {
-            let Ok(page) = client.search_posts(&terms, false).await else {
+            let Ok(page) = client.search_posts_filtered(&terms, &filters).await else {
                 handle.update(|s, _| s.search_busy = false);
                 return;
             };
@@ -926,6 +939,13 @@ impl Default for State {
             editing_account: None,
             search: TextEdit::default(),
             search_busy: false,
+            search_filters: Default::default(),
+            search_channel: TextEdit::default(),
+            search_sender: TextEdit::default(),
+            search_after: TextEdit::default(),
+            search_before: TextEdit::default(),
+            search_extension: TextEdit::default(),
+            search_filters_open: false,
             attachments: Vec::new(),
             giphy_key: None,
             gif_picker: false,

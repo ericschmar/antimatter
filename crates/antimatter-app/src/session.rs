@@ -52,6 +52,13 @@ impl State {
         self.posts.clear();
         self.has_older = false;
         self.search_results = None;
+        self.search_filters = Default::default();
+        self.search_channel = rune::TextEdit::default();
+        self.search_sender = rune::TextEdit::default();
+        self.search_after = rune::TextEdit::default();
+        self.search_before = rune::TextEdit::default();
+        self.search_extension = rune::TextEdit::default();
+        self.search_filters_open = false;
         self.loading_older = false;
         self.clear_draft();
         self.thread = None;

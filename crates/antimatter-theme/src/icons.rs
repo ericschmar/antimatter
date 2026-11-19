@@ -241,3 +241,8 @@ pub static THREAD: Icon = Icon {
     view: 256.0,
     body: r#"<path d="M40,56H216a8,8,0,0,1,8,8V176a8,8,0,0,1-8,8H128l-40,32V184H40a8,8,0,0,1-8-8V64A8,8,0,0,1,40,56Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="80" y1="104" x2="176" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="80" y1="136" x2="144" y2="136" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>"#,
 };
+pub static FUNNEL: Icon = Icon {
+    name: "ph-funnel",
+    view: 256.0,
+    body: r#"<path d="M34.1,61.38A8,8,0,0,1,40,48H216a8,8,0,0,1,5.92,13.38L152,136v58.65a8,8,0,0,1-3.56,6.66l-32,21.33A8,8,0,0,1,104,216V136Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>"#,
+};

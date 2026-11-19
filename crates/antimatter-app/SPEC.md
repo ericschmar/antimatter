@@ -194,7 +194,8 @@ channel shows "No files in this channel yet." Scene: `workspace-channel-files-pr
 
 This foundation slice does not implement rich
 message actions; the independent Settings window is specified in
-[settings/SPEC.md](settings/SPEC.md) (`antimatter-rust-settings`); tabs are specified below; splits are a decided non-goal. An in-window Kit
+[settings/SPEC.md](settings/SPEC.md) (`antimatter-rust-settings`); tabs are specified below; splits and
+direct-message windows are decided non-goals (direct messages open in the single workspace, as tabs). An in-window Kit
 Page must not replace the independent native singleton.
 
 ## Rich composer
@@ -325,6 +326,33 @@ server, login and password sign-in fields from git-ignored `.env.local`
 file may hold other keys, which the prefill ignores. Release builds compile this out, and
 nothing is written to disk. This does not permit
 plaintext credential storage; Remember and the Keychain rules are unchanged.
+
+## Known Swift parity gaps
+
+Tracked as beads issues (`antimatter-puw`); no Rust code exists yet for polls.
+
+- Polls: create via `/poll`, vote and end, with native rendering of poll posts (Swift `MattermostPolls.swift`). Parity matrix item "custom poll create/vote".
+
+## Search filters
+
+The sidebar search row has a `search-filters-toggle` button (`FUNNEL` icon, labelled and
+tooltipped "Search filters") that opens a filter panel below the row
+(`search-filters`, built by `workspace::search_filters`). The button uses the `Contrast` variant while the
+panel is open and `Ghost` when closed, as the composer's toggle buttons do.
+The panel holds a thread-scope segmented control
+(`search-filter-scope`: All, Roots, Replies), text fields for channel (`search-filter-channel`, `in:`),
+sender (`search-filter-sender`, `from:`), after and before dates (`search-filter-after`,
+`search-filter-before`, `YYYY-MM-DD`), a file extension field (`search-filter-extension`), and switches for
+has files, pinned and saved (`search-filter-files`, `-pinned`, `-saved`). The text fields are submitted
+with Enter. Filter values live in `State::search_filters`, the text fields in `State::search_channel`,
+`search_sender`, `search_after`, `search_before` and `search_extension`. All are reset on sign-out and
+applied by `State::run_search`, which copies the text fields into the filter and sends it through
+`search_posts_filtered`. Dates that are not a full `YYYY-MM-DD` are ignored, so a partly typed date
+never reaches the query. Changing a filter does not search by itself; the next Enter in the search field
+does. A search runs with filters alone when the query is empty.
+
+Not yet offered (tracked as `antimatter-89r`): channel and sender pickers that list the team's channels and
+users instead of taking typed names.
 
 ## Runnable verification
 

@@ -96,6 +96,17 @@ resending. Ordinary history does not persist `pending_post_id`; neither exhausti
 absence nor the bounded server dedup cache proves a resend safe. Pagination has
 a 10,000-page fail-closed ceiling, not a durable-idempotency guarantee.
 
+## Post search
+
+`mattermost.rs` owns `POST /posts/search`. `search_posts` sends the terms as given. `PostSearchFilters`
+turns the structured filters into Mattermost search modifiers appended to the trimmed query, in this order:
+`in:` (channel name), `from:` (sender username), `after:`/`before:` (`YYYY-MM-DD`; a value that is not exactly
+that shape adds nothing), `has:files`, `ext:` (extension with leading dots trimmed), `-is:reply` (roots)
+or `is:reply` (replies), `is:pinned` and `is:saved`. Empty fields add nothing. `search_posts_filtered` is
+the only caller that applies filters, and `is_or_search` stays false. `is_active` counts only well-formed
+dates, so a search with nothing else to send is not run. The services layer does a shape check on dates and
+does not parse them as calendar dates.
+
 ## Giphy search
 
 `giphy.rs` owns the optional GIF search: one authenticated GET to Giphy's
