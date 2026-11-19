@@ -1,6 +1,6 @@
 use super::model::*;
 use super::view::*;
-use antimatter_services::settings::self;
+use antimatter_services::settings;
 use rune::{El, col, el, row, text};
 use rune_kit::{Button, ButtonVariant};
 

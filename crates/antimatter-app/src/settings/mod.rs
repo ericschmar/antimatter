@@ -1,5 +1,5 @@
-mod model;
 mod controls;
+mod model;
 mod pages;
 mod view;
 

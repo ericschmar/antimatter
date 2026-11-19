@@ -6,19 +6,19 @@ use serde_json::Value;
 use url::Url;
 use zeroize::Zeroizing;
 
-mod origin;
+mod auth;
+mod client;
 mod error;
 mod models;
+mod origin;
 mod search;
-mod client;
-mod auth;
 
-pub use origin::*;
+pub use auth::*;
+pub use client::*;
 pub use error::*;
 pub use models::*;
+pub use origin::*;
 pub use search::*;
-pub use client::*;
-pub use auth::*;
 
 #[cfg(test)]
 mod tests;

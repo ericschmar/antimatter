@@ -1,5 +1,5 @@
-use super::*;
 use super::sidebar::section;
+use super::*;
 
 pub(crate) fn workspace(s: &State) -> El {
     let mut layer = Vec::new();

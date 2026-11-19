@@ -12,27 +12,27 @@ use rune_kit::{
     MarkdownStyle, MenuItem, ScrollBar, ScrollBarStyle, Select, SelectAppearance,
 };
 
-mod sidebar;
-mod post;
-mod emoji;
-mod poll;
 mod attachments;
-mod dialogs;
 mod compose;
+mod dialogs;
+mod emoji;
 mod layout;
+mod poll;
+mod post;
+mod sidebar;
 mod thread_panel;
 
+use attachments::*;
+pub(crate) use attachments::{gif_sources, single_image};
+use compose::*;
+use dialogs::*;
+use emoji::*;
 pub(crate) use layout::workspace;
+use poll::*;
 #[cfg(test)]
 pub(crate) use post::post_padding;
-pub(crate) use attachments::{gif_sources, single_image};
-use sidebar::*;
 use post::*;
-use emoji::*;
-use poll::*;
-use attachments::*;
-use dialogs::*;
-use compose::*;
+use sidebar::*;
 use thread_panel::*;
 
 pub(crate) const TITLEBAR: f32 = 40.0;

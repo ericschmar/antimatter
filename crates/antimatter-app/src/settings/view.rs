@@ -1,8 +1,8 @@
 use super::model::*;
+use super::pages::page;
 use crate::workspace::TITLEBAR;
 use antimatter_services::settings::{self, Settings};
 use rune::{El, col, el, row, text};
-use super::pages::page;
 use std::path::PathBuf;
 
 /// The Settings window's own state. It holds no workspace data of its own: the account rows
