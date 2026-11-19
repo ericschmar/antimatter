@@ -141,6 +141,9 @@ The ledger uses `scroll_anchor()` so prepended rows keep the visible row in plac
 built with `virtual_rows`, so only rows in the mounted window exist; each row carries its day
 header and reply quote. The emoji picker and multi-image menu are built once at the window root,
 anchored to their post's trigger, and close when that post scrolls out of the window.
+The `ledger-rows` growth stack is marked `instant_changes()`: when a message lands, existing rows
+reposition at once instead of springing upward (which looked jittery against the stick-to-bottom
+scroll). Opening and closing the stack's own entrance transitions are unchanged.
 Synthetic scenes `workspace-history-proof`, `workspace-loading-older-proof` and
 `workspace-scroll-history-proof` show the control, spinner and scrollable history; live
 paging is not verified.

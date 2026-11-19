@@ -340,6 +340,7 @@ pub(crate) fn workspace(s: &State) -> El {
             .key("ledger-rows")
             .w_full()
             .growth(rune::GrowthSpec::default())
+            .instant_changes()
             .virtual_rows(
                 posts.len(),
                 72.0,
