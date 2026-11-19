@@ -19,7 +19,7 @@ owns progress and blockers.
 
 ## Transport and authentication
 
-`mattermost.rs` owns canonical origin validation, endpoint construction, typed
+the `mattermost` module (`mattermost/`) owns canonical origin validation, endpoint construction, typed
 wire models, safe errors and reqwest REST/PAT/password/SAML exchange. Authenticate
 only origin-matched API/media requests, reject credential-bearing redirects,
 require HTTPS unless development HTTP is explicitly enabled, and retain normal
@@ -98,7 +98,7 @@ a 10,000-page fail-closed ceiling, not a durable-idempotency guarantee.
 
 ## Post search
 
-`mattermost.rs` owns `POST /posts/search`. `search_posts` sends the terms as given. `PostSearchFilters`
+`mattermost/client.rs` owns `POST /posts/search`. `search_posts` sends the terms as given. `PostSearchFilters`
 turns the structured filters into Mattermost search modifiers appended to the trimmed query, in this order:
 `in:` (channel name), `from:` (sender username), `after:`/`before:` (`YYYY-MM-DD`; a value that is not exactly
 that shape adds nothing), `has:files`, `ext:` (extension with leading dots trimmed), `-is:reply` (roots)
@@ -109,7 +109,7 @@ does not parse them as calendar dates.
 
 ## Polls
 
-`mattermost.rs` models Matterpoll polls. `Post.props` is `Option<Poll>` (the poll's `poll_id` and attachments),
+`mattermost/models.rs` models Matterpoll polls. `Post.props` is `Option<Poll>` (the poll's `poll_id` and attachments),
 and `Post::poll()` returns it only when `type` is `custom_matterpoll`. `PollAction` splits a trailing
 ` (n)` from the option label: `option()` gives the text and `vote_count()` gives `Some(n)` only when present.
 `is_vote()` matches `button` actions whose id starts with `vote`, excluding `resetVote`.
