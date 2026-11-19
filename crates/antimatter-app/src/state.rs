@@ -173,6 +173,7 @@ pub(crate) struct State {
     pub(crate) replying: Option<String>,
     pub(crate) raw: bool,
     pub(crate) caret_on: bool,
+    pub(crate) window_focused: bool,
     pub(crate) source: TextEdit,
     pub(crate) handle: Option<AppHandle<State>>,
     pub(crate) runtime: Option<Arc<tokio::runtime::Runtime>>,
@@ -268,6 +269,14 @@ impl State {
                 });
             }
         });
+    }
+
+    pub(crate) fn caret(&self, ink: rune::Color) -> rune::Color {
+        if self.caret_on && self.window_focused {
+            ink
+        } else {
+            rune::Color::TRANSPARENT
+        }
     }
 
     pub(crate) fn touch_typing(&mut self) {
@@ -1125,6 +1134,7 @@ impl Default for State {
             replying: None,
             raw: false,
             caret_on: true,
+            window_focused: true,
             source: TextEdit::default(),
             handle: None,
             runtime: None,

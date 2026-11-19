@@ -192,14 +192,7 @@ pub(crate) fn workspace(s: &State) -> El {
                         .min_w(0.0)
                         .color(c.text_base)
                         .placeholder("Search", c.text_muted)
-                        .caret(
-                            if s.caret_on {
-                                c.text_base
-                            } else {
-                                rune::Color::TRANSPARENT
-                            },
-                            k.selection(),
-                        )
+                        .caret(s.caret(c.text_base), k.selection())
                         .on_edit(|s: &mut State| &mut s.search)
                         .on_submit(|s: &mut State, _| s.run_search()),
                 )
@@ -546,6 +539,7 @@ pub(crate) fn workspace(s: &State) -> El {
             .on_drop_files(|s: &mut State, files, _| s.attach(files))
             .child(
                 col()
+                    .key("composer-bar")
                     .w_full()
                     .px(16.0)
                     .py(8.0)

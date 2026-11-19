@@ -261,7 +261,7 @@ fn build(s: &State, locked: bool, pane: Pane) -> (El, El) {
             &s.source,
             "Message Markdown source",
             vec![],
-            (s.caret_on, style),
+            (s.caret(k.c.text_base), style),
             (pane, submit),
         )
         .on_edit(|s: &mut State| &mut s.source)
@@ -272,7 +272,7 @@ fn build(s: &State, locked: bool, pane: Pane) -> (El, El) {
             edit,
             "Message",
             spans,
-            (s.caret_on, style),
+            (s.caret(k.c.text_base), style),
             (pane, submit),
         )
         .on_edit(move |s: &mut State| access(s))
@@ -292,14 +292,12 @@ fn build(s: &State, locked: bool, pane: Pane) -> (El, El) {
     (area, bar)
 }
 
-// ponytail: rune paints a solid caret, so the blink is the caret colour's alpha, flipped from
-// `State::caret_on` by the poll hook; it does not restart on keystrokes.
 fn field(
     k: &Kit,
     edit: &TextEdit,
     label: &str,
     spans: Vec<Span>,
-    (on, style): (bool, TextStyle),
+    (caret, style): (Color, TextStyle),
     (pane, submit): (Pane, fn(&mut State)),
 ) -> El {
     let c = &k.c;
@@ -318,10 +316,7 @@ fn field(
         .rich_style(rich)
         .spans(spans)
         .placeholder("Write a message…", c.text_faint)
-        .caret(
-            if on { c.text_base } else { Color::TRANSPARENT },
-            k.selection(),
-        )
+        .caret(caret, k.selection())
         .label(label)
         .description("")
         .on_submit(move |s: &mut State, _| submit(s))

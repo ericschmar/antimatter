@@ -177,7 +177,7 @@ pub(super) fn emoji_picker(s: &State, post: &Post, k: &rune_kit::Kit, layer: &mu
                                 .min_w(0.0)
                                 .color(c.text_base)
                                 .placeholder("Search emoji", c.text_muted)
-                                .caret(c.text_base, k.selection())
+                                .caret(s.caret(c.text_base), k.selection())
                                 .on_edit(|s: &mut State| &mut s.emoji_query),
                         ),
                 )

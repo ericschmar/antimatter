@@ -1347,3 +1347,46 @@ fn search_filters_panel_opens_from_the_search_row_and_keeps_stable_keys() {
     }
     assert!(!has(&rt, "search-filter-scope"));
 }
+
+#[test]
+fn the_composer_does_not_fly_in_when_a_send_is_acknowledged() {
+    let (sender, _intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    rt.state.draft.text = "keep text".into();
+    rt.invalidate();
+    for _ in 0..60 {
+        rt.frame(1.0 / 60.0);
+    }
+    let rect = |rt: &Runtime<State>| {
+        rt.elements()
+            .iter()
+            .find(|e| e.key.as_deref() == Some("draft"))
+            .unwrap()
+            .rect
+    };
+    let rest = rect(&rt);
+    rt.state.apply(Update::Pending(Some(pending())));
+    rt.invalidate();
+    for _ in 0..30 {
+        rt.frame(1.0 / 60.0);
+    }
+    assert_eq!(rect(&rt), rest);
+    rt.state.apply(Update::Pending(None));
+    rt.invalidate();
+    for _ in 0..30 {
+        rt.frame(1.0 / 60.0);
+        assert_eq!(rect(&rt), rest);
+    }
+}
+
+#[test]
+fn the_caret_is_hidden_while_the_window_is_unfocused() {
+    let mut s = State::default();
+    let ink = rune::Color::WHITE;
+    assert_eq!(s.caret(ink), ink);
+    s.caret_on = false;
+    assert_eq!(s.caret(ink), rune::Color::TRANSPARENT);
+    s.caret_on = true;
+    s.window_focused = false;
+    assert_eq!(s.caret(ink), rune::Color::TRANSPARENT);
+}

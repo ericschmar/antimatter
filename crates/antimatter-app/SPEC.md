@@ -212,6 +212,17 @@ view; toggling converts in both directions and the bar is inert in source view. 
 states lock the bar and send, but the editor stays editable. Known gaps: mention pills,
 a mono font slot for code, and rendering of received messages.
 
+Caret blink: rune paints a solid caret and has no blink of its own, so `State::caret_on` is flipped every
+0.53 s by the app's `poll` hook and `State::caret` turns it into the caret colour or transparent. The caret
+is also transparent, and the poll stops waking, while the window is unfocused (`State::window_focused`,
+set by `App::on_focus`); regaining focus shows the caret at once. Every text field takes its caret from
+`State::caret`.
+
+The composer column (reply/edit chips, attachment pills, editor and toolbar) is keyed `composer-bar`. The
+status column above it appears and disappears around a send, and without a stable key rune matched the
+column by position and flew it in from the top of the window when the draft cleared. Test:
+`the_composer_does_not_fly_in_when_a_send_is_acknowledged`.
+
 GIF search needs a Giphy key. `giphy.rs` reads
 `GIPHY_API_KEY` from the environment, else from the git-ignored `crates/antimatter-app/.env.local`
 (a blank value falls through), once at launch. The composer's GIF button (Phosphor-style `GIF`

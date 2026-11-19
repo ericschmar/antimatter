@@ -81,7 +81,7 @@ pub(super) fn gif_picker(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
                         .min_w(0.0)
                         .color(c.text_base)
                         .placeholder("Search GIFs", c.text_muted)
-                        .caret(c.text_base, k.selection())
+                        .caret(s.caret(c.text_base), k.selection())
                         .on_edit(|s: &mut State| &mut s.gif_query)
                         .on_submit(|s: &mut State, _| {
                             let query = s.gif_query.text.trim().to_owned();

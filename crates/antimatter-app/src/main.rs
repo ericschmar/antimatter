@@ -257,6 +257,9 @@ fn main() {
             s.touch_typing();
             s.autosave();
             s.fetch_post_gifs();
+            if !s.window_focused {
+                return false;
+            }
             tx.wake_after(std::time::Duration::from_secs_f64(HALF - clock % HALF));
             let on = ((clock / HALF) as u64).is_multiple_of(2);
             std::mem::replace(&mut s.caret_on, on) != on
@@ -351,5 +354,10 @@ fn main() {
     .titlebar(rune::Titlebar::new(crate::workspace::TITLEBAR))
     .turn_scope(|_| {}, State::autosave)
     .on_close(|s, _| s.close())
+    .on_focus(|s, focused, tx| {
+        s.window_focused = focused;
+        s.caret_on = true;
+        tx.wake_after(std::time::Duration::from_millis(530));
+    })
     .run();
 }
