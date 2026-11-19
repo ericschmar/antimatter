@@ -116,8 +116,8 @@ The approved first workspace slice uses `rune-kit` at the same exact git revisio
 as Rune. Reuse generic controls/sidebar mechanics and the existing Rune editor, not OpenCode theme assets.
 A shared presentation theme maps the owning Antimatter semantic colors and
 compact typography/geometry onto Kit. The native conversation entry presents
-a 248 pt resizable sidebar, compact keyed channel rows, 32 pt title strip,
-54 pt conversation header, and 176 pt metadata/8 pt gap message ledger.
+a 32 pt title strip, no conversation header (the member stack and files toggle float as a pill
+in the channel's top-right corner), and 176 pt metadata/8 pt gap message ledger.
 Reuse existing load/checkpoint/send/retry paths; loading, queued send, ambiguous
 delivery and restored markers keep their current guards. The composer stays editable
 while those guards apply; they block send, not typing. Kit control replacement
@@ -182,11 +182,12 @@ update the panel. Scene: `workspace-thread-proof`; live behaviour is not verifie
 
 ## Channel files panel
 
-The channel header has a files toggle (key `channel-files-toggle`, Phosphor `FOLDER` icon, label
-and tooltip "Show channel files" / "Close channel files") to the right of the member stack, 8 pt
-away from the avatars. Pressing it toggles
+The channel header has been removed. A floating pill (key `channel-pill`) is pinned to the top-right
+corner of the message ledger, 8 pt from the top and 16 pt from the right, and holds the member stack
+and the files toggle (key `channel-files-toggle`, Phosphor `FOLDER` icon, label
+and tooltip "Show channel files" / "Close channel files"). Pressing the toggle flips
 `State::channel_files`; when open, a 264 pt `channel-files` panel sits to the right of the ledger
-in the workspace row. The panel lists every file in the open channel, not only the loaded posts. Opening
+in the workspace row. The pill is hidden while searching. The panel lists every file in the open channel, not only the loaded posts. Opening
 the panel, or switching channels while it is open, runs one `State::fetch_channel_files` request
 (Mattermost `POST /teams/:team_id/files/search` with `in:<channel name>`) and stores the result
 keyed by channel id as `State::channel_files_list`; a response that arrives after the user has

@@ -389,56 +389,6 @@ pub(crate) fn workspace(s: &State) -> El {
                 .fill(c.layer_01)
                 .child(tab_strip(s, &mut layer)),
         );
-    let channel_name = s
-        .channel
-        .as_deref()
-        .and_then(|id| s.channels.iter().find(|c| c.id == id))
-        .map(|c| c.display_name.clone())
-        .unwrap_or_default();
-    if !searching {
-        main = main.child(
-            rune::row()
-                .w_full()
-                .px(16.0)
-                .pt(8.0)
-                .center_y()
-                .fill(c.layer_01)
-                .child(
-                    text(channel_name)
-                        .font(k.ty.body_medium)
-                        .color(c.text_base)
-                        .grow(1.0)
-                        .min_w(0.0)
-                        .truncate(),
-                )
-                .child(member_stack(s, &k))
-                .child(
-                    IconButton::new(&icons::FOLDER)
-                        .label(if s.channel_files {
-                            "Close channel files"
-                        } else {
-                            "Show channel files"
-                        })
-                        .control_size(ControlSize::Small)
-                        .variant(IconButtonVariant::Ghost)
-                        .on_press(|s: &mut State| {
-                            s.channel_files = !s.channel_files;
-                            if s.channel_files {
-                                s.fetch_channel_files();
-                            }
-                        })
-                        .build(&k)
-                        .key("channel-files-toggle")
-                        .expanded(s.channel_files)
-                        .ml(8.0)
-                        .help(if s.channel_files {
-                            "Close channel files"
-                        } else {
-                            "Show channel files"
-                        }),
-                ),
-        );
-    }
     let actions = rune::row().w_full().gap(8.0).flex_wrap();
     main = main.child(col().w_full().px(16.0).pb(8.0).gap(4.0).child(actions));
     let mut status = col().w_full().px(16.0).pb(8.0).gap(8.0);
@@ -529,9 +479,47 @@ pub(crate) fn workspace(s: &State) -> El {
         .min_h(0.0)
         .child(ledger.scroll_bar_styled(ScrollBarStyle::scroll_view(&k)));
     if !searching {
-        timeline = timeline.children(
-            typing_indicator(s, &k).map(|pill| pill.pin(Some(16.0), None, None, Some(8.0))),
-        );
+        timeline = timeline
+            .children(
+                typing_indicator(s, &k).map(|pill| pill.pin(Some(16.0), None, None, Some(8.0))),
+            )
+            .child(
+                rune::row()
+                    .key("channel-pill")
+                    .pin(None, Some(8.0), Some(16.0), None)
+                    .px(8.0)
+                    .py(4.0)
+                    .gap(8.0)
+                    .center_y()
+                    .radius(16.0)
+                    .fill(c.layer_01)
+                    .border(1.0, c.border_base)
+                    .child(member_stack(s, &k))
+                    .child(
+                        IconButton::new(&icons::FOLDER)
+                            .label(if s.channel_files {
+                                "Close channel files"
+                            } else {
+                                "Show channel files"
+                            })
+                            .control_size(ControlSize::Small)
+                            .variant(IconButtonVariant::Ghost)
+                            .on_press(|s: &mut State| {
+                                s.channel_files = !s.channel_files;
+                                if s.channel_files {
+                                    s.fetch_channel_files();
+                                }
+                            })
+                            .build(&k)
+                            .key("channel-files-toggle")
+                            .expanded(s.channel_files)
+                            .help(if s.channel_files {
+                                "Close channel files"
+                            } else {
+                                "Show channel files"
+                            }),
+                    ),
+            );
     }
     main = main.child(timeline);
     if !searching {

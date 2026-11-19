@@ -132,7 +132,7 @@ Pushing a tag runs the release workflow. It runs the locked tests, builds and ch
 
 GitHub Actions workflows live in `.github/workflows/`:
 
-- `ci.yml` runs on pull requests and on pushes to `main` and `master`, on the pinned Rust toolchain. It runs locked `cargo fmt`, clippy and tests, the headless checks, and UI lint, and uploads the rendered evidence. UI lint is `continue-on-error` in CI while its layout findings are being resolved; `task verify` still treats it as a failure.
+- `ci.yml` runs on pull requests and on pushes to `main` and `master`, on the pinned Rust toolchain. It runs locked `cargo fmt --check`, clippy and tests. Headless checks, UI lint and evidence upload are run locally with `task verify` and are not part of CI.
 - `release.yml` runs on SemVer tags and manual dispatch. It runs the locked tests, builds and checks the unsigned native bundle, and publishes it to tagged releases.
 
 ## Contributing

@@ -116,6 +116,7 @@ files" limit for CI and release workflows only: `.github/workflows/ci.yml` and
 contract is the Bun CI/release gate previously described in the README and
 document 09; the replacement is the "Cargo CI and release gates" section of
 `docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md`.
+CI no longer runs the headless checks, UI lint or the evidence upload; those stay local (`task verify`).
 Swift/Xcode product files are removed by the change described in "Swift source
 removal" below; this sentence describes only the pre-removal state.
 

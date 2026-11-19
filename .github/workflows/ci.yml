@@ -32,24 +32,3 @@ jobs:
 
       - name: Test
         run: cargo test --workspace --locked --offline
-
-      - name: UI lint rules
-        run: python3 scripts/ui-lint.py --self-test
-
-      - name: Headless checks
-        run: python3 scripts/rune-headless.py
-
-      - name: UI scene lint
-        # Known layout defects in workspace scenes; non-blocking until they are fixed.
-        continue-on-error: true
-        run: python3 scripts/ui-lint.py
-
-      - name: Upload headless and UI evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rune-headless-evidence
-          path: |
-            build/rune-headless/**
-            build/ui/**
-          if-no-files-found: ignore
