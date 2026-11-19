@@ -14,7 +14,7 @@
 ## Phase 2 — Desktop navigation fidelity
 
 - Favorites, local order/archive/emoji labels, collapsed sections, unread/mention, team switcher, channel create/DM create/member add, presence, native menu commands.
-- Implement tab groups, temporary previews, durable tabs, close/pin, split right/down, resize, validation and persistence.
+- Implement tab groups, temporary previews, durable tabs, close/pin, validation and persistence. Split panes are a decided non-goal.
 - Exit criteria: restored workspace never opens empty because of an invalid snapshot.
 
 ## Phase 3 — Message fidelity
@@ -36,6 +36,11 @@
 
 - Port custom signaling only after a native WebRTC strategy is selected and documented. Verify permission flows, audio/video rendering, TURN/STUN config, interruption cleanup, and no call metadata persistence beyond required recovery marker.
 - Exit criteria: explicitly labeled experimental until multi-network testing is successful.
+
+## Release validation (issue #5)
+
+- Build, test, and headless verification run through Cargo and `scripts/` (see document 09, "Cargo CI and release gates"). Bun is not a product build or test dependency.
+- Exit criteria: clean-checkout locked build and tests pass in CI; the unsigned native bundle builds and checks; native accessibility, Keychain, SAML, notification, multiwindow and signing/notarization checks are recorded as blocked until run on hardware with credentials.
 
 ## Per-phase practice
 

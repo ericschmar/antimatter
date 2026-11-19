@@ -1,0 +1,1164 @@
+use antimatter_services::{
+    SessionScope,
+    accounts::{Account, AccountKey, Draft, LoginMethod, Navigation, Persistence},
+    conversation::{Intent, Pending, ThreadPreview, Unread},
+    mattermost::{self, Channel, Post, Secret, ServerOrigin, Team},
+    settings::MessageSpacing,
+    websocket,
+};
+use rune::PointerPress;
+use rune::{AppHandle, TextEdit};
+use rune_kit::{PaneState, shell::TabDragState};
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU32},
+    },
+};
+use tokio::sync::mpsc;
+
+pub(crate) const COMPOSER: &str = "conversation";
+pub(crate) const WORKSPACE_WINDOW_SIZE: (f32, f32) = (1180.0, 760.0);
+// ponytail: a reserved pane retains unresolved submissions, not resendable drafts.
+// Upgrade to a versioned pending record with identity/recovery when the worker supports it.
+pub(crate) const SUBMITTED: &str = "conversation-pending";
+
+pub(crate) struct ThreadPane {
+    pub(crate) root_id: String,
+    pub(crate) channel_id: String,
+    pub(crate) posts: Vec<Post>,
+}
+
+#[derive(Clone)]
+pub(crate) enum AfterCheckpoint {
+    Save,
+    Disconnect,
+    SignOut(AccountKey),
+    Send(String),
+    Load(String),
+    Acknowledge,
+    Rollback,
+}
+
+pub(crate) enum Login {
+    Pat(ServerOrigin, Secret, Option<AccountKey>, LoginMethod),
+    Password(
+        ServerOrigin,
+        String,
+        Secret,
+        Option<AccountKey>,
+        LoginMethod,
+    ),
+    Saved(AccountKey),
+    #[cfg(target_os = "macos")]
+    Saml(
+        mattermost::SamlAttempt,
+        antimatter_services::macos::BrowserCallback,
+        Option<AccountKey>,
+        LoginMethod,
+    ),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NewKind {
+    Channel,
+    Dm,
+}
+
+pub(crate) struct State {
+    pub(crate) epoch: u64,
+    pub(crate) persistence: Option<Persistence>,
+    pub(crate) accounts: Vec<Account>,
+    pub(crate) selected: Option<AccountKey>,
+    pub(crate) durable: Option<AccountKey>,
+    pub(crate) authenticated: Option<AccountKey>,
+    pub(crate) auth_writing: bool,
+    pub(crate) auth_task: Option<tokio::task::JoinHandle<()>>,
+    pub(crate) write_task: Option<tokio::task::JoinHandle<()>>,
+    pub(crate) checkpoint_pending: Option<(AfterCheckpoint, Vec<Draft>, Navigation)>,
+    pub(crate) drafts: Vec<Draft>,
+    pub(crate) navigation: Navigation,
+    pub(crate) committed_navigation: Navigation,
+    pub(crate) remember: bool,
+    pub(crate) method: usize,
+    pub(crate) submitted: bool,
+    pub(crate) recovered_pending: bool,
+    pub(crate) checkpoint_retry: Option<AfterCheckpoint>,
+    #[cfg(target_os = "macos")]
+    pub(crate) browser: Option<antimatter_services::macos::BrowserSession>,
+    pub(crate) on: bool,
+    pub(crate) auth_proof: bool,
+    pub(crate) application: bool,
+    pub(crate) theme: antimatter_theme::Theme,
+    pub(crate) accent: antimatter_services::settings::AccentColor,
+    pub(crate) message_font_size: u8,
+    pub(crate) composer_font_size: u8,
+    pub(crate) composer_font_family: antimatter_services::settings::AppFontFamily,
+    pub(crate) message_spacing: MessageSpacing,
+    pub(crate) show_timeline_avatars: bool,
+    pub(crate) avatar_size: u8,
+    pub(crate) synthetic: bool,
+    pub(crate) sidebar: PaneState,
+    pub(crate) channels_collapsed: bool,
+    pub(crate) favorites_collapsed: bool,
+    pub(crate) archived_collapsed: bool,
+    pub(crate) dms_collapsed: bool,
+    pub(crate) server_open: bool,
+    pub(crate) notifications_enabled: bool,
+    pub(crate) notification_sounds_enabled: bool,
+    pub(crate) name_colors: std::collections::BTreeMap<String, String>,
+    pub(crate) last_active: Option<std::time::Instant>,
+    pub(crate) last_typing_sent: Option<std::time::Instant>,
+    pub(crate) typing_draft: String,
+    pub(crate) typing: HashMap<String, std::time::Instant>,
+    pub(crate) last_save: Option<std::time::Instant>,
+    pub(crate) new_menu: bool,
+    pub(crate) new_dialog: Option<NewKind>,
+    pub(crate) new_name: TextEdit,
+    pub(crate) new_error: Option<String>,
+    pub(crate) new_busy: bool,
+    pub(crate) teams: Vec<Team>,
+    pub(crate) selected_team: Option<String>,
+    pub(crate) preview: Option<String>,
+    pub(crate) preview_at: usize,
+    pub(crate) tab_drag: TabDragState,
+    pub(crate) tab_menu: Option<(String, PointerPress)>,
+    pub(crate) channel_menu: Option<(String, PointerPress)>,
+    pub(crate) image_menu: Option<String>,
+    pub(crate) saved_account_menu: Option<(AccountKey, PointerPress)>,
+    pub(crate) editing_account: Option<AccountKey>,
+    pub(crate) search: TextEdit,
+    pub(crate) search_busy: bool,
+    pub(crate) search_filters: antimatter_services::mattermost::PostSearchFilters,
+    pub(crate) search_channel: TextEdit,
+    pub(crate) search_sender: TextEdit,
+    pub(crate) search_after: TextEdit,
+    pub(crate) search_before: TextEdit,
+    pub(crate) search_extension: TextEdit,
+    pub(crate) search_filters_open: bool,
+    pub(crate) attachments: Vec<std::path::PathBuf>,
+    pub(crate) giphy_key: Option<String>,
+    pub(crate) gif_picker: bool,
+    pub(crate) channel_files: bool,
+    pub(crate) channel_files_list: Option<(String, Vec<antimatter_services::mattermost::FileInfo>)>,
+    pub(crate) gif_query: TextEdit,
+    pub(crate) gif_results: Option<Vec<antimatter_services::giphy::Gif>>,
+    pub(crate) gif_busy: bool,
+    pub(crate) gif_fetching: std::collections::HashSet<String>,
+    pub(crate) reply_to: Option<antimatter_services::mattermost::Post>,
+    pub(crate) editing: Option<antimatter_services::mattermost::Post>,
+    pub(crate) previews: HashMap<String, Option<antimatter_services::preview::Preview>>,
+    pub(crate) emoji_picker: Option<String>,
+    pub(crate) poll_votes: HashMap<String, String>,
+    pub(crate) ending_poll: Option<String>,
+    pub(crate) creating_poll: bool,
+    pub(crate) poll_question: TextEdit,
+    pub(crate) poll_options: Vec<TextEdit>,
+    pub(crate) poll_error: Option<String>,
+    pub(crate) poll_busy: bool,
+    pub(crate) emoji_query: TextEdit,
+    pub(crate) emoji_tab: Option<emojis::Group>,
+    pub(crate) custom_emoji: Vec<String>,
+    pub(crate) search_results: Option<Vec<antimatter_services::mattermost::Post>>,
+    pub(crate) pat: TextEdit,
+    pub(crate) password: TextEdit,
+    pub(crate) server: TextEdit,
+    pub(crate) login: TextEdit,
+    pub(crate) draft: TextEdit,
+    pub(crate) thread: Option<ThreadPane>,
+    pub(crate) thread_panel: PaneState,
+    pub(crate) thread_draft: TextEdit,
+    pub(crate) thread_attachments: Vec<std::path::PathBuf>,
+    pub(crate) replying: Option<String>,
+    pub(crate) raw: bool,
+    pub(crate) caret_on: bool,
+    pub(crate) source: TextEdit,
+    pub(crate) handle: Option<AppHandle<State>>,
+    pub(crate) runtime: Option<Arc<tokio::runtime::Runtime>>,
+    pub(crate) scope: SessionScope,
+    pub(crate) intents: Option<mpsc::Sender<Intent>>,
+    pub(crate) account: Option<String>,
+    pub(crate) channel: Option<String>,
+    pub(crate) channels: Vec<Channel>,
+    pub(crate) unread: HashMap<String, Unread>,
+    pub(crate) threads: Vec<ThreadPreview>,
+    pub(crate) focus_post: Option<(String, String)>,
+    pub(crate) names: HashMap<String, String>,
+    pub(crate) site_name: String,
+    pub(crate) presence: String,
+    pub(crate) peer_presence: HashMap<String, String>,
+    pub(crate) members: Vec<String>,
+    pub(crate) member_cache: HashMap<String, Vec<String>>,
+    pub(crate) avatars: crate::avatars::Avatars,
+    pub(crate) gifs: crate::gifs::Gifs,
+    pub(crate) client: Option<antimatter_services::mattermost::Client>,
+    pub(crate) posts: Vec<Post>,
+    pub(crate) has_older: bool,
+    pub(crate) ledger_cache: HashMap<String, (Vec<Post>, bool)>,
+    pub(crate) ledger_offset: Arc<AtomicU32>,
+    pub(crate) ledger_hand_scrolled: Arc<AtomicBool>,
+    pub(crate) loading_older: bool,
+    pub(crate) pending: Option<Pending>,
+    pub(crate) ready: bool,
+    pub(crate) busy: bool,
+    pub(crate) connection: websocket::State,
+    pub(crate) error: Option<&'static str>,
+    pub(crate) settings: Option<rune::WindowHandle>,
+    pub(crate) settings_app: Option<rune::AppHandle<crate::settings::SettingsState>>,
+    pub(crate) settings_rows: Vec<crate::settings::AccountRow>,
+}
+
+impl State {
+    pub(crate) fn begin_edit_account(&mut self, key: AccountKey) {
+        if self.busy || self.synthetic || self.account.is_some() {
+            return;
+        }
+        let Some(account) = self.accounts.iter().find(|account| account.key == key) else {
+            return;
+        };
+        self.server.text = key.origin().to_owned();
+        self.login.text = account.username.clone();
+        self.method = match account.login_method {
+            Some(LoginMethod::Password) => 1,
+            Some(LoginMethod::Sso) if cfg!(target_os = "macos") => 2,
+            _ => 0,
+        };
+        self.editing_account = Some(key);
+        self.saved_account_menu = None;
+        self.error = None;
+    }
+
+    pub(crate) fn cancel_edit_account(&mut self) {
+        if self.busy {
+            return;
+        }
+        self.editing_account = None;
+        self.pat.clear();
+        self.password.clear();
+        self.error = None;
+    }
+
+    pub(crate) fn remove_account(&mut self, key: AccountKey) {
+        self.saved_account_menu = None;
+        self.sign_out(key);
+    }
+
+    pub(crate) fn load_custom_emoji(&mut self) {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let Ok(list) = client.custom_emojis().await else {
+                return;
+            };
+            let names = list.iter().map(|e| e.name.clone()).collect();
+            handle.update(move |s, _| s.custom_emoji = names);
+            for emoji in list {
+                let Ok(bytes) = client.custom_emoji_image(&emoji.id).await else {
+                    continue;
+                };
+                handle.update(move |s, _| {
+                    s.avatars
+                        .finish(format!("emoji:{}", emoji.name), Some(bytes))
+                });
+            }
+        });
+    }
+
+    pub(crate) fn touch_typing(&mut self) {
+        const SEND_EVERY: std::time::Duration = std::time::Duration::from_secs(2);
+        const EXPIRE_AFTER: std::time::Duration = std::time::Duration::from_secs(5);
+        let now = std::time::Instant::now();
+        self.typing
+            .retain(|_, seen| now.duration_since(*seen) < EXPIRE_AFTER);
+        if self.synthetic || self.intents.is_none() || self.channel.is_none() || !self.ready {
+            return;
+        }
+        let text = self.markdown();
+        if text == self.typing_draft || text.trim().is_empty() {
+            return;
+        }
+        if self
+            .last_typing_sent
+            .is_some_and(|t| now.duration_since(t) < SEND_EVERY)
+        {
+            return;
+        }
+        let channel_id = self.channel.clone().unwrap_or_default();
+        let parent_id = self
+            .reply_to
+            .as_ref()
+            .map(|post| {
+                if post.root_id.is_empty() {
+                    post.id.clone()
+                } else {
+                    post.root_id.clone()
+                }
+            })
+            .unwrap_or_default();
+        let sent = self.intents.as_ref().is_some_and(|tx| {
+            tx.try_send(Intent::Typing {
+                channel_id,
+                parent_id,
+            })
+            .is_ok()
+        });
+        if sent {
+            self.typing_draft = text;
+            self.last_typing_sent = Some(now);
+        }
+    }
+
+    pub(crate) fn touch_active(&mut self) {
+        const EVERY: std::time::Duration = std::time::Duration::from_secs(60);
+        if self.synthetic || self.intents.is_none() || self.channel.is_none() || !self.ready {
+            return;
+        }
+        let now = std::time::Instant::now();
+        let Some(input) = rune::last_input() else {
+            return;
+        };
+        if self
+            .last_active
+            .is_some_and(|t| now.duration_since(t) < EVERY || input <= t)
+        {
+            return;
+        }
+        let sent = self
+            .intents
+            .as_ref()
+            .is_some_and(|tx| tx.try_send(Intent::Active).is_ok());
+        if sent {
+            self.last_active = Some(now);
+        }
+    }
+
+    pub(crate) fn open_new(&mut self, kind: NewKind) {
+        self.new_menu = false;
+        self.new_dialog = Some(kind);
+        self.new_name = TextEdit::default();
+        self.new_error = None;
+        self.new_busy = false;
+    }
+
+    pub(crate) fn close_new(&mut self) {
+        self.new_dialog = None;
+        self.new_busy = false;
+    }
+
+    pub(crate) fn submit_new(&mut self) {
+        let Some(kind) = self.new_dialog else {
+            return;
+        };
+        let input = self.new_name.text.trim().trim_start_matches('@').to_owned();
+        let me = self.authenticated.as_ref().map(|k| k.user_id().to_owned());
+        let (Some(client), Some(runtime), Some(handle), Some(me)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            me,
+        ) else {
+            return;
+        };
+        if self.new_busy || input.is_empty() {
+            return;
+        }
+        let team = self.current_team_id().unwrap_or_default();
+        self.new_busy = true;
+        self.new_error = None;
+        runtime.spawn(async move {
+            let result: Result<String, &'static str> = async {
+                let created = match kind {
+                    NewKind::Channel => {
+                        let slug: String = input
+                            .to_lowercase()
+                            .chars()
+                            .map(|c| if c.is_alphanumeric() { c } else { '-' })
+                            .collect();
+                        let slug = slug.trim_matches('-').chars().take(64).collect::<String>();
+                        if slug.is_empty() || team.is_empty() {
+                            return Err("Enter a valid channel name.");
+                        }
+                        client
+                            .create_channel(&serde_json::json!({
+                                "team_id": team,
+                                "name": slug,
+                                "display_name": input,
+                                "type": "O",
+                            }))
+                            .await
+                            .map_err(|_| "Could not create the channel.")?
+                    }
+                    NewKind::Dm => {
+                        let users = client
+                            .users_by_usernames(std::slice::from_ref(&input))
+                            .await
+                            .map_err(|_| "Could not look up that user.")?;
+                        let user = users.first().ok_or("No user with that username.")?;
+                        client
+                            .direct_channel(&[me, user.id.clone()])
+                            .await
+                            .map_err(|_| "Could not start the conversation.")?
+                    }
+                };
+                created
+                    .get("id")
+                    .and_then(|id| id.as_str())
+                    .map(str::to_owned)
+                    .ok_or("The server returned no channel.")
+            }
+            .await;
+            handle.update(move |s, _| {
+                s.new_busy = false;
+                match result {
+                    Ok(id) => {
+                        s.new_dialog = None;
+                        s.load(id);
+                    }
+                    Err(message) => s.new_error = Some(message.to_owned()),
+                }
+            });
+        });
+    }
+
+    pub(crate) fn toggle_reaction(&mut self, post_id: String, name: String) {
+        self.emoji_picker = None;
+        let me = self.authenticated.as_ref().map(|k| k.user_id().to_owned());
+        let (Some(client), Some(runtime), Some(handle), Some(me)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            me,
+        ) else {
+            return;
+        };
+        let Some(post) = self
+            .posts
+            .iter()
+            .chain(self.thread.iter().flat_map(|t| t.posts.iter()))
+            .find(|p| p.id == post_id)
+        else {
+            return;
+        };
+        let mine = post
+            .metadata
+            .reactions
+            .iter()
+            .any(|r| r.user_id == me && r.emoji_name == name);
+        runtime.spawn(async move {
+            let done = if mine {
+                client.remove_reaction(&me, &post_id, &name).await
+            } else {
+                client.add_reaction(&me, &post_id, &name).await
+            };
+            if done.is_err() {
+                return;
+            }
+            handle.update(move |s, _| {
+                let thread = s.thread.iter_mut().flat_map(|t| t.posts.iter_mut());
+                for post in s.posts.iter_mut().chain(thread).filter(|p| p.id == post_id) {
+                    let reactions = &mut post.metadata.reactions;
+                    if mine {
+                        reactions.retain(|r| !(r.user_id == me && r.emoji_name == name));
+                    } else {
+                        reactions.push(antimatter_services::mattermost::Reaction {
+                            user_id: me.clone(),
+                            emoji_name: name.clone(),
+                        });
+                    }
+                }
+            });
+        });
+    }
+
+    pub(crate) fn vote_poll(&mut self, post_id: String, action_id: String) {
+        self.poll_votes.insert(post_id.clone(), action_id.clone());
+        self.poll_action(post_id, move |client, post_id| async move {
+            client.vote_poll(&post_id, &action_id).await
+        });
+    }
+
+    pub(crate) fn open_end_poll(&mut self, post_id: String) {
+        self.ending_poll = Some(post_id);
+    }
+
+    pub(crate) fn close_end_poll(&mut self) {
+        self.ending_poll = None;
+    }
+
+    pub(crate) fn end_poll(&mut self) {
+        let Some(post_id) = self.ending_poll.take() else {
+            return;
+        };
+        let Some(post) = self.find_post(&post_id) else {
+            return;
+        };
+        let Some(poll_id) = post.poll().map(|poll| poll.poll_id.clone()) else {
+            return;
+        };
+        let channel_id = post.channel_id.clone();
+        self.poll_action(post_id, move |client, post_id| async move {
+            client.end_poll(&post_id, &channel_id, &poll_id).await
+        });
+    }
+
+    fn find_post(&self, post_id: &str) -> Option<&Post> {
+        self.posts
+            .iter()
+            .chain(self.thread.iter().flat_map(|t| t.posts.iter()))
+            .find(|p| p.id == post_id)
+    }
+
+    fn poll_action<F, Fut>(&mut self, post_id: String, action: F)
+    where
+        F: FnOnce(antimatter_services::mattermost::Client, String) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = Result<Post, antimatter_services::mattermost::Error>>
+            + Send
+            + 'static,
+    {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let Ok(post) = action(client, post_id.clone()).await else {
+                return;
+            };
+            handle.update(move |s, _| {
+                let thread = s.thread.iter_mut().flat_map(|t| t.posts.iter_mut());
+                for slot in s.posts.iter_mut().chain(thread).filter(|p| p.id == post.id) {
+                    *slot = post.clone();
+                }
+            });
+        });
+    }
+
+    pub(crate) fn open_create_poll(&mut self) {
+        self.creating_poll = true;
+        self.poll_question = TextEdit::default();
+        self.poll_options = vec![TextEdit::default(), TextEdit::default()];
+        self.poll_error = None;
+        self.poll_busy = false;
+    }
+
+    pub(crate) fn close_create_poll(&mut self) {
+        self.creating_poll = false;
+        self.poll_busy = false;
+    }
+
+    pub(crate) fn add_poll_option(&mut self) {
+        if self.poll_options.len() < 10 {
+            self.poll_options.push(TextEdit::default());
+        }
+    }
+
+    pub(crate) fn submit_create_poll(&mut self) {
+        if self.poll_busy {
+            return;
+        }
+        let question = self.poll_question.text.trim().to_owned();
+        let options: Vec<String> = self
+            .poll_options
+            .iter()
+            .map(|o| o.text.trim().to_owned())
+            .filter(|o| !o.is_empty())
+            .collect();
+        if question.is_empty() || options.len() < 2 {
+            self.poll_error = Some("A poll needs a question and at least two options.".to_owned());
+            return;
+        }
+        let (Some(client), Some(runtime), Some(handle), Some(channel), Some(team)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            self.channel.clone(),
+            self.current_team_id(),
+        ) else {
+            return;
+        };
+        self.poll_busy = true;
+        self.poll_error = None;
+        runtime.spawn(async move {
+            let result = client
+                .create_poll(&channel, &team, &question, &options)
+                .await;
+            handle.update(move |s, _| {
+                s.poll_busy = false;
+                match result {
+                    Ok(()) => s.close_create_poll(),
+                    Err(_) => {
+                        s.poll_error = Some(
+                            "The poll could not be created. Check the channel before trying again, since it may have posted.".to_owned(),
+                        );
+                    }
+                }
+            });
+        });
+    }
+
+    pub(crate) fn open_gif_picker(&mut self) {
+        self.gif_picker = true;
+        self.gif_query = TextEdit::default();
+        self.load_gifs(None);
+    }
+
+    pub(crate) fn close_gif_picker(&mut self) {
+        self.gif_picker = false;
+        self.gif_busy = false;
+    }
+
+    pub(crate) fn load_gifs(&mut self, query: Option<String>) {
+        let (Some(key), Some(runtime), Some(handle)) = (
+            self.giphy_key.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        if self.gif_busy {
+            return;
+        }
+        self.gif_busy = true;
+        runtime.spawn(async move {
+            let gifs = match query {
+                Some(query) => antimatter_services::giphy::search(&key, &query, 24).await,
+                None => antimatter_services::giphy::trending(&key, 24).await,
+            };
+            let previews: Vec<_> = gifs
+                .iter()
+                .flatten()
+                .map(|gif| gif.preview.clone())
+                .collect();
+            handle.update(move |s, _| {
+                s.gif_busy = false;
+                s.gif_results = Some(gifs.unwrap_or_default());
+            });
+            for preview in previews {
+                let key = preview.to_string();
+                let bytes = antimatter_services::giphy::fetch_bytes(preview).await;
+                handle.update(move |s, _| s.gifs.finish(key, bytes));
+            }
+        });
+    }
+
+    pub(crate) fn insert_gif(&mut self, gif: &antimatter_services::giphy::Gif) {
+        let markdown = format!("![{}]({})", gif.title, gif.url);
+        let current = self.markdown();
+        let next = if current.is_empty() || current.ends_with('\n') {
+            format!("{current}{markdown}")
+        } else {
+            format!("{current}\n{markdown}")
+        };
+        self.draft = crate::markdown::from_markdown(&next);
+        self.close_gif_picker();
+    }
+
+    pub(crate) fn fetch_post_gifs(&mut self) {
+        let sources: Vec<url::Url> = self
+            .posts
+            .iter()
+            .flat_map(|post| crate::workspace::gif_sources(&post.message))
+            .collect();
+        for url in sources {
+            self.fetch_gif(url);
+        }
+        let singles: Vec<_> = self
+            .posts
+            .iter()
+            .filter_map(|post| crate::workspace::single_image(post).cloned())
+            .collect();
+        for file in singles {
+            self.fetch_file_image(file);
+        }
+    }
+
+    pub(crate) fn fetch_file_image(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        let key = format!("file:{}", file.id);
+        if self.gifs.get(&key).is_some() || self.gif_fetching.contains(&key) {
+            return;
+        }
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        self.gif_fetching.insert(key.clone());
+        runtime.spawn(async move {
+            let bytes = client.file(&file.id, false).await.ok();
+            handle.update(move |s, _| s.gifs.finish(key, bytes));
+        });
+    }
+
+    pub(crate) fn fetch_gif(&mut self, url: url::Url) {
+        let key = url.to_string();
+        if self.gifs.get(&key).is_some() || self.gif_fetching.contains(&key) {
+            return;
+        }
+        let (Some(runtime), Some(handle)) = (self.runtime.clone(), self.handle.clone()) else {
+            return;
+        };
+        self.gif_fetching.insert(key.clone());
+        let client = self.client.clone();
+        runtime.spawn(async move {
+            let bytes = match client {
+                Some(client) if client.origin().matches(&url) => {
+                    match client.proxied_image(&url).await {
+                        Ok(bytes) => Some(bytes),
+                        Err(antimatter_services::mattermost::Error::Redirect(target)) => {
+                            antimatter_services::giphy::fetch_bytes(target).await
+                        }
+                        Err(_) => None,
+                    }
+                }
+                _ => antimatter_services::giphy::fetch_bytes(url).await,
+            };
+            handle.update(move |s, _| s.gifs.finish(key, bytes));
+        });
+    }
+
+    pub(crate) fn fetch_preview(&mut self, url: url::Url) {
+        let key = url.to_string();
+        if self.previews.contains_key(&key) {
+            return;
+        }
+        let (Some(runtime), Some(handle)) = (self.runtime.clone(), self.handle.clone()) else {
+            return;
+        };
+        self.previews.insert(key.clone(), None);
+        runtime.spawn(async move {
+            let preview = antimatter_services::preview::fetch(url).await;
+            handle.update(move |s, _| {
+                if let Some(preview) = &preview
+                    && let Some(bytes) = preview.image.clone()
+                {
+                    s.avatars.finish(format!("preview:{key}"), Some(bytes));
+                }
+                s.previews.insert(key, preview);
+            });
+        });
+    }
+
+    pub(crate) fn fetch_channel_files(&mut self) {
+        let (Some(client), Some(runtime), Some(handle), Some(channel_id)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+            self.channel.clone(),
+        ) else {
+            return;
+        };
+        let Some(channel) = self.channels.iter().find(|c| c.id == channel_id).cloned() else {
+            return;
+        };
+        let Some(team_id) = self.current_team_id() else {
+            return;
+        };
+        runtime.spawn(async move {
+            let Ok(search) = client.search_files(&team_id, &channel.name).await else {
+                return;
+            };
+            let files: Vec<_> = search
+                .order
+                .iter()
+                .filter_map(|id| search.file_infos.get(id).cloned())
+                .collect();
+            handle.update(move |s, _| {
+                if s.channel.as_deref() == Some(channel_id.as_str()) {
+                    s.channel_files_list = Some((channel_id, files));
+                }
+            });
+        });
+    }
+
+    pub(crate) fn run_search(&mut self) {
+        let terms = self.search.text.trim().to_owned();
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        let mut filters = self.search_filters.clone();
+        filters.channel = self.search_channel.text.trim().to_owned();
+        filters.sender = self.search_sender.text.trim().to_owned();
+        filters.after = self.search_after.text.trim().to_owned();
+        filters.before = self.search_before.text.trim().to_owned();
+        filters.file_extension = self.search_extension.text.clone();
+        if terms.is_empty() && !filters.is_active() {
+            self.search_results = None;
+            return;
+        }
+        self.search_busy = true;
+        let known: std::collections::HashSet<String> = self
+            .posts
+            .iter()
+            .map(|p| p.user_id.clone())
+            .filter(|id| self.avatars.get(id).is_some())
+            .collect();
+        runtime.spawn(async move {
+            let Ok(page) = client.search_posts_filtered(&terms, &filters).await else {
+                handle.update(|s, _| s.search_busy = false);
+                return;
+            };
+            let mut posts: Vec<_> = page
+                .order
+                .iter()
+                .filter_map(|id| page.posts.get(id).cloned())
+                .collect();
+            posts.sort_by_key(|p| p.create_at);
+            let ids: Vec<_> = posts.iter().map(|p| p.user_id.clone()).collect();
+            let users = client.users_by_ids(&ids).await.unwrap_or_default();
+            handle.update(move |s, _| {
+                s.names
+                    .extend(users.into_iter().map(|u| (u.id.clone(), u.display_name())));
+                s.search_busy = false;
+                s.search_results = Some(posts);
+            });
+            let mut missing: Vec<String> =
+                ids.into_iter().filter(|id| !known.contains(id)).collect();
+            missing.sort();
+            missing.dedup();
+            for user_id in missing {
+                let bytes = client.custom_profile_image(&user_id).await.ok();
+                handle.update(move |s, _| s.avatars.finish(user_id, bytes));
+            }
+        });
+    }
+
+    pub(crate) fn open_thread(&mut self, id: &str, tx: &mut rune::Tx) {
+        let Some(thread) = self.threads.iter().find(|t| t.id == id).cloned() else {
+            return;
+        };
+        if self.channel.as_deref() == Some(&thread.channel_id) {
+            if self.posts.iter().any(|p| p.id == thread.reply_id) {
+                tx.scroll_into_view(format!("post-{}", thread.reply_id));
+            }
+        } else {
+            let locked = !self.ready
+                || self.busy
+                || self.submitted
+                || self.pending.is_some()
+                || self.recovered_pending;
+            if locked {
+                return;
+            }
+            self.focus_post = Some((thread.channel_id.clone(), thread.reply_id.clone()));
+            self.load(thread.channel_id.clone());
+            if self.channel.as_deref() != Some(&thread.channel_id) {
+                self.focus_post = None;
+                return;
+            }
+        }
+        self.threads.retain(|t| t.id != id);
+        let (Some(client), Some(runtime), Some(me)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.authenticated.as_ref().map(|k| k.user_id().to_owned()),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let _ = client.read_thread(&me, &thread.team_id, &thread.id).await;
+        });
+    }
+
+    pub(crate) fn open_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        self.fetch_file(file);
+    }
+
+    pub(crate) fn download_file(
+        &mut self,
+        file: antimatter_services::mattermost::FileInfo,
+        tx: &mut rune::Tx,
+    ) {
+        let options = rune::FileDialogOptions {
+            title: "Save file".into(),
+            file_name: Some(
+                std::path::Path::new(&file.name)
+                    .file_name()
+                    .map_or_else(|| file.id.clone(), |n| n.to_string_lossy().into_owned()),
+            ),
+            ..Default::default()
+        };
+        tx.save_file(options, move |s: &mut State, result, _| {
+            if let Ok(Some(path)) = result {
+                s.save_file_to(file.clone(), path);
+            }
+        });
+    }
+
+    fn save_file_to(
+        &mut self,
+        file: antimatter_services::mattermost::FileInfo,
+        path: std::path::PathBuf,
+    ) {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let result = match client.file(&file.id, false).await {
+                Ok(bytes) => std::fs::write(&path, bytes).map_err(|e| e.to_string()),
+                Err(error) => Err(error.to_string()),
+            };
+            if let Err(reason) = result {
+                eprintln!("Download failed for {}: {reason}", file.name);
+                handle.update(|s, _| {
+                    s.error = Some("Could not download the file. See the terminal for details.");
+                });
+            }
+        });
+    }
+
+    fn fetch_file(&mut self, file: antimatter_services::mattermost::FileInfo) {
+        let (Some(client), Some(runtime), Some(handle)) = (
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let fail = |handle: &AppHandle<State>, reason: String| {
+                eprintln!("Could not open {}: {reason}", file.name);
+                handle.update(|s, _| {
+                    s.error = Some("Could not open the file. See the terminal for details.")
+                });
+            };
+            let bytes = match client.file(&file.id, false).await {
+                Ok(bytes) => bytes,
+                Err(error) => return fail(&handle, error.to_string()),
+            };
+            let name = std::path::Path::new(&file.name)
+                .file_name()
+                .map_or_else(|| file.id.clone().into(), ToOwned::to_owned);
+            let dir = std::env::temp_dir().join("antimatter-files").join(&file.id);
+            let path = dir.join(name);
+            if let Err(error) =
+                std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, bytes))
+            {
+                return fail(&handle, error.to_string());
+            }
+            if let Err(error) = std::process::Command::new("open").arg(path).status() {
+                fail(&handle, error.to_string());
+            }
+        });
+    }
+
+    pub(crate) fn my_username(&self) -> Option<&str> {
+        let key = self.authenticated.as_ref()?;
+        self.accounts
+            .iter()
+            .find(|a| &a.key == key)
+            .map(|a| a.username.as_str())
+    }
+
+    pub(crate) fn publish_settings_accounts(&mut self) {
+        let Some(settings) = self.settings_app.clone() else {
+            return;
+        };
+        let rows: Vec<crate::settings::AccountRow> = self
+            .accounts
+            .iter()
+            .map(|account| crate::settings::AccountRow {
+                key: account.key.clone(),
+                origin: account.key.origin().to_owned(),
+                username: account.username.clone(),
+                active: self.authenticated.as_ref() == Some(&account.key),
+            })
+            .collect();
+        if rows == self.settings_rows {
+            return;
+        }
+        self.settings_rows = rows.clone();
+        let me = self.authenticated.as_ref().map(|k| k.user_id().to_owned());
+        settings.update(move |s, _| {
+            s.accounts = rows;
+            s.me = me;
+            s.profile = Default::default();
+            s.notify = Default::default();
+        });
+    }
+
+    pub(crate) fn current_team_id(&self) -> Option<String> {
+        self.selected_team
+            .clone()
+            .filter(|id| self.teams.iter().any(|t| &t.id == id))
+            .or_else(|| self.teams.first().map(|t| t.id.clone()))
+    }
+
+    pub(crate) fn switch_account(&mut self, key: AccountKey) {
+        if self.blocked() {
+            return;
+        }
+        self.authenticate(Login::Saved(key));
+    }
+
+    pub(crate) fn add_account(&mut self) {
+        if self.blocked() {
+            return;
+        }
+        self.checkpoint(AfterCheckpoint::Disconnect);
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            epoch: 0,
+            persistence: None,
+            accounts: vec![],
+            selected: None,
+            durable: None,
+            authenticated: None,
+            auth_writing: false,
+            auth_task: None,
+            write_task: None,
+            checkpoint_pending: None,
+            drafts: vec![],
+            navigation: Navigation::default(),
+            committed_navigation: Navigation::default(),
+            remember: false,
+            method: 0,
+            submitted: false,
+            recovered_pending: false,
+            checkpoint_retry: None,
+            #[cfg(target_os = "macos")]
+            browser: None,
+            on: false,
+            auth_proof: false,
+            application: false,
+            theme: antimatter_theme::Theme::Default,
+            accent: Default::default(),
+            message_font_size: 12,
+            composer_font_size: 13,
+            composer_font_family: Default::default(),
+            message_spacing: MessageSpacing::default(),
+            show_timeline_avatars: true,
+            avatar_size: 32,
+            synthetic: false,
+            sidebar: PaneState::new(264.0).range(160.0, 420.0),
+            channels_collapsed: false,
+            favorites_collapsed: false,
+            archived_collapsed: false,
+            dms_collapsed: false,
+            server_open: false,
+            notifications_enabled: true,
+            notification_sounds_enabled: true,
+            name_colors: Default::default(),
+            last_active: None,
+            last_typing_sent: None,
+            typing_draft: String::new(),
+            typing: HashMap::new(),
+            last_save: None,
+            new_menu: false,
+            new_dialog: None,
+            new_name: TextEdit::default(),
+            new_error: None,
+            new_busy: false,
+            teams: Vec::new(),
+            selected_team: None,
+            preview: None,
+            preview_at: 0,
+            tab_drag: TabDragState::new(),
+            tab_menu: None,
+            channel_menu: None,
+            image_menu: None,
+            saved_account_menu: None,
+            editing_account: None,
+            search: TextEdit::default(),
+            search_busy: false,
+            search_filters: Default::default(),
+            search_channel: TextEdit::default(),
+            search_sender: TextEdit::default(),
+            search_after: TextEdit::default(),
+            search_before: TextEdit::default(),
+            search_extension: TextEdit::default(),
+            search_filters_open: false,
+            attachments: Vec::new(),
+            giphy_key: None,
+            gif_picker: false,
+            channel_files: false,
+            channel_files_list: None,
+            gif_query: TextEdit::default(),
+            gif_results: None,
+            gif_busy: false,
+            gif_fetching: std::collections::HashSet::new(),
+            reply_to: None,
+            editing: None,
+            previews: HashMap::new(),
+            emoji_picker: None,
+            poll_votes: HashMap::new(),
+            ending_poll: None,
+            creating_poll: false,
+            poll_question: TextEdit::default(),
+            poll_options: vec![TextEdit::default(), TextEdit::default()],
+            poll_error: None,
+            poll_busy: false,
+            emoji_query: TextEdit::default(),
+            emoji_tab: Some(emojis::Group::SmileysAndEmotion),
+            custom_emoji: Vec::new(),
+            search_results: None,
+            pat: TextEdit::default().secure(),
+            password: TextEdit::default().secure(),
+            server: TextEdit::default(),
+            login: TextEdit::default(),
+            draft: crate::markdown::editor(TextEdit::default().rich()),
+            thread: None,
+            thread_panel: PaneState::new(480.0).range(320.0, 720.0),
+            thread_draft: crate::markdown::editor(TextEdit::default().rich()),
+            thread_attachments: Vec::new(),
+            replying: None,
+            raw: false,
+            caret_on: true,
+            source: TextEdit::default(),
+            handle: None,
+            runtime: None,
+            scope: SessionScope::default(),
+            intents: None,
+            account: None,
+            channel: None,
+            channels: vec![],
+            unread: HashMap::new(),
+            threads: Vec::new(),
+            focus_post: None,
+            names: HashMap::new(),
+            site_name: String::new(),
+            presence: String::new(),
+            peer_presence: HashMap::new(),
+            members: Vec::new(),
+            member_cache: HashMap::new(),
+            avatars: crate::avatars::Avatars::default(),
+            gifs: crate::gifs::Gifs::default(),
+            client: None,
+            posts: vec![],
+            has_older: false,
+            ledger_cache: HashMap::new(),
+            ledger_offset: Arc::new(AtomicU32::new(0)),
+            ledger_hand_scrolled: Arc::new(AtomicBool::new(false)),
+            loading_older: false,
+            pending: None,
+            ready: false,
+            busy: false,
+            connection: websocket::State::Idle,
+            error: None,
+            settings: None,
+            settings_app: None,
+            settings_rows: Vec::new(),
+        }
+    }
+}

@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = ["crates/antimatter-services", "crates/antimatter-theme", "crates/antimatter-app"]
+default-members = ["crates/antimatter-app"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+rune = { git = "https://github.com/anomalyco/rune", rev = "257f5599c8e499bb7dfd7ee03f57a9932724244a" }
+rune-kit = { git = "https://github.com/anomalyco/rune", rev = "257f5599c8e499bb7dfd7ee03f57a9932724244a" }
+blobatar = { package = "blobatar-rs", git = "https://github.com/ericschmar/blobatar-rs.git" }
+serde_json = "1"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time"] }
+url = { version = "2", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+wiremock = "0.6.5"
+antimatter-services = { path = "crates/antimatter-services" }
+antimatter-theme = { path = "crates/antimatter-theme" }
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

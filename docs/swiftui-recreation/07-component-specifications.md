@@ -1,5 +1,22 @@
 # Component Specifications
 
+## Approved Rune foundation components
+
+For the first issue #4 slice approved on 2026-11-10, same-pin `rune-kit`
+buttons/sidebar components and Rune elements (including the existing Rune editor)
+replace SwiftUI primitive construction. A shared theme supplies Antimatter semantic roles and metrics.
+Retain stable channel/post/composer/action keys and accessible names/states;
+disabled controls must not mutate state and locked editors remain inert with
+no edit binding. Render posts as the fixed metadata/content ledger, not cards.
+The second approved slice (2026-11-10) adds sidebar unread dot and `@N` mention
+badge from server counts (accessible via the row badge/status), still without tabs.
+The foundation supports existing plain message/send/retry behavior only; rich
+Markdown, mention/attachment/reply/reaction tools, tab actions and overlays
+below remain required subsequent work, not implied by Kit availability.
+Independent singleton Settings supersedes the settings-overlay prescription
+below under its owning settings-window design; no in-window replacement is
+authorized by this component adoption.
+
 ## Reusable primitives
 
 - `AntimatterTheme`: semantic colors, spacing, typography, borders, radii.

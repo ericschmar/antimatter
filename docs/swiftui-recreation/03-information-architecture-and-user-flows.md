@@ -2,7 +2,7 @@
 
 ## Window hierarchy
 
-`MainWindow` contains native title/toolbar commands, then `WorkspaceShell`: resizable sidebar on the left and `ConversationWorkspace` on the right. The right side hosts either an empty state or a tab/split tree of independent conversation panes.
+`MainWindow` contains native title/toolbar commands, then `WorkspaceShell`: resizable sidebar on the left and `ConversationWorkspace` on the right. The right side hosts either an empty state or a tab strip over one conversation. Split panes are a decided non-goal (2026-11-11).
 
 ## Sidebar
 
@@ -47,5 +47,5 @@ Every pane owns a channel ID and pane-local UI state. It contains:
 ### Workspace
 
 - Tabs may be temporary or durable. A durable existing tab is activated rather than duplicated unless explicitly requested.
-- Tab context menu offers split-right, split-down, close, and close-others.
-- Persist only durable tabs and a layout whose leaf IDs exactly match those tabs. Discard invalid/degenerated layouts rather than restoring an empty workspace.
+- Tab context menu offers close, close-others, and keep-open. Split-right/split-down are a decided non-goal.
+- Persist only durable tabs and an ordered, unique tab list. Discard an invalid list rather than restoring an empty workspace.

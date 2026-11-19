@@ -1,24 +1,33 @@
 # Antimatter
 
-Antimatter is a small desktop client for Mattermost-compatible servers. It is built with ElectroBun, Bun, React, and TypeScript, with the native Bun process owning Mattermost API calls, file uploads, WebSocket connections, notifications, menus, and SSO handoff.
+Antimatter is a native desktop client for [Mattermost](https://mattermost.com) servers, written in Rust on the [Rune](https://github.com/anomalyco/rune) UI runtime. It is focused on conversations: channels, direct and group messages, threads, search and files, in a compact native window rather than an embedded web application.
 
-The goal is a focused desktop experience: channels, direct messages, search, reactions, uploads, markdown composition, notifications, and a compact native shell without embedding the full Mattermost web application.
+The project is under active development and is macOS first. Its legacy Swift product has been removed; the last version is preserved in git history at commit `11e1499`.
 
 ## Status
 
-This project is under active development. It is useful as a lightweight client, but it is not a complete replacement for the official Mattermost desktop app.
+Antimatter is **not yet a full Mattermost client** and is not a validated release. Native execution supports:
+
+- Sign-in with a personal access token or username/password, with opt-in saved accounts.
+- Channel and latest-history loading, sending, conservative delivery checks and WebSocket reconnect refresh.
+- Durable drafts and navigation that autosave and checkpoint before transitions.
+
+Outstanding work includes native Keychain storage (blocked on signing entitlements), browser callback delivery and SAML validation, full pending-send recovery, legacy import, and live validation against servers. A disk failure or crash before autosave commits can lose the latest edit. Headless and scripted scenes use synthetic data only, and real sessions do not allow export or tracing.
+
+[SPEC.md](SPEC.md) defines the approved replacement boundary and the status of each contract.
 
 ## Features
 
-- Connect with a personal access token, username/password, or SSO.
-- SAML SSO uses Mattermost's desktop-token callback flow in a contained login window. This lets the app capture its callback consistently across native and bundled-CEF renderers.
-- Real-time post, reaction, and status updates over the Mattermost WebSocket API.
-- Channel, group message, and direct message navigation.
-- Message search, user search, public channel search, and command palette access.
-- Markdown message rendering and rich message composition.
-- File upload and authenticated image loading.
-- Emoji reactions and custom channel emoji labels.
-- Desktop notifications and a native settings window.
+- **Conversations:** channels, direct and group messages, unread and viewed state, and sidebar grouping.
+- **Real time:** post, reaction and status updates over the Mattermost WebSocket API, and a typing indicator.
+- **Threads:** a thread panel with previews and reply composition.
+- **Composer:** Markdown with rich rendering, file attachments, emoji and GIF pickers (GIF search needs a Giphy key).
+- **Files:** a channel files panel and authenticated image loading.
+- **Search:** message search with thread-scope, channel, sender, date, file-type and pinned/saved filters.
+- **Polls:** poll cards in the timeline with clickable vote options.
+- **Tabs:** tabbed conversations; split panes are a deliberate non-goal.
+- **Notifications:** per-channel notification levels (default, all, mentions, muted) synced with the server.
+- **Settings:** a singleton native settings window.
 
 ## Mattermost Name And API Notice
 
@@ -28,74 +37,51 @@ This project uses Mattermost's publicly available, open source API behavior and 
 
 ## Requirements
 
-- Bun
-- A Mattermost-compatible server
+- Rust 1.99.1, installed through [rustup](https://rustup.rs). `rust-toolchain.toml` pins the version.
+- macOS build tools and a GPU for rendering.
+- Python 3 (standard library only) for the headless self-check.
+- [Task](https://taskfile.dev) to run the project tasks (optional; each task wraps a `cargo` or `python3` command).
 
-The app registers `mattermost-dev://` for the Mattermost desktop login callback
-path and captures that callback from its contained SSO window.
+macOS 14+ is the intended platform, but it is not a validated Rune runtime minimum. Bun is used only for development-time spec tooling and is not part of the application runtime.
 
 ## Getting Started
 
-Install dependencies:
+```sh
+task fetch      # once: fetch crates so the rest run offline
+task run        # native window, no hot reload
+task dev        # native window with the debug dev sign-in environment
+task verify     # format, clippy, tests, headless checks and UI lint
+```
+
+Run `task` on its own to list every task. `task dev:snap` re-renders `build/ui/hot.png` on each change, with no window, and needs Dioxus CLI 0.7.10 (`task hot:install`).
+
+Without Task, the same checks run directly:
 
 ```sh
-bun install
+cargo run --locked                       # native window
+cargo test --workspace --locked --offline
+python3 scripts/rune-headless.py         # scripted interaction and accessibility checks
 ```
 
-Start the development app:
+The headless checks write PNG and JSON evidence to `build/rune-headless/`. Automated checks do not replace looking at the renders, so inspect the PNGs after UI changes. `task ui:lint` renders every scene at four window sizes into `build/ui/`. `task precommit` runs `task verify` and then deletes the generated artifacts.
+
+To render a single headless frame:
 
 ```sh
-bun run dev
+mkdir -p build/rune-headless
+cargo run --locked --offline -- --at 1 --tree build/rune-headless/default.json --snap build/rune-headless/default.png
 ```
 
-Run without file watching:
+Add `--scene conversation-proof --size 640x640` for a synthetic conversation. `cargo run --locked -- --real-account` starts an interactive session and rejects headless export. HTTP servers are used only with the explicit `--dev-http` option.
+
+### Native bundle
 
 ```sh
-bun run start
+python3 scripts/rune-native.py          # build build/rune-native/Antimatter.app
+python3 scripts/rune-native.py --check  # verify an existing bundle
 ```
 
-## Profiling UI Responsiveness
-
-Enable the renderer metrics in the app's DevTools console before reproducing a
-slow interaction:
-
-```js
-localStorage.setItem("mm-clone:perf", "1");
-location.reload();
-```
-
-Filter the console for `[perf]`. The logs distinguish:
-
-- `clickToFirstTimelinePaint`: elapsed time from selecting a channel to its
-  timeline being scheduled for paint.
-- `channelHistoryCacheHit` / `channelHistoryCacheMiss`, `historyFetchStart`,
-  and `historyFetchEnd`: whether a channel wait is local cache or history
-  loading.
-- `apiRequest` and `historyWorkerRpc`: per-request duration, method, normalized
-  route, transport, and success/error outcome. `historyWorkerRpc` covers the
-  history worker's requests, which bypass the renderer API client.
-- `render counts`: aggregate React rendering churn every 1.5 seconds.
-- `longTask`: renderer main-thread work over the browser's long-task threshold.
-  WebKit does not expose this performance API, so its absence is expected in
-  the current ElectroBun build; use the DevTools performance recording there.
-
-Disable the instrumentation after profiling with
-`localStorage.removeItem("mm-clone:perf"); location.reload()`. The metrics are
-off by default and do not record message content or authentication tokens.
-
-Typecheck and test:
-
-```sh
-bun run version:check
-bun run typecheck
-bun test
-```
-
-Build the canary app:
-
-```sh
-bun run build:canary
-```
+The bundle is unsigned and unregistered. It is checked for metadata and binary only; it is not launched or signed.
 
 ## Local Credentials
 
@@ -107,82 +93,55 @@ MATTERMOST_PAT=your-personal-access-token
 GIPHY_API_KEY=your-giphy-api-key
 ```
 
-`MATTERMOST_URL` is also accepted as a legacy alias for `MATTERMOST_SERVER_URL`.
-
-You can also enter credentials from the login screen.
-
-`GIPHY_API_KEY` is read at runtime for local development and embedded into
-packaged builds when it is present in the build environment.
+`MATTERMOST_URL` is accepted as a legacy alias for `MATTERMOST_SERVER_URL`. You can also enter credentials on the sign-in screen. `GIPHY_API_KEY` is read at runtime and is embedded into packaged builds when it is set in the build environment. `.env` and `.env.local` are git-ignored.
 
 ## Authentication
 
-Antimatter supports three login paths:
+Antimatter supports three sign-in methods:
 
-- `Token`: personal access token.
-- `Password`: Mattermost username/email and password login.
-- `SSO`: SAML via the default browser.
-
-The SSO flow opens the server's `/login/sso/saml` URL with a generated desktop token. After the browser completes login, Mattermost redirects through its desktop callback flow, and Antimatter exchanges the returned server token for a normal API bearer token.
+- **Token:** a personal access token.
+- **Password:** Mattermost username or email and password.
+- **SSO:** SAML through the default browser. Antimatter opens the server's `/login/sso/saml` URL with a generated desktop token, and exchanges the server token returned by Mattermost's desktop callback for a normal API bearer token.
 
 ## Project Layout
 
 ```txt
-src/bun/          ElectroBun main process: API proxy, SSO, websocket, menus
-src/mainview/     React desktop UI
-src/childview/    Settings window UI
-src/shared/       Shared RPC types
+crates/antimatter-services/   Mattermost REST and WebSocket, accounts, conversations (no UI dependencies)
+crates/antimatter-theme/      Antimatter design tokens as a rune-kit Kit (4 themes)
+crates/antimatter-app/        Rune application: state, session, sign-in, workspace, settings, scenes
+scripts/                      Headless checks, UI lint, native bundle and icon tooling
+docs/                         Design records and the replacement contracts
 ```
 
-The renderer does not call Mattermost directly for normal app traffic. It sends typed RPC requests to the Bun process, and the Bun process performs the authenticated Mattermost API and WebSocket work.
-
-## Useful Scripts
-
-```sh
-bun run dev          # start ElectroBun with watch mode
-bun run start        # start ElectroBun
-bun run build        # package a production build
-bun run version:bump -- patch # bump package.json and electrobun.config.ts together
-bun run version:check # validate SemVer and app/package version alignment
-bun run typecheck    # TypeScript no-emit check
-bun test             # unit tests
-bun run build:canary # package a canary build
-```
+Each crate has a `SPEC.md` that records its contracts. The root [SPEC.md](SPEC.md) indexes them.
 
 ## Versioning And Releases
 
-Antimatter uses SemVer for releases. Use the bump script so `package.json` and `electrobun.config.ts` stay aligned:
+The crate version is set in `Cargo.toml` (`[workspace.package] version`). The native bundle version is set in `scripts/rune-native.py` (`CFBundleShortVersionString` and `CFBundleVersion`). Keep the two aligned before tagging.
+
+Release tags use `v*.*.*`:
 
 ```sh
-bun run version:bump -- patch
-bun run version:bump -- minor
-bun run version:bump -- prerelease --preid alpha
-bun run version:bump -- 1.2.3
+git tag v0.0.1
+git push origin v0.0.1
 ```
 
-Before tagging a release, validate the versions:
-
-```sh
-bun run version:check
-```
-
-Release tags must match the package version exactly:
-
-```sh
-git tag v1.2.3
-git push origin v1.2.3
-```
-
-Pushing a `v*.*.*` tag runs the release workflow, builds the macOS app, uploads the build artifact, and attaches the contents of `artifacts/` to the GitHub release.
+Pushing a tag runs the release workflow. It runs the locked tests, builds and checks the unsigned native bundle, uploads it as a workflow artifact and attaches it to the GitHub release. Signing, notarization and Keychain and SAML release checks are not automated yet; see [docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md](docs/swiftui-recreation/09-testing-accessibility-performance-and-release.md).
 
 ## CI/CD
 
-GitHub Actions are configured under `.github/workflows/`:
+GitHub Actions workflows live in `.github/workflows/`:
 
-- `ci.yml`: runs on pull requests and pushes to `main`/`master`; installs dependencies, checks SemVer, typechecks, and runs tests.
-- `release.yml`: runs on SemVer tags and manual dispatch; checks SemVer, typechecks, tests, builds, uploads artifacts, and publishes tagged releases.
+- `ci.yml` runs on pull requests and on pushes to `main` and `master`, on the pinned Rust toolchain. It runs locked `cargo fmt`, clippy and tests, the headless checks, and UI lint, and uploads the rendered evidence. UI lint is `continue-on-error` in CI while its layout findings are being resolved; `task verify` still treats it as a failure.
+- `release.yml` runs on SemVer tags and manual dispatch. It runs the locked tests, builds and checks the unsigned native bundle, and publishes it to tagged releases.
+
+## Contributing
+
+- Read the spec for the area you change. Behaviour that a spec documents is a contract; update the spec in the same change when the contract changes.
+- Run `task verify` before proposing a change, and inspect the rendered PNGs for UI work.
+- Keep changes focused, and do not commit build artifacts.
 
 ## Notes
 
-- `.env` and `.env.local` are ignored.
-- `.DS_Store` files are ignored.
-- WebRTC voice/video work is still exploratory.
+- `.DS_Store` files are git-ignored.
+- WebRTC voice and video work is exploratory; see [WEBRTC_IMPLEMENTATION_GUIDE.md](WEBRTC_IMPLEMENTATION_GUIDE.md).

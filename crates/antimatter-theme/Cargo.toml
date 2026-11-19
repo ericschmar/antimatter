@@ -1,0 +1,10 @@
+[package]
+name = "antimatter-theme"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Antimatter design tokens (docs/swiftui-recreation/appendix/design-tokens.md) as a rune-kit theme."
+
+[dependencies]
+rune.workspace = true
+rune-kit.workspace = true
