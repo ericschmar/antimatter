@@ -21,7 +21,7 @@ GitHub issues own execution status, not these specs.
 
 The app is the `antimatter` binary crate. Modules: `state` (State, Login),
 `session`/`checkpoint`/`timeline`/`auth` (`impl State` behaviour), `signin` and
-`workspace` (views, a directory of submodules: `layout`, `sidebar`, `post`, `emoji`, `poll`, `attachments`, `dialogs`, `compose`, `thread_panel`), `view` (root and hello scenes), `widgets` (kit wrappers and the local `Segments` control),
+`workspace` (views, a directory of submodules: `layout`, `sidebar`, `post`, `emoji`, `poll`, `attachments`, `dialogs`, `compose`, `thread_panel`), `view` (root and hello scenes), `updater` (self-update), `widgets` (kit wrappers and the local `Segments` control),
 `theme` (selects an [`antimatter-theme`](../antimatter-theme/SPEC.md) `Kit`),
 `scenes` (synthetic proof data) and `tests`. `task dev` runs the native window with
 `cargo run` and no hot reload; `task dev:snap` is the only `dx` hot-reload path.
@@ -41,6 +41,19 @@ The app is the `antimatter` binary crate. Modules: `state` (State, Login),
 - [Service contract](../antimatter-services/SPEC.md): background REST/socket/conversation work.
   Publish small updates through `AppHandle::update`; never perform blocking
   filesystem/Keychain work, HTTP or wire decoding on the UI thread.
+
+## Self-update
+
+`updater` uses the `self_update` crate's GitHub backend against `ericschmar/antimatter` releases.
+Native (non-headless) startup checks once, off the UI thread, for a newer release and stores the
+result in `State::update` (`UpdateState`: Idle, Available, Installing, Ready, Failed). Check and
+install run through `spawn_blocking` on the background runtime and publish via `AppHandle::update`.
+A status banner in the workspace offers Update, then Restart once installed. The asset is the
+release zip whose name contains `macos`, holding `Antimatter.app`; the whole bundle is swapped in
+place and rolled back on failure. Restart checkpoints durable state (`close`) before re-exec.
+Check failures are silent; install failures show a dismissable banner. Release builds are currently
+unsigned and un-notarized, so Gatekeeper may reject an updated bundle until signing exists; the
+updater never signs or verifies signatures.
 
 ## Conversation interaction
 

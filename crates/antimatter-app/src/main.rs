@@ -19,6 +19,7 @@ mod tabs;
 #[cfg(test)]
 mod tests;
 mod theme;
+mod updater;
 mod thread;
 mod timeline;
 mod view;
@@ -332,6 +333,7 @@ fn main() {
             state.theme = prefs_theme;
             state.handle = Some(handle.clone());
             state.busy = true;
+            state.check_for_update();
             state.runtime.as_ref().unwrap().spawn(async move {
                 let result = async {
                     let root = accounts::AccountStore::<accounts::KeychainCredentials>::default_root()?;

@@ -458,10 +458,14 @@ pub(crate) fn workspace(s: &State) -> El {
             .self_start(),
         );
     }
+    if s.update != crate::updater::UpdateState::Idle {
+        status = status.child(update_banner(s, c.text_muted));
+    }
     if s.recovered_pending
         || s.checkpoint_retry.is_some()
         || s.pending.is_some()
         || s.error.is_some()
+        || s.update != crate::updater::UpdateState::Idle
     {
         main = main.child(status);
     }
@@ -643,4 +647,27 @@ pub(crate) fn workspace(s: &State) -> El {
         })
         .children(s.channel_files.then(|| channel_files_panel(s, &k)));
     rune_kit::root(body, layer)
+}
+
+fn update_banner(s: &State, muted: rune::Color) -> El {
+    use crate::updater::UpdateState;
+    let row = rune::row().w_full().gap(8.0).center_y();
+    let label = |message: String| text(message).color(muted).grow(1.0).wrap();
+    match &s.update {
+        UpdateState::Idle => row,
+        UpdateState::Available(version) => row
+            .child(label(format!("Antimatter {version} is available")))
+            .child(button("update-install", "Update", false, |s| s.install_update())),
+        UpdateState::Installing(version) => row.child(label(format!("Installing {version}…"))),
+        UpdateState::Ready(version) => row
+            .child(label(format!("Antimatter {version} installed")))
+            .child(button("update-restart", "Restart", false, |s| {
+                s.restart_into_update()
+            })),
+        UpdateState::Failed(error) => row
+            .child(label(format!("Update failed: {error}")))
+            .child(button("update-dismiss", "Dismiss", false, |s| {
+                s.update = UpdateState::Idle
+            })),
+    }
 }

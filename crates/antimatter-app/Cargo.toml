@@ -16,6 +16,7 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 emojis = "0.9.1"
 rune = { workspace = true, features = ["native-file-dialog"] }
 rune-kit = { workspace = true, features = ["markdown"] }
+self_update.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 url.workspace = true
