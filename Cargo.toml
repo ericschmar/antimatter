@@ -4,7 +4,7 @@ members = ["crates/antimatter-services", "crates/antimatter-theme", "crates/anti
 default-members = ["crates/antimatter-app"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 
