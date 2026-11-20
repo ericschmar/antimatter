@@ -151,7 +151,7 @@ dependencies = [
 
 [[package]]
 name = "antimatter"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "antimatter-services",
  "antimatter-theme",
@@ -170,7 +170,7 @@ dependencies = [
 
 [[package]]
 name = "antimatter-services"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "block2 0.5.1",
  "futures-util",
@@ -193,7 +193,7 @@ dependencies = [
 
 [[package]]
 name = "antimatter-theme"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "rune",
  "rune-kit",
