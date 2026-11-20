@@ -471,7 +471,7 @@ pub(crate) fn workspace(s: &State) -> El {
     }
     if s.channel.is_none() && !searching {
         ledger = ledger.child(
-            rune::row().w_full().pt(24.0).center().child(
+            rune::row().w_full().pt(24.0).pr(s.sidebar.width() + 1.0).center().child(
                 text(EMPTY_ART.trim_end())
                     .font(k.ty.mono.family(rune::Family::SystemMono))
                     .color(c.text_faint)
