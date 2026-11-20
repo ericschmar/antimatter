@@ -117,7 +117,7 @@ pub(super) fn create_poll_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::K
     if !s.creating_poll {
         return;
     }
-    let mut body = col().gap(10.0).child(
+    let mut body = col().gap(10.0).padding(16.0).child(
         rune_kit::TextInput::new(&s.poll_question)
             .label("Question")
             .placeholder("Ask a question")
