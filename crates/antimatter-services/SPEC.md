@@ -183,6 +183,16 @@ that root id directly. Unlike `Intent::Root` + `Intent::Send` it never reads or 
 so a failed reply cannot leak a root into a later send. Both are standalone sends sharing `Pending`,
 reconcile and retry; `Reply` emits `Ready(true)` when it finishes.
 
+## Message deletion
+
+`Intent::Delete(channel_id, post_id)` sends `DELETE posts/{id}` (`Client::delete_post`) and, only after the
+server accepts it, removes the post from the worker's map and emits `Update::Deleted`. The worker does not
+check ownership; the server enforces it, and the app only offers the control on the user's own posts. A
+failed request emits `Failure::Delete` and publishes nothing, so the timeline keeps the post. An empty
+post or channel id is `Failure::InvalidInput`. A delete that times out is ambiguous: it is not retried, and a
+later refresh or `post_deleted` event shows the true state. Like Edit, deletion is not a standalone send and
+does not emit `Ready(true)`.
+
 ## Runnable verification and external gates
 
 `cargo test --locked --offline --lib` exercises origin/redirect/auth/error contracts,

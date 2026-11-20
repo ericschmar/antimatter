@@ -74,6 +74,8 @@ session-only channel transitions keep drafts in memory per channel; account
 transitions and disconnect discard them with the existing warning.
 Concurrent workspace panes (splits) are a decided non-goal, so one active conversation is the intended model.
 
+Your own posts show a Delete button (`post-delete`, `TRASH` icon) in the hover controls, in the timeline and the thread panel, after Edit. It opens a confirm dialog (`delete-post-dialog`, keys `delete-post-cancel` and `delete-post-confirm`), as the end-poll flow does. Confirming dispatches `Intent::Delete(channel_id, post_id)`. Cancel or close clears `State::deleting` without a request. Other users' posts never show the button; the server still enforces ownership.
+
 Lock send/attach controls immediately after send enqueue, not after its acknowledgement.
 The composer stays editable while locked, so typing never drops focus; only the send
 path is blocked. Refresh does not disable the send, attach or toolbar controls: `send()`

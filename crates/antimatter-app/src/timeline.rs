@@ -374,6 +374,7 @@ impl State {
                     conversation::Failure::Send => {
                         "Send failed. Draft retained; check delivery before retrying."
                     }
+                    conversation::Failure::Delete => "Could not delete message. Try again.",
                     conversation::Failure::Reconcile => {
                         "Delivery remains uncertain. No message was resent."
                     }

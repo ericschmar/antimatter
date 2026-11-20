@@ -365,6 +365,22 @@ pub(super) fn post_row_in(s: &State, posts: &[Post], i: usize, in_thread: bool) 
                                     .key("post-edit")
                             }),
                         )
+                        .children(
+                            (s.authenticated.as_ref().map(|key| key.user_id())
+                                == Some(post.user_id.as_str()))
+                            .then(|| {
+                                IconButton::new(&icons::TRASH)
+                                    .label("Delete")
+                                    .control_size(ControlSize::Small)
+                                    .variant(IconButtonVariant::Ghost)
+                                    .on_press({
+                                        let post = post.clone();
+                                        move |s: &mut State| s.open_delete(&post)
+                                    })
+                                    .build(&k)
+                                    .key("post-delete")
+                            }),
+                        )
                         .children((!in_thread).then(|| emoji_picker_trigger(s, post, &k))),
                 ),
         )

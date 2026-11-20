@@ -87,6 +87,7 @@ pub(crate) fn workspace(s: &State) -> El {
     new_dialog(s, &mut layer, &k);
     create_poll_dialog(s, &mut layer, &k);
     end_poll_dialog(s, &mut layer, &k);
+    delete_post_dialog(s, &mut layer, &k);
     gif_picker(s, &mut layer, &k);
     sidebar = sidebar.child(section(
         "channels",

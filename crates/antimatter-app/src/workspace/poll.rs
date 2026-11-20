@@ -170,6 +170,46 @@ pub(super) fn create_poll_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::K
         .build(k, layer);
 }
 
+pub(super) fn delete_post_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
+    if s.deleting.is_none() {
+        return;
+    }
+    let body = col()
+        .gap(12.0)
+        .child(
+            text("This message will be permanently deleted for everyone.")
+                .font(k.ty.small)
+                .color(k.c.text_muted),
+        )
+        .child(
+            hbox()
+                .w_full()
+                .justify_end()
+                .gap(8.0)
+                .child(button_as(
+                    rune_kit::ButtonVariant::Outline,
+                    "delete-post-cancel",
+                    "Cancel",
+                    false,
+                    |s| s.close_delete(),
+                ))
+                .child(button_as(
+                    rune_kit::ButtonVariant::Danger,
+                    "delete-post-confirm",
+                    "Delete",
+                    false,
+                    |s| s.confirm_delete(),
+                )),
+        );
+    rune_kit::Dialog::new("delete-post-dialog", "Delete this message?")
+        .open(true)
+        .width(360.0)
+        .fit()
+        .on_close(|s: &mut State| s.close_delete())
+        .child(body)
+        .build(k, layer);
+}
+
 pub(super) fn end_poll_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
     if s.ending_poll.is_none() {
         return;

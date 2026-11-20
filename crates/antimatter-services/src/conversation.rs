@@ -32,6 +32,7 @@ pub enum Intent {
     Presence(Vec<String>),
     Send(String),
     Edit(String, String),
+    Delete(String, String),
     Attach(Vec<std::path::PathBuf>),
     Root(String),
     Reply(String, String),
@@ -57,6 +58,7 @@ pub struct Pending {
 pub enum Failure {
     Load,
     Send,
+    Delete,
     Reconcile,
     InvalidInput,
 }
@@ -359,6 +361,22 @@ impl Worker {
                         return Err(Failure::Reconcile);
                     }
                     self.accept(post, true).await
+                }
+                Intent::Delete(channel_id, post_id) => {
+                    if post_id.is_empty() || channel_id.is_empty() {
+                        return Err(Failure::InvalidInput);
+                    }
+                    self.client
+                        .delete_post(&post_id)
+                        .await
+                        .map_err(|_| Failure::Delete)?;
+                    self.posts.remove(&post_id);
+                    self.emit(Update::Deleted {
+                        channel_id,
+                        post_id,
+                    })
+                    .await;
+                    Ok(())
                 }
                 Intent::Root(root) => {
                     self.root = root;

@@ -1004,6 +1004,39 @@ async fn edit_patches_the_post_and_publishes_the_change() {
 }
 
 #[tokio::test]
+async fn delete_removes_the_post_and_publishes_the_deletion() {
+    let (mut worker, mut rx, server) = scripted(vec![Some((200, json!({"status":"OK"})))]).await;
+    worker.pending = None;
+    worker
+        .intent(Intent::Delete("c".into(), "sent".into()))
+        .await
+        .unwrap();
+    assert!(matches!(
+        rx.try_recv(),
+        Ok(Update::Deleted { channel_id, post_id }) if channel_id == "c" && post_id == "sent"
+    ));
+    let requests = server.finish().await;
+    assert!(
+        requests
+            .iter()
+            .any(|r| r.starts_with("DELETE /api/v4/posts/sent "))
+    );
+}
+
+#[tokio::test]
+async fn failed_delete_reports_delete_failure_without_publishing() {
+    let (mut worker, mut rx, _server) = scripted(vec![Some((403, json!({"message":"no"})))]).await;
+    worker.pending = None;
+    assert!(matches!(
+        worker
+            .intent(Intent::Delete("c".into(), "sent".into()))
+            .await,
+        Err(Failure::Delete)
+    ));
+    assert!(rx.try_recv().is_err());
+}
+
+#[tokio::test]
 async fn muted_flag_comes_from_channel_membership_notify_props() {
     let (mut worker, mut rx, server) = scripted(vec![
         Some((

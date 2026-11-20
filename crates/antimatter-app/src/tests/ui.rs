@@ -168,6 +168,21 @@ fn editing_a_message_dispatches_an_edit_not_a_new_send() {
 }
 
 #[test]
+fn confirming_a_delete_dispatches_delete_for_that_post() {
+    let (sender, mut intents) = mpsc::channel(8);
+    let mut rt = ui(sender);
+    let post = post("sent");
+    rt.state.open_delete(&post);
+    assert!(rt.state.deleting.is_some());
+    rt.state.confirm_delete();
+    assert!(matches!(
+        intents.try_recv(),
+        Ok(Intent::Delete(channel, id)) if channel == "c" && id == "sent"
+    ));
+    assert!(rt.state.deleting.is_none());
+}
+
+#[test]
 fn cancelling_an_edit_clears_the_composer() {
     let (sender, mut intents) = mpsc::channel(8);
     let mut rt = ui(sender);

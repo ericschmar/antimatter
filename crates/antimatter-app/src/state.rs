@@ -153,6 +153,7 @@ pub(crate) struct State {
     pub(crate) emoji_picker: Option<String>,
     pub(crate) poll_votes: HashMap<String, String>,
     pub(crate) ending_poll: Option<String>,
+    pub(crate) deleting: Option<antimatter_services::mattermost::Post>,
     pub(crate) creating_poll: bool,
     pub(crate) poll_question: TextEdit,
     pub(crate) poll_options: Vec<TextEdit>,
@@ -500,6 +501,23 @@ impl State {
 
     pub(crate) fn close_end_poll(&mut self) {
         self.ending_poll = None;
+    }
+
+    pub(crate) fn open_delete(&mut self, post: &Post) {
+        self.deleting = Some(post.clone());
+    }
+
+    pub(crate) fn close_delete(&mut self) {
+        self.deleting = None;
+    }
+
+    pub(crate) fn confirm_delete(&mut self) {
+        let Some(post) = self.deleting.take() else {
+            return;
+        };
+        if !self.dispatch(Intent::Delete(post.channel_id.clone(), post.id.clone())) {
+            self.deleting = Some(post);
+        }
     }
 
     pub(crate) fn end_poll(&mut self) {
@@ -1116,6 +1134,7 @@ impl Default for State {
             emoji_picker: None,
             poll_votes: HashMap::new(),
             ending_poll: None,
+            deleting: None,
             creating_poll: false,
             poll_question: TextEdit::default(),
             poll_options: vec![TextEdit::default(), TextEdit::default()],
