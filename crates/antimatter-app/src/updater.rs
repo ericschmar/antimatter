@@ -51,6 +51,36 @@ impl State {
         });
     }
 
+    pub(crate) fn check_for_update_now(&self) {
+        let (Some(runtime), Some(handle)) = (self.runtime.clone(), self.handle.clone()) else {
+            return;
+        };
+        runtime.spawn(async move {
+            let found = tokio::task::spawn_blocking(latest_newer).await;
+            let (message, version) = match found {
+                Ok(Ok(Some(version))) => {
+                    (format!("Antimatter {version} is available."), Some(version))
+                }
+                Ok(Ok(None)) => (
+                    format!("Antimatter {} is up to date.", env!("CARGO_PKG_VERSION")),
+                    None,
+                ),
+                Ok(Err(error)) => (format!("Update check failed: {error}"), None),
+                Err(error) => (format!("Update check failed: {error}"), None),
+            };
+            handle.update(move |s, _| {
+                if let Some(version) = version
+                    && s.update == UpdateState::Idle
+                {
+                    s.update = UpdateState::Available(version);
+                }
+                if let Some(settings) = s.settings_app.clone() {
+                    settings.update(move |p, _| p.update_check = Some(message));
+                }
+            });
+        });
+    }
+
     pub(crate) fn install_update(&mut self) {
         let UpdateState::Available(version) = self.update.clone() else {
             return;

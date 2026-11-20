@@ -73,6 +73,12 @@ Title "General". Subtitle "Set up the essentials for your Antimatter workspace."
 | Message font size | `messageFontSize` | 12 | integer 10–20, step 1 | Timeline body size. Value row shows `N pt`. | Live |
 | Message grouping | `messageGroupingIntervalMinutes` | 5 | integer 0–60, step 1 | Consecutive posts by one author within this many minutes are grouped. Value row shows `Off` at 0, else `N min`. | Deferred |
 
+"Software update" row with a "Check for updates" button. It runs the self-update release check on
+demand (not persisted, no storage key) and shows the outcome under the group: the available version,
+"Antimatter X is up to date.", or the check error. It is not a setting and is not in the Wiring
+summary's Live list; it is the only control here that talks to the network. See the app
+[self-update](../../SPEC.md#self-update) contract.
+
 ### Appearance (`appearance`)
 
 Title "Appearance". Subtitle "Control the density and visual treatment of your timeline."

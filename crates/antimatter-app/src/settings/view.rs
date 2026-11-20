@@ -26,6 +26,8 @@ pub(crate) struct SettingsState {
     /// The signed-in user, whose name colour the picker edits when it is not the accent.
     pub(crate) me: Option<String>,
     pub(crate) name_picker_open: bool,
+    /// Outcome of the last manual "Check for updates" press, shown under the General section.
+    pub(crate) update_check: Option<String>,
 }
 
 /// One saved account as Settings shows it. The workspace owns the account data.
@@ -70,6 +72,7 @@ impl SettingsState {
             picker_hsv: (0.0, 0.0, 1.0),
             me: None,
             name_picker_open: false,
+            update_check: None,
         }
     }
 

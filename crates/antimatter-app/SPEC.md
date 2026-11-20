@@ -48,7 +48,9 @@ The app is the `antimatter` binary crate. Modules: `state` (State, Login),
 Native (non-headless) startup checks once, off the UI thread, for a newer release and stores the
 result in `State::update` (`UpdateState`: Idle, Available, Installing, Ready, Failed). Check and
 install run through `spawn_blocking` on the background runtime and publish via `AppHandle::update`.
-A status banner in the workspace offers Update, then Restart once installed. The asset is the
+Settings → General has a "Check for updates" button that runs the same check on demand and reports
+the outcome in that section (update available, up to date, or the error); an available release
+also sets the workspace banner. A status banner in the workspace offers Update, then Restart once installed. The asset is the
 release zip whose name contains `macos`, holding `Antimatter.app`; the whole bundle is swapped in
 place and rolled back on failure. Restart checkpoints durable state (`close`) before re-exec.
 `self_update` is built with `native-tls`, not `rustls`: enabling its rustls feature pulls in rustls'

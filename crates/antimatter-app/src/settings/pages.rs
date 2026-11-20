@@ -9,27 +9,51 @@ use super::controls::*;
 pub(super) fn page(s: &SettingsState, k: &rune_kit::Kit, layer: &mut Vec<El>) -> El {
     let c = &k.c;
     match s.section {
-        Section::General => group(
-            k,
-            vec![
-                stepper_row(
-                    k,
-                    "Message font size",
-                    &font_size_label(s.prefs.message_font_size),
-                    "message-font-size",
-                    |s| s.change(|p| step_font_size(p, -1)),
-                    |s| s.change(|p| step_font_size(p, 1)),
-                ),
-                stepper_row(
-                    k,
-                    "Message grouping",
-                    &grouping_label(s.prefs.message_grouping_interval_minutes),
-                    "message-grouping",
-                    |s| s.change(|p| step_grouping(p, -1)),
-                    |s| s.change(|p| step_grouping(p, 1)),
-                ),
-            ],
-        ),
+        Section::General => col()
+            .w_full()
+            .gap(14.0)
+            .child(group(
+                k,
+                vec![
+                    stepper_row(
+                        k,
+                        "Message font size",
+                        &font_size_label(s.prefs.message_font_size),
+                        "message-font-size",
+                        |s| s.change(|p| step_font_size(p, -1)),
+                        |s| s.change(|p| step_font_size(p, 1)),
+                    ),
+                    stepper_row(
+                        k,
+                        "Message grouping",
+                        &grouping_label(s.prefs.message_grouping_interval_minutes),
+                        "message-grouping",
+                        |s| s.change(|p| step_grouping(p, -1)),
+                        |s| s.change(|p| step_grouping(p, 1)),
+                    ),
+                ],
+            ))
+            .child(group(
+                k,
+                vec![
+                    row_frame(k, "Software update").child(
+                        Button::new("Check for updates")
+                            .variant(ButtonVariant::Outline)
+                            .on_press_tx(|s: &mut SettingsState, _| {
+                                s.update_check = Some("Checking for updates…".into());
+                                s.workspace_action(|ws| ws.check_for_update_now());
+                            })
+                            .build(k)
+                            .key("check-for-updates"),
+                    ),
+                ],
+            ))
+            .children(s.update_check.as_ref().map(|message| {
+                text(message.clone())
+                    .font(k.ty.small)
+                    .color(c.text_muted)
+                    .wrap()
+            })),
         Section::Appearance => {
             let mut swatches = row().gap(8.0).center_y();
             for accent in ACCENTS {
