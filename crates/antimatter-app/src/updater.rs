@@ -3,6 +3,7 @@ use crate::state::State;
 const REPO_OWNER: &str = "ericschmar";
 const REPO_NAME: &str = "antimatter";
 const BUNDLE: &str = "Antimatter.app";
+const CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum UpdateState {
@@ -44,9 +45,17 @@ impl State {
             return;
         };
         runtime.spawn(async move {
-            let found = tokio::task::spawn_blocking(latest_newer).await;
-            if let Ok(Ok(Some(version))) = found {
-                handle.update(move |s, _| s.update = UpdateState::Available(version));
+            loop {
+                let found = tokio::task::spawn_blocking(latest_newer).await;
+                if let Ok(Ok(Some(version))) = found {
+                    handle.update(move |s, _| {
+                        if matches!(s.update, UpdateState::Idle | UpdateState::Available(_)) {
+                            s.update = UpdateState::Available(version);
+                        }
+                    });
+                    return;
+                }
+                tokio::time::sleep(CHECK_EVERY).await;
             }
         });
     }

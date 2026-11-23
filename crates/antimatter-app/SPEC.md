@@ -45,8 +45,9 @@ The app is the `antimatter` binary crate. Modules: `state` (State, Login),
 ## Self-update
 
 `updater` uses the `self_update` crate's GitHub backend against `ericschmar/antimatter` releases.
-Native (non-headless) startup checks once, off the UI thread, for a newer release and stores the
-result in `State::update` (`UpdateState`: Idle, Available, Installing, Ready, Failed). Check and
+Native (non-headless) startup checks off the UI thread for a newer release, then keeps checking
+every 6 hours (`CHECK_EVERY`) until one is found; a failed check is retried at the next tick. A found
+release never overwrites an install in progress. The result is stored in `State::update` (`UpdateState`: Idle, Available, Installing, Ready, Failed). Check and
 install run through `spawn_blocking` on the background runtime and publish via `AppHandle::update`.
 Settings → General has a "Check for updates" button that runs the same check on demand and reports
 the outcome in that section (update available, up to date, or the error); an available release
