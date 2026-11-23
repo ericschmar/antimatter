@@ -24,7 +24,7 @@ INFO = {
     "CFBundleExecutable": "antimatter",
     "CFBundleIconFile": "AppIcon",
     "CFBundlePackageType": "APPL",
-    "CFBundleShortVersionString": "0.3.4",
+    "CFBundleShortVersionString": "0.3.5",
     "CFBundleVersion": "1",
     "NSHighResolutionCapable": True,
     "CFBundleURLTypes": [{
