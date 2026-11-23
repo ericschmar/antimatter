@@ -122,7 +122,8 @@ pub(super) fn mention_popover(s: &State, k: &rune_kit::Kit, layer: &mut Vec<El>)
     };
     let c = &k.c;
     let mut rows = col().key("mention-list").w(240.0).gap(2.0);
-    for (user, name) in users {
+    let selected = s.mention_selected.min(users.len() - 1);
+    for (i, (user, name)) in users.into_iter().enumerate() {
         let target = user.clone();
         rows = rows.child(
             rune::row()
@@ -136,6 +137,11 @@ pub(super) fn mention_popover(s: &State, k: &rune_kit::Kit, layer: &mut Vec<El>)
                 .center_y()
                 .radius(6.0)
                 .hover(c.hover)
+                .fill(if i == selected {
+                    c.layer_03
+                } else {
+                    c.layer_02
+                })
                 .focusable(true)
                 .cursor(rune::Cursor::Pointer)
                 .on_press_tx(move |s: &mut State, tx| {

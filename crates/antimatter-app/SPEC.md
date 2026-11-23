@@ -246,8 +246,11 @@ current team, fetched once per team by `State::load_team_users` (`GET /users?in_
 refetched on team switch or sign-out. As the word after `@` grows the list filters by username/display
 name (prefix matches first, then substring) and disappears when nothing matches or the selection is not
 collapsed. Pressing a row replaces `@query` with `@username ` as plain text (`State::accept_mention`).
-Works in rendered and Markdown-source views. Known gaps: the thread composer has no popover, and there
-is no keyboard navigation of the list (mouse only), and teams over 200 users are truncated.
+Works in rendered and Markdown-source views. While it is open the editor's `on_input_key`
+(`State::mention_key`) takes Up/Down (wrapping, moving the highlighted row, `mention_selected`),
+Enter or Tab (accepts the highlighted row; Shift+Enter still inserts a newline) and Escape (hides it
+until the `@` is retyped, `mention_dismissed`); every other key reaches the editor. Known gaps: the
+thread composer has no popover, and teams over 200 users are truncated.
 
 Caret blink: rune paints a solid caret and has no blink of its own, so `State::caret_on` is flipped every
 0.53 s by the app's `poll` hook and `State::caret` turns it into the caret colour or transparent. The caret

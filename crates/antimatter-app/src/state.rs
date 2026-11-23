@@ -207,6 +207,8 @@ pub(crate) struct State {
     pub(crate) members: Vec<String>,
     pub(crate) team_users: Vec<(String, String)>,
     pub(crate) team_users_team: Option<String>,
+    pub(crate) mention_selected: usize,
+    pub(crate) mention_dismissed: Option<usize>,
     pub(crate) member_cache: HashMap<String, Vec<String>>,
     pub(crate) avatars: crate::avatars::Avatars,
     pub(crate) gifs: crate::gifs::Gifs,
@@ -330,6 +332,9 @@ impl State {
             return None;
         }
         let (start, query) = mention_at(&edit.text, b)?;
+        if self.mention_dismissed == Some(start) {
+            return None;
+        }
         let query = query.to_lowercase();
         let mut found: Vec<_> = self
             .team_users
@@ -353,6 +358,30 @@ impl State {
         (!found.is_empty()).then(|| (start, found.into_iter().map(|(_, u, n)| (u, n)).collect()))
     }
 
+    pub(crate) fn mention_key(&mut self, key: &rune::KeyEvent) -> bool {
+        use rune::Key;
+        let Some((start, users)) = self.mention_matches() else {
+            return false;
+        };
+        let last = users.len() - 1;
+        let at = self.mention_selected.min(last);
+        match key.key {
+            Key::Down => self.mention_selected = if at == last { 0 } else { at + 1 },
+            Key::Up => self.mention_selected = if at == 0 { last } else { at - 1 },
+            Key::Enter | Key::Tab if !key.mods.shift => {
+                self.accept_mention(start, &users[at].0);
+            }
+            Key::Escape => self.mention_dismissed = Some(start),
+            Key::Text(_) | Key::Backspace | Key::Delete => {
+                self.mention_selected = 0;
+                self.mention_dismissed = None;
+                return false;
+            }
+            _ => return false,
+        }
+        true
+    }
+
     pub(crate) fn accept_mention(&mut self, start: usize, username: &str) {
         let edit = if self.raw {
             &mut self.source
@@ -362,6 +391,7 @@ impl State {
         let (_, end) = edit.range();
         edit.set_selection(start, end);
         edit.insert(&format!("@{username} "));
+        self.mention_selected = 0;
     }
 
     pub(crate) fn caret(&self, ink: rune::Color) -> rune::Color {
@@ -1265,6 +1295,8 @@ impl Default for State {
             members: Vec::new(),
             team_users: Vec::new(),
             team_users_team: None,
+            mention_selected: 0,
+            mention_dismissed: None,
             member_cache: HashMap::new(),
             avatars: crate::avatars::Avatars::default(),
             gifs: crate::gifs::Gifs::default(),
@@ -1318,5 +1350,21 @@ mod mention_tests {
         s.draft.insert("hi @bo");
         s.accept_mention(3, "bob");
         assert_eq!(s.draft.text, "hi @bob ");
+
+        let key = |key| rune::KeyEvent {
+            key,
+            mods: rune::Mods::default(),
+        };
+        s.draft.clear();
+        s.draft.insert("@");
+        assert!(s.mention_key(&key(rune::Key::Down)));
+        assert_eq!(s.mention_selected, 1);
+        assert!(s.mention_key(&key(rune::Key::Enter)));
+        assert_eq!(s.draft.text, "@bob ");
+        assert!(!s.mention_key(&key(rune::Key::Enter)));
+        s.draft.clear();
+        s.draft.insert("@");
+        assert!(s.mention_key(&key(rune::Key::Escape)));
+        assert!(s.mention_matches().is_none());
     }
 }

@@ -320,4 +320,5 @@ fn field(
         .label(label)
         .description("")
         .on_submit(move |s: &mut State, _| submit(s))
+        .on_input_key(move |s: &mut State, key, _| pane == Pane::Main && s.mention_key(key))
 }
