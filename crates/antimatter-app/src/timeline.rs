@@ -199,6 +199,7 @@ impl State {
                 unread,
             } => {
                 self.teams = teams;
+                self.load_team_users();
                 self.site_name = site_name;
                 if let (Some(store), Some(runtime), Some(key)) = (
                     self.persistence.clone(),

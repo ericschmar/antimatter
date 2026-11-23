@@ -472,12 +472,17 @@ pub(crate) fn workspace(s: &State) -> El {
     }
     if s.channel.is_none() && !searching {
         ledger = ledger.child(
-            rune::row().w_full().pt(24.0).pr(s.sidebar.width() + 1.0).center().child(
-                text(EMPTY_ART.trim_end())
-                    .font(k.ty.mono.family(rune::Family::SystemMono))
-                    .color(c.text_faint)
-                    .a11y_hidden(),
-            ),
+            rune::row()
+                .w_full()
+                .pt(24.0)
+                .pr(s.sidebar.width() + 1.0)
+                .center()
+                .child(
+                    text(EMPTY_ART.trim_end())
+                        .font(k.ty.mono.family(rune::Family::SystemMono))
+                        .color(c.text_faint)
+                        .a11y_hidden(),
+                ),
         );
     }
     let mut timeline = col()
@@ -607,6 +612,7 @@ pub(crate) fn workspace(s: &State) -> El {
     {
         emoji_picker(s, post, &k, &mut layer);
     }
+    mention_popover(s, &k, &mut layer);
     if let Some(post) = s
         .image_menu
         .as_deref()

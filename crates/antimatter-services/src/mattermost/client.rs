@@ -219,6 +219,17 @@ impl Client {
         self.post("/users/ids", ids).await
     }
 
+    pub async fn team_users(&self, team_id: &str) -> Result<Vec<User>, Error> {
+        let path = segments(&["users"])?;
+        let mut url = self.origin.endpoint(&path)?;
+        url.query_pairs_mut()
+            .append_pair("in_team", team_id)
+            .append_pair("per_page", "200")
+            .append_pair("sort", "");
+        self.get(&format!("/users?{}", url.query().unwrap_or_default()))
+            .await
+    }
+
     pub async fn users_by_usernames(&self, names: &[String]) -> Result<Vec<User>, Error> {
         self.post("/users/usernames", names).await
     }

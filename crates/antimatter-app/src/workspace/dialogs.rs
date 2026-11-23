@@ -116,6 +116,57 @@ pub(super) fn gif_picker(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
     ));
 }
 
+pub(super) fn mention_popover(s: &State, k: &rune_kit::Kit, layer: &mut Vec<El>) {
+    let Some((start, users)) = s.mention_matches() else {
+        return;
+    };
+    let c = &k.c;
+    let mut rows = col().key("mention-list").w(240.0).gap(2.0);
+    for (user, name) in users {
+        let target = user.clone();
+        rows = rows.child(
+            rune::row()
+                .key(format!("mention-{user}"))
+                .role("button")
+                .label(format!("{name} @{user}"))
+                .w_full()
+                .h(28.0)
+                .px(8.0)
+                .gap(8.0)
+                .center_y()
+                .radius(6.0)
+                .hover(c.hover)
+                .focusable(true)
+                .cursor(rune::Cursor::Pointer)
+                .on_press_tx(move |s: &mut State, tx| {
+                    s.accept_mention(start, &target);
+                    tx.focus("input", false);
+                })
+                .child(
+                    text(name)
+                        .font(k.ty.small_medium)
+                        .color(c.text_base)
+                        .truncate()
+                        .a11y_hidden(),
+                )
+                .child(
+                    text(format!("@{user}"))
+                        .font(k.ty.small)
+                        .color(c.text_muted)
+                        .truncate()
+                        .a11y_hidden(),
+                ),
+        );
+    }
+    layer.push(rune_kit::popover::anchored(
+        k,
+        rune_kit::popover::raised(k, rows.padding(4.0), k.radius.md),
+        "draft",
+        rune_kit::Placement::TopStart,
+        4.0,
+    ));
+}
+
 pub(super) fn new_dialog(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) {
     if let Some(kind) = s.new_dialog {
         let (title, hint, action) = match kind {

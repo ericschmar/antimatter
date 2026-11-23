@@ -20,6 +20,19 @@ use tokio::sync::mpsc;
 
 pub(crate) const COMPOSER: &str = "conversation";
 pub(crate) const WORKSPACE_WINDOW_SIZE: (f32, f32) = (1180.0, 760.0);
+/// The `@query` word ending at byte `caret`: its start offset and the text after the `@`.
+pub(crate) fn mention_at(text: &str, caret: usize) -> Option<(usize, &str)> {
+    let before = text.get(..caret)?;
+    let start = before.rfind('@')?;
+    let query = &before[start + 1..];
+    let word = |c: char| c.is_alphanumeric() || matches!(c, '.' | '_' | '-');
+    let lead_ok = before[..start]
+        .chars()
+        .next_back()
+        .is_none_or(|c| !c.is_alphanumeric() && c != '@');
+    (lead_ok && query.chars().all(word)).then_some((start, query))
+}
+
 // ponytail: a reserved pane retains unresolved submissions, not resendable drafts.
 // Upgrade to a versioned pending record with identity/recovery when the worker supports it.
 pub(crate) const SUBMITTED: &str = "conversation-pending";
@@ -192,6 +205,8 @@ pub(crate) struct State {
     pub(crate) presence: String,
     pub(crate) peer_presence: HashMap<String, String>,
     pub(crate) members: Vec<String>,
+    pub(crate) team_users: Vec<(String, String)>,
+    pub(crate) team_users_team: Option<String>,
     pub(crate) member_cache: HashMap<String, Vec<String>>,
     pub(crate) avatars: crate::avatars::Avatars,
     pub(crate) gifs: crate::gifs::Gifs,
@@ -272,6 +287,81 @@ impl State {
                 });
             }
         });
+    }
+
+    pub(crate) fn load_team_users(&mut self) {
+        let (Some(team), Some(client), Some(runtime), Some(handle)) = (
+            self.current_team_id(),
+            self.client.clone(),
+            self.runtime.clone(),
+            self.handle.clone(),
+        ) else {
+            return;
+        };
+        if self.team_users_team.as_deref() == Some(team.as_str()) {
+            return;
+        }
+        self.team_users_team = Some(team.clone());
+        self.team_users.clear();
+        runtime.spawn(async move {
+            let users = client.team_users(&team).await;
+            handle.update(move |s, _| {
+                if s.team_users_team.as_deref() != Some(team.as_str()) {
+                    return;
+                }
+                match users {
+                    Ok(users) => {
+                        s.team_users = users
+                            .into_iter()
+                            .filter(|u| !u.username.is_empty())
+                            .map(|u| (u.username.clone(), u.display_name()))
+                            .collect();
+                    }
+                    Err(_) => s.team_users_team = None,
+                }
+            });
+        });
+    }
+
+    pub(crate) fn mention_matches(&self) -> Option<(usize, Vec<(String, String)>)> {
+        let edit = if self.raw { &self.source } else { &self.draft };
+        let (a, b) = edit.range();
+        if a != b {
+            return None;
+        }
+        let (start, query) = mention_at(&edit.text, b)?;
+        let query = query.to_lowercase();
+        let mut found: Vec<_> = self
+            .team_users
+            .iter()
+            .filter_map(|(user, name)| {
+                let (user_l, name_l) = (user.to_lowercase(), name.to_lowercase());
+                let rank = if user_l.starts_with(&query) {
+                    0
+                } else if name_l.starts_with(&query) {
+                    1
+                } else if user_l.contains(&query) || name_l.contains(&query) {
+                    2
+                } else {
+                    return None;
+                };
+                Some((rank, user.clone(), name.clone()))
+            })
+            .collect();
+        found.sort();
+        found.truncate(8);
+        (!found.is_empty()).then(|| (start, found.into_iter().map(|(_, u, n)| (u, n)).collect()))
+    }
+
+    pub(crate) fn accept_mention(&mut self, start: usize, username: &str) {
+        let edit = if self.raw {
+            &mut self.source
+        } else {
+            &mut self.draft
+        };
+        let (_, end) = edit.range();
+        edit.set_selection(start, end);
+        edit.insert(&format!("@{username} "));
     }
 
     pub(crate) fn caret(&self, ink: rune::Color) -> rune::Color {
@@ -1173,6 +1263,8 @@ impl Default for State {
             presence: String::new(),
             peer_presence: HashMap::new(),
             members: Vec::new(),
+            team_users: Vec::new(),
+            team_users_team: None,
             member_cache: HashMap::new(),
             avatars: crate::avatars::Avatars::default(),
             gifs: crate::gifs::Gifs::default(),
@@ -1193,5 +1285,38 @@ impl Default for State {
             settings_app: None,
             settings_rows: Vec::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod mention_tests {
+    use super::mention_at;
+
+    #[test]
+    fn finds_the_word_being_typed() {
+        assert_eq!(mention_at("hi @al", 6), Some((3, "al")));
+        assert_eq!(mention_at("@", 1), Some((0, "")));
+        assert_eq!(mention_at("a@b", 3), None);
+        assert_eq!(mention_at("hi @al x", 8), None);
+        assert_eq!(mention_at("hi", 2), None);
+    }
+
+    #[test]
+    fn filters_team_users_as_you_type() {
+        let mut s = super::State::default();
+        s.team_users = vec![
+            ("ada".into(), "Ada Lovelace".into()),
+            ("bob".into(), "Bob".into()),
+        ];
+        s.draft.insert("hi @");
+        assert_eq!(s.mention_matches().unwrap().1.len(), 2);
+        s.draft.insert("lov");
+        assert_eq!(s.mention_matches().unwrap().1[0].0, "ada");
+        s.draft.insert("zz");
+        assert!(s.mention_matches().is_none());
+        s.draft.clear();
+        s.draft.insert("hi @bo");
+        s.accept_mention(3, "bob");
+        assert_eq!(s.draft.text, "hi @bob ");
     }
 }

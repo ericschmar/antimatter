@@ -240,6 +240,15 @@ view; toggling converts in both directions and the bar is inert in source view. 
 states lock the bar and send, but the editor stays editable. Known gaps: mention pills,
 a mono font slot for code, and rendering of received messages.
 
+Typing `@` (at the start of a word) in the main composer opens a mention popover (`mention-list`,
+`workspace::mention_popover`) anchored above the editor (`draft`). It lists up to eight members of the
+current team, fetched once per team by `State::load_team_users` (`GET /users?in_team=`, first 200) and
+refetched on team switch or sign-out. As the word after `@` grows the list filters by username/display
+name (prefix matches first, then substring) and disappears when nothing matches or the selection is not
+collapsed. Pressing a row replaces `@query` with `@username ` as plain text (`State::accept_mention`).
+Works in rendered and Markdown-source views. Known gaps: the thread composer has no popover, and there
+is no keyboard navigation of the list (mouse only), and teams over 200 users are truncated.
+
 Caret blink: rune paints a solid caret and has no blink of its own, so `State::caret_on` is flipped every
 0.53 s by the app's `poll` hook and `State::caret` turns it into the caret colour or transparent. The caret
 is also transparent, and the poll stops waking, while the window is unfocused (`State::window_focused`,

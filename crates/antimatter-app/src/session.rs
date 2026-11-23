@@ -46,6 +46,8 @@ impl State {
         self.presence.clear();
         self.peer_presence.clear();
         self.members.clear();
+        self.team_users.clear();
+        self.team_users_team = None;
         self.member_cache.clear();
         self.avatars.clear();
         self.client = None;

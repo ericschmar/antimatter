@@ -311,6 +311,7 @@ pub(super) fn server_menu(s: &State, layer: &mut Vec<El>, k: &rune_kit::Kit) -> 
                     s.server_open = false;
                     if let Some(team) = s.teams.get(i) {
                         s.selected_team = Some(team.id.clone());
+                        s.load_team_users();
                     }
                 }),
         );
